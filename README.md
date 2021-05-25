@@ -1,6 +1,6 @@
 # JS-Confuser
 
-JS-Confuser is a JavaScript obfuscation tool to make programs _impossible_ to read.
+JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read.
 
 ## Presets
 
@@ -171,6 +171,10 @@ If the client is caught missing permissions (wrong date, bad domain), this will 
 
 - `true` - Crash the browser
 - `"string"` - Function name to call (pre obfuscated)
+
+### Potential Issues
+ * 1. *String Encoding* can corrupt files. Disabled `stringEncoding` manually if this happens.
+ * 2. *Dead Code* can bloat file size. Reduce or disable `deadCode`.
 
 ## About the internals
 
