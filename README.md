@@ -13,6 +13,12 @@ JS-Confuser comes with three presets built into the obfuscator.
 
 You can extend each preset or all go without them entirely.
 
+## Installation
+
+```bash
+$ npm install js-confuser
+```
+
 ## Programmatic Usage
 
 ```js
