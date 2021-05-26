@@ -1,6 +1,6 @@
 # JS-Confuser
 
-JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read.
+JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://hungry-shannon-c1ce6b.netlify.app/).
 
 ## Presets
 
