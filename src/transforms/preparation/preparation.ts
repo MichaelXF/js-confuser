@@ -1,7 +1,7 @@
 /**
  * The file contains all preparation transformations
  */
-import Transform, { reservedIdentifiers } from "../transform";
+import Transform from "../transform";
 
 import {
   BlockStatement,
@@ -26,7 +26,7 @@ import Label from "../label";
 import { VariableAnalysis } from "../identifier/renameVariables";
 
 /**
- * Devs use shortcuts and its harder to parse.
+ * People use shortcuts and its harder to parse.
  *
  * - `if (a) b()` -> `if (a) { b() }`
  * - Ensures all bodies are `BlockStatement`, not individual expression statements

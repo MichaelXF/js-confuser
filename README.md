@@ -1,6 +1,15 @@
-# JS-Confuser
+# JS Confuser
 
-JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read.
+JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://hungry-shannon-c1ce6b.netlify.app/).
+
+## Key features
+
+- Variable renaming
+- Control Flow obfuscation
+- String concealing
+- Function obfuscation
+- Locks (domainLock, date)
+- [Detect changes to source code](https://github.com/MichaelXF/js-confuser-website/blob/master/Integrity.md)
 
 ## Presets
 
@@ -27,6 +36,7 @@ var JsConfuser = require("js-confuser");
 JsConfuser.obfuscate("console.log(1)", {
   target: "node",
   preset: "high",
+  stringEncoding: false, // <- Normally enabled
 }).then((obfuscated) => {
   console.log(obfuscated);
 });
@@ -39,6 +49,13 @@ JsConfuser.obfuscate("console.log(1)", {
 ```
 
 ## Options
+
+### `target`
+
+One the following: _Required_
+
+1. `"node"`
+2. `"browser"`
 
 ### `compact`
 
@@ -88,6 +105,14 @@ adding opaque predicates; flattening the control-flow; and adding irrelevant cod
 ### `globalConcealing`
 
 Global Concealing hides global variables being accessed. (`true/false`)
+
+### `stringConcealing`
+
+[String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. This is useful for both automated tools and reverse engineers.
+   
+- Potency High
+- Resilience Medium
+- Cost Medium
 
 ### `stringEncoding`
 
@@ -171,7 +196,7 @@ Array of regex strings that the `window.location.href` must follow. `Regex[]` or
 
 ### `lock.integrity`
 
-Integrity ensures the source code is unchanged.
+Integrity ensures the source code is unchanged. [Learn more here](https://github.com/MichaelXF/js-confuser-website/blob/master/Integrity.md).
 
 ### `lock.countermeasures`
 
@@ -180,7 +205,7 @@ If the client is caught missing permissions (wrong date, bad domain), this will 
 - `true` - Crash the browser
 - `"string"` - Function name to call (pre obfuscated)
 
-### Potential Issues
+## Potential Issues
 
 - 1.  String Encoding can corrupt files. Disabled `stringEncoding` manually if this happens.
 - 2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
@@ -192,6 +217,6 @@ This obfuscator depends on two libraries to work: `acorn` and `escodegen`
 - `acorn` is responsible for parsing source code into an AST.
 - `escodegen` is responsible for generating source from modified AST.
 
-The tree is modified by the transformation, who each step the entire tree down.
+The tree is modified by transformations, which each step the entire tree down.
 Properties starting with `$` are for saving information (typically circular data),
 these properties are deleted before output.

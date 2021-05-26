@@ -6,7 +6,6 @@ import { isBlock, walk } from "../traverse";
 import {
   AssignmentExpression,
   BinaryExpression,
-  BlockStatement,
   BreakStatement,
   ExpressionStatement,
   Identifier,

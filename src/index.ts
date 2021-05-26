@@ -149,10 +149,8 @@ export interface ObfuscateOptions {
 
   /**
    * For web-browser related scripts, use the **`browser`** mode.
-   *
-   * - **`Node`** and **`Electron`** have identical meaning.
    */
-  target: "node" | "electron" | "browser";
+  target: "node" | "browser";
 
   /**
    * Removes whitespace.
@@ -461,22 +459,26 @@ export async function obfuscate(code: string, options: ObfuscateOptions) {
   return await JsConfuser(code, options);
 }
 
+interface JsConfuser extends Function {
+  obfuscate: (code: string, options: ObfuscateOptions) => Promise<string>;
+}
+
 /**
  * **JsConfuser**: Obfuscates JavaScript.
  * @param code - The code to be obfuscated.
  * @param options - An object of obfuscation options: `{preset: "medium", target: "browser"}`.
  */
-export default async function JsConfuser(
+var JsConfuser: JsConfuser = async function (
   code: string,
   options: ObfuscateOptions
-) {
+): Promise<string> {
   assert.ok(options, "options cannot be null");
   assert.ok(
     options.target,
-    "Missing options.target option (required, must one the following: 'browser', 'node', or 'electron')"
+    "Missing options.target option (required, must one the following: 'browser' or 'node')"
   );
   assert.ok(
-    ["browser", "electron", "node"].includes(options.target),
+    ["browser", "node"].includes(options.target),
     `'${options.target}' is not a valid target mode`
   );
 
@@ -512,7 +514,10 @@ export default async function JsConfuser(
   var result = await compileJs(tree, options);
 
   return result;
-}
+} as any;
+
+(JsConfuser as any).obfuscate = obfuscate;
+export default JsConfuser;
 
 export async function correctOptions(
   options: ObfuscateOptions
@@ -555,7 +560,7 @@ export async function correctOptions(
         "location",
       ].forEach((x) => options.globalVariables.add(x));
     } else {
-      // node and electron
+      // node
       [
         "global",
         "Buffer",

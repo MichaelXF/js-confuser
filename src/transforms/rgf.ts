@@ -1,18 +1,11 @@
 import { ok } from "assert";
 import { compileJsSync } from "../compiler";
-import { ComputeProbabilityMap } from "../index";
 import Obfuscator, { ObfuscateOrder } from "../obfuscator";
-import { parseSnippet, parseSync } from "../parser";
 import Template from "../templates/template";
-import traverse, { getDepth, walk } from "../traverse";
+import traverse, { walk } from "../traverse";
 import {
   ArrayExpression,
-  AssignmentExpression,
-  BreakStatement,
   CallExpression,
-  Chain,
-  ExpressionStatement,
-  FunctionDeclaration,
   FunctionExpression,
   Identifier,
   Literal,
@@ -20,25 +13,13 @@ import {
   MemberExpression,
   NewExpression,
   Node,
-  ObjectExpression,
-  Property,
   ReturnStatement,
   SpreadElement,
-  SwitchCase,
-  SwitchStatement,
-  ThisExpression,
   VariableDeclaration,
   VariableDeclarator,
 } from "../util/gen";
 import { getDefiningIdentifier, getIdentifierInfo } from "../util/identifiers";
-import {
-  getBlockBody,
-  getContext,
-  isContext,
-  isFunction,
-  prepend,
-} from "../util/insert";
-import RenameVariables from "./identifier/renameVariables";
+import { getContext, isFunction, prepend } from "../util/insert";
 import Transform, { reservedIdentifiers } from "./transform";
 
 export default class RGF extends Transform {

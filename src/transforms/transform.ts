@@ -283,6 +283,10 @@ export default class Transform {
 
   /**
    * Returns a random string.
+   *
+   * Used for creating temporary variables names, typically before RenameVariable has ran.
+   *
+   * These long temp names will be converted to short, mangled names by RenameVariables.
    */
   getPlaceholder() {
     const genRanHex = (size) =>
@@ -292,6 +296,11 @@ export default class Transform {
     return "_" + genRanHex(10);
   }
 
+  /**
+   * Returns an independent name generator with it's own counter.
+   * @param offset
+   * @returns
+   */
   getGenerator(offset = 0) {
     var count = offset;
     return {
@@ -418,6 +427,12 @@ export default class Transform {
     return identifier;
   }
 
+  /**
+   * This should be removed soon.
+   * @param tree
+   * @param syntax
+   * @returns
+   */
   getToStringValue(
     tree: Node,
     syntax: (code: string) => string = (x) => x

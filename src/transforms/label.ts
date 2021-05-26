@@ -1,6 +1,6 @@
 import Transform from "./transform";
 import { Identifier, LabeledStatement } from "../util/gen";
-import { getBlock, walk } from "../traverse";
+import { walk } from "../traverse";
 import { isLoop } from "./preparation/preparation";
 import { clone } from "../util/insert";
 

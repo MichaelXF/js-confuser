@@ -6,12 +6,10 @@ import {
   CallExpression,
   Identifier,
   Literal,
-  IfStatement,
   BinaryExpression,
   LogicalExpression,
   SwitchCase,
   SwitchStatement,
-  ThrowStatement,
 } from "../util/gen";
 import { prepend } from "../util/insert";
 import { ObfuscateOrder } from "../obfuscator";

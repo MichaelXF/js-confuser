@@ -1,11 +1,10 @@
 import Transform from "../transform";
-import { isBlock, getBlock, walk } from "../../traverse";
+import { walk } from "../../traverse";
 import {
   Node,
   Location,
   Identifier,
   VariableDeclaration,
-  FunctionDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
 import { ComputeProbabilityMap } from "../../index";

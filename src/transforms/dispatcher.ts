@@ -1,5 +1,5 @@
 import { ComputeProbabilityMap } from "../index";
-import { getDepth, getBlock, getBlocks, isBlock, walk } from "../traverse";
+import { walk } from "../traverse";
 import {
   ArrayExpression,
   AssignmentExpression,

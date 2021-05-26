@@ -1,6 +1,5 @@
 import Transform from "../transform";
 import { choice } from "../../util/random";
-import { Identifier } from "../../util/gen";
 import { ObfuscateOrder } from "../../obfuscator";
 
 function pad(x: string, len: number): string {

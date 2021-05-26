@@ -9,10 +9,8 @@ import {
   ReturnStatement,
   CallExpression,
   ArrayExpression,
-  VariableDeclaration,
   ExpressionStatement,
   ThisExpression,
-  SequenceExpression,
 } from "../../util/gen";
 import { prepend } from "../../util/insert";
 import { shuffle, splitIntoChunks } from "../../util/random";

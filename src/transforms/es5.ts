@@ -1,8 +1,6 @@
 import Transform, { reservedIdentifiers, reservedKeywords } from "./transform";
 import {
   Node,
-  ExpressionStatement,
-  UnaryExpression,
   Literal,
   VariableDeclaration,
   SequenceExpression,

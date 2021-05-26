@@ -4,7 +4,7 @@
   "description": "JavaScript Obfuscation Tool.",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "./src/dev.js",
+    "dev": "node ./src/dev.js",
     "build": "./node_modules/.bin/babel src --out-dir dist --copy-files --extensions \".ts\"",
     "test": "jest"
   },

@@ -2,23 +2,17 @@ import { ok } from "assert";
 import { ComputeProbabilityMap } from "../../index";
 import { ObfuscateOrder } from "../../obfuscator";
 import Template from "../../templates/template";
-import { walk } from "../../traverse";
 import {
   ArrayExpression,
-  BinaryExpression,
   CallExpression,
-  ExpressionStatement,
   FunctionDeclaration,
   Identifier,
   Literal,
-  Location,
   MemberExpression,
   Node,
   ReturnStatement,
-  UpdateExpression,
   VariableDeclaration,
   VariableDeclarator,
-  WhileStatement,
 } from "../../util/gen";
 import { getBlockBody, isContext, prepend } from "../../util/insert";
 import { getRandomInteger, shuffle } from "../../util/random";
