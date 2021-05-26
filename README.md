@@ -1,7 +1,5 @@
 # JS Confuser
 
-![Clipart Image of Confused Man](https://raw.githubusercontent.com/MichaelXF/js-confuser/master/logo/logo.png)
-
 JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://hungry-shannon-c1ce6b.netlify.app/).
 
 ## Key features
