@@ -52,7 +52,7 @@ JsConfuser.obfuscate("console.log(1)", {
 
 ### `target`
 
-The execution context for your output. _Required_
+The execution context for your output. _Required_.
 
 1. `"node"`
 2. `"browser"`
@@ -63,11 +63,11 @@ Remove's whitespace from the final output. (`true/false`)
 
 ### `minify`
 
-Minifies redundant code (`true/false`)
+Minifies redundant code. (`true/false`)
 
 ### `es5`
 
-Converts output to ES5-compatible code (`true/false`)
+Converts output to ES5-compatible code. (`true/false`)
 
 ### `renameVariables`
 
@@ -309,7 +309,7 @@ If the client is caught missing permissions (wrong date, bad domain), this will 
 
 ### `movedDeclarations`
 
-Moves variable declarations to the top of the context. (`true`/`false`)
+Moves variable declarations to the top of the context. (`true/false`)
 
 - Potency Medium
 - Resilience Medium
@@ -445,7 +445,7 @@ You must enable locks yourself, and configure them to your needs.
     nativeFunctions: true,
 
     // crashes browser
-    countermeasures: true
+    countermeasures: true,
 
     // or custom callback (pre-obfuscated name)
     countermeasures: "onLockDetected"
@@ -489,9 +489,9 @@ Please open an issue and be descriptive what you want. Don't submit any PRs unti
 
 ## JsConfuser vs. Javascript-obfuscator
 
-Javascript-obfuscator (obfuscator.io) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser offers unique features such as Integrity, locks, and RGF.
+Javascript-obfuscator ([obfuscator.io](obfuscator.io)) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser offers unique features such as Integrity, locks, and RGF.
 
-Automated deobfuscators are aware of obfuscator.io's techniques:
+Automated deobfuscators are aware of [obfuscator.io](obfuscator.io)'s techniques:
 
 https://www.youtube.com/watch?v=_UIqhaYyCMI
 

@@ -45,9 +45,10 @@ export class SwitchCaseObfuscation extends Transform {
   transform(object, parents) {
     var body = parents[0];
 
-    if (parents[0].type == "LabelStatement") {
+    if (parents[0].type == "LabeledStatement") {
       body = parents[1];
     }
+
     if (!Array.isArray(body)) {
       return;
     }

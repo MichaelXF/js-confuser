@@ -62,12 +62,14 @@ export default class OpaquePredicates extends Transform {
   predicates: { [name: string]: Node };
 
   gen: any;
+  made: number;
 
   constructor(o) {
     super(o, ObfuscateOrder.OpaquePredicates);
 
     this.predicates = Object.create(null);
     this.gen = this.getGenerator(getRandomInteger(0, 20));
+    this.made = 0;
   }
 
   match(object: Node, parents: Node[]) {
@@ -77,6 +79,11 @@ export default class OpaquePredicates extends Transform {
   transform(object: Node, parents: Node[]) {
     return () => {
       if (ComputeProbabilityMap(this.options.opaquePredicates)) {
+        this.made++;
+        if (this.made > 150) {
+          return;
+        }
+
         if (!this.predicateName) {
           this.predicateName = this.getPlaceholder();
           prepend(

@@ -7,6 +7,7 @@ it("should extract properties", async () => {
       'TEST_2': 64
     }
     
+    // ensures the original object is no longer defined
     var check = false;
     eval(\`
       try {TEST_OBJECT} catch(e) {
@@ -21,6 +22,8 @@ it("should extract properties", async () => {
     target: "browser",
     objectExtraction: true,
   });
+
+  // console.log(output);
 
   function input(a, b, c) {
     expect(a).toStrictEqual("Hello World");

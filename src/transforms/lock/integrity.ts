@@ -88,7 +88,7 @@ var {name} = Math.imul || function(opA, opB){
 // Simple function that returns .toString() value with spaces replaced out
 const StringTemplate = Template(`
   function {name}(x){
-    return x.toString().replace(/ |\\n|;|,|\\{|\\}|\\(|\\)/g, "");
+    return x.toString().replace(/ |\\n|;|,|\\{|\\}|\\(|\\)|\\.|\\[|\\]/g, "");
   }
 `);
 
@@ -120,6 +120,8 @@ export default class Integrity extends Transform {
   stringFn: Node;
   seed: number;
   lock: Lock;
+
+  countermeasuresFunction: Node;
 
   constructor(o, lock) {
     super(o);
@@ -176,15 +178,41 @@ export default class Integrity extends Transform {
 
         object.$eval = () => {
           functionExpression.body.body.unshift(...hashingUtils);
+
+          if (typeof this.options.lock.countermeasures === "string") {
+            if (this.countermeasuresFunction) {
+              functionExpression.body.body.unshift(
+                clone(this.countermeasuresFunction)
+              );
+            } else {
+              throw new Error(
+                "Count not find your countermeasure function '" +
+                  this.options.lock.countermeasures +
+                  "' in your code."
+              );
+            }
+          }
+
+          functionExpression.body.body.unshift(...hashingUtils);
         };
       };
     }
     ok(isFunction(object));
+
+    if (object.id && typeof object.id.name === "string") {
+      if (object.id.name === this.options.lock.countermeasures) {
+        this.countermeasuresFunction = object;
+        return;
+      }
+    }
+
     if (object.generator || object.async) {
       return;
     }
 
     return () => {
+      object.__hiddenCountermeasures = this.lock.getCounterMeasuresCode();
+
       object.$eval = () => {
         var functionName = this.generateIdentifier();
         var hashName = this.generateIdentifier();
@@ -214,13 +242,30 @@ export default class Integrity extends Transform {
           return;
         }
 
-        var minified = toString.replace(/ |\n|;|,|\{|\}|\(|\)/g, "");
+        var minified = toString.replace(/ |\n|;|,|\{|\}|\(|\)|\.|\[|\]/g, "");
         var hash = cyrb53(minified, this.seed);
 
-        console.log(
+        this.log(
           (object.id ? object.id.name : "function") + " -> " + hash,
           minified
         );
+
+        var ifStatement = IfStatement(
+          BinaryExpression("==", Identifier(hashName), Literal(hash)),
+          [
+            Template(`return {functionName}.apply(this, arguments)`).single({
+              functionName: functionName,
+            }),
+          ]
+        );
+        if (
+          object.__hiddenCountermeasures &&
+          object.__hiddenCountermeasures.length
+        ) {
+          ifStatement.alternate = BlockStatement(
+            object.__hiddenCountermeasures
+          );
+        }
 
         object.body = BlockStatement([
           functionDeclaration,
@@ -235,14 +280,7 @@ export default class Integrity extends Transform {
               ])
             )
           ),
-          IfStatement(
-            BinaryExpression("==", Identifier(hashName), Literal(hash)),
-            [
-              Template(`return {functionName}.apply(this, arguments)`).single({
-                functionName: functionName,
-              }),
-            ]
-          ),
+          ifStatement,
         ]);
 
         if (object.type == "ArrowFunctionExpression") {

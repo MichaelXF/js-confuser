@@ -16,7 +16,7 @@ it("should hide global names (such as Math)", async () => {
   expect(output).toContain("window");
 });
 
-it("should not renamed global variables", async () => {
+it("should not rename global variables", async () => {
   var code = `
   var Math = 50;
 

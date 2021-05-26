@@ -236,7 +236,7 @@ export default class ObjectExtraction extends Transform {
             var keyName = property.key.name || property.key.value;
 
             var nn = name + "_" + keyName;
-            newPropNames[keyName] = nn + this.getPlaceholder();
+            newPropNames[keyName] = nn;
 
             newVariableDeclarations.push({
               name: nn,

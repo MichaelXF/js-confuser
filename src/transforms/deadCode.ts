@@ -99,11 +99,13 @@ function setCookie(cname, cvalue, exdays) {
  */
 export default class DeadCode extends Transform {
   usedNames: Set<string>;
+  made: number;
 
   constructor(o) {
     super(o, ObfuscateOrder.DeadCode);
 
     this.usedNames = new Set();
+    this.made = 0;
   }
 
   match(object: Node, parents: Node[]) {
@@ -113,6 +115,11 @@ export default class DeadCode extends Transform {
   transform(object: Node, parents: Node[]) {
     if (ComputeProbabilityMap(this.options.deadCode)) {
       return () => {
+        this.made++;
+        if (this.made > 100) {
+          return;
+        }
+
         var name = this.getPlaceholder();
         var variableDeclaration = VariableDeclaration(
           VariableDeclarator(name, Literal(false))

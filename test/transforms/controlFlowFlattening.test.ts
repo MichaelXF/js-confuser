@@ -59,8 +59,8 @@ it("should obfuscate numbered switch statements (SwitchCaseObfuscation)", async 
   var code = `
     var array = [];
 
-    function runOnce(state){
-      switch(state){
+    function runOnce(stateParam){
+      switch(stateParam){
         case 1: array.push(1, 2, 3); break;
         case 2: array.push(4, 5, 6); break;
         case 3: array.push(7, 8, 9); break;
@@ -81,7 +81,7 @@ it("should obfuscate numbered switch statements (SwitchCaseObfuscation)", async 
     controlFlowFlattening: true,
   });
 
-  expect(output).not.toContain("case 1");
+  expect(output).not.toContain("case 1:");
 
   function input(array) {
     expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
