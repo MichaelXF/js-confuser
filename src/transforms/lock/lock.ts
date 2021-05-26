@@ -265,7 +265,7 @@ export default class Lock extends Transform {
     // Call function
     if (typeof opt === "string") {
       // Since Lock occurs before variable renaming, we are using the pre-obfuscated function name
-      return [CallExpression(Identifier(opt), [])];
+      return [CallExpression(Template(opt).single().expression, [])];
     }
 
     var type = choice(["crash", "exit", "stutter"]);

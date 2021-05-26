@@ -240,7 +240,10 @@ export interface ObfuscateOptions {
     integrity?: boolean;
 
     /**
-     * Does stuff.
+     * Adds anti-debug related code.
+     *
+     * 1. Places `debugger` statements around your code.
+     * 2. Runs an anti-debug function in the background.
      */
     antiDebug?: boolean;
 
@@ -250,6 +253,8 @@ export interface ObfuscateOptions {
      *
      * - `true` - Crash the browser
      * - `"string"` - Function name to call (pre obfuscated)
+     * - - `"codeChanged"` - Local function to call
+     * - - `"window.__codeChanged"` - External function to call
      */
     countermeasures?: boolean | string;
   };
@@ -318,7 +323,7 @@ export interface ObfuscateOptions {
   flatten?: ProbabilityMap<false | true>;
 
   /**
-   * RGF (Runtime-Generated-Functions) uses the `new Function(code...)` to construct executable code from strings.
+   * RGF (Runtime-Generated-Functions) uses the `new Function(code...)` syntax to construct executable code from strings.
    *
    * **This can break your code. This is also as dangerous as `eval` (eval is evil!)**
    *

@@ -32,6 +32,7 @@ const reduction_98_percent: ObfuscateOptions = {
 
   // extract
   objectExtraction: true,
+  movedDeclarations: true,
 
   // variables
   renameVariables: true,
@@ -69,6 +70,7 @@ const reduction_52_percent: ObfuscateOptions = {
 
   // extract
   objectExtraction: true,
+  movedDeclarations: true,
 
   // variables
   renameVariables: true,
@@ -77,6 +79,7 @@ const reduction_52_percent: ObfuscateOptions = {
   // Simple
   calculator: true,
   deadCode: 0.05,
+  flatten: true,
 
   minify: true,
   opaquePredicates: 0.5,
@@ -103,6 +106,7 @@ const reduction_30_percent: ObfuscateOptions = {
 
   // extract
   objectExtraction: true,
+  movedDeclarations: true,
 
   // variables
   renameVariables: true,
@@ -112,7 +116,7 @@ const reduction_30_percent: ObfuscateOptions = {
   calculator: true,
 
   minify: true,
-  opaquePredicates: true,
+  opaquePredicates: 0.1,
 
   duplicateLiteralsRemoval: true,
   globalConcealing: true,

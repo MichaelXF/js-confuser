@@ -29,8 +29,12 @@ var DevToolsDetection = Template(
 );
 
 export default class AntiDebug extends Transform {
+  made: number;
+
   constructor(o) {
     super(o, ObfuscateOrder.Lock);
+
+    this.made = 0;
   }
 
   apply(tree) {
@@ -47,10 +51,12 @@ export default class AntiDebug extends Transform {
     var body = getBlockBody(object.body);
 
     [...body].forEach((stmt) => {
-      if (Math.random() > 0.5) {
+      if (Math.random() < 0.1 / (this.made || 1)) {
         var index = getRandomInteger(0, body.length);
         if (body[index].type != "DebuggerStatement") {
           body.splice(index, 0, DebuggerStatement());
+
+          this.made++;
         }
       }
     });
