@@ -154,7 +154,9 @@ export default class Obfuscator extends EventEmitter {
   }
 
   push(transform: Transform) {
-    ok(!this.transforms[transform.className], "Already have");
+    if (transform.className) {
+      ok(!this.transforms[transform.className], "Already have");
+    }
     this.transforms[transform.className] = transform;
   }
 

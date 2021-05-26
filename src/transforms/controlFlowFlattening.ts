@@ -11,24 +11,16 @@ import {
   ExpressionStatement,
   Identifier,
   IfStatement,
-  LabeledStatement,
   Literal,
-  LogicalExpression,
   Node,
-  ObjectExpression,
-  Property,
-  ReturnStatement,
   SwitchCase,
   SwitchStatement,
-  UnaryExpression,
-  UpdateExpression,
   VariableDeclaration,
   VariableDeclarator,
   WhileStatement,
 } from "../util/gen";
 import { getBlockBody, prepend } from "../util/insert";
 import { choice, getRandomInteger, shuffle } from "../util/random";
-import { getFactors } from "../util/compare";
 import Transform from "./transform";
 
 /**

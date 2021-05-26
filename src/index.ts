@@ -457,12 +457,24 @@ export interface ObfuscateOptions {
  * @param code - The code to be obfuscated.
  * @param options - An object of obfuscation options: `{preset: "medium", target: "browser"}`.
  */
+export async function obfuscate(code: string, options: ObfuscateOptions) {
+  return await JsConfuser(code, options);
+}
+
+/**
+ * **JsConfuser**: Obfuscates JavaScript.
+ * @param code - The code to be obfuscated.
+ * @param options - An object of obfuscation options: `{preset: "medium", target: "browser"}`.
+ */
 export default async function JsConfuser(
   code: string,
   options: ObfuscateOptions
 ) {
   assert.ok(options, "options cannot be null");
-  assert.ok(options.target, "Missing options.target option (required)");
+  assert.ok(
+    options.target,
+    "Missing options.target option (required, must one the following: 'browser', 'node', or 'electron')"
+  );
   assert.ok(
     ["browser", "electron", "node"].includes(options.target),
     `'${options.target}' is not a valid target mode`

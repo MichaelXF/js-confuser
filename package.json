@@ -1,0 +1,44 @@
+{
+  "name": "js-confuser",
+  "version": "1.0.5",
+  "description": "JavaScript Obfuscation Tool.",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "./src/dev.js",
+    "build": "./node_modules/.bin/babel src --out-dir dist --copy-files --extensions \".ts\"",
+    "test": "jest"
+  },
+  "keywords": [
+    "obfuscator",
+    "obfuscation",
+    "uglify",
+    "code protection",
+    "javascript obfuscator",
+    "js obfuscator"
+  ],
+  "author": "MichaelXF",
+  "license": "MIT",
+  "dependencies": {
+    "acorn": "^8.0.4",
+    "escodegen": "^2.0.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.14.3",
+    "@babel/core": "^7.12.13",
+    "@babel/preset-env": "^7.12.13",
+    "@babel/preset-typescript": "^7.12.1",
+    "@babel/register": "^7.12.10",
+    "@types/jest": "^26.0.23",
+    "@types/node": "^15.6.1",
+    "babel-jest": "^26.6.3",
+    "jest": "^26.6.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MichaelXF/js-confuser"
+  },
+  "bugs": {
+    "url": "https://github.com/MichaelXF/js-confuser/issues"
+  },
+  "homepage": "https://jsconfuser.com"
+}

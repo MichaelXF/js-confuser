@@ -20,13 +20,7 @@ import {
   ThisExpression,
   VariableDeclarator,
 } from "../util/gen";
-import {
-  clone,
-  getBlockBody,
-  getContext,
-  getIndexDirect,
-  prepend,
-} from "../util/insert";
+import { clone, getBlockBody, getIndexDirect, prepend } from "../util/insert";
 import { isBlock, getBlock, walk } from "../traverse";
 import Template from "../templates/template";
 import { ObfuscateOrder } from "../obfuscator";

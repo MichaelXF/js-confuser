@@ -4,8 +4,19 @@ import { ObfuscateOptions } from "./index";
  * - High Obfuscation preset.
  * - **Average 90% performance reduction.**
  *
+ * ## **`Enabled features`**
+ * 1. Control Flow Flattening
+ * 2. Dispatcher
+ * 4. Renamed Variables
+ * 5. String Concealing
+ * 6. Global variables concealed
+ * 7. Concealed `new` expressions
+ * 8. Minified
+ *
  * ## **`Disabled features`**
  * - `eval` Use at your own risk!
+ * - `renameProperties` Can break code.
+ * - `globalize` Can break code.
  *
  * ### Potential Issues
  * 1. *String Encoding* can corrupt files. Disabled `stringEncoding` manually if this happens.

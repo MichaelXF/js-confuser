@@ -1,6 +1,6 @@
 # JS-Confuser
 
-JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://hungry-shannon-c1ce6b.netlify.app/).
+JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read.
 
 ## Presets
 
@@ -24,12 +24,12 @@ $ npm install js-confuser
 ```js
 var JsConfuser = require("js-confuser");
 
-JsConfuser(`source code`, {
+JsConfuser.obfuscate(`source code`, {
   compact: true,
   minify: true,
   renameVariables: true,
   controlFlowFlattening: true,
-}).then(obfuscated => {
+}).then((obfuscated) => {
   console.log(obfuscated);
 });
 ```
@@ -50,6 +50,10 @@ Remove's whitespace from the final output. (`true/false`)
 
 Minifies redundant code (`true/false`)
 
+### `es5`
+
+Converts output to ES5-compatible code (`true/false`)
+
 ### `renameVariables`
 
 Determines if variables should be renamed. (`true/false`)
@@ -67,7 +71,7 @@ Modes:
 
 ```js
 // Custom implementation
-JsConfuser(code, {
+JsConfuser.obfuscate(code, {
   identifierGenerator: function () {
     return "$" + Math.random().toString(36).substring(7);
   },
@@ -179,8 +183,9 @@ If the client is caught missing permissions (wrong date, bad domain), this will 
 - `"string"` - Function name to call (pre obfuscated)
 
 ### Potential Issues
- * 1. *String Encoding* can corrupt files. Disabled `stringEncoding` manually if this happens.
- * 2. *Dead Code* can bloat file size. Reduce or disable `deadCode`.
+
+- 1.  String Encoding can corrupt files. Disabled `stringEncoding` manually if this happens.
+- 2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
 
 ## About the internals
 
