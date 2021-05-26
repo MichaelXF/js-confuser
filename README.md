@@ -24,11 +24,9 @@ $ npm install js-confuser
 ```js
 var JsConfuser = require("js-confuser");
 
-JsConfuser.obfuscate(`source code`, {
-  compact: true,
-  minify: true,
-  renameVariables: true,
-  controlFlowFlattening: true,
+JsConfuser.obfuscate("console.log(1)", {
+  target: "node",
+  preset: "high",
 }).then((obfuscated) => {
   console.log(obfuscated);
 });
