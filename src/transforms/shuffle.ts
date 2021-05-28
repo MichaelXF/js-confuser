@@ -143,23 +143,23 @@ export default class Shuffle extends Transform {
         var varDeclarator = parents[0];
         if (varDeclarator.type == "VariableDeclarator") {
           var varDec = parents[2];
-          ok(varDec.type == "VariableDeclaration");
+          if (varDec.type == "VariableDeclaration") {
+            var body = parents[3];
+            if (varDec.declarations.length == 1 && Array.isArray(body)) {
+              inPlace = true;
 
-          var body = parents[3];
-          if (varDec.declarations.length == 1 && Array.isArray(body)) {
-            inPlace = true;
+              var i = body.indexOf(varDec);
+              ok(i != -1);
 
-            var i = body.indexOf(varDec);
-            ok(i != -1);
-
-            body.splice(
-              i + 1,
-              0,
-              VariableDeclaration(
-                VariableDeclarator(name, Identifier(varDeclarator.id.name))
-              ),
-              ...code
-            );
+              body.splice(
+                i + 1,
+                0,
+                VariableDeclaration(
+                  VariableDeclarator(name, Identifier(varDeclarator.id.name))
+                ),
+                ...code
+              );
+            }
           }
         }
 

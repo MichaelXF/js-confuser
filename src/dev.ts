@@ -23,9 +23,8 @@ console.log(c)
 `,
   {
     target: "node",
-    dispatcher: true,
+    preset: "low",
     rgf: true,
-    flatten: true,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);

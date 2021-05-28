@@ -24,9 +24,9 @@ export enum ObfuscateOrder {
 
   GlobalConcealing = 12,
 
-  StringConcealing = 13,
+  StringSplitting = 16,
 
-  StringSplitting = 20,
+  StringConcealing = 17,
 
   DuplicateLiteralsRemoval = 23,
 
