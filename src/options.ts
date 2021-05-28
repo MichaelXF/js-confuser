@@ -489,7 +489,7 @@ export interface ObfuscateOptions {
    * | Mode | Description |
    * | --- | --- |
    * | `"hash"`| Array is shifted based on hash of the elements  |
-   * | `true`| Arrays are shifted *n* elements, unshifted at runtime. |
+   * | `true`| Arrays are shifted *n* elements, unshifted at runtime |
    * | `false` | Feature disabled |
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)

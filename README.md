@@ -359,7 +359,7 @@ Shuffles the initial order of arrays. The order is brought back to the original 
 | Mode | Description |
 | --- | --- |
 | `"hash"`| Array is shifted based on hash of the elements  |
-| `true`| Arrays are shifted *n* elements, unshifted at runtime. |
+| `true`| Arrays are shifted *n* elements, unshifted at runtime |
 | `false` | Feature disabled |
 
 ## High preset
