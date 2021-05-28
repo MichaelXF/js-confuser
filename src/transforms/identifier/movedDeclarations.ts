@@ -5,13 +5,12 @@ import {
   ExpressionStatement,
   SequenceExpression,
   AssignmentExpression,
-  Literal,
   Identifier,
   Node,
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
-import { deleteDeclaration, prepend } from "../../util/insert";
+import { prepend } from "../../util/insert";
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 

@@ -41,12 +41,12 @@ const reduction_98_percent: ObfuscateOptions = {
   objectExtraction: true,
   opaquePredicates: 0.75,
   renameVariables: true,
-  shuffle: true,
+  shuffle: { hash: 0.5, true: 0.5 },
   stringConcealing: true,
   stringEncoding: true,
   stringSplitting: 0.75,
 
-  // Use at own risk!
+  // Use at own risk
   eval: false,
   rgf: false,
 };
@@ -59,29 +59,23 @@ const reduction_52_percent: ObfuscateOptions = {
   target: "node",
   preset: "medium",
 
-  // heavy
-  dispatcher: 0.75,
-  controlFlowFlattening: 0.5,
-
-  // extract
-  objectExtraction: true,
-  movedDeclarations: true,
-
-  // variables
-  renameVariables: true,
-  identifierGenerator: "randomized",
-
-  // Simple
   calculator: true,
+  compact: true,
+  controlFlowFlattening: 0.5,
   deadCode: 0.05,
-  flatten: true,
-
-  minify: true,
-  opaquePredicates: 0.5,
-
+  dispatcher: 0.75,
   duplicateLiteralsRemoval: 0.5,
+  flatten: true,
   globalConcealing: true,
+  identifierGenerator: "randomized",
+  minify: true,
+  movedDeclarations: true,
+  objectExtraction: true,
+  opaquePredicates: 0.5,
+  renameVariables: true,
+  shuffle: true,
   stringConcealing: true,
+  stringSplitting: 0.25,
 };
 
 /**
@@ -92,30 +86,21 @@ const reduction_30_percent: ObfuscateOptions = {
   target: "node",
   preset: "low",
 
-  // heavy
-  dispatcher: 0.5,
-  controlFlowFlattening: 0.25,
-
-  // extract
-  objectExtraction: true,
-  movedDeclarations: true,
-
-  // variables
-  renameVariables: true,
-  identifierGenerator: "randomized",
-
-  // Simple
   calculator: true,
-  flatten: true,
-
-  minify: true,
-  opaquePredicates: 0.1,
-
+  compact: true,
+  controlFlowFlattening: 0.25,
+  deadCode: 0,
+  dispatcher: 0.5,
   duplicateLiteralsRemoval: true,
+  flatten: true,
   globalConcealing: true,
-
-  // Use at own risk!
-  eval: false,
+  identifierGenerator: "randomized",
+  minify: true,
+  movedDeclarations: true,
+  objectExtraction: true,
+  opaquePredicates: 0.1,
+  renameVariables: true,
+  stringConcealing: 0.25,
 };
 
 /**

@@ -480,15 +480,21 @@ export interface ObfuscateOptions {
   /**
    * ### `shuffle`
    *
-   * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`true/false`)
+   * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false`)
    *
    * - Potency Medium
    * - Resilience Low
    * - Cost Low
    *
+   * | Mode | Description |
+   * | --- | --- |
+   * | `"hash"`| Array is shifted based on hash of the elements  |
+   * | `true`| Arrays are shifted *n* elements, unshifted at runtime. |
+   * | `false` | Feature disabled |
+   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  shuffle?: ProbabilityMap<boolean>;
+  shuffle?: ProbabilityMap<boolean | "hash">;
 
   /**
    * ### `verbose`
