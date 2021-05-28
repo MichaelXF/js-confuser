@@ -10,7 +10,7 @@ it("getIdentifierInfo() should determine function declarations", async () => {
 
   var parents = [tree.body[0], tree.body, tree];
 
-  var info = getIdentifierInfo(object, parents);
+  var info = getIdentifierInfo(object, parents as any);
 
   expect(info.isFunctionDeclaration).toStrictEqual(true);
   expect(info.spec.isDefined).toStrictEqual(true);
@@ -25,7 +25,7 @@ it("getIdentifierInfo() should determine labels", async () => {
 
   var parents = [tree.body[0], tree.body, tree];
 
-  var info = getIdentifierInfo(object, parents);
+  var info = getIdentifierInfo(object, parents as any);
 
   expect(info.isLabel).toStrictEqual(true);
   expect(info.spec.isReferenced).toStrictEqual(false);
