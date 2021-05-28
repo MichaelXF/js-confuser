@@ -119,3 +119,47 @@ it("should work with break statements", async () => {
 
   eval(output);
 });
+
+it("should not obfuscate code with `let` (Lexically bound variables, ControlFlowFlattening)", async () => {
+  var code = `
+  let array = [];
+
+    array.push(1);
+    array.push(2);
+    array.push(3);
+    array.push(4);
+    array.push(5);
+    array.push(6);
+    array.push(7);
+    array.push(8);
+    array.push(9);
+    array.push(10);
+
+    input(array);
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    controlFlowFlattening: true,
+  });
+
+  expect(output).not.toContain("switch");
+});
+
+it("should not obfuscate code with `let` (Lexically bound variables, ControlFlowObfuscation)", async () => {
+  var code = `
+  var array=[];
+  for ( let i =1; i <= 10; i++ ) {
+    array.push(i);
+  }
+
+    input(array);
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    controlFlowFlattening: true,
+  });
+
+  expect(output).not.toContain("switch");
+});
