@@ -194,7 +194,7 @@ export default class Transform {
   /**
    * Returns a random string.
    *
-   * Used for creating temporary variables names, typically before RenameVariable has ran.
+   * Used for creating temporary variables names, typically before RenameVariables has ran.
    *
    * These long temp names will be converted to short, mangled names by RenameVariables.
    */

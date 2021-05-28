@@ -61,8 +61,10 @@ export async function obfuscate(code: string, options: ObfuscateOptions) {
   return await JsConfuser(code, options);
 }
 
-interface JsConfuser extends Function {
+interface JsConfuser {
   obfuscate: (code: string, options: ObfuscateOptions) => Promise<string>;
+
+  (code: string, options: ObfuscateOptions): Promise<string>;
 }
 
 /**

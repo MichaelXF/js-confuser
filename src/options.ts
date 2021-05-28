@@ -252,6 +252,8 @@ export interface ObfuscateOptions {
   eval?: ProbabilityMap<boolean>;
 
   /**
+   * ### `rgf`
+   *
    * RGF (Runtime-Generated-Functions) uses the `new Function(code...)` syntax to construct executable code from strings.
    * Only changes top-level functions and has to pass a reference array around.
    *
