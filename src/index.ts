@@ -1,6 +1,7 @@
 import compileJs, { compileJsSync } from "./compiler";
 import parseJS, { parseSync } from "./parser";
 import Obfuscator from "./obfuscator";
+import Transform from "./transforms/transform";
 import { createObject, remove$Properties } from "./util/object";
 import presets from "./presets";
 
@@ -146,4 +147,4 @@ export async function debugTransformations(
   return frames;
 }
 
-export { presets, Obfuscator };
+export { presets, Obfuscator, Transform };
