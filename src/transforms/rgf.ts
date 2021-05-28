@@ -47,11 +47,39 @@ export default class RGF extends Transform {
       return;
     }
 
-    this.collect.forEach(({ name }) => {
-      this.collect.forEach(({ references }) => {
-        references.delete(name);
-      });
-    });
+    var miss = 0;
+    var start = this.collect.length * 2;
+
+    while (true) {
+      var hit = false;
+
+      this.collect.forEach(
+        ({ name, references: references1, location: location1 }) => {
+          if (!references1.size && name) {
+            this.collect.forEach((o) => {
+              if (
+                o.location !== location1 &&
+                o.references.size &&
+                o.references.delete(name)
+              ) {
+                // console.log(this.collect);
+
+                hit = true;
+              }
+            });
+          }
+        }
+      );
+      if (hit) {
+        miss = 0;
+      } else {
+        miss++;
+      }
+
+      if (miss > start) {
+        break;
+      }
+    }
 
     this.queue = [];
     this.collect.forEach((o) => {

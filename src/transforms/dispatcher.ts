@@ -24,6 +24,7 @@ import {
   LogicalExpression,
   ThisExpression,
   VariableDeclarator,
+  ArrayPattern,
 } from "../util/gen";
 import { getIdentifierInfo, isWithinClass } from "../util/identifiers";
 import {
@@ -469,17 +470,13 @@ export default class Dispatcher extends Transform {
               var dispatcherArgs: Node[] = [Literal(newName)];
 
               if (p[0].arguments.length) {
-                varArgs.forEach((vName, i) => {
-                  if (functionDeclarations[o.name][0].params.length > i) {
-                    assignmentExpressions.push(
-                      AssignmentExpression(
-                        "=",
-                        Identifier(vName),
-                        p[0].arguments[i] || Identifier("undefined")
-                      )
-                    );
-                  }
-                });
+                assignmentExpressions = [
+                  AssignmentExpression(
+                    "=",
+                    ArrayPattern(varArgs.map((x) => Identifier(x))),
+                    ArrayExpression(p[0].arguments)
+                  ),
+                ];
               } else {
                 dispatcherArgs.push(Literal(expectedClearArgs));
               }

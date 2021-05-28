@@ -58,10 +58,7 @@ export default class Flatten extends Transform {
   }
 
   match(object: Node, parents: Node[]) {
-    return (
-      object.type == "FunctionDeclaration" &&
-      getContext(parents[0], parents.slice(1)) !== parents[parents.length - 1]
-    );
+    return object.type == "FunctionDeclaration";
   }
 
   transform(object: Node, parents: Node[]) {
