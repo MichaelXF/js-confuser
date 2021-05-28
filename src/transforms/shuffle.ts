@@ -46,7 +46,10 @@ export default class Shuffle extends Transform {
 
     if (ComputeProbabilityMap(this.options.shuffle)) {
       return () => {
-        var shift = getRandomInteger(1, 100);
+        var shift = getRandomInteger(
+          1,
+          Math.min(100, object.elements.length * 6)
+        );
 
         for (var i = 0; i < shift; i++) {
           object.elements.push(object.elements.shift());

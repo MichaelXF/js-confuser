@@ -58,31 +58,6 @@ export function getDepth(object: any, parents: any[]) {
   return scopes.length;
 }
 
-export function traverseBottomUp(
-  tree: any,
-  callback: (object: any, parents: any[], scope: any) => void
-) {
-  function recursive(object, parents) {
-    if (typeof object === "object" && object) {
-      var newParents = [object, ...parents];
-      if (Array.isArray(object)) {
-        var copy = [...object];
-        copy.forEach((x) => {
-          x && recursive(x, newParents);
-        });
-      } else {
-        Object.keys(object).forEach((key) => {
-          var nested = object[key];
-          nested && recursive(nested, newParents);
-        });
-      }
-      callback(object, parents, getBlock(object, parents));
-    }
-  }
-
-  recursive(tree, []);
-}
-
 export type EnterCallback = (
   object: Node,
   parents: Node[]
