@@ -459,12 +459,12 @@ export default class Lock extends Transform {
           if (fn) {
             test = Template(
               `(${fn}+"").indexOf("[native code]") == -1`
-            ).single();
+            ).single().expression;
 
             if (Math.random() > 0.5) {
               test = Template(
                 `${fn}.toString().split("{ [native code] }").length <= 1`
-              ).single();
+              ).single().expression;
             }
 
             nodes.push(

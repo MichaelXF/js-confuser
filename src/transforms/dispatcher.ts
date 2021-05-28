@@ -63,8 +63,8 @@ import { ObfuscateOrder } from "../order";
  * Can break code with:
  *
  * 1. testing function equality,
- * 2. using arguments.callee,
- * 3. using this
+ * 2. using `arguments.callee`,
+ * 3. using `this`
  */
 export default class Dispatcher extends Transform {
   count: number;
@@ -127,7 +127,7 @@ export default class Dispatcher extends Transform {
               var name = o.id.name;
 
               // If dupe, no routing
-              if (functionDeclarations[name] || o.$integritySkip) {
+              if (functionDeclarations[name]) {
                 illegalFnNames.add(name);
                 return;
               }

@@ -11,14 +11,6 @@ export function isFunction(object: Node): boolean {
   ].includes(object.type);
 }
 
-export function isStatement(object: Node): boolean {
-  return [
-    "ExpressionStatement",
-    "VariableDeclaration",
-    "FunctionDeclaration",
-  ].includes(object.type);
-}
-
 /**
  * The function context where the object is.
  *

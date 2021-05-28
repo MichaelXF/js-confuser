@@ -284,15 +284,14 @@ function containsLexicallyBoundVariables(object: Node) {
  * Breaks functions into DAGs (Directed Acyclic Graphs)
  *
  * - 1. Break functions into chunks
- * - 2. Shuffle order and assign a random number to each index
- * - 3. Create a Switch Case for each, with transition to next block.
+ * - 2. Shuffle chunks but remember their original position
+ * - 3. Create a Switch statement inside a While loop, each case is a chunk, and the while loops exits on the last transition.
  *
  * The Switch statement:
  *
  * - 1. The state variable controls which case will run next
  * - 2. At the end of each case, the state variable is updated to the next block of code.
  * - 3. The while loop continues until the the state variable is the end state.
- *
  */
 export default class ControlFlowFlattening extends Transform {
   constructor(o) {

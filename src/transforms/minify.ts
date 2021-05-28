@@ -376,7 +376,11 @@ export default class Minify extends Transform {
           last.consequent.pop();
         }
       } else {
-        if (object.cases.length == 0) {
+        if (
+          object.cases.length == 0 &&
+          (object.discriminant.type == "Literal" ||
+            object.discriminant.type == "Identifier")
+        ) {
           if (
             parents[0].type == "LabeledStatement" &&
             Array.isArray(parents[1])

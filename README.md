@@ -350,11 +350,17 @@ An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predi
 
 ### `shuffle`
 
-Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`true/false`)
+Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false`)
 
 - Potency Medium
 - Resilience Low
 - Cost Low
+
+| Mode | Description |
+| --- | --- |
+| `"hash"`| Array is shifted based on hash of the elements  |
+| `true`| Arrays are shifted *n* elements, unshifted at runtime |
+| `false` | Feature disabled |
 
 ## High preset
 ```js
@@ -362,32 +368,28 @@ Shuffles the initial order of arrays. The order is brought back to the original 
   target: "node",
   preset: "high",
 
-  // heavy
-  dispatcher: true,
-  controlFlowFlattening: 0.75,
-
-  // extract
-  objectExtraction: true,
-  movedDeclarations: true,
-
-  // variables
-  renameVariables: true,
-  identifierGenerator: "randomized",
-
-  // Simple
   calculator: true,
+  compact: true,
+  controlFlowFlattening: 0.75,
   deadCode: 0.25,
-  flatten: true,
-
-  minify: true,
-  opaquePredicates: 0.75,
-
-  // data
+  dispatcher: true,
   duplicateLiteralsRemoval: 0.75,
+  flatten: true,
   globalConcealing: true,
+  identifierGenerator: "randomized",
+  minify: true,
+  movedDeclarations: true,
+  objectExtraction: true,
+  opaquePredicates: 0.75,
+  renameVariables: true,
+  shuffle: { hash: 0.5, true: 0.5 },
   stringConcealing: true,
   stringEncoding: true,
   stringSplitting: 0.75,
+
+  // Use at own risk
+  eval: false,
+  rgf: false,
 }
 ```
 
@@ -397,29 +399,23 @@ Shuffles the initial order of arrays. The order is brought back to the original 
   target: "node",
   preset: "medium",
 
-  // heavy
-  dispatcher: 0.75,
-  controlFlowFlattening: 0.5,
-
-  // extract
-  objectExtraction: true,
-  movedDeclarations: true,
-
-  // variables
-  renameVariables: true,
-  identifierGenerator: "randomized",
-
-  // Simple
   calculator: true,
+  compact: true,
+  controlFlowFlattening: 0.5,
   deadCode: 0.05,
-  flatten: true,
-
-  minify: true,
-  opaquePredicates: 0.5,
-
+  dispatcher: 0.75,
   duplicateLiteralsRemoval: 0.5,
+  flatten: true,
   globalConcealing: true,
+  identifierGenerator: "randomized",
+  minify: true,
+  movedDeclarations: true,
+  objectExtraction: true,
+  opaquePredicates: 0.5,
+  renameVariables: true,
+  shuffle: true,
   stringConcealing: true,
+  stringSplitting: 0.25,
 }
 ```
 
@@ -430,26 +426,21 @@ Shuffles the initial order of arrays. The order is brought back to the original 
   target: "node",
   preset: "low",
 
-  // heavy
-  dispatcher: 0.5,
-  controlFlowFlattening: 0.25,
-
-  // extract
-  objectExtraction: true,
-  movedDeclarations: true,
-
-  // variables
-  renameVariables: true,
-  identifierGenerator: "randomized",
-
-  // Simple
   calculator: true,
-
-  minify: true,
-  opaquePredicates: 0.1,
-
+  compact: true,
+  controlFlowFlattening: 0.25,
+  deadCode: 0,
+  dispatcher: 0.5,
   duplicateLiteralsRemoval: true,
+  flatten: true,
   globalConcealing: true,
+  identifierGenerator: "randomized",
+  minify: true,
+  movedDeclarations: true,
+  objectExtraction: true,
+  opaquePredicates: 0.1,
+  renameVariables: true,
+  stringConcealing: 0.25,
 }
 ```
 

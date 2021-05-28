@@ -7,6 +7,8 @@ import {
   Identifier,
   Literal,
   Node,
+  VariableDeclaration,
+  VariableDeclarator,
 } from "../util/gen";
 import { isFunction } from "../util/insert";
 import Transform from "./transform";
@@ -32,8 +34,14 @@ export default class Eval extends Transform {
     }
 
     object.$eval = () => {
-      var code = compileJsSync(object, this.options);
+      var name;
+      if (object.type == "FunctionDeclaration") {
+        name = object.id.name;
+        object.type = "FunctionExpression";
+        object.id = null;
+      }
 
+      var code = compileJsSync(object, this.options);
       if (object.type == "FunctionExpression") {
         code = "(" + code + ")";
       }
@@ -43,8 +51,8 @@ export default class Eval extends Transform {
       this.dynamicallyObfuscate(literal);
 
       var expr: Node = CallExpression(Identifier("eval"), [literal]);
-      if (object.type == "FunctionDeclaration") {
-        expr = ExpressionStatement(expr);
+      if (name) {
+        expr = VariableDeclaration(VariableDeclarator(name, expr));
       }
 
       this.replace(object, expr);

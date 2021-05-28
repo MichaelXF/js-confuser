@@ -238,7 +238,8 @@ export default class ObjectExtraction extends Transform {
             var nn = name + "_" + keyName;
             newPropNames[keyName] = nn;
 
-            newVariableDeclarations.push({
+            // Keep same order
+            newVariableDeclarations.unshift({
               name: nn,
               object: this.addComment(property.value, `${name}.${keyName}`),
               parents: parents,

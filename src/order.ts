@@ -15,18 +15,15 @@ export enum ObfuscateOrder {
 
   Calculator = 6,
 
-  // Fixes all If Statements
   ControlFlowFlattening = 7,
 
   Flatten = 7,
   RGF = 8,
 
-  // Optional
   Eval = 8,
 
   GlobalConcealing = 9,
 
-  // Hides all strings
   StringConcealing = 10,
 
   StringSplitting = 20,

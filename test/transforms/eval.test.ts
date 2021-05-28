@@ -3,11 +3,29 @@ import JsConfuser from "../../src/index";
 it("should put functions into eval statements", async () => {
   var code = `
     function TEST_FUNCTION(){
-
     }
   `;
 
-  var output = await JsConfuser(code, { target: "browser", eval: true });
+  var output = await JsConfuser(code, { target: "node", eval: true });
 
   expect(output).toContain("eval(");
+});
+
+it("should put functions into eval statements and have same result", async () => {
+  var code = `
+    function TEST_FUNCTION(){
+      input(100)
+    }
+    TEST_FUNCTION();
+  `;
+
+  var output = await JsConfuser(code, { target: "node", eval: true });
+
+  expect(output).toContain("eval(");
+
+  var value = "never_called",
+    input = (valueIn) => (value = valueIn);
+  eval(output);
+
+  expect(value).toStrictEqual(100);
 });

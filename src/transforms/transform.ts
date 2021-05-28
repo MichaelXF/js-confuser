@@ -11,6 +11,7 @@ import Obfuscator from "../obfuscator";
 import { ObfuscateOptions } from "../options";
 import { ComputeProbabilityMap } from "../probability";
 import { reservedIdentifiers, reservedKeywords } from "../constants";
+import { ObfuscateOrder } from "../order";
 
 /**
  * Base-class for all transformations.
@@ -120,7 +121,9 @@ export default class Transform {
    * The transformation name.
    */
   get className() {
-    return (this as any).__proto__.constructor.name;
+    return (
+      (this as any).__proto__.constructor.name || ObfuscateOrder[this.priority]
+    );
   }
 
   /**
@@ -194,7 +197,7 @@ export default class Transform {
   /**
    * Returns a random string.
    *
-   * Used for creating temporary variables names, typically before RenameVariable has ran.
+   * Used for creating temporary variables names, typically before RenameVariables has ran.
    *
    * These long temp names will be converted to short, mangled names by RenameVariables.
    */
