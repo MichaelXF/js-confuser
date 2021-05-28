@@ -2,7 +2,7 @@
 
 [Countermeasures](https://docs.jscrambler.com/code-integrity/documentation/client-side-countermeasures) is a property on the `lock` object, determining the response to a triggered lock.
 
-For instance, the domainLock determines the current domain is invalid.
+For instance, the `domainLock` determines the current domain is invalid.
 
 ```js
 {
@@ -10,7 +10,7 @@ For instance, the domainLock determines the current domain is invalid.
   lock: {
     domainLock: ["mywebsite.com"],
 
-    // crash process
+    // crash process (default)
     countermeasures: true,
 
     // custom callback to invoke
@@ -35,8 +35,8 @@ By setting countermeasures to a string, it can point to a callback to invoke whe
 The countermeasures callback function can either be a local name or an external name.
 
 Examples:
-- `onLockTriggered`
-- `window.onLockTriggered()`
+- `"onLockTriggered"`
+- `"window.onLockTriggered"`
 
 If the function is defined within the locked code, it must follow the local name rules.
 
@@ -50,19 +50,19 @@ These rules are necessary to prevent an infinite loop from occurring.
 
 ## Test your countermeasure
 
-Domain Lock:
+#### Domain Lock:
 
 Try your code within DevTools while on another website.
 
-Time Lock:
+#### Time Lock:
 
 Try setting your machine time to the past or before the allowed range.
 
-Integrity:
+#### Integrity:
 
 Try changing a string within your code.
 
-Native Functions:
+#### Native Functions:
 
 Open DevTools and run:
 
@@ -70,7 +70,7 @@ Open DevTools and run:
 var _fetch = fetch;
 fetch = (url, options)=>{
   console.log("Intercepted", url, options);
-  return fetch(url, options);
+  return _fetch(url, options);
 }
 ```
 

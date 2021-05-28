@@ -17,14 +17,14 @@ export enum ObfuscateOrder {
 
   ControlFlowFlattening = 7,
 
-  Flatten = 7,
-  RGF = 8,
+  Flatten = 8,
+  RGF = 9,
 
-  Eval = 8,
+  Eval = 10,
 
-  GlobalConcealing = 9,
+  GlobalConcealing = 11,
 
-  StringConcealing = 10,
+  StringConcealing = 12,
 
   StringSplitting = 20,
 
