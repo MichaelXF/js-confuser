@@ -11,6 +11,7 @@ import Obfuscator from "../obfuscator";
 import { ObfuscateOptions } from "../options";
 import { ComputeProbabilityMap } from "../probability";
 import { reservedIdentifiers, reservedKeywords } from "../constants";
+import { ObfuscateOrder } from "../order";
 
 /**
  * Base-class for all transformations.
@@ -120,7 +121,9 @@ export default class Transform {
    * The transformation name.
    */
   get className() {
-    return (this as any).__proto__.constructor.name;
+    return (
+      (this as any).__proto__.constructor.name || ObfuscateOrder[this.priority]
+    );
   }
 
   /**
