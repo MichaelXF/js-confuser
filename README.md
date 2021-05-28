@@ -141,7 +141,11 @@ Global Concealing hides global variables being accessed. (`true/false`)
 
 ### `stringConcealing`
 
-[String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. This is useful for both automated tools and reverse engineers. (`true/false`)
+[String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. (`true/false/0-1`)
+
+Use a number to control the percentage of strings.
+
+`"console"` -> `decrypt('<~@rH7+Dert~>')`
    
 - Potency High
 - Resilience Medium
@@ -149,7 +153,11 @@ Global Concealing hides global variables being accessed. (`true/false`)
 
 ### `stringEncoding`
 
-[String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false`)
+[String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false/0-1`)
+
+Use a number to control the percentage of strings.
+
+`"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
 
 - Potency Low
 - Resilience Low
@@ -485,6 +493,71 @@ These features are experimental or a security concern.
   // experimental
   identifierGenerator: function(){
     return "_CUSTOM_VAR_" + (counter++);
+  }
+}
+```
+
+## Percentages
+
+Most settings in JSConfuser accept percentages to control the frequency of the transformation. Fine-tune the percentages to keep file size down, and performance high.
+
+```js
+{
+  target: "node",
+  controlFlowFlattening: true // equal to 1, which is 100%
+
+  controlFlowFlattening: 0.5 // 50%
+  controlFlowFlattening: 0.01 // 1%
+}
+```
+
+## Probabilities
+
+Mix modes using an object with key-value pairs represent each mode's percentage.
+
+```js
+{
+  target: "node",
+  identifierGenerator: {
+    "hexadecimal": 0.25, // 25% each
+    "randomized": 0.25,
+    "mangled": 0.25,
+    "number": 0.25
+  },
+
+  shuffle: {hash: 0.5, true: 0.5} // 50% hash, 50% normal
+}
+```
+
+## Custom Implementations
+
+```js
+{
+  target: "node",
+  
+  // avoid renaming a variable
+  renameVariables: x=>x!="jQuery",
+
+  // custom variable names
+  identifierGenerator: ()=>{
+    return "_0x" + Math.random().toString(16).slice(2, 8);
+  },
+
+  // force encoding on a string
+  stringConcealing: (str)=>{
+    if (str=="https://mywebsite.com/my-secret-api"){
+      return true;
+    }
+
+    // 60%
+    return Math.random() < 0.6;
+  },
+
+  // set limits
+  deadCode: ()=>{
+    dead++; 
+
+    return dead < 50;
   }
 }
 ```

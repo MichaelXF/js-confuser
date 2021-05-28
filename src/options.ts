@@ -164,6 +164,8 @@ export interface ObfuscateOptions {
    *
    * [String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. This is useful for both automated tools and reverse engineers. (`true/false`)
    *
+   * `"console"` -> `decrypt('<~@rH7+Dert~>')`
+   *
    * - Potency High
    * - Resilience Medium
    * - Cost Medium
@@ -174,6 +176,8 @@ export interface ObfuscateOptions {
    * ### `stringEncoding`
    *
    * [String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false`)
+   *
+   * `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
    *
    * - Potency Low
    * - Resilience Low
