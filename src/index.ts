@@ -120,7 +120,7 @@ var JsConfuser: JsConfuser = async function (
   return result;
 } as any;
 
-(JsConfuser as any).obfuscate = obfuscate;
+JsConfuser.obfuscate = obfuscate;
 export default JsConfuser;
 
 export async function debugTransformations(
@@ -145,3 +145,5 @@ export async function debugTransformations(
 
   return frames;
 }
+
+export { presets, Obfuscator };

@@ -122,7 +122,7 @@ export default class Transform {
    */
   get className() {
     return (
-      (this as any).__proto__.constructor.name || ObfuscateOrder[this.priority]
+      ObfuscateOrder[this.priority] || (this as any).__proto__.constructor.name
     );
   }
 
