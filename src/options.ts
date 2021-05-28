@@ -60,9 +60,7 @@ export interface ObfuscateOptions {
   minify?: boolean;
 
   /**
-   * ### `minify`
-   *
-   * Minifies redundant code. (`true/false`)
+   * ### `es5`
    *
    * Converts output to ES5-compatible code. (`true/false`)
    *
