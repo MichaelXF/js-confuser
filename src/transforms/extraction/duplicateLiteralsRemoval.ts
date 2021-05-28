@@ -1,4 +1,4 @@
-import Transform, { reservedIdentifiers } from "../transform";
+import Transform from "../transform";
 import {
   Identifier,
   Literal,
@@ -9,15 +9,17 @@ import {
   VariableDeclarator,
 } from "../../util/gen";
 import { prepend } from "../../util/insert";
-import { ObfuscateOrder } from "../../obfuscator";
-import { ComputeProbabilityMap } from "../../index";
+import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "../string/stringConcealing";
+import { ComputeProbabilityMap } from "../../probability";
+
+var primitiveIdentifiers = new Set(["undefined", "null", "NaN", "infinity"]);
 
 function isPrimitive(node: Node) {
   if (node.type == "Literal") {
     return { number: 1, string: 1, boolean: 1 }[typeof node.value];
   } else if (node.type == "Identifier") {
-    return reservedIdentifiers.has(node.name);
+    return primitiveIdentifiers.has(node.name);
   }
 
   return false;

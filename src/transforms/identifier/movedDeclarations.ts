@@ -13,7 +13,7 @@ import {
 } from "../../util/gen";
 import { deleteDeclaration, prepend } from "../../util/insert";
 import { ok } from "assert";
-import { ObfuscateOrder } from "../../obfuscator";
+import { ObfuscateOrder } from "../../order";
 
 /**
  * Defines all the names at the top of every lexical block.
@@ -41,6 +41,16 @@ export default class MovedDeclarations extends Transform {
         }
 
         if (o.type == "VariableDeclaration" && o.declarations.length) {
+          if (p[0].type == "ForStatement" && p[0].init == o) {
+            return;
+          }
+          if (
+            (p[0].type == "ForOfStatement" || p[0].type == "ForInStatement") &&
+            p[0].left == o
+          ) {
+            return;
+          }
+
           varDecs.push([o, p]);
 
           o.declarations.forEach((declarator) => {

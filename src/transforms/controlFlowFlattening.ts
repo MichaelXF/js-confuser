@@ -1,6 +1,6 @@
 import { ok } from "assert";
-import { ComputeProbabilityMap } from "../index";
-import { ObfuscateOrder } from "../obfuscator";
+import { ObfuscateOrder } from "../order";
+import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
 import { isBlock, walk } from "../traverse";
 import {
@@ -19,7 +19,12 @@ import {
   WhileStatement,
 } from "../util/gen";
 import { getBlockBody, prepend } from "../util/insert";
-import { choice, getRandomInteger, shuffle } from "../util/random";
+import {
+  choice,
+  getRandomInteger,
+  getRandomTrueExpression,
+  shuffle,
+} from "../util/random";
 import Transform from "./transform";
 
 /**
@@ -337,11 +342,12 @@ export default class ControlFlowFlattening extends Transform {
           return;
         }
 
-        var current = chunks[chunks.length - 1];
+        var currentChunk = chunks[chunks.length - 1];
 
-        if (!current.length || Math.random() < fraction) {
-          current.push(x);
+        if (!currentChunk.length || Math.random() < fraction) {
+          currentChunk.push(x);
         } else {
+          // Start new chunk
           chunks.push([x]);
         }
       });
@@ -353,10 +359,12 @@ export default class ControlFlowFlattening extends Transform {
         return;
       }
 
+      var emptyCases = getRandomInteger(0, 3);
+
       // Add empty cases serving as transitions
-      Array(getRandomInteger(0, 3))
+      Array(emptyCases)
         .fill(0)
-        .map((x) => {
+        .forEach((x) => {
           var index = getRandomInteger(0, chunks.length);
 
           // Empty chunk = no code

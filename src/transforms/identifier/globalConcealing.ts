@@ -1,6 +1,6 @@
 import Template from "../../templates/template";
-import Transform, { reservedIdentifiers } from "../transform";
-import { ObfuscateOrder } from "../../obfuscator";
+import Transform from "../transform";
+import { ObfuscateOrder } from "../../order";
 import {
   Node,
   Location,
@@ -19,6 +19,7 @@ import {
 import { prepend } from "../../util/insert";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { getRandomInteger } from "../../util/random";
+import { reservedKeywords } from "../../constants";
 
 class GlobalAnalysis extends Transform {
   notGlobals: Set<string>;
@@ -36,7 +37,7 @@ class GlobalAnalysis extends Transform {
   }
 
   transform(object: Node, parents: Node[]) {
-    if (reservedIdentifiers.has(object.name)) {
+    if (reservedKeywords.has(object.name)) {
       return;
     }
 

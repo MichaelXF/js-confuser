@@ -1,109 +1,19 @@
-import { ComputeProbabilityMap, ObfuscateOptions } from "../index";
 import traverse, { getDepth, getBlock, ExitCallback } from "../traverse";
 import { AddComment, Node } from "../util/gen";
-import { choice, getRandomInteger } from "../util/random";
-import { getToStringValue } from "../compiler";
+import {
+  alphabeticalGenerator,
+  choice,
+  getRandomInteger,
+} from "../util/random";
 import { ok } from "assert";
 import { isValidIdentifier } from "../util/compare";
 import Obfuscator from "../obfuscator";
+import { ObfuscateOptions } from "../options";
+import { ComputeProbabilityMap } from "../probability";
+import { reservedIdentifiers, reservedKeywords } from "../constants";
 
 /**
- * Keywords disallowed for variable names in ES5 and under.
- */
-export const reservedKeywords = new Set([
-  "abstract",
-  "arguments",
-  "await",
-  "boolean",
-  "break",
-  "byte",
-  "case",
-  "catch",
-  "char",
-  "class",
-  "const",
-  "continue",
-  "debugger",
-  "default",
-  "delete",
-  "do",
-  "double",
-  "else",
-  "enum",
-  "eval",
-  "export",
-  "extends",
-  "false",
-  "final",
-  "finally",
-  "float",
-  "for",
-  "function",
-  "goto",
-  "if",
-  "implements",
-  "import",
-  "in",
-  "instanceof",
-  "int",
-  "interface",
-  "let",
-  "long",
-  "native",
-  "new",
-  "null",
-  "package",
-  "private",
-  "protected",
-  "public",
-  "return",
-  "short",
-  "static",
-  "super",
-  "switch",
-  "synchronized",
-  "this",
-  "throw",
-  "throws",
-  "transient",
-  "true",
-  "try",
-  "typeof",
-  "var",
-  "void",
-  "volatile",
-  "while",
-  "with",
-  "yield",
-]);
-
-/**
- * Identifiers that are not actually variables.
- */
-export const reservedIdentifiers = new Set([
-  "undefined",
-  "null",
-  "NaN",
-  "Infinity",
-  "eval",
-  "arguments",
-]);
-
-export function alphabeticalGenerator(index: number) {
-  let name = "";
-  while (index > 0) {
-    var t = (index - 1) % 26;
-    name = String.fromCharCode(65 + t) + name;
-    index = ((index - t) / 26) | 0;
-  }
-  if (!name) {
-    name = "_";
-  }
-  return name;
-}
-
-/**
- * Base-call for all transformations.
+ * Base-class for all transformations.
  * - Transformations can have preparation transformations `.before`
  * - Transformations can have cleanup transformations `.after`
  *
@@ -425,20 +335,6 @@ export default class Transform {
       throw new Error("identifier null");
     }
     return identifier;
-  }
-
-  /**
-   * This should be removed soon.
-   * @param tree
-   * @param syntax
-   * @returns
-   */
-  getToStringValue(
-    tree: Node,
-    syntax: (code: string) => string = (x) => x
-  ): string {
-    ok(typeof syntax === "function");
-    return getToStringValue(tree, syntax, this.options);
   }
 
   /**

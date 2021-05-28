@@ -1,4 +1,4 @@
-import JsConfuser from "../../src/index";
+import JsConfuser from "../../../src/index";
 
 it("should run correctly", async () => {
   var code = `
@@ -116,7 +116,7 @@ it("should error when countermeasures function doesn't exist", async () => {
 
   expect(errorCaught).toBeTruthy();
   expect(errorCaught.toString()).toContain(
-    "Count not find your countermeasure function"
+    "Countermeasures function named 'TEST_COUNTERMEASURES' was not found."
   );
   expect(errorCaught.toString()).toContain("TEST_COUNTERMEASURES");
 });

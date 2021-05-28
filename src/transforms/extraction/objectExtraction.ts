@@ -7,16 +7,16 @@ import {
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
-import { ComputeProbabilityMap } from "../../index";
 import {
   deleteDeclaration,
   getContext,
   isContext,
   prepend,
 } from "../../util/insert";
-import { ObfuscateOrder } from "../../obfuscator";
+import { ObfuscateOrder } from "../../order";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { isValidIdentifier } from "../../util/compare";
+import { ComputeProbabilityMap } from "../../probability";
 
 /**
  * Extracts keys out of an object if possible.

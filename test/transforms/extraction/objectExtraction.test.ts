@@ -1,4 +1,4 @@
-import JsConfuser from "../../src/index";
+import JsConfuser from "../../../src/index";
 
 it("should extract properties", async () => {
   var code = `

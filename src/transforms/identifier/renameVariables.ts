@@ -1,11 +1,12 @@
 import { ok } from "assert";
-import { ObfuscateOrder } from "../../obfuscator";
+import { ObfuscateOrder } from "../../order";
 import { walk } from "../../traverse";
 import { Location, Node } from "../../util/gen";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { getContext, isContext, isFunction } from "../../util/insert";
 import { isValidIdentifier } from "../../util/compare";
-import Transform, { reservedIdentifiers } from "../transform";
+import Transform from "../transform";
+import { reservedIdentifiers } from "../../constants";
 
 /**
  * Keeps track of what identifiers are defined and referenced in each context.

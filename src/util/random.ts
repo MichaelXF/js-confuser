@@ -163,3 +163,16 @@ export function getRandomLiteral(): Node {
 
   throw new Error("type=" + type);
 }
+
+export function alphabeticalGenerator(index: number) {
+  let name = "";
+  while (index > 0) {
+    var t = (index - 1) % 26;
+    name = String.fromCharCode(65 + t) + name;
+    index = ((index - t) / 26) | 0;
+  }
+  if (!name) {
+    name = "_";
+  }
+  return name;
+}

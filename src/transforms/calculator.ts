@@ -12,9 +12,9 @@ import {
   SwitchStatement,
 } from "../util/gen";
 import { prepend } from "../util/insert";
-import { ObfuscateOrder } from "../obfuscator";
 import { getBlock } from "../traverse";
 import { getRandomInteger } from "../util/random";
+import { ObfuscateOrder } from "../order";
 
 export default class Calculator extends Transform {
   gen: any;

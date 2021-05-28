@@ -1,4 +1,3 @@
-import { ComputeProbabilityMap } from "../index";
 import { walk } from "../traverse";
 import {
   ArrayExpression,
@@ -36,15 +35,15 @@ import {
   isFunction,
   prepend,
 } from "../util/insert";
-import Transform, { reservedIdentifiers } from "./transform";
+import Transform from "./transform";
 import { isInsideType } from "../util/compare";
-import { ObfuscateOrder } from "../obfuscator";
 import { choice, shuffle } from "../util/random";
+import { ComputeProbabilityMap } from "../probability";
+import { reservedIdentifiers } from "../constants";
+import { ObfuscateOrder } from "../order";
 
 /**
  * A Dispatcher processes function calls. All the function declarations are brought into a dictionary.
- *
- * We can use an argument payload to further decipher the trace.
  *
  * ```js
  * var param1;

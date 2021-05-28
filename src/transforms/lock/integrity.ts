@@ -31,6 +31,8 @@ import {
 import { getRandomInteger } from "../../util/random";
 import Lock from "./lock";
 import { ok } from "assert";
+import { compileJsSync } from "../../compiler";
+import { isValidIdentifier } from "../../util/compare";
 
 /**
  * Hashing Algorithm for function integrity
@@ -110,9 +112,6 @@ const StringTemplate = Template(`
  *
  * - The hashing function is placed during this transformation,
  * - A hidden identifier is placed to keep track of the name.
- *
- *
- *
  */
 export default class Integrity extends Transform {
   hashFn: Node;
@@ -120,8 +119,6 @@ export default class Integrity extends Transform {
   stringFn: Node;
   seed: number;
   lock: Lock;
-
-  countermeasuresFunction: Node;
 
   constructor(o, lock) {
     super(o);
@@ -179,18 +176,10 @@ export default class Integrity extends Transform {
         object.$eval = () => {
           functionExpression.body.body.unshift(...hashingUtils);
 
-          if (typeof this.options.lock.countermeasures === "string") {
-            if (this.countermeasuresFunction) {
-              functionExpression.body.body.unshift(
-                clone(this.countermeasuresFunction)
-              );
-            } else {
-              throw new Error(
-                "Count not find your countermeasure function '" +
-                  this.options.lock.countermeasures +
-                  "' in your code."
-              );
-            }
+          if (this.lock.counterMeasuresNode) {
+            functionExpression.body.body.unshift(
+              clone(this.lock.counterMeasuresNode[0])
+            );
           }
 
           functionExpression.body.body.unshift(...hashingUtils);
@@ -198,13 +187,6 @@ export default class Integrity extends Transform {
       };
     }
     ok(isFunction(object));
-
-    if (object.id && typeof object.id.name === "string") {
-      if (object.id.name === this.options.lock.countermeasures) {
-        this.countermeasuresFunction = object;
-        return;
-      }
-    }
 
     if (object.generator || object.async) {
       return;
@@ -227,16 +209,7 @@ export default class Integrity extends Transform {
           $dispatcherSkip: true,
         };
 
-        var toString;
-        try {
-          toString = this.getToStringValue(
-            functionDeclaration,
-            (x) => "(" + x + ")"
-          );
-        } catch (e) {
-          console.error(e);
-          return;
-        }
+        var toString = compileJsSync(functionDeclaration, this.options);
 
         if (!toString) {
           return;

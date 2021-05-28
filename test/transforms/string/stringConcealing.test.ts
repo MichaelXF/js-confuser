@@ -1,4 +1,4 @@
-import JsConfuser from "../../src/index";
+import JsConfuser from "../../../src/index";
 
 it("should conceal strings", async () => {
   var code = `var TEST_STRING = "Hello World"`;

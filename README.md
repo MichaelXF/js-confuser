@@ -57,9 +57,13 @@ The execution context for your output. _Required_.
 1. `"node"`
 2. `"browser"`
 
+### `preset`
+
+[JS-Confuser comes with three presets built into the obfuscator](https://github.com/MichaelXF/js-confuser#presets). _Optional_. (`"high"/"medium"/"low"`)
+
 ### `compact`
 
-Remove's whitespace from the final output. (`true/false`)
+Remove's whitespace from the final output. Enabled by default. (`true/false`)
 
 ### `minify`
 
@@ -113,12 +117,15 @@ JsConfuser.obfuscate(code, {
 });
 ```
 
-JSConfuser tries to re-use names when possible, creating very potent code.
+JSConfuser tries to reuse names when possible, creating very potent code.
 
 ### `controlFlowFlattening`
 
 [Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) obfuscates the program's control-flow by
-adding opaque predicates; flattening the control-flow; and adding irrelevant code clones. (`true/false`)
+adding opaque predicates; flattening the control-flow; and adding irrelevant code clones. (`true/false/0-1`)
+
+Use a number to control the percentage from 0 to 1.
+
 
 - Potency High
 - Resilience High
@@ -162,7 +169,7 @@ Global Concealing hides global variables being accessed. (`true/false`)
 
 - Potency Medium
 - Resilience Low
-- Cost Medium
+- Cost High
 
 ### `dispatcher`
 
@@ -170,14 +177,13 @@ Creates a dispatcher function to process function calls. This can conceal the fl
 
 - Potency Medium
 - Resilience Medium
-- Cost Medium
+- Cost High
 
 ### `eval`
 
 #### **`Security Warning`**
 
-From [MDN](<(https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval)**>): Executing JavaScript from a string is an enormous security risk. It is far too easy
-for a bad actor to run arbitrary code when you use eval(). Never use eval()!
+From [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval): Executing JavaScript from a string is an enormous security risk. It is far too easy for a bad actor to run arbitrary code when you use eval(). Never use eval()!
 
 Wraps defined functions within eval statements.
 
@@ -207,6 +213,7 @@ function log(x) {
   console.log(x);
 }
 log("hi");
+
 // Output
 var refs = [new Function('refs', 'x', 'console.log(x);')];
 (function () {
@@ -246,8 +253,17 @@ Brings independent declarations to the highest scope. (`true/false`)
 
 - Potency Medium
 - Resilience Medium
-- Cost Low
+- Cost High
 
+### `deadCode`
+
+Randomly injects dead code. (`true/false/0-1`)
+
+Use a number to control the percentage from 0 to 1.
+
+- Potency Medium
+- Resilience Medium
+- Cost Low 
 
 ### `calculator`
 
@@ -257,15 +273,13 @@ Creates a calculator function to handle arithmetic and logical expressions. (`tr
 - Resilience Medium
 - Cost Low
 
-### `lock.nativeFunctions`
+### `lock.antiDebug`
 
-Set of global functions that are native. Such as `require`, `fetch`. If these variables are modified the program crashes.
+Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false`)
 
-- Set to `true` to use the default native functions. (`string[]/true/false`)
+### `lock.context`
 
-- Potency Low
-- Resilience Medium
-- Cost Medium
+Properties that must be present on the `window` object (or `global` for NodeJS). (`string[]`)
 
 ### `lock.startDate`
 
@@ -291,6 +305,15 @@ Array of regex strings that the `window.location.href` must follow. (`Regex[]` o
 - Resilience Medium
 - Cost Medium
 
+### `lock.nativeFunctions`
+
+Set of global functions that are native. Such as `require`, `fetch`. If these variables are modified the program crashes.
+Set to `true` to use the default native functions. (`string[]/true/false`)
+
+- Potency Low
+- Resilience Medium
+- Cost Medium
+
 ### `lock.integrity`
 
 Integrity ensures the source code is unchanged. (`true/false`)
@@ -302,10 +325,12 @@ Integrity ensures the source code is unchanged. (`true/false`)
 
 ### `lock.countermeasures`
 
-If the client is caught missing permissions (wrong date, bad domain), this will crash the current tab/process.
+A custom callback function to invoke when a lock is triggered. (`string`)
 
-- `true` - Crash the browser
-- `"string"` - Function name to call (pre obfuscated)
+
+[Learn more about the countermeasures function](https://github.com/MichaelXF/js-confuser/blob/master/Countermeasures.md).
+
+Otherwise, the obfuscator falls back to crashing the process.
 
 ### `movedDeclarations`
 
@@ -317,8 +342,7 @@ Moves variable declarations to the top of the context. (`true/false`)
 
 ### `opaquePredicates`
 
-An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers
-understanding your code. (`true/false`)
+An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers from understanding your code. (`true/false`)
 
 - Potency Medium
 - Resilience Medium
@@ -476,7 +500,7 @@ These features are experimental or a security concern.
 
 ## Potential Issues
 
-- 1.  String Encoding can corrupt files. Disabled `stringEncoding` manually if this happens.
+- 1.  String Encoding can corrupt files. Disable `stringEncoding` manually if this happens.
 - 2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
 
 ## Bug report
@@ -489,9 +513,9 @@ Please open an issue and be descriptive what you want. Don't submit any PRs unti
 
 ## JsConfuser vs. Javascript-obfuscator
 
-Javascript-obfuscator ([obfuscator.io](obfuscator.io)) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser offers unique features such as Integrity, locks, and RGF.
+Javascript-obfuscator ([https://obfuscator.io](obfuscator.io)) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser offers unique features such as Integrity, locks, and RGF.
 
-Automated deobfuscators are aware of [obfuscator.io](obfuscator.io)'s techniques:
+Automated deobfuscators are aware of [https://obfuscator.io](obfuscator.io)'s techniques:
 
 https://www.youtube.com/watch?v=_UIqhaYyCMI
 

@@ -14,9 +14,9 @@ import {
 } from "../../util/gen";
 import { prepend } from "../../util/insert";
 import { shuffle, splitIntoChunks } from "../../util/random";
-import { ObfuscateOrder } from "../../obfuscator";
-import { ComputeProbabilityMap } from "../../index";
+import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "./stringConcealing";
+import { ComputeProbabilityMap } from "../../probability";
 
 export default class StringSplitting extends Transform {
   joinPrototype: string;

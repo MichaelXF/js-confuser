@@ -1,5 +1,5 @@
-import Transform, { reservedIdentifiers } from "./transform";
-import { ObfuscateOrder } from "../obfuscator";
+import Transform from "./transform";
+import { ObfuscateOrder } from "../order";
 import {
   Node,
   Location,
@@ -14,6 +14,7 @@ import {
   ReturnStatement,
   AssignmentExpression,
   VariableDeclarator,
+  Identifier,
 } from "../util/gen";
 import {
   deleteDeclaration,
@@ -27,6 +28,7 @@ import { getIdentifierInfo } from "../util/identifiers";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
 import { walk, getBlock, isBlock } from "../traverse";
 import { ok } from "assert";
+import { reservedIdentifiers } from "../constants";
 
 class MinifyFlow extends Transform {
   constructor(o) {
@@ -442,7 +444,7 @@ export default class Minify extends Transform {
 
           // if (a) {return b;} else {return c;} -> return a ? b : c;
           if (
-            stmt1.type == "ReturnStatement" ||
+            stmt1.type == "ReturnStatement" &&
             stmt2.type == "ReturnStatement"
           ) {
             this.replace(
@@ -450,8 +452,8 @@ export default class Minify extends Transform {
               ReturnStatement(
                 ConditionalExpression(
                   clone(object.test),
-                  stmt1.argument,
-                  stmt2.argument
+                  stmt1.argument || Identifier("undefined"),
+                  stmt2.argument || Identifier("undefined")
                 )
               )
             );

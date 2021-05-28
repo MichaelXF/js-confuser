@@ -1,4 +1,4 @@
-import { ObfuscateOrder } from "../obfuscator";
+import { ObfuscateOrder } from "../order";
 import { walk } from "../traverse";
 import { Identifier } from "../util/gen";
 import { clone } from "../util/insert";

@@ -1,4 +1,4 @@
-import JsConfuser from "../../src/index";
+import JsConfuser from "../../../src/index";
 
 it("should hide global names (such as Math)", async () => {
   var code = `

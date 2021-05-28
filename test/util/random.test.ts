@@ -1,4 +1,5 @@
 import {
+  alphabeticalGenerator,
   choice,
   getRandomFalseExpression,
   getRandomString,
@@ -40,4 +41,18 @@ it("getRandomTrueExpression() should always eval to true", async () => {
 
     expect(eval("!!" + code)).toStrictEqual(true);
   }
+});
+
+it("alphabeticalGenerator should return correct outputs", async () => {
+  expect(alphabeticalGenerator(1)).toStrictEqual("A");
+  expect(alphabeticalGenerator(2)).toStrictEqual("B");
+  expect(alphabeticalGenerator(3)).toStrictEqual("C");
+  expect(alphabeticalGenerator(4)).toStrictEqual("D");
+  expect(alphabeticalGenerator(5)).toStrictEqual("E");
+  expect(alphabeticalGenerator(6)).toStrictEqual("F");
+  expect(alphabeticalGenerator(7)).toStrictEqual("G");
+  expect(alphabeticalGenerator(8)).toStrictEqual("H");
+  expect(alphabeticalGenerator(10)).toStrictEqual("J");
+  expect(alphabeticalGenerator(90)).toStrictEqual("CL");
+  expect(alphabeticalGenerator(900)).toStrictEqual("AHP");
 });

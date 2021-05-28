@@ -256,6 +256,8 @@ export function getIndexDirect(object: Node, parent: Node[]): string {
  * @param parents
  */
 export function deleteDeclaration(object: Node, parents: Node[]) {
+  validateChain(object, parents);
+
   // variables
   var list = [object, ...parents];
 
@@ -271,6 +273,12 @@ export function deleteDeclaration(object: Node, parents: Node[]) {
     if (VariableDeclaration.declarations.length == 0) {
       deleteDirect(VariableDeclaration, body);
     }
+  } else {
+    if (object.type != "FunctionDeclaration") {
+      throw new Error("No method to delete: " + object.type);
+    }
+
+    deleteDirect(object, parents[0]);
   }
 }
 
@@ -364,7 +372,9 @@ export function clone<T>(object: T): T {
       var newObject = {} as T;
 
       Object.keys(object).forEach((key) => {
-        newObject[key] = clone(object[key]);
+        if (!(key + "").startsWith("$")) {
+          newObject[key] = clone(object[key]);
+        }
       });
 
       return newObject;

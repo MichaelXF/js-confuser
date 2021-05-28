@@ -1,5 +1,5 @@
-import { ComputeProbabilityMap } from "../index";
-import { ObfuscateOrder } from "../obfuscator";
+import { ObfuscateOrder } from "../order";
+import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
 import { isBlock } from "../traverse";
 import {

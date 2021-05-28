@@ -1,4 +1,4 @@
-import JsConfuser from "../../src/index";
+import JsConfuser from "../../../src/index";
 
 it("should split strings", async () => {
   var code = `var TEST_STRING = "the brown dog jumped over the lazy fox."`;

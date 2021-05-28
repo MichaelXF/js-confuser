@@ -1,6 +1,6 @@
 import Transform from "../transform";
 import { choice } from "../../util/random";
-import { ObfuscateOrder } from "../../obfuscator";
+import { ObfuscateOrder } from "../../order";
 
 function pad(x: string, len: number): string {
   while (x.length < len) {

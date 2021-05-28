@@ -2,11 +2,7 @@ import { ok } from "assert";
 import { EventEmitter } from "events";
 import { Node } from "./util/gen";
 import traverse from "./traverse";
-import {
-  ObfuscateOptions,
-  ProbabilityMap,
-  isProbabilityMapProbable,
-} from "./index";
+import { isProbabilityMapProbable } from "./index";
 
 import Transform from "./transforms/transform";
 
@@ -28,60 +24,12 @@ import MovedDeclarations from "./transforms/identifier/movedDeclarations";
 import RenameVariables from "./transforms/identifier/renameVariables";
 import RenameLabels from "./transforms/renameLabels";
 import Minify from "./transforms/minify";
-import ES5 from "./transforms/es5";
+import ES5 from "./transforms/es5/es5";
 import StringEncoding from "./transforms/string/stringEncoding";
 import RGF from "./transforms/rgf";
 import Flatten from "./transforms/flatten";
-
-/**
- * Describes the order of transformations.
- */
-export enum ObfuscateOrder {
-  Preparation = 0,
-
-  ObjectExtraction = 1,
-
-  Lock = 2, // Includes Integrity & Anti Debug
-
-  Dispatcher = 3,
-
-  OpaquePredicates = 4,
-  DeadCode = 5,
-
-  Calculator = 6,
-
-  // Fixes all If Statements
-  ControlFlowFlattening = 7,
-
-  Flatten = 7,
-  RGF = 8,
-
-  // Optional
-  Eval = 8,
-
-  GlobalConcealing = 9,
-
-  // Hides all strings
-  StringConcealing = 10,
-
-  StringSplitting = 20,
-
-  DuplicateLiteralsRemoval = 23,
-
-  Shuffle = 24,
-
-  MovedDeclarations = 25,
-
-  RenameVariables = 26,
-
-  RenameLabels = 27,
-
-  Minify = 30,
-
-  ES5 = 31,
-
-  StringEncoding = 32,
-}
+import { ObfuscateOptions } from "./options";
+import { ProbabilityMap } from "./probability";
 
 /**
  * The parent transformation holding the `state`.
@@ -140,7 +88,9 @@ export default class Obfuscator extends EventEmitter {
     if (
       options.lock &&
       Object.keys(options.lock).filter((x) =>
-        x == "domainLock" ? options.lock.domainLock.length : options.lock[x]
+        x == "domainLock"
+          ? options.lock.domainLock && options.lock.domainLock.length
+          : options.lock[x]
       ).length
     ) {
       test(true, Lock);
@@ -155,7 +105,10 @@ export default class Obfuscator extends EventEmitter {
 
   push(transform: Transform) {
     if (transform.className) {
-      ok(!this.transforms[transform.className], "Already have");
+      ok(
+        !this.transforms[transform.className],
+        "Already have " + transform.className
+      );
     }
     this.transforms[transform.className] = transform;
   }

@@ -8,12 +8,15 @@ const acorn = require("acorn");
  * @param code
  * @returns
  */
-export default async function parseJS(code: string) {
+export default async function parseJS(code: string): Promise<{
+  type: "Program";
+  body: Node[];
+}> {
   assert.ok(typeof code === "string", "code must be a string");
 
   try {
     var parsed = parseSync(code);
-    return parsed;
+    return parsed as any;
   } catch (e) {
     console.error(e);
     throw new Error("Failed to parse code.");

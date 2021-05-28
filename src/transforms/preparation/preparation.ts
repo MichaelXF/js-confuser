@@ -11,7 +11,7 @@ import {
   Node,
   ReturnStatement,
 } from "../../util/gen";
-import { ObfuscateOrder } from "../../obfuscator";
+import { ObfuscateOrder } from "../../order";
 import {
   getIndexDirect,
   getContext,
@@ -24,6 +24,8 @@ import { getIdentifierInfo } from "../../util/identifiers";
 import { isBlock, walk } from "../../traverse";
 import Label from "../label";
 import { VariableAnalysis } from "../identifier/renameVariables";
+import NameConflicts from "./nameConflicts";
+import AntiDestructuring from "../es5/antiDestructuring";
 
 /**
  * People use shortcuts and its harder to parse.
@@ -63,7 +65,7 @@ class Block extends Transform {
 
       case "ArrowFunctionExpression":
         if (object.body.type != "BlockStatement") {
-          if (object.body.type == "ReturnStatement") {
+          if (!object.expression) {
             object.body = BlockStatement([clone(object.body)]);
           } else {
             object.body = BlockStatement([ReturnStatement(clone(object.body))]);
@@ -257,108 +259,19 @@ class ExplicitDeclarations extends Transform {
     }
   }
 }
-
-/**
- * Renames variables & removes conflicts.
- *
- * - This helps transformations like `Dispatcher` not replace re-declared identifiers.
- */
-class NameConflicts extends Transform {
-  declared: Set<string>;
-  counts: { [name: string]: number };
-  variableAnalysis: VariableAnalysis;
-
-  constructor(o) {
-    super(o);
-
-    this.before.push((this.variableAnalysis = new VariableAnalysis(o)));
-    this.declared = new Set();
-    this.counts = Object.create(null);
-  }
-
-  match(object, parents) {
-    return isContext(object);
-  }
-
-  transform(object, parents) {
-    // These properties are added to all context's by VariableAnalysis
-    var defined = this.variableAnalysis.defined.get(object);
-    var references = this.variableAnalysis.references.get(object);
-    var nodes = this.variableAnalysis.nodes.get(object);
-
-    if (!nodes) {
-      return;
-    }
-
-    if (!defined) {
-      return;
-    }
-
-    var changing = Object.create(null);
-
-    nodes.forEach(([node, p]) => {
-      var name = node.name;
-
-      if (!this.counts[name]) {
-        this.counts[name] = 0;
-      }
-      this.counts[name]++;
-
-      var newName = this.getPlaceholder() + "_" + name;
-      if (this.declared.has(name) && !changing[name]) {
-        newName = newName + "_conflict_" + this.counts[name];
-      }
-
-      // Change
-      changing[name] = newName;
-    });
-
-    defined.forEach((x) => this.declared.add(x));
-
-    var changes = Object.keys(changing).length;
-
-    if (changes > 0) {
-      walk(object, parents, (o, p) => {
-        var chain = [o, ...p];
-
-        if (isContext(o)) {
-          var thisNodes = this.variableAnalysis.nodes.get(o);
-
-          if (thisNodes) {
-            var contexts = chain.filter((x) => isContext(x));
-            thisNodes.forEach(([x, xP]) => {
-              var definedAt = contexts.find(
-                (y) =>
-                  this.variableAnalysis.defined.has(y) &&
-                  this.variableAnalysis.defined.get(y).has(x.name)
-              );
-              if (definedAt === object) {
-                if (changing[x.name]) {
-                  x.name = changing[x.name];
-                }
-              }
-            });
-          }
-        }
-      });
-    }
-  }
-}
-
 export default class Preparation extends Transform {
   constructor(o) {
     super(o, ObfuscateOrder.Preparation);
 
-    // this.before.push(new Block(o));
+    this.before.push(new Block(o));
     this.before.push(new Label(o));
     this.before.push(new ExplicitIdentifiers(o));
     // this.before.push(new ExplicitLabel(o));
-    this.before.push(new FunctionsFirst(o));
+    // this.before.push(new FunctionsFirst(o));
     this.before.push(new ExplicitDeclarations(o));
+    this.before.push(new AntiDestructuring(o));
 
-    if (this.options.renameVariables) {
-      this.before.push(new NameConflicts(o));
-    }
+    this.before.push(new NameConflicts(o));
   }
 
   match() {

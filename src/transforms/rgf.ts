@@ -1,6 +1,8 @@
 import { ok } from "assert";
 import { compileJsSync } from "../compiler";
-import Obfuscator, { ObfuscateOrder } from "../obfuscator";
+import { reservedIdentifiers } from "../constants";
+import Obfuscator from "../obfuscator";
+import { ObfuscateOrder } from "../order";
 import Template from "../templates/template";
 import traverse, { walk } from "../traverse";
 import {
@@ -20,7 +22,7 @@ import {
 } from "../util/gen";
 import { getDefiningIdentifier, getIdentifierInfo } from "../util/identifiers";
 import { getContext, isFunction, prepend } from "../util/insert";
-import Transform, { reservedIdentifiers } from "./transform";
+import Transform from "./transform";
 
 export default class RGF extends Transform {
   collect: { location: Location; references: Set<string>; name?: string }[];

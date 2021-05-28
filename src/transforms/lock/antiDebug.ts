@@ -1,4 +1,4 @@
-import { ObfuscateOrder } from "../../obfuscator";
+import { ObfuscateOrder } from "../../order";
 import Template from "../../templates/template";
 import { isBlock } from "../../traverse";
 import { DebuggerStatement } from "../../util/gen";

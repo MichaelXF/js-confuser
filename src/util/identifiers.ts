@@ -122,7 +122,7 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
 
   var isLabel = parent.type == "LabeledStatement" && parent.label == object;
 
-  // Fix 1
+  // Fix 1: Labels are properly identified
   if (parent.type == "BreakStatement" || parent.type == "ContinueStatement") {
     if (parent.label == object) {
       isLabel = true;

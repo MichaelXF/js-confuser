@@ -21,8 +21,9 @@ import {
   ThisExpression,
   SequenceExpression,
   VariableDeclarator,
+  Location,
 } from "../../util/gen";
-import { getBlock, isBlock, walk } from "../../traverse";
+import traverse, { getBlock, isBlock, walk } from "../../traverse";
 import { ok } from "assert";
 import { choice, getRandomInteger, shuffle } from "../../util/random";
 import {
@@ -30,12 +31,14 @@ import {
   CrashTemplate2,
   CrashTemplate3,
 } from "../../templates/crash";
-import { getBlockBody, prepend } from "../../util/insert";
+import { getBlockBody, getContext, prepend } from "../../util/insert";
 import Template from "../../templates/template";
-import { ObfuscateOrder } from "../../obfuscator";
+import { ObfuscateOrder } from "../../order";
 import Integrity from "./integrity";
 import { isLoop } from "../preparation/preparation";
 import AntiDebug from "./antiDebug";
+import { getIdentifierInfo } from "../../util/identifiers";
+import { isValidIdentifier } from "../../util/compare";
 
 /**
  * Strings are formulated to work only during the allowed time
@@ -67,7 +70,10 @@ class LockStrings extends Transform {
   }
 
   getKey() {
-    function ensureNumber(y: Date | number) {
+    function ensureNumber(y: Date | number | false) {
+      if (!y) {
+        return 0;
+      }
       if (y instanceof Date) {
         return y.getTime();
       }
@@ -238,6 +244,7 @@ class LockStrings extends Transform {
  */
 export default class Lock extends Transform {
   globalVar: string;
+  counterMeasuresNode: Location;
 
   constructor(o) {
     super(o, ObfuscateOrder.Lock);
@@ -253,6 +260,56 @@ export default class Lock extends Transform {
     if (this.options.lock.antiDebug) {
       this.before.push(new AntiDebug(o));
     }
+  }
+
+  apply(tree) {
+    if (
+      typeof this.options.lock.countermeasures === "string" &&
+      isValidIdentifier(this.options.lock.countermeasures)
+    ) {
+      var defined = new Set<string>();
+      traverse(tree, (object, parents) => {
+        if (object.type == "Identifier") {
+          var info = getIdentifierInfo(object, parents);
+          if (info.spec.isDefined) {
+            defined.add(object.name);
+            if (object.name === this.options.lock.countermeasures) {
+              if (this.counterMeasuresNode) {
+                throw new Error(
+                  "Countermeasures function was already defined, it must have a unique name from the rest of your code"
+                );
+              } else {
+                var definingContext = getContext(parents[0], parents.slice(1));
+                if (definingContext != tree) {
+                  throw new Error(
+                    "Countermeasures function must be defined at the global level"
+                  );
+                }
+                var chain: Location = [object, parents];
+                if (info.isFunctionDeclaration) {
+                  chain = [parents[0], parents.slice(1)];
+                } else if (info.isVariableDeclaration) {
+                  chain = [parents[1], parents.slice(2)];
+                }
+
+                this.counterMeasuresNode = chain;
+              }
+            }
+          }
+        }
+      });
+
+      if (!this.counterMeasuresNode) {
+        throw new Error(
+          "Countermeasures function named '" +
+            this.options.lock.countermeasures +
+            "' was not found. Names found: " +
+            Array.from(defined).slice(0, 100).join(", ")
+        );
+      }
+    }
+
+    super.apply(tree);
   }
 
   getCounterMeasuresCode(): Node[] {
@@ -300,7 +357,10 @@ export default class Lock extends Transform {
    * Converts Dates to numbers, then applies some randomness
    * @param object
    */
-  getTime(object: Date | number): number {
+  getTime(object: Date | number | false): number {
+    if (!object) {
+      return 0;
+    }
     if (object instanceof Date) {
       return this.getTime(object.getTime());
     }
@@ -314,6 +374,15 @@ export default class Lock extends Transform {
 
   transform(object: Node, parents: Node[]) {
     if (parents.find((x) => isLoop(x) && x.type != "SwitchStatement")) {
+      return;
+    }
+
+    // no check in countermeasures code, otherwise it will infinitely call itself
+    if (
+      this.counterMeasuresNode &&
+      (object == this.counterMeasuresNode[0] ||
+        parents.indexOf(this.counterMeasuresNode[0]) !== -1)
+    ) {
       return;
     }
 
@@ -376,22 +445,32 @@ export default class Lock extends Transform {
       switch (type) {
         case "nativeFunction":
           var set = this.options.lock.nativeFunctions;
-          if (set == true) {
+          if (set === true) {
             set = new Set(["require"]);
           }
-          var fn = choice(Array.from(set));
-
-          test = Template(`(${fn}+"").indexOf("[native code]") == -1`).single();
-
-          if (Math.random() > 0.5) {
-            test = Template(
-              `${fn}.toString().split("{ [native code] }").length <= 1`
-            ).single();
+          if (Array.isArray(set)) {
+            set = new Set(set);
+          }
+          if (!set) {
+            set = new Set();
           }
 
-          nodes.push(
-            IfStatement(test, this.getCounterMeasuresCode() || [], null)
-          );
+          var fn = choice(Array.from(set));
+          if (fn) {
+            test = Template(
+              `(${fn}+"").indexOf("[native code]") == -1`
+            ).single();
+
+            if (Math.random() > 0.5) {
+              test = Template(
+                `${fn}.toString().split("{ [native code] }").length <= 1`
+              ).single();
+            }
+
+            nodes.push(
+              IfStatement(test, this.getCounterMeasuresCode() || [], null)
+            );
+          }
 
           break;
 
@@ -462,39 +541,41 @@ export default class Lock extends Transform {
             true
           );
 
-          var random = choice(this.options.lock.domainLock);
-
-          test = CallExpression(
-            MemberExpression(locationHref, Literal("match"), true),
-            [
-              {
-                type: "Literal",
-                regex: {
-                  pattern:
-                    random instanceof RegExp
-                      ? random.source
-                      : removeSlashes(random),
-                  flags: random instanceof RegExp ? "" : "",
+          var random = choice(this.options.lock.domainLock as any);
+          if (random) {
+            test = CallExpression(
+              MemberExpression(locationHref, Literal("match"), true),
+              [
+                {
+                  type: "Literal",
+                  regex: {
+                    pattern:
+                      random instanceof RegExp
+                        ? random.source
+                        : removeSlashes(random + ""),
+                    flags: random instanceof RegExp ? "" : "",
+                  },
                 },
-              },
-            ]
-          );
+              ]
+            );
 
-          test = UnaryExpression("!", test);
-          if (Math.random() > 0.5) {
-            test = BinaryExpression(
-              "||",
-              BinaryExpression(
-                "==",
-                UnaryExpression("typeof", Identifier("location")),
-                Literal("undefined")
-              ),
-              test
+            test = UnaryExpression("!", test);
+            if (Math.random() > 0.5) {
+              test = BinaryExpression(
+                "||",
+                BinaryExpression(
+                  "==",
+                  UnaryExpression("typeof", Identifier("location")),
+                  Literal("undefined")
+                ),
+                test
+              );
+            }
+            nodes.push(
+              IfStatement(test, this.getCounterMeasuresCode() || [], null)
             );
           }
-          nodes.push(
-            IfStatement(test, this.getCounterMeasuresCode() || [], null)
-          );
+
           break;
       }
 

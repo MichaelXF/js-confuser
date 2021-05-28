@@ -1,0 +1,64 @@
+import JsConfuser from "../../../src/index";
+
+it("should move variable declarations to the top of the lexical block", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    console.log("...")
+    var a = 1, b = 2;
+    console.log(a)
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    }
+  );
+
+  expect(output).toContain("var a,b;");
+  expect(output).toContain(";a=1;b=2;");
+});
+
+it("should still execute properly", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+
+    function add(n1, n2){
+      return n1 + n2;
+    }
+
+    var a = 6, b = 4;
+
+    input( add(a, b) );
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    }
+  );
+
+  expect(output).toContain("var a,b;");
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+
+  expect(value).toStrictEqual(10);
+});
+
+it("should not move declarations in for statements", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    for ( var i = 0; i < 10; i++ ) {
+      
+    }
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    }
+  );
+
+  expect(output).toContain("for(var i=0;");
+});

@@ -1,4 +1,4 @@
-import JsConfuser from "../../src/index";
+import JsConfuser from "../../../src/index";
 
 it("should convert arrow functions to function expressions", async () => {
   var code = `var arrow = ()=>"Hello World"`;

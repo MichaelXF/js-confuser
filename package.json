@@ -1,8 +1,9 @@
 {
   "name": "js-confuser",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "JavaScript Obfuscation Tool.",
   "main": "dist/index.js",
+  "types": "index.d.ts",
   "scripts": {
     "dev": "node ./src/dev.js",
     "build": "./node_modules/.bin/babel src --out-dir dist --copy-files --extensions \".ts\"",
@@ -40,5 +41,10 @@
   "bugs": {
     "url": "https://github.com/MichaelXF/js-confuser/issues"
   },
-  "homepage": "https://jsconfuser.com"
+  "homepage": "https://jsconfuser.com",
+  "jest": {
+    "coverageReporters": [
+      "html"
+    ]
+  }
 }

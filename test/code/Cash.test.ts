@@ -1,11 +1,11 @@
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import JsConfuser from "../../src/index";
 
 var CASH_JS = readFileSync(join(__dirname, "./Cash.src"), "utf-8");
 
 it("works with Cash.js on High Preset", async () => {
-  var code = await JsConfuser(CASH_JS, { target: "browser", preset: "high" });
+  var output = await JsConfuser(CASH_JS, { target: "node", preset: "low" });
 
   // Make the required document variables for initialization
   var document = {
@@ -16,7 +16,9 @@ it("works with Cash.js on High Preset", async () => {
   } as any as Document;
   var window = { document } as Window;
 
-  eval(code);
+  // writeFileSync(join(__dirname, "Cash.output"), output, { encoding: "utf-8" });
 
-  expect(window).toHaveProperty("cash");
+  eval(output);
+
+  expect(global).toHaveProperty("cash");
 });

@@ -15,10 +15,10 @@ import {
   VariableDeclarator,
 } from "../util/gen";
 import { choice, getRandomInteger, shuffle } from "../util/random";
-import { ObfuscateOrder } from "../obfuscator";
+import { ObfuscateOrder } from "../order";
 import { clone, prepend } from "../util/insert";
 import Template from "../templates/template";
-import { ComputeProbabilityMap } from "../index";
+import { ComputeProbabilityMap } from "../probability";
 
 function isTestExpression(object: Node, parents: Node[]) {
   if (!object || !parents[0]) {

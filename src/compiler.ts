@@ -1,6 +1,6 @@
 import { ok } from "assert";
 import { writeFileSync } from "fs";
-import { ObfuscateOptions, remove$Properties } from "./index";
+import { ObfuscateOptions } from "./options";
 import { Node } from "./util/gen";
 
 const escodegen = require("escodegen");
@@ -28,30 +28,4 @@ export function compileJsSync(tree: any, options: ObfuscateOptions): string {
   }
 
   return escodegen.generate(tree, api);
-}
-
-export function getToStringValue(
-  tree: Node,
-  syntax: (code: string) => string,
-  options: ObfuscateOptions
-) {
-  ok(tree);
-  ok(tree.type);
-  ok(!Array.isArray(tree));
-  ok(typeof syntax === "function");
-
-  var generated = escodegen.generate(tree);
-  ok(typeof generated === "string");
-
-  var fullCode = syntax(generated);
-  ok(typeof fullCode === "string");
-
-  try {
-    var result = eval(fullCode);
-  } catch (e) {
-    console.log(">>", fullCode);
-    throw e;
-  }
-
-  return result && result.toString();
 }

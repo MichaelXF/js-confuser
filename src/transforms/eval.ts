@@ -1,6 +1,6 @@
 import { compileJsSync } from "../compiler";
-import { ComputeProbabilityMap } from "../index";
-import { ObfuscateOrder } from "../obfuscator";
+import { ObfuscateOrder } from "../order";
+import { ComputeProbabilityMap } from "../probability";
 import {
   CallExpression,
   ExpressionStatement,

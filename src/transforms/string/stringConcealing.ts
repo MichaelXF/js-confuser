@@ -1,6 +1,5 @@
 import { ok } from "assert";
-import { ComputeProbabilityMap } from "../../index";
-import { ObfuscateOrder } from "../../obfuscator";
+import { ObfuscateOrder } from "../../order";
 import Template from "../../templates/template";
 import {
   ArrayExpression,
@@ -14,8 +13,7 @@ import {
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
-import { getBlockBody, isContext, prepend } from "../../util/insert";
-import { getRandomInteger, shuffle } from "../../util/random";
+import { prepend } from "../../util/insert";
 import Transform from "../transform";
 
 /* eslint-disable @typescript-eslint/no-unused-expressions */
@@ -197,18 +195,22 @@ export default class StringConcealing extends Transform {
     }
 
     return () => {
+      // No string concealing in the decoder function
       if (parents.find((x) => x == this.decodeNode)) {
         return;
       }
 
+      // Empty strings are discarded
       if (!object.value) {
         return;
       }
 
+      // Module sources are not changed
       if (isModuleSource(object, parents)) {
         return;
       }
 
+      // The decode function must return correct result
       if (decode_ascii85(encode_ascii85(object.value)) != object.value) {
         this.warn(object.value);
         return;
@@ -234,7 +236,7 @@ export default class StringConcealing extends Transform {
           CallExpression(Identifier(this.getterName), [Literal(index)])
         );
 
-        // Fix 1. Make parent property key computed
+        // Fix 2. Make parent property key computed
         if (
           parents[0] &&
           parents[0].type == "Property" &&

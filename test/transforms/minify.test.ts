@@ -59,13 +59,3 @@ it("should shorten guaranteed assignment expressions", async () => {
   expect(output).toContain("value=");
   expect(output).toContain("?");
 });
-
-it("should reduce redundant assignment patterns", async () => {
-  var code = `
-  var [TEST_VARIABLE] = [1];
-  `;
-  var output = await JsConfuser(code, { target: "browser", minify: true });
-
-  expect(output).not.toContain("[");
-  expect(output).toContain("TEST_VARIABLE");
-});

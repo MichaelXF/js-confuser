@@ -41,6 +41,8 @@ build/Release
 node_modules/
 jspm_packages/
 
+coverage/
+
 # TypeScript v1 declaration files
 typings/
 
@@ -102,3 +104,6 @@ dist
 
 # TernJS port file
 .tern-port
+
+# VS Code prettier ignore list
+.prettierignore

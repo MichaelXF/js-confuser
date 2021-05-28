@@ -1,4 +1,4 @@
-import JsConfuser from "../../src/index";
+import JsConfuser from "../../../src/index";
 
 it("should rename variables properly", async () => {
   var code = "var TEST_VARIABLE = 1;";
@@ -10,6 +10,7 @@ it("should rename variables properly", async () => {
   });
 
   expect(output.split("var ")[1].split("=")[0]).not.toEqual("TEST_VARIABLE");
+  expect(output).not.toContain("TEST_VARIABLE");
 });
 
 it("should not rename global accessors", async () => {
@@ -78,6 +79,8 @@ it("should not rename member properties", async () => {
     renameGlobals: true,
     identifierGenerator: "mangled",
   });
+
+  expect(output).toContain("TEST_PROPERTY");
 
   var value = false;
   function input(valueIn) {

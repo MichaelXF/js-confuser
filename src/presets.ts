@@ -1,59 +1,54 @@
-import { ObfuscateOptions } from "./index";
+import { ObfuscateOptions } from "./options";
 
 /**
  * - High Obfuscation preset.
  * - **Average 90% performance reduction.**
  *
  * ## **`Enabled features`**
- * 1. Control Flow Flattening
- * 2. Dispatcher
- * 4. Renamed Variables
- * 5. String Concealing
- * 6. Global variables concealed
- * 7. Concealed `new` expressions
- * 8. Minified
+ * 1. Variable renaming
+ * 2. Control flow obfuscation
+ * 3. String concealing
+ * 4. Opaque predicates
+ * 5. Dead code
+ * 6. Dispatcher
+ * 7. Moved declarations
+ * 8. Object extraction
+ * 9. Global concealing
+ * 10. Minified output
  *
  * ## **`Disabled features`**
  * - `eval` Use at your own risk!
- * - `renameProperties` Can break code.
- * - `globalize` Can break code.
  *
  * ### Potential Issues
- * 1. *String Encoding* can corrupt files. Disabled `stringEncoding` manually if this happens.
+ * 1. *String Encoding* can corrupt files. Disable `stringEncoding` manually if this happens.
  * 2. *Dead Code* can bloat file size. Reduce or disable `deadCode`.
  */
 const reduction_98_percent: ObfuscateOptions = {
   target: "node",
   preset: "high",
 
-  // heavy
-  dispatcher: true,
-  controlFlowFlattening: 0.75,
-
-  // extract
-  objectExtraction: true,
-  movedDeclarations: true,
-
-  // variables
-  renameVariables: true,
-  identifierGenerator: "randomized",
-
-  // Simple
   calculator: true,
+  compact: true,
+  controlFlowFlattening: 0.75,
   deadCode: 0.25,
-
-  minify: true,
-  opaquePredicates: 0.75,
-
+  dispatcher: true,
   duplicateLiteralsRemoval: 0.75,
+  flatten: true,
   globalConcealing: true,
+  identifierGenerator: "randomized",
+  minify: true,
+  movedDeclarations: true,
+  objectExtraction: true,
+  opaquePredicates: 0.75,
+  renameVariables: true,
+  shuffle: true,
   stringConcealing: true,
   stringEncoding: true,
   stringSplitting: 0.75,
 
   // Use at own risk!
   eval: false,
-  flatten: true,
+  rgf: false,
 };
 
 /**
@@ -87,9 +82,6 @@ const reduction_52_percent: ObfuscateOptions = {
   duplicateLiteralsRemoval: 0.5,
   globalConcealing: true,
   stringConcealing: true,
-
-  // Use at own risk!
-  eval: false,
 };
 
 /**
@@ -114,6 +106,7 @@ const reduction_30_percent: ObfuscateOptions = {
 
   // Simple
   calculator: true,
+  flatten: true,
 
   minify: true,
   opaquePredicates: 0.1,

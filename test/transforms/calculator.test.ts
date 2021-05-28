@@ -7,6 +7,7 @@ it("should hide binary expressions", async () => {
 
   expect(output).not.toContain("5+5");
   expect(output).not.toContain("5 + 5");
+  expect(output).toContain("switch");
 });
 
 it("should result with correct values", async () => {
