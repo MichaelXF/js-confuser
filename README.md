@@ -167,6 +167,8 @@ Use a number to control the percentage of strings.
 
 [String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false`)
 
+`"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
+
 - Potency Medium
 - Resilience Medium
 - Cost Medium
@@ -275,7 +277,7 @@ Use a number to control the percentage from 0 to 1.
 
 ### `calculator`
 
-Creates a calculator function to handle arithmetic and logical expressions. (`true/false`)
+Creates a calculator function to handle arithmetic and logical expressions. (`true/false/0-1`)
 
 - Potency Medium
 - Resilience Medium
@@ -283,7 +285,7 @@ Creates a calculator function to handle arithmetic and logical expressions. (`tr
 
 ### `lock.antiDebug`
 
-Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false`)
+Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false/0-1`)
 
 ### `lock.context`
 
@@ -324,7 +326,7 @@ Set to `true` to use the default native functions. (`string[]/true/false`)
 
 ### `lock.integrity`
 
-Integrity ensures the source code is unchanged. (`true/false`)
+Integrity ensures the source code is unchanged. (`true/false/0-1`)
 [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
 
 - Potency Medium
@@ -350,7 +352,7 @@ Moves variable declarations to the top of the context. (`true/false`)
 
 ### `opaquePredicates`
 
-An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers from understanding your code. (`true/false`)
+An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers from understanding your code. (`true/false/0-1`)
 
 - Potency Medium
 - Resilience Medium
@@ -358,7 +360,7 @@ An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predi
 
 ### `shuffle`
 
-Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false`)
+Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false/0-1`)
 
 - Potency Medium
 - Resilience Low
@@ -499,7 +501,7 @@ These features are experimental or a security concern.
 
 ## Percentages
 
-Most settings in JSConfuser accept percentages to control the frequency of the transformation. Fine-tune the percentages to keep file size down, and performance high.
+Most settings allow percentages to control the frequency of the transformation. Fine-tune the percentages to keep file size down, and performance high.
 
 ```js
 {

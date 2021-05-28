@@ -192,6 +192,8 @@ export interface ObfuscateOptions {
    *
    * [String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false`)
    *
+   * `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
+   *
    * - Potency Medium
    * - Resilience Medium
    * - Cost Medium
@@ -341,7 +343,7 @@ export interface ObfuscateOptions {
   /**
    * ### `calculator`
    *
-   * Creates a calculator function to handle arithmetic and logical expressions. (`true/false`)
+   * Creates a calculator function to handle arithmetic and logical expressions. (`true/false/0-1`)
    *
    * - Potency Medium
    * - Resilience Medium
@@ -355,7 +357,7 @@ export interface ObfuscateOptions {
     /**
      * ### `lock.antiDebug`
      *
-     * Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false`)
+     * Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false/0-1`)
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
@@ -425,7 +427,7 @@ export interface ObfuscateOptions {
     /**
      * ### `lock.integrity`
      *
-     * Integrity ensures the source code is unchanged. (`true/false`)
+     * Integrity ensures the source code is unchanged. (`true/false/0-1`)
      * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
      *
      * - Potency Medium
@@ -482,7 +484,7 @@ export interface ObfuscateOptions {
   /**
    * ### `shuffle`
    *
-   * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false`)
+   * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false/0-1`)
    *
    * - Potency Medium
    * - Resilience Low
