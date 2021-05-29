@@ -46,7 +46,7 @@ it("works with Cash.js on High Preset", async () => {
   } as any;
   window.window = window;
 
-  writeFileSync(join(__dirname, "Cash.output"), output, { encoding: "utf-8" });
+  // writeFileSync(join(__dirname, "Cash.output"), output, { encoding: "utf-8" });
 
   eval(output);
 

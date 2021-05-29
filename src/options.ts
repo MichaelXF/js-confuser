@@ -261,8 +261,8 @@ export interface ObfuscateOptions {
    * RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings. (`"all"/true/false`)
    *
    * - **This can break your code. This is also as dangerous as `eval`.**
-   * - **Due to the security concern of arbitrary code execution, you must enable this yourself.**
-   * - The arbitrary code is obfuscated.
+   * - **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
+   * - The arbitrary code is also obfuscated.
    *
    * | Mode | Description |
    * | --- | --- |

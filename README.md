@@ -215,8 +215,8 @@ Q4r1__.Oo$Oz8t("RW11Hj5x");
 RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings. (`"all"/true/false`)
 
 - **This can break your code. This is also as dangerous as `eval`.**
-- **Due to the security concern of arbitrary code execution, you must enable this yourself.**
-- The arbitrary code is obfuscated.
+- **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
+- The arbitrary code is also obfuscated.
 
 | Mode | Description |
 | --- | --- |
@@ -420,6 +420,7 @@ function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+Ax
   stringConcealing: true,
   stringEncoding: true,
   stringSplitting: 0.75,
+  stack: true,
 
   // Use at own risk
   eval: false,
@@ -518,7 +519,7 @@ These features are experimental or a security concern.
 
   // experimental
   identifierGenerator: function(){
-    return "_CUSTOM_VAR_" + (counter++);
+    return "myvar_" + (counter++);
   }
 }
 ```
@@ -530,7 +531,7 @@ Most settings allow percentages to control the frequency of the transformation. 
 ```js
 {
   target: "node",
-  controlFlowFlattening: true // equal to 1, which is 100%
+  controlFlowFlattening: true // equal to 1, which is 100% (slow)
 
   controlFlowFlattening: 0.5 // 50%
   controlFlowFlattening: 0.01 // 1%
@@ -561,8 +562,8 @@ Mix modes using an object with key-value pairs represent each mode's percentage.
 {
   target: "node",
   
-  // avoid renaming a variable
-  renameVariables: x=>x!="jQuery",
+  // avoid renaming a certain variable
+  renameVariables: name=>name!="jQuery",
 
   // custom variable names
   identifierGenerator: ()=>{
@@ -593,6 +594,15 @@ Mix modes using an object with key-value pairs represent each mode's percentage.
 - 1.  String Encoding can corrupt files. Disable `stringEncoding` manually if this happens.
 - 2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
 
+## "The obfuscator broke my code!"
+
+Try disabling features in the following order:
+1. `flatten`
+2. `stack`
+3. `dispatcher`
+
+If the issue continues then open an issue.
+
 ## Bug report
 
 Please open an issue with the code and config used.
@@ -613,7 +623,7 @@ However, the dev is quick to fix these. The one above no longer works.
 
 Alternatively, you could go the paid-route with [JScrambler.com (enterprise only)](https://jscrambler.com/) or [PreEmptive.com](https://www.preemptive.com/products/jsdefender/online-javascript-obfuscator-demo)
 
-I've included several alternative obfuscators in the `samples/` folder. They are all derived from the input.js file.
+I've included several alternative obfuscators in the [`samples/`](https://github.com/MichaelXF/js-confuser/tree/master/samples) folder. They are all derived from the `input.js` file.
 
 ## Debugging
 
