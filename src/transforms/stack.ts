@@ -1,6 +1,7 @@
 import { ok } from "assert";
 import { reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
+import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
 import { walk } from "../traverse";
 import {
@@ -56,9 +57,21 @@ export default class Stack extends Transform {
         }
       }
 
+      if (
+        !ComputeProbabilityMap(
+          this.options.stack,
+          (x) => x,
+          object.id && object.id.name
+        )
+      ) {
+        return;
+      }
+
       var identifiers: {
         type: "defined" | "modified" | "reference";
         location: Location;
+        value?: Node;
+        replacing?: Node;
       }[] = [];
 
       var firstReference: { [name: string]: Node } = Object.create(null);
@@ -70,61 +83,156 @@ export default class Stack extends Transform {
       var references = new Set<string>();
       var illegal = new Set<string>();
 
-      walk(object.body, [object, ...parents], (o, p) => {
+      var queuedReplaces = new Map<string, [Node, Node][]>();
+
+      var scan = (varNode: Node, varParents: Node[]) => {
         if (
-          o.type == "Identifier" &&
-          !reservedIdentifiers.has(o.name) &&
-          !this.options.globalVariables.has(o.name)
+          varNode.type == "Identifier" &&
+          !reservedIdentifiers.has(varNode.name) &&
+          !this.options.globalVariables.has(varNode.name)
         ) {
-          var info = getIdentifierInfo(o, p);
+          function queue(node1: Node, node2: Node) {
+            if (!queuedReplaces.has(varNode.name)) {
+              queuedReplaces.set(varNode.name, [[node1, node2]]);
+            } else {
+              queuedReplaces.get(varNode.name).push([node1, node2]);
+            }
+          }
+
+          var info = getIdentifierInfo(varNode, varParents);
+
           if (info.isFunctionParameter || info.isClauseParameter) {
-            illegal.add(o.name);
+            illegal.add(varNode.name);
           } else if (
             info.spec.isReferenced ||
             info.spec.isDefined ||
             info.spec.isModified
           ) {
+            var value;
+            var replacing = varNode;
+
+            if (info.spec.isDefined) {
+              if (
+                varParents[0].type == "VariableDeclarator" &&
+                varParents[0].id === varNode
+              ) {
+                if (!varParents[0].init) {
+                  varParents[0].init = Identifier("undefined");
+                }
+                replacing = varParents[0].init;
+                value = { ...varParents[0].init };
+
+                if (
+                  varParents[2] &&
+                  varParents[2].type == "VariableDeclaration"
+                ) {
+                  if (varParents[2].declarations.length === 1) {
+                    replacing = Identifier("undefined");
+
+                    if (isForInitialize(varParents[2], varParents.slice(3))) {
+                      queue(varParents[2], replacing);
+                    } else {
+                      queue(varParents[2], ExpressionStatement(replacing));
+                    }
+                  }
+                }
+              } else if (
+                varParents[0].type == "FunctionDeclaration" &&
+                varParents[0].id === varNode
+              ) {
+                value = {
+                  ...varParents[0],
+                  type: "FunctionExpression",
+                  id: null,
+                  expression: false,
+                };
+
+                var emptyNode = Identifier("undefined");
+                queue(varParents[0], ExpressionStatement(emptyNode));
+                replacing = emptyNode;
+              } else if (
+                varParents[0].type == "ClassDeclaration" &&
+                varParents[0].id === varNode
+              ) {
+                // console.log(varNode.name, varParents[0].type, info);
+
+                value = {
+                  ...varParents[0],
+                  type: "ClassExpression",
+                  expression: null,
+                };
+
+                var emptyNode = Identifier("undefined");
+                queue(varParents[0], ExpressionStatement(emptyNode));
+                replacing = emptyNode;
+              }
+            } else if (info.spec.isModified) {
+              if (
+                varParents[0].type == "AssignmentExpression" &&
+                varParents[0].left == varNode
+              ) {
+                // value = varParents[0].right;
+              }
+
+              if (
+                varParents[0].type == "UpdateExpression" &&
+                varParents[0].argument == varNode
+              ) {
+              }
+            }
+
             identifiers.push({
-              location: [o, p],
+              location: [varNode, varParents],
               type: info.spec.isDefined
                 ? "defined"
                 : info.spec.isModified
                 ? "modified"
                 : "reference",
+              value: value,
+              replacing: replacing,
             });
-            lastReference[o.name] = o;
+            lastReference[varNode.name] = varNode;
 
             // console.log(o.name, info.spec);
-            var isParam = paramNames.includes(o.name);
-            if (!firstReference[o.name]) {
+            var isParam = paramNames.includes(varNode.name);
+            if (!firstReference[varNode.name]) {
               if (!info.spec.isDefined && !isParam) {
-                illegal.add(o.name);
+                illegal.add(varNode.name);
               }
-              firstReference[o.name] = o;
+              firstReference[varNode.name] = varNode;
             } else if (info.spec.isDefined && !isParam) {
-              illegal.add(o.name);
+              illegal.add(varNode.name);
             }
 
             if (info.spec.isDefined) {
-              defined.add(o.name);
+              defined.add(varNode.name);
             } else {
-              references.add(o.name);
+              references.add(varNode.name);
             }
 
             if (
               info.spec.isModified &&
               parents.find((x) => x.type == "VariableDeclarator")
             ) {
-              illegal.add(o.name);
+              illegal.add(varNode.name);
             }
           }
         }
+      };
+
+      walk(object.body, [object, ...parents], (varNode, varParents) => {
+        return () => {
+          scan(varNode, varParents);
+        };
       });
 
       references.forEach((ref) => {
         if (!defined.has(ref) || illegal.has(ref)) {
           identifiers = identifiers.filter((x) => x.location[0].name !== ref);
         }
+      });
+      illegal.forEach((illegal) => {
+        queuedReplaces.delete(illegal);
       });
 
       // console.log(object.id.name, identifiers.length);
@@ -133,18 +241,20 @@ export default class Stack extends Transform {
         return;
       }
 
+      queuedReplaces.forEach((value) => {
+        value.forEach(([node1, node2]) => {
+          this.replace(node1, node2);
+        });
+      });
+
       var stackName = this.getPlaceholder();
 
       // stack is default all params in an array
       var mappings: string[] = [...paramNames];
 
       for (var i = 0; i < identifiers.length; i++) {
-        var { type, location } = identifiers[i];
+        var { type, location, value, replacing } = identifiers[i];
         var [varNode, varParents] = location;
-
-        if (varNode.type !== "Identifier") {
-          continue;
-        }
 
         ok(typeof varNode.name === "string");
 
@@ -185,58 +295,8 @@ export default class Stack extends Transform {
         if (isFirstTimeUsed && !isParam) {
           // add to the array
 
-          var replacing = varNode;
-          var value;
-
-          if (
-            varParents[0].type == "VariableDeclarator" &&
-            varParents[0].id === varNode
-          ) {
-            if (!varParents[0].init) {
-              varParents[0].init = Identifier("undefined");
-            }
-            replacing = varParents[0].init;
-            value = { ...varParents[0].init };
-
-            if (varParents[2] && varParents[2].type == "VariableDeclaration") {
-              if (varParents[2].declarations.length === 1) {
-                replacing = Identifier("undefined");
-
-                if (isForInitialize(varParents[2], varParents.slice(3))) {
-                  this.replace(varParents[2], replacing);
-                } else {
-                  this.replace(varParents[2], ExpressionStatement(replacing));
-                }
-              }
-            }
-          } else if (
-            varParents[0].type == "FunctionDeclaration" &&
-            varParents[0].id === varNode
-          ) {
-            value = {
-              ...varParents[0],
-              type: "FunctionExpression",
-              id: null,
-              expression: false,
-            };
-
-            var emptyNode = Identifier("undefined");
-            this.replace(varParents[0], ExpressionStatement(emptyNode));
-            replacing = emptyNode;
-          } else if (
-            varParents[0].type == "ClassDeclaration" &&
-            varParents[0].id === varNode
-          ) {
-            value = {
-              ...varParents[0],
-              type: "ClassExpression",
-              expression: null,
-            };
-
-            var emptyNode = Identifier("undefined");
-            this.replace(varParents[0], ExpressionStatement(emptyNode));
-            replacing = emptyNode;
-          }
+          ok(value);
+          ok(replacing);
 
           if ((isFirstIndex || isLastIndex) && !isBranch) {
             this.replace(
@@ -247,7 +307,7 @@ export default class Stack extends Transform {
                   Identifier(isFirstIndex ? "unshift" : "push"),
                   false
                 ),
-                [value || Identifier("undefined")]
+                [value]
               )
             );
           } else {
@@ -256,18 +316,14 @@ export default class Stack extends Transform {
               AssignmentExpression(
                 "=",
                 MemberExpression(Identifier(stackName), Literal(index), true),
-                value || Identifier("undefined")
+                value
               )
             );
           }
           continue;
         }
 
-        if (isLastTimeUsed) {
-          if (typeof index !== "number") {
-            throw new Error("trying release variable with unknown index");
-          }
-
+        if (isLastTimeUsed && typeof index === "number") {
           if ((isFirstIndex || isLastIndex) && !isBranch) {
             // remove from array
 
@@ -275,7 +331,7 @@ export default class Stack extends Transform {
 
             // console.log(varNode.name, "->", isFirstIndex ? "shift" : "pop");
             this.replace(
-              varNode,
+              replacing,
               CallExpression(
                 MemberExpression(
                   Identifier(stackName),
@@ -291,7 +347,7 @@ export default class Stack extends Transform {
 
         if (typeof index === "number") {
           this.replace(
-            varNode,
+            replacing,
             MemberExpression(Identifier(stackName), Literal(index), true)
           );
         }

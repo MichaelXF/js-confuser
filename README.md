@@ -378,7 +378,7 @@ Shuffles the initial order of arrays. The order is brought back to the original 
 
 ### `stack`
 
-Local variables are consolidated into a rotating array.
+Local variables are consolidated into a rotating array. (`true/false/0-1`)
 
 [Similar to Jscrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)
 

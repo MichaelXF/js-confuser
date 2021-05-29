@@ -146,31 +146,33 @@ export default class Flatten extends Transform {
 
       // fix all return statements
       walk(object.body, [object, ...parents], (o, p) => {
-        if (o.type == "ReturnStatement") {
-          var arrayExpression = ArrayExpression([
-            ...Array.from(depend)
-              .reverse()
-              .map((x) => Identifier(x)),
-          ]);
-          if (o.argument) {
-            arrayExpression.elements.unshift(o.argument);
+        return () => {
+          if (o.type == "ReturnStatement") {
+            var arrayExpression = ArrayExpression([
+              ...Array.from(depend)
+                .reverse()
+                .map((x) => Identifier(x)),
+            ]);
+            if (o.argument) {
+              arrayExpression.elements.unshift(o.argument);
+            }
+            this.replace(o, ReturnStatement(arrayExpression));
           }
-          this.replace(o, ReturnStatement(arrayExpression));
-        }
 
-        if (
-          o.type == "Identifier" &&
-          collisions[o.name] &&
-          !reservedIdentifiers.has(o.name)
-        ) {
-          var info = getIdentifierInfo(o, p);
-          if (info.spec.isReferenced) {
-            var definedAt = getDefiningIdentifier(o, p);
-            if (!definedAt || definedAt[1].indexOf(object.params) !== -1) {
-              o.name = collisions[o.name];
+          if (
+            o.type == "Identifier" &&
+            collisions[o.name] &&
+            !reservedIdentifiers.has(o.name)
+          ) {
+            var info = getIdentifierInfo(o, p);
+            if (info.spec.isReferenced) {
+              var definedAt = getDefiningIdentifier(o, p);
+              if (!definedAt || definedAt[1].indexOf(object.params) !== -1) {
+                o.name = collisions[o.name];
+              }
             }
           }
-        }
+        };
       });
 
       // create a new function that will be located at the global level

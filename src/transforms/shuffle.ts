@@ -84,7 +84,7 @@ export default class Shuffle extends Transform {
     var mode = ComputeProbabilityMap(
       this.options.shuffle,
       (x) => x,
-      object.elements
+      object.elements.map((x) => x.value)
     );
     if (mode) {
       return () => {

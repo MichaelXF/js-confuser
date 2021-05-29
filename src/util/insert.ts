@@ -396,7 +396,9 @@ export function isForInitialize(o, p) {
 }
 
 export function isInBranch(object: Node, parents: Node[], context: Node) {
-  validateChain(object, parents);
+  ok(object);
+  ok(parents);
+  ok(context);
 
   ok(parents.includes(context));
 

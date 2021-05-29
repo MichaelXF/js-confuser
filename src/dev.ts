@@ -5,17 +5,27 @@ import JsConfuser from "./index";
 JsConfuser.obfuscate(
   `
   
-function TEST_FUNCTION(...a){
-  return a[0] + a[1] + a[2];
-}
+  function TEST_FUNCTION(){
 
-console.log(TEST_FUNCTION(...[1,1,8]));
+    class TEST_CLASS {
+      constructor(){
 
+      }
+
+      getValue(){
+        return "Value"
+      }
+    }
+
+    var instance = new TEST_CLASS();
+    input(instance.getValue());
+  }
+
+  TEST_FUNCTION()
 `,
   {
     target: "browser",
-    verbose: true,
-    dispatcher: true,
+    stack: true,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);
