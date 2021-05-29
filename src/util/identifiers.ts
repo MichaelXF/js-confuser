@@ -238,6 +238,7 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
         isVariableDeclaration ||
         isFunctionDeclaration ||
         isFunctionParameter ||
+        isClassDeclaration ||
         isClauseParameter ||
         isMethodDefinition ||
         isImportSpecifier,

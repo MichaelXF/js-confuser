@@ -217,7 +217,6 @@ export default class Stack extends Transform {
             value = {
               ...varParents[0],
               type: "ClassExpression",
-              id: null,
               expression: null,
             };
 
