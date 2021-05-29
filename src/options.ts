@@ -258,28 +258,33 @@ export interface ObfuscateOptions {
   /**
    * ### `rgf`
    *
-   * RGF (Runtime-Generated-Functions) uses the `new Function(code...)` syntax to construct executable code from strings.
-   * Only changes top-level functions and has to pass a reference array around.
+   * RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings. (`"all"/true/false`)
    *
-   * **This can break your code. This is also as dangerous as `eval` (eval is evil!)**
+   * - **This can break your code. This is also as dangerous as `eval`.**
+   * - **Due to the security concern of arbitrary code execution, you must enable this yourself.**
+   * - The arbitrary code is obfuscated.
+   *
+   * | Mode | Description |
+   * | --- | --- |
+   * | `"all"` | Recursively applies to every scope (slow) |
+   * | `true` | Applies to the top level only |
+   * | `false` | Feature disabled |
    *
    * ```js
    * // Input
-   * function log(x) {
-   *   console.log(x);
+   * function log(x){
+   *   console.log(x)
    * }
-   * log("hi");
+   *
+   * log("Hello World")
    *
    * // Output
-   * var refs = [new Function('refs', 'x', 'console.log(x);')];
-   * (function () {
-   *   return refs[0](refs, ...arguments);
-   * }('hi'));
+   * var C6z0jyO=[new Function('a2Fjjl',"function OqNW8x(OqNW8x){console['log'](OqNW8x)}return OqNW8x(...Array.prototype.slice.call(arguments,1))")];(function(){return C6z0jyO[0](C6z0jyO,...arguments)}('Hello World'))
    * ```
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  rgf?: ProbabilityMap<boolean>;
+  rgf?: ProbabilityMap<boolean | "all">;
 
   /**
    * ### `objectExtraction`
