@@ -19,3 +19,32 @@ it("should bring independent to the global level", async () => {
 
   expect(output.startsWith("function nested_"));
 });
+
+it("should work with dispatcher", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    function container(x){
+      function nested(x){
+        return x * 10;
+      }
+
+      return nested(x);
+    }
+
+    input(container(10))
+    `,
+    {
+      target: "node",
+      flatten: true,
+      dispatcher: true,
+    }
+  );
+
+  var value = "never_called";
+  function input(x) {
+    value = x;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual(100);
+});

@@ -132,7 +132,11 @@ export default class Transform {
    */
   apply(tree: Node) {
     if (tree.type == "Program" && this.options.verbose) {
-      console.log("#", this.priority, this.className);
+      if (this.priority === -1) {
+        console.log("#", ">", this.className);
+      } else {
+        console.log("#", this.priority, this.className);
+      }
     }
 
     /**

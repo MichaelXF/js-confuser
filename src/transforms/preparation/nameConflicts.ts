@@ -58,7 +58,11 @@ export default class NameConflicts extends Transform {
   }
 
   match(object, parents) {
-    return object.type == "Identifier";
+    return (
+      object.type == "Identifier" &&
+      !reservedIdentifiers.has(object.name) &&
+      !this.options.globalVariables.has(object.name)
+    );
   }
 
   transform(object: Node, parents: Node[]) {

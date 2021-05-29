@@ -21,7 +21,9 @@ import {
   clone,
   getContext,
   isContext,
+  isForInitialize,
   isFunction,
+  isInBranch,
   prepend,
 } from "../util/insert";
 import Transform from "./transform";
@@ -33,13 +35,31 @@ export default class Stack extends Transform {
 
   match(object: Node, parents: Node[]) {
     return (
-      isFunction(object) && !object.params.find((x) => x.type !== "Identifier")
+      isFunction(object) &&
+      !object.params.find((x) => x.type !== "Identifier") &&
+      object.body.type === "BlockStatement"
     );
   }
 
   transform(object: Node, parents: Node[]) {
     return () => {
-      var identifiers: Location[] = [];
+      // SyntaxError: Illegal 'use strict' directive in function with non-simple parameter list
+
+      for (var stmt of object.body.body) {
+        if (stmt.type == "ExpressionStatement") {
+          if (
+            stmt.expression.type == "Literal" &&
+            stmt.expression.value === "use strict"
+          ) {
+            return;
+          }
+        }
+      }
+
+      var identifiers: {
+        type: "defined" | "modified" | "reference";
+        location: Location;
+      }[] = [];
 
       var firstReference: { [name: string]: Node } = Object.create(null);
       var lastReference: { [name: string]: Node } = Object.create(null);
@@ -57,14 +77,21 @@ export default class Stack extends Transform {
           !this.options.globalVariables.has(o.name)
         ) {
           var info = getIdentifierInfo(o, p);
-          if (info.isFunctionParameter) {
+          if (info.isFunctionParameter || info.isClauseParameter) {
             illegal.add(o.name);
           } else if (
             info.spec.isReferenced ||
             info.spec.isDefined ||
             info.spec.isModified
           ) {
-            identifiers.push([o, p]);
+            identifiers.push({
+              location: [o, p],
+              type: info.spec.isDefined
+                ? "defined"
+                : info.spec.isModified
+                ? "modified"
+                : "reference",
+            });
             lastReference[o.name] = o;
 
             // console.log(o.name, info.spec);
@@ -83,13 +110,20 @@ export default class Stack extends Transform {
             } else {
               references.add(o.name);
             }
+
+            if (
+              info.spec.isModified &&
+              parents.find((x) => x.type == "VariableDeclarator")
+            ) {
+              illegal.add(o.name);
+            }
           }
         }
       });
 
       references.forEach((ref) => {
         if (!defined.has(ref) || illegal.has(ref)) {
-          identifiers = identifiers.filter((x) => x[0].name !== ref);
+          identifiers = identifiers.filter((x) => x.location[0].name !== ref);
         }
       });
 
@@ -105,8 +139,13 @@ export default class Stack extends Transform {
       var mappings: string[] = [...paramNames];
 
       for (var i = 0; i < identifiers.length; i++) {
-        var [varNode, varParents] = identifiers[i];
-        ok(varNode.type === "Identifier");
+        var { type, location } = identifiers[i];
+        var [varNode, varParents] = location;
+
+        if (varNode.type !== "Identifier") {
+          continue;
+        }
+
         ok(typeof varNode.name === "string");
 
         var isFirstTimeUsed = firstReference[varNode.name] === varNode;
@@ -130,37 +169,7 @@ export default class Stack extends Transform {
           mappings.length === 0 ||
           mappings[mappings.length - 1] === varNode.name;
 
-        var varNodeContext =
-          varParents[0].type == "FunctionDeclaration" &&
-          varParents[0].id == varNode
-            ? getContext(varParents[0], varParents.slice(1))
-            : getContext(varNode, varParents);
-
-        var contextIndex = varParents.findIndex(
-          (x) => isContext(x) && x === object
-        );
-        var slicedParents = varParents.slice(0, contextIndex);
-
-        ok(!slicedParents.includes(object), "slicedParents includes object");
-
-        var slicedTypes = new Set(slicedParents.map((x) => x.type));
-
-        var isBranch = varNodeContext !== object;
-        if (!isBranch) {
-          if (
-            [
-              "IfStatement",
-              "ForStatement",
-              "ForInStatement",
-              "ForOfStatement",
-              "SwitchStatement",
-              "ConditionalExpression",
-              "LogicalExpression",
-            ].find((x) => slicedTypes.has(x))
-          ) {
-            isBranch = true;
-          }
-        }
+        var isBranch = isInBranch(varNode, varParents, object);
 
         // console.log({
         //   name: varNode.name,
@@ -193,7 +202,11 @@ export default class Stack extends Transform {
               if (varParents[2].declarations.length === 1) {
                 replacing = Identifier("undefined");
 
-                this.replace(varParents[2], ExpressionStatement(replacing));
+                if (isForInitialize(varParents[2], varParents.slice(3))) {
+                  this.replace(varParents[2], replacing);
+                } else {
+                  this.replace(varParents[2], ExpressionStatement(replacing));
+                }
               }
             }
           } else if (
@@ -255,11 +268,11 @@ export default class Stack extends Transform {
             throw new Error("trying release variable with unknown index");
           }
 
-          // remove from array
-
-          mappings = mappings.filter((x) => x !== varNode.name);
-
           if ((isFirstIndex || isLastIndex) && !isBranch) {
+            // remove from array
+
+            mappings = mappings.filter((x) => x !== varNode.name);
+
             // console.log(varNode.name, "->", isFirstIndex ? "shift" : "pop");
             this.replace(
               varNode,

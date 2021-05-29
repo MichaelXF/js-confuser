@@ -375,3 +375,63 @@ export function clone<T>(object: T): T {
 
   return object as any;
 }
+
+export function isForInitialize(o, p) {
+  validateChain(o, p);
+
+  var forIndex = p.findIndex((x) => x.type == "ForStatement");
+  var inFor = forIndex != -1 && p[forIndex].init == (p[forIndex - 1] || o);
+
+  if (!inFor) {
+    var forCustomIndex = p.findIndex(
+      (x) => x.type == "ForInStatement" || x.type == "ForOfStatement"
+    );
+
+    inFor =
+      forCustomIndex != -1 &&
+      p[forCustomIndex].left == (p[forCustomIndex - 1] || o);
+  }
+
+  return inFor;
+}
+
+export function isInBranch(object: Node, parents: Node[], context: Node) {
+  validateChain(object, parents);
+
+  ok(parents.includes(context));
+
+  var definingContext =
+    parents[0].type == "FunctionDeclaration" && parents[0].id == object
+      ? getContext(parents[0], parents.slice(1))
+      : getContext(object, parents);
+
+  var contextIndex = parents.findIndex((x) => x === context);
+  var slicedParents = parents.slice(0, contextIndex);
+
+  ok(!slicedParents.includes(object), "slicedParents includes object");
+
+  var slicedTypes = new Set(slicedParents.map((x) => x.type));
+
+  var isBranch = definingContext !== context;
+  if (!isBranch) {
+    if (
+      [
+        "IfStatement",
+        "ForStatement",
+        "ForInStatement",
+        "ForOfStatement",
+        "WhileStatement",
+        "DoWhileStatement",
+        "SwitchStatement",
+        "ConditionalExpression",
+        "LogicalExpression",
+        "TryStatement",
+        "ChainExpression",
+      ].find((x) => slicedTypes.has(x))
+    ) {
+      isBranch = true;
+    }
+  }
+
+  return isBranch;
+}

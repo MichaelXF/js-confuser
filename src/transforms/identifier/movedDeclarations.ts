@@ -10,7 +10,7 @@ import {
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
-import { prepend } from "../../util/insert";
+import { isForInitialize, prepend } from "../../util/insert";
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 
@@ -43,10 +43,8 @@ export default class MovedDeclarations extends Transform {
           if (p[0].type == "ForStatement" && p[0].init == o) {
             return;
           }
-          if (
-            (p[0].type == "ForOfStatement" || p[0].type == "ForInStatement") &&
-            p[0].left == o
-          ) {
+
+          if (isForInitialize(o, p)) {
             return;
           }
 
@@ -74,9 +72,7 @@ export default class MovedDeclarations extends Transform {
             value = assignmentExpressions[0];
           }
 
-          var forIndex = p.findIndex((x) => x.type == "ForStatement");
-          var inFor =
-            forIndex != -1 && p[forIndex].init == (p[forIndex - 1] || o);
+          var inFor = isForInitialize(o, p);
 
           if (!inFor) {
             value = ExpressionStatement(value);

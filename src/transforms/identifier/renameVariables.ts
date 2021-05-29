@@ -3,7 +3,12 @@ import { ObfuscateOrder } from "../../order";
 import { walk } from "../../traverse";
 import { Location, Node } from "../../util/gen";
 import { getIdentifierInfo } from "../../util/identifiers";
-import { getContext, isContext, isFunction } from "../../util/insert";
+import {
+  getContext,
+  isContext,
+  isFunction,
+  isInBranch,
+} from "../../util/insert";
 import { isValidIdentifier } from "../../util/compare";
 import Transform from "../transform";
 import { reservedIdentifiers } from "../../constants";
@@ -22,13 +27,15 @@ export class VariableAnalysis extends Transform {
   defined: Map<Node, Set<string>>;
   references: Map<Node, Set<string>>;
   nodes: Map<Node, Set<Location>>;
+  checkBranch: boolean;
 
-  constructor(o) {
+  constructor(o, checkBranch = false) {
     super(o);
 
     this.defined = new Map();
     this.references = new Map();
     this.nodes = new Map();
+    this.checkBranch = !!checkBranch;
   }
 
   match(object, parents) {
@@ -78,7 +85,16 @@ export class VariableAnalysis extends Transform {
           this.nodes.get(c).add([o, p]);
         }
 
-        if (info.spec.isDefined) {
+        var isDefined = info.spec.isDefined;
+
+        if (this.checkBranch) {
+          var isBranch = isInBranch(o, p, c);
+          if (isBranch) {
+            isDefined = false;
+          }
+        }
+
+        if (isDefined) {
           // Add to defined Map
           if (!this.defined.has(c)) {
             this.defined.set(c, new Set());

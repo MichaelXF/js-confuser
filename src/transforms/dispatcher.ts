@@ -25,6 +25,8 @@ import {
   ThisExpression,
   VariableDeclarator,
   ArrayPattern,
+  SpreadElement,
+  RestElement,
 } from "../util/gen";
 import { getIdentifierInfo, isWithinClass } from "../util/identifiers";
 import {
@@ -91,11 +93,6 @@ export default class Dispatcher extends Transform {
           return;
         }
 
-        var body = getBlockBody(object.body);
-
-        // Controls how many arg variables to make
-        var maxArgs = 0;
-
         // Map of FunctionDeclarations
         var functionDeclarations: { [name: string]: Location } = {};
 
@@ -118,6 +115,9 @@ export default class Dispatcher extends Transform {
           }
 
           var c = getContext(o, p);
+          if (o.type == "FunctionDeclaration") {
+            c = getContext(p[0], p.slice(1));
+          }
 
           if (context === c) {
             if (o.type == "FunctionDeclaration") {
@@ -162,10 +162,6 @@ export default class Dispatcher extends Transform {
           delete functionDeclarations[name];
         });
 
-        Object.keys(functionDeclarations).forEach((x) => {
-          maxArgs = Math.max(functionDeclarations[x][0].params.length, maxArgs);
-        });
-
         // map original name->new game
         var gen = this.getGenerator();
         Object.keys(functionDeclarations).forEach((name) => {
@@ -176,9 +172,8 @@ export default class Dispatcher extends Transform {
 
         // Only make a dispatcher function if it caught any functions
         if (set.size > 0) {
-          var varArgs = Array(maxArgs)
-            .fill(0)
-            .map((x, i) => `$jsc_d${this.count}_${i}`);
+          var payloadArg = `$jsc_d${this.count}_payload`;
+
           var dispatcherFnName =
             this.getPlaceholder() + "_dispatcher_" + this.count;
 
@@ -225,11 +220,7 @@ export default class Dispatcher extends Transform {
                           type: "ArrayPattern",
                           elements: def.params.map(fixParam),
                         },
-                        ArrayExpression(
-                          varArgs
-                            .slice(0, def.params.length)
-                            .map(Identifier as any)
-                        )
+                        Identifier(payloadArg)
                       )
                     );
 
@@ -302,7 +293,7 @@ export default class Dispatcher extends Transform {
             )
           );
 
-          var getterArgNames = varArgs.map((x) => this.getPlaceholder());
+          var getterArgName = this.getPlaceholder();
 
           var x = this.getPlaceholder();
           var y = this.getPlaceholder();
@@ -323,39 +314,26 @@ export default class Dispatcher extends Transform {
               // Set returning variable to undefined
               VariableDeclaration(VariableDeclarator(returnProp)),
 
-              // Check for getter flag
-              varArgs.length
-                ? IfStatement(
-                    BinaryExpression(
-                      "==",
-                      Identifier(y),
-                      Literal(expectedClearArgs)
-                    ),
-                    [
-                      ExpressionStatement(
-                        SequenceExpression(
-                          varArgs.map((x) =>
-                            AssignmentExpression(
-                              "=",
-                              Identifier(x),
-                              Identifier("undefined")
-                            )
-                          )
-                        )
-                      ),
-                    ],
-                    null
-                  )
-                : // Fake code
-                  IfStatement(
-                    BinaryExpression(
-                      "==",
-                      Identifier(y),
-                      Literal(gen.generate())
-                    ),
-                    [ReturnStatement(Identifier(z))],
-                    null
+              // Arg to clear the payload
+              IfStatement(
+                BinaryExpression(
+                  "==",
+                  Identifier(y),
+                  Literal(expectedClearArgs)
+                ),
+                [
+                  ExpressionStatement(
+                    AssignmentExpression(
+                      "=",
+                      Identifier(payloadArg),
+                      ArrayExpression([])
+                    )
                   ),
+                ],
+                null
+              ),
+
+              // Arg to get a function reference
               IfStatement(
                 BinaryExpression("==", Identifier(y), Literal(expectedGet)),
                 [
@@ -365,16 +343,14 @@ export default class Dispatcher extends Transform {
                       "=",
                       Identifier(returnProp),
                       FunctionExpression(
-                        getterArgNames.map(Identifier as any),
+                        [RestElement(Identifier(getterArgName))],
                         [
                           // Arg setter
-                          ...getterArgNames.map((x, i) =>
-                            ExpressionStatement(
-                              AssignmentExpression(
-                                "=",
-                                Identifier(varArgs[i]),
-                                Identifier(x)
-                              )
+                          ExpressionStatement(
+                            AssignmentExpression(
+                              "=",
+                              Identifier(payloadArg),
+                              Identifier(getterArgName)
                             )
                           ),
 
@@ -431,10 +407,12 @@ export default class Dispatcher extends Transform {
 
           prepend(object, fn);
 
-          if (varArgs.length) {
+          if (payloadArg) {
             prepend(
               object,
-              VariableDeclaration(varArgs.map((x) => VariableDeclarator(x)))
+              VariableDeclaration(
+                VariableDeclarator(payloadArg, ArrayExpression([]))
+              )
             );
           }
 
@@ -473,7 +451,7 @@ export default class Dispatcher extends Transform {
                 assignmentExpressions = [
                   AssignmentExpression(
                     "=",
-                    ArrayPattern(varArgs.map((x) => Identifier(x))),
+                    Identifier(payloadArg),
                     ArrayExpression(p[0].arguments)
                   ),
                 ];
