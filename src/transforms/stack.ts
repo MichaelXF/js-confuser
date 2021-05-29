@@ -165,16 +165,19 @@ export default class Stack extends Transform {
                 var emptyNode = Identifier("undefined");
                 queue(varParents[0], ExpressionStatement(emptyNode));
                 replacing = emptyNode;
+              } else {
+                illegal.add(varNode.name);
               }
             }
+            const type = info.spec.isDefined
+              ? "defined"
+              : info.spec.isModified
+              ? "modified"
+              : "reference";
 
             identifiers.push({
               location: [varNode, varParents],
-              type: info.spec.isDefined
-                ? "defined"
-                : info.spec.isModified
-                ? "modified"
-                : "reference",
+              type: type,
               value: value,
               replacing: replacing,
             });
@@ -220,6 +223,7 @@ export default class Stack extends Transform {
       });
       illegal.forEach((illegal) => {
         queuedReplaces.delete(illegal);
+        identifiers = identifiers.filter((x) => x.location[0].name !== illegal);
       });
 
       // console.log(object.id.name, identifiers.length);
@@ -291,33 +295,35 @@ export default class Stack extends Transform {
         if (isFirstTimeUsed && !isParam) {
           // add to the array
 
-          ok(value);
-          ok(replacing);
+          if (type == "defined") {
+            ok(value);
+            ok(replacing);
 
-          if ((isFirstIndex || isLastIndex) && !isBranch) {
+            if ((isFirstIndex || isLastIndex) && !isBranch) {
+              this.replace(
+                replacing,
+                CallExpression(
+                  MemberExpression(
+                    Identifier(stackName),
+                    Identifier(isFirstIndex ? "unshift" : "push"),
+                    false
+                  ),
+                  [value]
+                )
+              );
+              continue;
+            }
+
             this.replace(
               replacing,
-              CallExpression(
-                MemberExpression(
-                  Identifier(stackName),
-                  Identifier(isFirstIndex ? "unshift" : "push"),
-                  false
-                ),
-                [value]
+              AssignmentExpression(
+                "=",
+                MemberExpression(Identifier(stackName), Literal(index), true),
+                value
               )
             );
             continue;
           }
-
-          this.replace(
-            replacing,
-            AssignmentExpression(
-              "=",
-              MemberExpression(Identifier(stackName), Literal(index), true),
-              value
-            )
-          );
-          continue;
         }
 
         if (isLastTimeUsed && typeof index === "number") {

@@ -7,25 +7,14 @@ JsConfuser.obfuscate(
   
   function TEST_FUNCTION(){
 
-    class TEST_CLASS {
-      constructor(){
-
-      }
-
-      getValue(){
-        return "Value"
-      }
-    }
-
-    var instance = new TEST_CLASS();
-    input(instance.getValue());
+    return 10;
   }
 
-  TEST_FUNCTION()
+  console.log( TEST_FUNCTION() )
 `,
   {
     target: "browser",
-    stack: true,
+    flatten: true,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);

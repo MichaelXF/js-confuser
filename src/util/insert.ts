@@ -1,7 +1,7 @@
 import { ok } from "assert";
 import { getBlock, isBlock, getBlocks } from "../traverse";
 import { Node, Location } from "./gen";
-import { validateChain } from "./identifiers";
+import { getIdentifierInfo, validateChain } from "./identifiers";
 
 /**
  * - `FunctionDeclaration`
@@ -144,6 +144,29 @@ export function getLexContext(object: Node, parents: Node[]): Node {
   ok(object, "No parents and no object");
 
   return object;
+}
+
+export function getDefiningContext(o: Node, p: Node[]): Node {
+  validateChain(o, p);
+  ok(o.type == "Identifier");
+  var info = getIdentifierInfo(o, p);
+
+  ok(info.spec.isDefined);
+
+  if (info.isVariableDeclaration) {
+    var variableDeclaration = p.find((x) => x.type == "VariableDeclaration");
+    ok(variableDeclaration);
+
+    if (variableDeclaration.kind === "let") {
+      return getLexContext(o, p);
+    }
+  }
+
+  if (info.isFunctionDeclaration) {
+    return getVarContext(p[0], p.slice(1));
+  }
+
+  return getVarContext(o, p);
 }
 
 export function getBlockBody(block: Node): Node[] {

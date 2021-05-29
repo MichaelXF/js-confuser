@@ -11,6 +11,7 @@ import {
   getLexContext,
   isContext,
   isLexContext,
+  getDefiningContext,
 } from "../../util/insert";
 import { isValidIdentifier } from "../../util/compare";
 import Transform from "../transform";
@@ -66,54 +67,40 @@ export class VariableAnalysis extends Transform {
           return;
         }
 
-        var definingContext = getVarContext(o, p);
-        if (info.spec.isDefined) {
-          if (info.isVariableDeclaration) {
-            var variableDeclaration = p.find(
-              (x) => x.type == "VariableDeclaration"
-            );
-            ok(variableDeclaration);
+        var definingContexts = info.spec.isDefined
+          ? [getDefiningContext(o, p)]
+          : [getVarContext(o, p), getLexContext(o, p)];
 
-            if (variableDeclaration.kind === "let") {
-              definingContext = getLexContext(o, p);
-            }
-          }
-        }
-
-        // Since a function's `.id` is nested within the function(i.e a new context)
-        // we must go one context up
-        if (info.isFunctionDeclaration) {
-          var fnIndex = p.findIndex((x) => isFunction(x));
-          definingContext = p.slice(fnIndex + 1).find((x) => isVarContext(x));
-        }
-
-        ok(
-          isContext(definingContext),
-          `${definingContext.type} is not a context`
-        );
+        ok(definingContexts.length);
 
         var isDefined = info.spec.isDefined;
+        definingContexts.forEach((definingContext) => {
+          ok(
+            isContext(definingContext),
+            `${definingContext.type} is not a context`
+          );
 
-        if (isDefined) {
-          // Add to defined Map
-          if (!this.defined.has(definingContext)) {
-            this.defined.set(definingContext, new Set());
-          }
-          this.defined.get(definingContext).add(name);
-          this.references.has(definingContext) &&
-            this.references.get(definingContext).delete(name);
-        } else {
-          // Add to references Map
-          if (
-            !this.defined.has(definingContext) ||
-            !this.defined.get(definingContext).has(name)
-          ) {
-            if (!this.references.has(definingContext)) {
-              this.references.set(definingContext, new Set());
+          if (isDefined) {
+            // Add to defined Map
+            if (!this.defined.has(definingContext)) {
+              this.defined.set(definingContext, new Set());
             }
-            this.references.get(definingContext).add(name);
+            this.defined.get(definingContext).add(name);
+            this.references.has(definingContext) &&
+              this.references.get(definingContext).delete(name);
+          } else {
+            // Add to references Map
+            if (
+              !this.defined.has(definingContext) ||
+              !this.defined.get(definingContext).has(name)
+            ) {
+              if (!this.references.has(definingContext)) {
+                this.references.set(definingContext, new Set());
+              }
+              this.references.get(definingContext).add(name);
+            }
           }
-        }
+        });
       }
     });
 

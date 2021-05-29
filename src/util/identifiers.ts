@@ -73,7 +73,9 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
   var varIndex = parents.findIndex((x) => x.type == "VariableDeclarator");
 
   var isVariableDeclaration =
-    varIndex != -1 && parents[varIndex].id == (parents[varIndex - 1] || object);
+    varIndex != -1 &&
+    parents[varIndex].id == (parents[varIndex - 1] || object) &&
+    parents.find((x) => x.type == "VariableDeclaration");
 
   var forIndex = parents.findIndex((x) => x.type == "ForStatement");
   var isForInitializer =
@@ -376,7 +378,7 @@ export function isFunctionParameter(o: Node, p: Node[]) {
 export function getFunctionParameters(
   object: Node,
   parents: Node[]
-): Location[] {
+): [{ type: "Identifier"; name: string }, Node[]][] {
   ok(isFunction(object));
   ok(object.params);
 
