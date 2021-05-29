@@ -90,3 +90,90 @@ it("should not rename member properties", async () => {
 
   expect(value).toStrictEqual(100);
 });
+
+it("should handle variable defined with let (1)", async () => {
+  var code = `
+
+    // lexically bound
+    let TEST_OBJECT = { TEST_PROPERTY: 100 }
+
+    input(TEST_OBJECT.TEST_PROPERTY); // "TEST_PROPERTY" should not be renamed
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    renameVariables: true,
+    renameGlobals: true,
+    identifierGenerator: "mangled",
+  });
+
+  var value = false;
+  function input(valueIn) {
+    value = valueIn;
+  }
+  eval(output);
+
+  expect(value).toStrictEqual(100);
+});
+
+it("should handle variable defined with let (2)", async () => {
+  var code = `
+
+    // lexically bound
+    let TEST_OBJECT = { TEST_PROPERTY: "UPPER_VALUE" }
+    if ( true ) {
+      let TEST_OBJECT = { TEST_PROPERTY: 100 }
+      input(TEST_OBJECT.TEST_PROPERTY); // "TEST_PROPERTY" should not be renamed
+    }
+
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    renameVariables: true,
+    renameGlobals: true,
+    identifierGenerator: "mangled",
+  });
+
+  var value = false;
+  function input(valueIn) {
+    value = valueIn;
+  }
+  eval(output);
+
+  expect(value).toStrictEqual(100);
+});
+
+it("should handle variable defined with let (3)", async () => {
+  var code = `
+
+    // lexically bound
+    let TEST_OBJECT = { TEST_PROPERTY: "UPPER_VALUE" }
+    if ( true ) {
+      let TEST_OBJECT = { TEST_PROPERTY: 100 }
+      input(TEST_OBJECT.TEST_PROPERTY); // "TEST_PROPERTY" should not be renamed
+    }
+
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    renameVariables: true,
+    renameGlobals: true,
+    identifierGenerator: "mangled",
+  });
+
+  expect(output).not.toContain("TEST_OBJECT");
+  expect(output).toContain("TEST_PROPERTY");
+  expect(output).toContain("input");
+  expect(output).toContain("let A");
+  expect(typeof output.split("let A")[1]).toStrictEqual("string");
+
+  var value = false;
+  function input(valueIn) {
+    value = valueIn;
+  }
+  eval(output);
+
+  expect(value).toStrictEqual(100);
+});

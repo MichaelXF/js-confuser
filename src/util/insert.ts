@@ -111,7 +111,7 @@ export function getContexts(object: Node, parents: Node[]): Node[] {
 }
 
 /**
- * Refers to the current function or Root node
+ * Refers to the current lexical block or Root node.
  * @param parents
  */
 export function getLexContext(object: Node, parents: Node[]): Node {

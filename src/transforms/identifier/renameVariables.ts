@@ -8,6 +8,9 @@ import {
   isVarContext,
   isFunction,
   isInBranch,
+  getLexContext,
+  isContext,
+  isLexContext,
 } from "../../util/insert";
 import { isValidIdentifier } from "../../util/compare";
 import Transform from "../transform";
@@ -26,20 +29,16 @@ export class VariableAnalysis extends Transform {
    */
   defined: Map<Node, Set<string>>;
   references: Map<Node, Set<string>>;
-  nodes: Map<Node, Set<Location>>;
-  checkBranch: boolean;
 
-  constructor(o, checkBranch = false) {
+  constructor(o) {
     super(o);
 
     this.defined = new Map();
     this.references = new Map();
-    this.nodes = new Map();
-    this.checkBranch = !!checkBranch;
   }
 
   match(object, parents) {
-    return isVarContext(object);
+    return isContext(object);
   }
 
   transform(object, parents) {
@@ -58,7 +57,6 @@ export class VariableAnalysis extends Transform {
           return;
         }
 
-        var c = getVarContext(o, p);
         var info = getIdentifierInfo(o, p);
         if (!info.spec.isReferenced) {
           return;
@@ -68,46 +66,52 @@ export class VariableAnalysis extends Transform {
           return;
         }
 
+        var definingContext = getVarContext(o, p);
+        if (info.spec.isDefined) {
+          if (info.isVariableDeclaration) {
+            var variableDeclaration = p.find(
+              (x) => x.type == "VariableDeclaration"
+            );
+            ok(variableDeclaration);
+
+            if (variableDeclaration.kind === "let") {
+              definingContext = getLexContext(o, p);
+            }
+          }
+        }
+
         // Since a function's `.id` is nested within the function(i.e a new context)
         // we must go one context up
         if (info.isFunctionDeclaration) {
           var fnIndex = p.findIndex((x) => isFunction(x));
-          c = p.slice(fnIndex + 1).find((x) => isVarContext(x));
+          definingContext = p.slice(fnIndex + 1).find((x) => isVarContext(x));
         }
 
-        ok(isVarContext(c), `${c.type} is not a context`);
-
-        // Add to nodes array (its actually a set)
-        if (object.type == "Program") {
-          if (!this.nodes.has(c)) {
-            this.nodes.set(c, new Set());
-          }
-          this.nodes.get(c).add([o, p]);
-        }
+        ok(
+          isContext(definingContext),
+          `${definingContext.type} is not a context`
+        );
 
         var isDefined = info.spec.isDefined;
 
-        if (this.checkBranch) {
-          var isBranch = isInBranch(o, p, c);
-          if (isBranch) {
-            isDefined = false;
-          }
-        }
-
         if (isDefined) {
           // Add to defined Map
-          if (!this.defined.has(c)) {
-            this.defined.set(c, new Set());
+          if (!this.defined.has(definingContext)) {
+            this.defined.set(definingContext, new Set());
           }
-          this.defined.get(c).add(name);
-          this.references.has(c) && this.references.get(c).delete(name);
+          this.defined.get(definingContext).add(name);
+          this.references.has(definingContext) &&
+            this.references.get(definingContext).delete(name);
         } else {
           // Add to references Map
-          if (!this.defined.has(c) || !this.defined.get(c).has(name)) {
-            if (!this.references.has(c)) {
-              this.references.set(c, new Set());
+          if (
+            !this.defined.has(definingContext) ||
+            !this.defined.get(definingContext).has(name)
+          ) {
+            if (!this.references.has(definingContext)) {
+              this.references.set(definingContext, new Set());
             }
-            this.references.get(c).add(name);
+            this.references.get(definingContext).add(name);
           }
         }
       }
@@ -152,11 +156,20 @@ export default class RenameVariables extends Transform {
   }
 
   match(object, parents) {
-    return isVarContext(object);
+    return isContext(object);
   }
 
   transform(object, parents) {
     var isGlobal = object.type == "Program";
+    var type = isGlobal
+      ? "root"
+      : isVarContext(object)
+      ? "var"
+      : isLexContext(object)
+      ? "lex"
+      : undefined;
+
+    ok(type);
 
     var newNames = Object.create(null);
 
@@ -174,7 +187,7 @@ export default class RenameVariables extends Transform {
       var allReferences = new Set(references || []);
       var nope = new Set(defined);
       walk(object, [], (o, p) => {
-        if (isVarContext(o)) {
+        if (isContext(o)) {
           var ref = this.variableAnalysis.references.get(o);
           if (ref) {
             ref.forEach((x) => allReferences.add(x));
@@ -242,7 +255,7 @@ export default class RenameVariables extends Transform {
           return;
         }
 
-        var contexts = [o, ...p].filter((x) => isVarContext(x));
+        var contexts = [o, ...p].filter((x) => isContext(x));
         var newName = null;
 
         for (var check of contexts) {
