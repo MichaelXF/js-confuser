@@ -63,7 +63,8 @@ export default class StringSplitting extends Transform {
     return (
       object.type == "Literal" &&
       typeof object.value === "string" &&
-      !isModuleSource(object, parents)
+      !isModuleSource(object, parents) &&
+      object.value !== "use strict"
     );
   }
 
