@@ -5,7 +5,7 @@ import {
   getDefiningIdentifier,
   getIdentifierInfo,
 } from "../../util/identifiers";
-import { isContext } from "../../util/insert";
+import { isVarContext } from "../../util/insert";
 import { VariableAnalysis } from "../identifier/renameVariables";
 import Transform from "../transform";
 

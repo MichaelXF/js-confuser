@@ -32,9 +32,9 @@ import { getIdentifierInfo, isWithinClass } from "../util/identifiers";
 import {
   deleteDirect,
   getBlockBody,
-  getContext,
+  getVarContext,
   getFunction,
-  isContext,
+  isVarContext,
   isFunction,
   prepend,
 } from "../util/insert";
@@ -83,7 +83,7 @@ export default class Dispatcher extends Transform {
       return false;
     }
 
-    return isContext(object) && !object.$dispatcherSkip;
+    return isVarContext(object) && !object.$dispatcherSkip;
   }
 
   transform(object: Node, parents: Node[]) {
@@ -103,7 +103,7 @@ export default class Dispatcher extends Transform {
         // New Names for Functions
         var newFnNames: { [name: string]: string } = {}; // [old name]: randomized name
 
-        var context = getContext(object, parents);
+        var context = getVarContext(object, parents);
 
         walk(object, parents, (o: Node, p: Node[]) => {
           if (object == o) {
@@ -114,9 +114,9 @@ export default class Dispatcher extends Transform {
             return;
           }
 
-          var c = getContext(o, p);
+          var c = getVarContext(o, p);
           if (o.type == "FunctionDeclaration") {
-            c = getContext(p[0], p.slice(1));
+            c = getVarContext(p[0], p.slice(1));
           }
 
           if (context === c) {

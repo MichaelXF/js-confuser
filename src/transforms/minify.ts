@@ -21,7 +21,7 @@ import {
   insertBefore,
   deleteDirect,
   getBlockBody,
-  isContext,
+  isVarContext,
   clone,
   isForInitialize,
 } from "../util/insert";

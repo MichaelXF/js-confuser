@@ -1,7 +1,7 @@
 import { ok } from "assert";
 import traverse, { walk } from "../traverse";
 import { Location, Node } from "./gen";
-import { getContext, isContext, isFunction } from "./insert";
+import { getVarContext, isVarContext, isFunction } from "./insert";
 
 /**
  * Ensures the chain (object and parents) are connected.
@@ -86,9 +86,8 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     functionIndex != -1 &&
     parents[functionIndex].type == "FunctionDeclaration" &&
     parents[functionIndex].id == object;
-  var isFunctionParameter =
-    functionIndex != -1 &&
-    parents[functionIndex].params == parents[functionIndex - 1];
+  var isAFunctionParameter = isFunctionParameter(object, parents);
+
   var isClauseParameter = false;
 
   // Special case for Catch clauses
@@ -149,7 +148,7 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     /**
      * `function a(identifier){...}`
      */
-    isFunctionParameter,
+    isFunctionParameter: isAFunctionParameter,
 
     /**
      * ```js
@@ -237,7 +236,7 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
       isDefined:
         isVariableDeclaration ||
         isFunctionDeclaration ||
-        isFunctionParameter ||
+        isAFunctionParameter ||
         isClassDeclaration ||
         isClauseParameter ||
         isMethodDefinition ||
@@ -290,10 +289,10 @@ export function getDefiningIdentifier(object: Node, parents: Node[]): Location {
       if (o.type == "Identifier" && o.name === object.name && o !== object) {
         var info = getIdentifierInfo(o, p);
         if (info.spec.isDefined) {
-          var contexts = p.filter((x) => isContext(x));
+          var contexts = p.filter((x) => isVarContext(x));
           var definingContext = info.isFunctionDeclaration
-            ? getContext(p[0], p.slice(1))
-            : getContext(o, p);
+            ? getVarContext(p[0], p.slice(1))
+            : getVarContext(o, p);
 
           if (parents.includes(definingContext)) {
             var index = contexts.indexOf(definingContext);
@@ -316,4 +315,80 @@ export function getDefiningIdentifier(object: Node, parents: Node[]): Location {
     seen.add(parent);
     i++;
   }
+}
+
+export function isFunctionParameter(o: Node, p: Node[]) {
+  ok(o);
+  ok(p);
+  validateChain(o, p);
+
+  if (o.type !== "Identifier") {
+    return false;
+  }
+  var object = p.find((x) => isFunction(x) && x.params);
+  if (!object) {
+    return false;
+  }
+
+  var c = getVarContext(o, p);
+  if (c === object) {
+    var pIndex = p.indexOf(object.params);
+    if (pIndex == -1) {
+      return false;
+    }
+
+    var param = p[pIndex - 1] || o;
+    var paramIndex = object.params.indexOf(param);
+    ok(paramIndex !== -1);
+
+    var sliced = p.slice(p.indexOf(paramIndex));
+    ok(!sliced.includes(o));
+
+    var isReferenced = true;
+    var i = 0;
+    for (var node of sliced) {
+      var down = sliced[i - 1] || o;
+      ok(down);
+
+      if (node.type) {
+        if (node.type == "AssignmentPattern" && node.right === down) {
+          isReferenced = false;
+          break;
+        }
+
+        if (node.type == "ObjectPattern" && node.key === down) {
+          isReferenced = false;
+          break;
+        }
+      }
+
+      i++;
+    }
+
+    if (isReferenced) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function getFunctionParameters(
+  object: Node,
+  parents: Node[]
+): Location[] {
+  ok(isFunction(object));
+  ok(object.params);
+
+  var locations = [];
+
+  walk(object.params, [object, ...parents], (o, p) => {
+    if (o.type == "Identifier") {
+      if (isFunctionParameter(o, p)) {
+        locations.push([o, p]);
+      }
+    }
+  });
+
+  return locations;
 }

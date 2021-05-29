@@ -4,8 +4,8 @@ import { walk } from "../../traverse";
 import { Location, Node } from "../../util/gen";
 import { getIdentifierInfo } from "../../util/identifiers";
 import {
-  getContext,
-  isContext,
+  getVarContext,
+  isVarContext,
   isFunction,
   isInBranch,
 } from "../../util/insert";
@@ -39,7 +39,7 @@ export class VariableAnalysis extends Transform {
   }
 
   match(object, parents) {
-    return isContext(object);
+    return isVarContext(object);
   }
 
   transform(object, parents) {
@@ -58,7 +58,7 @@ export class VariableAnalysis extends Transform {
           return;
         }
 
-        var c = getContext(o, p);
+        var c = getVarContext(o, p);
         var info = getIdentifierInfo(o, p);
         if (!info.spec.isReferenced) {
           return;
@@ -72,10 +72,10 @@ export class VariableAnalysis extends Transform {
         // we must go one context up
         if (info.isFunctionDeclaration) {
           var fnIndex = p.findIndex((x) => isFunction(x));
-          c = p.slice(fnIndex + 1).find((x) => isContext(x));
+          c = p.slice(fnIndex + 1).find((x) => isVarContext(x));
         }
 
-        ok(isContext(c), `${c.type} is not a context`);
+        ok(isVarContext(c), `${c.type} is not a context`);
 
         // Add to nodes array (its actually a set)
         if (object.type == "Program") {
@@ -152,7 +152,7 @@ export default class RenameVariables extends Transform {
   }
 
   match(object, parents) {
-    return isContext(object);
+    return isVarContext(object);
   }
 
   transform(object, parents) {
@@ -174,7 +174,7 @@ export default class RenameVariables extends Transform {
       var allReferences = new Set(references || []);
       var nope = new Set(defined);
       walk(object, [], (o, p) => {
-        if (isContext(o)) {
+        if (isVarContext(o)) {
           var ref = this.variableAnalysis.references.get(o);
           if (ref) {
             ref.forEach((x) => allReferences.add(x));
@@ -242,7 +242,7 @@ export default class RenameVariables extends Transform {
           return;
         }
 
-        var contexts = [o, ...p].filter((x) => isContext(x));
+        var contexts = [o, ...p].filter((x) => isVarContext(x));
         var newName = null;
 
         for (var check of contexts) {

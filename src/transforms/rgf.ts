@@ -22,7 +22,12 @@ import {
   VariableDeclarator,
 } from "../util/gen";
 import { getDefiningIdentifier, getIdentifierInfo } from "../util/identifiers";
-import { getContext, isContext, isFunction, prepend } from "../util/insert";
+import {
+  getVarContext,
+  isVarContext,
+  isFunction,
+  prepend,
+} from "../util/insert";
 import Transform from "./transform";
 
 /**
@@ -46,7 +51,7 @@ export default class RGF extends Transform {
   }
 
   match(object, parents) {
-    return isContext(object);
+    return isVarContext(object);
   }
 
   transform(contextObject, contextParents) {
@@ -71,7 +76,7 @@ export default class RGF extends Transform {
         if (
           object !== contextObject &&
           isFunction(object) &&
-          getContext(parents[0], parents.slice(1)) === contextObject
+          getVarContext(parents[0], parents.slice(1)) === contextObject
         ) {
           var defined = new Set<string>(),
             referenced = new Set<string>();

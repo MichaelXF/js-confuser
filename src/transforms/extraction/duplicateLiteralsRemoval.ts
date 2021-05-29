@@ -57,7 +57,11 @@ export default class DuplicateLiteralsRemoval extends Transform {
   }
 
   match(object: Node, parents: Node[]) {
-    return isPrimitive(object) && !isModuleSource(object, parents);
+    return (
+      isPrimitive(object) &&
+      !isModuleSource(object, parents) &&
+      !(object.type == "Literal" && object.value === "use strict")
+    );
   }
 
   toMember(object: Node, parents: Node[], index: number) {

@@ -7,9 +7,20 @@ var CASH_JS = readFileSync(join(__dirname, "./Cash.src"), "utf-8");
 it("works with Cash.js on High Preset", async () => {
   var output = await JsConfuser(CASH_JS, {
     target: "browser",
-    debugComments: true,
-
-    stack: true,
+    preset: "high",
+    stringEncoding: false,
+    stringConcealing: false,
+    stringSplitting: false,
+    controlFlowFlattening: false,
+    deadCode: false,
+    duplicateLiteralsRemoval: false,
+    calculator: false,
+    shuffle: false,
+    objectExtraction: false,
+    renameVariables: false,
+    stack: false,
+    dispatcher: false,
+    flatten: true,
   });
 
   // Make the required document variables for initialization

@@ -14,8 +14,8 @@ import {
 import { ObfuscateOrder } from "../../order";
 import {
   getIndexDirect,
-  getContext,
-  isContext,
+  getVarContext,
+  isVarContext,
   getBlockBody,
   clone,
 } from "../../util/insert";

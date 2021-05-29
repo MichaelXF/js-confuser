@@ -20,8 +20,8 @@ import {
 import { getIdentifierInfo } from "../util/identifiers";
 import {
   clone,
-  getContext,
-  isContext,
+  getVarContext,
+  isVarContext,
   isForInitialize,
   isFunction,
   isInBranch,
@@ -166,19 +166,6 @@ export default class Stack extends Transform {
                 queue(varParents[0], ExpressionStatement(emptyNode));
                 replacing = emptyNode;
               }
-            } else if (info.spec.isModified) {
-              if (
-                varParents[0].type == "AssignmentExpression" &&
-                varParents[0].left == varNode
-              ) {
-                // value = varParents[0].right;
-              }
-
-              if (
-                varParents[0].type == "UpdateExpression" &&
-                varParents[0].argument == varNode
-              ) {
-              }
             }
 
             identifiers.push({
@@ -241,6 +228,9 @@ export default class Stack extends Transform {
         return;
       }
 
+      // console.log(defined);
+
+      var rollback = clone(object);
       queuedReplaces.forEach((value) => {
         value.forEach(([node1, node2]) => {
           this.replace(node1, node2);
@@ -256,7 +246,10 @@ export default class Stack extends Transform {
         var { type, location, value, replacing } = identifiers[i];
         var [varNode, varParents] = location;
 
-        ok(typeof varNode.name === "string");
+        if (typeof varNode.name !== "string") {
+          this.replace(object, rollback);
+          return;
+        }
 
         var isFirstTimeUsed = firstReference[varNode.name] === varNode;
         var isLastTimeUsed = lastReference[varNode.name] === varNode;
@@ -270,6 +263,9 @@ export default class Stack extends Transform {
           if (isFirstTimeUsed) {
             index = mappings.length;
             mappings.push(varNode.name);
+          } else {
+            this.replace(object, rollback);
+            return;
           }
         }
 
@@ -310,16 +306,17 @@ export default class Stack extends Transform {
                 [value]
               )
             );
-          } else {
-            this.replace(
-              replacing,
-              AssignmentExpression(
-                "=",
-                MemberExpression(Identifier(stackName), Literal(index), true),
-                value
-              )
-            );
+            continue;
           }
+
+          this.replace(
+            replacing,
+            AssignmentExpression(
+              "=",
+              MemberExpression(Identifier(stackName), Literal(index), true),
+              value
+            )
+          );
           continue;
         }
 
@@ -350,6 +347,9 @@ export default class Stack extends Transform {
             replacing,
             MemberExpression(Identifier(stackName), Literal(index), true)
           );
+        } else {
+          this.replace(object, rollback);
+          return;
         }
       }
 
