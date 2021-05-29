@@ -315,7 +315,7 @@ export default class Lock extends Transform {
   getCounterMeasuresCode(): Node[] {
     var opt = this.options.lock.countermeasures;
 
-    if (!opt) {
+    if (opt === false) {
       return null;
     }
 

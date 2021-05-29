@@ -36,8 +36,6 @@ export class VariableAnalysis extends Transform {
   }
 
   transform(object, parents) {
-    var isGlobal = object.type == "Program";
-
     walk(object, parents, (o, p) => {
       if (o.type == "Identifier") {
         var name = o.name;

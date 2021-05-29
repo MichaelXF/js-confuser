@@ -286,6 +286,27 @@ export interface ObfuscateOptions {
    */
   rgf?: ProbabilityMap<boolean | "all">;
 
+  /**
+   * ### `stack`
+   *
+   * Local variables are consolidated into a rotating array.
+   *
+   * [Similar to Jscrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)
+   *
+   * - Potency Medium
+   * - Resilience Medium
+   * - Cost Low
+   *
+   * ```js
+   * // input
+   * function add3(x, y, z){
+   *   return x + y + z;
+   * }
+   *
+   * // output
+   * function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+AxaSQr.shift()}
+   * ```
+   */
   stack?: ProbabilityMap<boolean>;
 
   /**
@@ -448,7 +469,7 @@ export interface ObfuscateOptions {
     /**
      * ### `lock.countermeasures`
      *
-     * A custom callback function to invoke when a lock is triggered.
+     * A custom callback function to invoke when a lock is triggered. (`string/false`)
      *
      * This could be due to an invalid domain, incorrect time, or code's integrity changed.
      *
@@ -458,7 +479,7 @@ export interface ObfuscateOptions {
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
-    countermeasures?: string;
+    countermeasures?: string | boolean;
   };
 
   /**
