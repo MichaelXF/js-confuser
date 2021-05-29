@@ -1,38 +1,21 @@
+import { readFileSync, writeFileSync } from "fs";
 import JsConfuser from "./index";
+// const file = readFileSync("./test/code/Cash.src", "utf-8");
 
 JsConfuser.obfuscate(
   `
-
-function getNumbers(){
-  return [5, 10];
+  
+function TEST_FUNCTION(...a){
+  return a[0] + a[1] + a[2];
 }
 
-function multiply(x,y){
-  return x*y;
-}
-
-function testFunction(){
-  function add(x,y){
-    return x+y;
-  }
-
-  function testInnerFunction(){
-    var numbers = getNumbers();
-
-    // 5*10 + 10 = 60
-    return add(multiply(numbers[0], numbers[1]), numbers[1])
-  }
-
-  testInnerFunction();
-}
-
-testFunction();
+console.log(TEST_FUNCTION(...[1,1,8]));
 
 `,
   {
-    target: "node",
+    target: "browser",
     verbose: true,
-    rgf: true,
+    dispatcher: true,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);

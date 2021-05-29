@@ -11,7 +11,7 @@ it("should run correctly", async () => {
 
   var output = await JsConfuser(code, {
     target: "node",
-    lock: { integrity: true },
+    lock: { integrity: true, countermeasures: false },
   });
 
   expect(output).toContain("function");
@@ -38,7 +38,7 @@ it("should not run when source code is modified", async () => {
 
   var output = await JsConfuser(code, {
     target: "node",
-    lock: { integrity: true },
+    lock: { integrity: true, countermeasures: false },
   });
 
   expect(output).toContain("function");

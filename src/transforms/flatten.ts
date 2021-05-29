@@ -51,20 +51,43 @@ import Transform from "./transform";
  */
 export default class Flatten extends Transform {
   variableAnalysis: VariableAnalysis;
+  thisNames: Map<Node, string>;
 
   constructor(o) {
     super(o, ObfuscateOrder.Flatten);
-    this.before.push((this.variableAnalysis = new VariableAnalysis(o)));
+    this.before.push((this.variableAnalysis = new VariableAnalysis(o, true)));
+
+    this.thisNames = new Map();
   }
 
   match(object: Node, parents: Node[]) {
-    return object.type == "FunctionDeclaration";
+    return (
+      object.type == "FunctionDeclaration" &&
+      !object.params.find((x) => x.type !== "Identifier") &&
+      object.body.type === "BlockStatement"
+    );
   }
 
   transform(object: Node, parents: Node[]) {
     ok(isContext(object));
 
     return () => {
+      var illegal = false;
+      walk(object, parents, (o, p) => {
+        if (
+          o.type == "ThisExpression" ||
+          o.type == "SuperExpression" ||
+          (o.type == "Identifier" &&
+            (o.name == "this" || o.name == "arguments"))
+        ) {
+          illegal = true;
+          return "EXIT";
+        }
+      });
+      if (illegal) {
+        return;
+      }
+
       var newName = this.getPlaceholder();
       if (object.id && object.id.name) {
         newName = object.id.name + newName;
@@ -158,11 +181,25 @@ export default class Flatten extends Transform {
       );
       prepend(parents[parents.length - 1], functionDeclaration);
 
+      var definingContext =
+        getContext(parents[0], parents.slice(1)) || parents[parents.length - 1];
+      var thisName = this.thisNames.get(definingContext);
+      if (!thisName) {
+        thisName = this.getPlaceholder();
+
+        prepend(
+          definingContext,
+          VariableDeclaration(VariableDeclarator(thisName, ThisExpression()))
+        );
+
+        this.thisNames.set(definingContext, thisName);
+      }
+
       // fn(ref1, ref2, ref3, ...arguments)
       var call = CallExpression(
         MemberExpression(Identifier(newName), Identifier("apply"), false),
         [
-          ThisExpression(),
+          Identifier(thisName),
           ArrayExpression([
             ...Array.from(depend).map((x) => Identifier(x)),
             SpreadElement(Identifier("arguments")),

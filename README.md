@@ -340,8 +340,7 @@ Integrity ensures the source code is unchanged. (`true/false/0-1`)
 
 ### `lock.countermeasures`
 
-A custom callback function to invoke when a lock is triggered. (`string`)
-
+A custom callback function to invoke when a lock is triggered. (`string/false`)
 
 [Learn more about the countermeasures function](https://github.com/MichaelXF/js-confuser/blob/master/Countermeasures.md).
 
@@ -376,6 +375,26 @@ Shuffles the initial order of arrays. The order is brought back to the original 
 | `"hash"`| Array is shifted based on hash of the elements  |
 | `true`| Arrays are shifted *n* elements, unshifted at runtime |
 | `false` | Feature disabled |
+
+### `stack`
+
+Local variables are consolidated into a rotating array.
+
+[Similar to Jscrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)
+
+- Potency Medium
+- Resilience Medium
+- Cost Low
+
+```js
+// input
+function add3(x, y, z){
+  return x + y + z;
+}
+
+// output
+function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+AxaSQr.shift()}
+```
 
 ## High preset
 ```js

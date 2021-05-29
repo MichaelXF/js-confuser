@@ -247,6 +247,8 @@ export function VariableDeclaration(
   ok(Array.isArray(declarations));
   ok(declarations.length);
 
+  ok(!declarations.find((x) => x.type == "ExpressionStatement"));
+
   return {
     type: "VariableDeclaration",
     declarations: declarations,
@@ -599,7 +601,24 @@ export function WithStatement(object: Node, body: Node[]) {
   };
 }
 
+/**
+ * `fn(...args)`
+ * @param argument
+ * @returns
+ */
 export function SpreadElement(argument: Node) {
+  return {
+    type: "SpreadElement",
+    argument,
+  };
+}
+
+/**
+ * `function fn(...params){}`
+ * @param argument
+ * @returns
+ */
+export function RestElement(argument: Node) {
   return {
     type: "SpreadElement",
     argument,
