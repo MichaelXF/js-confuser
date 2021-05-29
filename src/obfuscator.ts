@@ -28,6 +28,7 @@ import ES5 from "./transforms/es5/es5";
 import StringEncoding from "./transforms/string/stringEncoding";
 import RGF from "./transforms/rgf";
 import Flatten from "./transforms/flatten";
+import Stack from "./transforms/stack";
 import { ObfuscateOptions } from "./options";
 import { ProbabilityMap } from "./probability";
 
@@ -84,6 +85,7 @@ export default class Obfuscator extends EventEmitter {
 
     test(options.flatten, Flatten);
     test(options.rgf, RGF);
+    test(options.stack, Stack);
 
     if (
       options.lock &&

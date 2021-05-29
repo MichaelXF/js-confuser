@@ -3,36 +3,29 @@ import JsConfuser from "./index";
 JsConfuser.obfuscate(
   `
 
-function getNumbers(){
-  return [5, 10];
-}
-
-function multiply(x,y){
-  return x*y;
-}
-
-function testFunction(){
-  function add(x,y){
-    return x+y;
+function add3(x, y, z){
+  function validate(n){
+    if ( isNaN(n ) ) {
+      throw new Error("Bad number")
+    }
   }
 
-  function testInnerFunction(){
-    var numbers = getNumbers();
+  validate(x);
+  validate(y);
+  validate(z);
 
-    // 5*10 + 10 = 60
-    return add(multiply(numbers[0], numbers[1]), numbers[1])
-  }
 
-  testInnerFunction();
+  var sum = x+y+z;
+  return sum;
 }
 
-testFunction();
+console.log(add3(20, 10 ,5))
 
 `,
   {
     target: "node",
     verbose: true,
-    rgf: true,
+    stack: true,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);

@@ -286,6 +286,8 @@ export interface ObfuscateOptions {
    */
   rgf?: ProbabilityMap<boolean | "all">;
 
+  stack?: ProbabilityMap<boolean>;
+
   /**
    * ### `objectExtraction`
    *
