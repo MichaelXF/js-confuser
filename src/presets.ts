@@ -45,6 +45,7 @@ const reduction_98_percent: ObfuscateOptions = {
   stringConcealing: true,
   stringEncoding: true,
   stringSplitting: 0.75,
+  stack: true,
 
   // Use at own risk
   eval: false,

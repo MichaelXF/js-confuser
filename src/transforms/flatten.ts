@@ -26,16 +26,22 @@ import {
   SpreadElement,
   ObjectExpression,
   Property,
+  ArrayPattern,
 } from "../util/gen";
-import { getDefiningIdentifier, getIdentifierInfo } from "../util/identifiers";
+import {
+  getDefiningIdentifier,
+  getFunctionParameters,
+  getIdentifierInfo,
+} from "../util/identifiers";
 import {
   getBlockBody,
-  getContext,
-  isContext,
+  getVarContext,
+  isVarContext,
   isFunction,
   prepend,
+  getDefiningContext,
+  clone,
 } from "../util/insert";
-import { VariableAnalysis } from "./identifier/renameVariables";
 import Transform from "./transform";
 
 /**
@@ -50,149 +56,148 @@ import Transform from "./transform";
  * ```
  */
 export default class Flatten extends Transform {
-  variableAnalysis: VariableAnalysis;
-
   constructor(o) {
     super(o, ObfuscateOrder.Flatten);
-    this.before.push((this.variableAnalysis = new VariableAnalysis(o)));
   }
 
   match(object: Node, parents: Node[]) {
-    return (
-      object.type == "FunctionDeclaration" &&
-      getContext(parents[0], parents.slice(1)) !== parents[parents.length - 1]
-    );
+    return isFunction(object) && object.body.type == "BlockStatement";
   }
 
   transform(object: Node, parents: Node[]) {
-    ok(isContext(object));
-
     return () => {
-      var newName = this.getPlaceholder();
-      if (object.id && object.id.name) {
-        newName = object.id.name + newName;
-      }
+      //
 
-      // Todo: Support default values and destructuring
-      var params = new Set<string>();
-      walk(object.params, [object, ...parents], (o, p) => {
-        if (o.type == "Identifier") {
-          params.add(o.name);
-        }
-      });
+      var defined = new Set<string>();
+      var references = new Set<string>();
+      var modified = new Set<string>();
 
-      // gets the variables this function depends on
-      var references = this.variableAnalysis.references.get(object);
-      var defined = this.variableAnalysis.defined.get(object);
+      var illegal = new Set<string>();
 
-      var depend = new Set<string>([...(references || [])]);
-
-      if (object.$flattenDependencies) {
-        object.$flattenDependencies.forEach((x) => depend.add(x));
-      }
-      defined.forEach((x) => references.delete(x));
-
-      var collisions: { [paramName: string]: string } = Object.create(null);
-      var newParams = new Set<string>();
-      params.forEach((param) => {
-        if (depend.has(param)) {
-          collisions[param] = param + this.getPlaceholder();
-
-          newParams.add(collisions[param]);
-        } else {
-          newParams.add(param);
-        }
-      });
-
-      parents.forEach((parent) => {
-        if (!parent.$flattenDependencies) {
-          parent.$flattenDependencies = new Set([...depend]);
-        } else {
-          depend.forEach((x) => parent.$flattenDependencies.add(x));
-        }
-      });
-
-      var body: Node[] =
-        object.body.type == "BlockStatement"
-          ? getBlockBody(object.body)
-          : [object.body];
-      if (object.type == "ArrowFunctionExpression" && object.expression) {
-        body = [ReturnStatement(object.body)];
-      }
-
-      if (body[body.length - 1]?.type != "ReturnStatement") {
-        body.push(ReturnStatement());
-      }
-
-      // fix all return statements
-      walk(object.body, [object, ...parents], (o, p) => {
-        if (o.type == "ReturnStatement") {
-          var arrayExpression = ArrayExpression([
-            ...Array.from(depend)
-              .reverse()
-              .map((x) => Identifier(x)),
-          ]);
-          if (o.argument) {
-            arrayExpression.elements.unshift(o.argument);
-          }
-          this.replace(o, ReturnStatement(arrayExpression));
+      walk(object, parents, (o, p) => {
+        if (object.id && o === object.id) {
+          return;
         }
 
         if (
           o.type == "Identifier" &&
-          collisions[o.name] &&
+          !this.options.globalVariables.has(o.name) &&
           !reservedIdentifiers.has(o.name)
         ) {
           var info = getIdentifierInfo(o, p);
-          if (info.spec.isReferenced) {
-            var definedAt = getDefiningIdentifier(o, p);
-            if (!definedAt || definedAt[1].indexOf(object.params) !== -1) {
-              o.name = collisions[o.name];
-            }
+
+          if (info.spec.isDefined) {
+            defined.add(o.name);
+          } else if (info.spec.isModified) {
+            modified.add(o.name);
+          } else if (info.spec.isReferenced) {
+            references.add(o.name);
           }
+        }
+
+        if (o.type == "Identifier") {
+          if (o.name == "arguments") {
+            illegal.add("1");
+          }
+        } else if (o.type == "ThisExpression") {
+          illegal.add("1");
+        } else if (o.type == "SuperExpression") {
+          illegal.add("1");
+        } else if (o.type == "MetaProperty") {
+          illegal.add("1");
         }
       });
 
-      // create a new function that will be located at the global level
-      var functionDeclaration = FunctionDeclaration(
-        newName,
-        [...[...depend, ...newParams].map((x) => Identifier(x))],
-        [...body]
-      );
-      prepend(parents[parents.length - 1], functionDeclaration);
+      illegal.forEach((name) => {
+        defined.delete(name);
+      });
+      defined.forEach((name) => {
+        references.delete(name);
+        modified.delete(name);
+      });
 
-      // fn(ref1, ref2, ref3, ...arguments)
-      var call = CallExpression(
-        MemberExpression(Identifier(newName), Identifier("apply"), false),
-        [
-          ThisExpression(),
-          ArrayExpression([
-            ...Array.from(depend).map((x) => Identifier(x)),
-            SpreadElement(Identifier("arguments")),
-          ]),
-        ]
+      // console.log(object.id.name, illegal, references);
+
+      var input = Array.from(new Set([...modified, ...references]));
+      var output = Array.from(modified);
+
+      if (illegal.size) {
+        return;
+      }
+
+      var newName =
+        "flatten" +
+        this.getPlaceholder() +
+        "_" +
+        ((object.id && object.id.name) || "fn");
+
+      getBlockBody(object.body).push(ReturnStatement());
+      walk(object.body, [object, ...parents], (o, p) => {
+        return () => {
+          if (o.type == "ReturnStatement" && getVarContext(o, p) === object) {
+            var elements = output.map(Identifier);
+            if (
+              o.argument &&
+              o.argument.type !== "Identifier" &&
+              o.argument.name !== "undefined"
+            ) {
+              elements.unshift(clone(o.argument));
+            }
+
+            o.argument = ArrayExpression(elements);
+          }
+        };
+      });
+
+      var newBody = getBlockBody(object.body);
+
+      if (input.length) {
+        newBody.unshift(
+          VariableDeclaration(
+            VariableDeclarator(
+              ArrayPattern(input.map(Identifier)),
+              ThisExpression()
+            )
+          )
+        );
+      }
+
+      prepend(
+        parents[parents.length - 1],
+        FunctionDeclaration(newName, clone(object.params), newBody)
       );
 
-      // result.pop()
+      var newParamNodes = object.params.map(() =>
+        Identifier(this.getPlaceholder())
+      );
+
+      var call = VariableDeclaration(
+        VariableDeclarator(
+          "result",
+          CallExpression(
+            MemberExpression(Identifier(newName), Identifier("call"), false),
+            [ArrayExpression(input.map(Identifier)), ...newParamNodes]
+          )
+        )
+      );
+
       var pop = CallExpression(
         MemberExpression(Identifier("result"), Identifier("pop"), false),
         []
       );
 
-      // the new body for the original function
-      var newBody = [
-        VariableDeclaration(VariableDeclarator("result", call)),
-
-        ...Array.from(depend).map((name) => {
+      object.body = BlockStatement([
+        call,
+        ...[...output].reverse().map((name) => {
           return ExpressionStatement(
-            AssignmentExpression("=", Identifier(name), pop)
+            AssignmentExpression("=", Identifier(name), clone(pop))
           );
         }),
 
-        ReturnStatement(pop),
-      ];
+        ReturnStatement(clone(pop)),
+      ]);
 
-      object.body = BlockStatement(newBody);
+      object.params = newParamNodes;
     };
   }
 }

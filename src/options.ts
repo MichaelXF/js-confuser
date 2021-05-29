@@ -164,6 +164,8 @@ export interface ObfuscateOptions {
    *
    * [String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. This is useful for both automated tools and reverse engineers. (`true/false`)
    *
+   * `"console"` -> `decrypt('<~@rH7+Dert~>')`
+   *
    * - Potency High
    * - Resilience Medium
    * - Cost Medium
@@ -174,6 +176,8 @@ export interface ObfuscateOptions {
    * ### `stringEncoding`
    *
    * [String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false`)
+   *
+   * `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
    *
    * - Potency Low
    * - Resilience Low
@@ -187,6 +191,8 @@ export interface ObfuscateOptions {
    * ### `stringSplitting`
    *
    * [String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false`)
+   *
+   * `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
    *
    * - Potency Medium
    * - Resilience Medium
@@ -252,28 +258,56 @@ export interface ObfuscateOptions {
   /**
    * ### `rgf`
    *
-   * RGF (Runtime-Generated-Functions) uses the `new Function(code...)` syntax to construct executable code from strings.
-   * Only changes top-level functions and has to pass a reference array around.
+   * RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings. (`"all"/true/false`)
    *
-   * **This can break your code. This is also as dangerous as `eval` (eval is evil!)**
+   * - **This can break your code. This is also as dangerous as `eval`.**
+   * - **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
+   * - The arbitrary code is also obfuscated.
+   *
+   * | Mode | Description |
+   * | --- | --- |
+   * | `"all"` | Recursively applies to every scope (slow) |
+   * | `true` | Applies to the top level only |
+   * | `false` | Feature disabled |
    *
    * ```js
    * // Input
-   * function log(x) {
-   *   console.log(x);
+   * function log(x){
+   *   console.log(x)
    * }
-   * log("hi");
+   *
+   * log("Hello World")
    *
    * // Output
-   * var refs = [new Function('refs', 'x', 'console.log(x);')];
-   * (function () {
-   *   return refs[0](refs, ...arguments);
-   * }('hi'));
+   * var C6z0jyO=[new Function('a2Fjjl',"function OqNW8x(OqNW8x){console['log'](OqNW8x)}return OqNW8x(...Array.prototype.slice.call(arguments,1))")];(function(){return C6z0jyO[0](C6z0jyO,...arguments)}('Hello World'))
    * ```
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  rgf?: ProbabilityMap<boolean>;
+  rgf?: ProbabilityMap<boolean | "all">;
+
+  /**
+   * ### `stack`
+   *
+   * Local variables are consolidated into a rotating array.
+   *
+   * [Similar to Jscrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)
+   *
+   * - Potency Medium
+   * - Resilience Medium
+   * - Cost Low
+   *
+   * ```js
+   * // input
+   * function add3(x, y, z){
+   *   return x + y + z;
+   * }
+   *
+   * // output
+   * function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+AxaSQr.shift()}
+   * ```
+   */
+  stack?: ProbabilityMap<boolean>;
 
   /**
    * ### `objectExtraction`
@@ -337,7 +371,7 @@ export interface ObfuscateOptions {
   /**
    * ### `calculator`
    *
-   * Creates a calculator function to handle arithmetic and logical expressions. (`true/false`)
+   * Creates a calculator function to handle arithmetic and logical expressions. (`true/false/0-1`)
    *
    * - Potency Medium
    * - Resilience Medium
@@ -351,7 +385,7 @@ export interface ObfuscateOptions {
     /**
      * ### `lock.antiDebug`
      *
-     * Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false`)
+     * Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false/0-1`)
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
@@ -421,7 +455,7 @@ export interface ObfuscateOptions {
     /**
      * ### `lock.integrity`
      *
-     * Integrity ensures the source code is unchanged. (`true/false`)
+     * Integrity ensures the source code is unchanged. (`true/false/0-1`)
      * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
      *
      * - Potency Medium
@@ -435,7 +469,7 @@ export interface ObfuscateOptions {
     /**
      * ### `lock.countermeasures`
      *
-     * A custom callback function to invoke when a lock is triggered.
+     * A custom callback function to invoke when a lock is triggered. (`string/false`)
      *
      * This could be due to an invalid domain, incorrect time, or code's integrity changed.
      *
@@ -445,7 +479,7 @@ export interface ObfuscateOptions {
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
-    countermeasures?: string;
+    countermeasures?: string | boolean;
   };
 
   /**
@@ -478,7 +512,7 @@ export interface ObfuscateOptions {
   /**
    * ### `shuffle`
    *
-   * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false`)
+   * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false/0-1`)
    *
    * - Potency Medium
    * - Resilience Low

@@ -1,8 +1,15 @@
 import { ok } from "assert";
 import { getBlock, isBlock, getBlocks } from "../traverse";
 import { Node, Location } from "./gen";
-import { validateChain } from "./identifiers";
+import { getIdentifierInfo, validateChain } from "./identifiers";
 
+/**
+ * - `FunctionDeclaration`
+ * - `FunctionExpression`
+ * - `ArrowFunctionExpression`
+ * @param object
+ * @returns
+ */
 export function isFunction(object: Node): boolean {
   return [
     "FunctionDeclaration",
@@ -28,7 +35,7 @@ export function getFunction(object: Node, parents: Node[]): Node {
  * Refers to the current function or Root node
  * @param parents
  */
-export function getContext(object: Node, parents: Node[]): Node {
+export function getVarContext(object: Node, parents: Node[]): Node {
   var fn = getFunction(null, parents);
   if (fn) {
     return fn;
@@ -60,12 +67,106 @@ export function getContext(object: Node, parents: Node[]): Node {
   return object;
 }
 
-export function isContext(context: Node) {
+/**
+ * `Function` or root node
+ * @param object
+ * @returns
+ */
+export function isVarContext(object: Node) {
   return (
-    isFunction(context) ||
-    context.type == "Program" ||
-    context.type == "DoExpression"
+    isFunction(object) ||
+    object.type == "Program" ||
+    object.type == "DoExpression"
   ); // Stage 1
+}
+
+/**
+ * `Block` or root node
+ * @param object
+ * @returns
+ */
+export function isLexContext(object: Node): boolean {
+  return isBlock(object) || object.type == "Program";
+}
+
+export function isThisContext(object: Node): boolean {
+  return (
+    object.type == "FunctionDeclaration" ||
+    object.type == "FunctionExpression" ||
+    object.type == "Program"
+  );
+}
+
+/**
+ * Either a `var context` or `lex context`
+ * @param object
+ * @returns
+ */
+export function isContext(object: Node): boolean {
+  return isVarContext(object) || isLexContext(object);
+}
+
+export function getContexts(object: Node, parents: Node[]): Node[] {
+  return [object, ...parents].filter((x) => isContext(x));
+}
+
+/**
+ * Refers to the current lexical block or Root node.
+ * @param parents
+ */
+export function getLexContext(object: Node, parents: Node[]): Node {
+  var block = getBlock(null, parents);
+  if (block) {
+    return block;
+  }
+
+  var top = parents[parents.length - 1];
+
+  if (top) {
+    ok(
+      top.type == "Program",
+      "Should be Program found " +
+        top.type +
+        " (" +
+        parents
+          .map((x) =>
+            x.type || Array.isArray(x) ? "<array>" : "<" + typeof x + ">"
+          )
+          .join(", ") +
+        " parents, " +
+        (object && object.type) +
+        " object)"
+    );
+
+    return top;
+  }
+
+  ok(object, "No parents and no object");
+
+  return object;
+}
+
+export function getDefiningContext(o: Node, p: Node[]): Node {
+  validateChain(o, p);
+  ok(o.type == "Identifier");
+  var info = getIdentifierInfo(o, p);
+
+  ok(info.spec.isDefined);
+
+  if (info.isVariableDeclaration) {
+    var variableDeclaration = p.find((x) => x.type == "VariableDeclaration");
+    ok(variableDeclaration);
+
+    if (variableDeclaration.kind === "let") {
+      return getLexContext(o, p);
+    }
+  }
+
+  if (info.isFunctionDeclaration) {
+    return getVarContext(p[0], p.slice(1));
+  }
+
+  return getVarContext(o, p);
 }
 
 export function getBlockBody(block: Node): Node[] {
@@ -374,4 +475,66 @@ export function clone<T>(object: T): T {
   }
 
   return object as any;
+}
+
+export function isForInitialize(o, p) {
+  validateChain(o, p);
+
+  var forIndex = p.findIndex((x) => x.type == "ForStatement");
+  var inFor = forIndex != -1 && p[forIndex].init == (p[forIndex - 1] || o);
+
+  if (!inFor) {
+    var forCustomIndex = p.findIndex(
+      (x) => x.type == "ForInStatement" || x.type == "ForOfStatement"
+    );
+
+    inFor =
+      forCustomIndex != -1 &&
+      p[forCustomIndex].left == (p[forCustomIndex - 1] || o);
+  }
+
+  return inFor;
+}
+
+export function isInBranch(object: Node, parents: Node[], context: Node) {
+  ok(object);
+  ok(parents);
+  ok(context);
+
+  ok(parents.includes(context));
+
+  var definingContext =
+    parents[0].type == "FunctionDeclaration" && parents[0].id == object
+      ? getVarContext(parents[0], parents.slice(1))
+      : getVarContext(object, parents);
+
+  var contextIndex = parents.findIndex((x) => x === context);
+  var slicedParents = parents.slice(0, contextIndex);
+
+  ok(!slicedParents.includes(object), "slicedParents includes object");
+
+  var slicedTypes = new Set(slicedParents.map((x) => x.type));
+
+  var isBranch = definingContext !== context;
+  if (!isBranch) {
+    if (
+      [
+        "IfStatement",
+        "ForStatement",
+        "ForInStatement",
+        "ForOfStatement",
+        "WhileStatement",
+        "DoWhileStatement",
+        "SwitchStatement",
+        "ConditionalExpression",
+        "LogicalExpression",
+        "TryStatement",
+        "ChainExpression",
+      ].find((x) => slicedTypes.has(x))
+    ) {
+      isBranch = true;
+    }
+  }
+
+  return isBranch;
 }

@@ -21,8 +21,9 @@ import {
   insertBefore,
   deleteDirect,
   getBlockBody,
-  isContext,
+  isVarContext,
   clone,
+  isForInitialize,
 } from "../util/insert";
 import { getIdentifierInfo } from "../util/identifiers";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
@@ -592,7 +593,7 @@ export default class Minify extends Transform {
     }
     if (object.type == "Identifier") {
       return () => {
-        if (object.name == "undefined") {
+        if (object.name == "undefined" && !isForInitialize(object, parents)) {
           this.replace(object, UnaryExpression("void", Literal(0)));
         } else if (object.name == "Infinity") {
           this.replace(object, BinaryExpression("/", Literal(1), Literal(0)));

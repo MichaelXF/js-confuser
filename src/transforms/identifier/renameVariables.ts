@@ -3,7 +3,16 @@ import { ObfuscateOrder } from "../../order";
 import { walk } from "../../traverse";
 import { Location, Node } from "../../util/gen";
 import { getIdentifierInfo } from "../../util/identifiers";
-import { getContext, isContext, isFunction } from "../../util/insert";
+import {
+  getVarContext,
+  isVarContext,
+  isFunction,
+  isInBranch,
+  getLexContext,
+  isContext,
+  isLexContext,
+  getDefiningContext,
+} from "../../util/insert";
 import { isValidIdentifier } from "../../util/compare";
 import Transform from "../transform";
 import { reservedIdentifiers } from "../../constants";
@@ -21,14 +30,12 @@ export class VariableAnalysis extends Transform {
    */
   defined: Map<Node, Set<string>>;
   references: Map<Node, Set<string>>;
-  nodes: Map<Node, Set<Location>>;
 
   constructor(o) {
     super(o);
 
     this.defined = new Map();
     this.references = new Map();
-    this.nodes = new Map();
   }
 
   match(object, parents) {
@@ -36,8 +43,6 @@ export class VariableAnalysis extends Transform {
   }
 
   transform(object, parents) {
-    var isGlobal = object.type == "Program";
-
     walk(object, parents, (o, p) => {
       if (o.type == "Identifier") {
         var name = o.name;
@@ -53,7 +58,6 @@ export class VariableAnalysis extends Transform {
           return;
         }
 
-        var c = getContext(o, p);
         var info = getIdentifierInfo(o, p);
         if (!info.spec.isReferenced) {
           return;
@@ -63,39 +67,40 @@ export class VariableAnalysis extends Transform {
           return;
         }
 
-        // Since a function's `.id` is nested within the function(i.e a new context)
-        // we must go one context up
-        if (info.isFunctionDeclaration) {
-          var fnIndex = p.findIndex((x) => isFunction(x));
-          c = p.slice(fnIndex + 1).find((x) => isContext(x));
-        }
+        var definingContexts = info.spec.isDefined
+          ? [getDefiningContext(o, p)]
+          : [getVarContext(o, p), getLexContext(o, p)];
 
-        ok(isContext(c), `${c.type} is not a context`);
+        ok(definingContexts.length);
 
-        // Add to nodes array (its actually a set)
-        if (object.type == "Program") {
-          if (!this.nodes.has(c)) {
-            this.nodes.set(c, new Set());
-          }
-          this.nodes.get(c).add([o, p]);
-        }
+        var isDefined = info.spec.isDefined;
+        definingContexts.forEach((definingContext) => {
+          ok(
+            isContext(definingContext),
+            `${definingContext.type} is not a context`
+          );
 
-        if (info.spec.isDefined) {
-          // Add to defined Map
-          if (!this.defined.has(c)) {
-            this.defined.set(c, new Set());
-          }
-          this.defined.get(c).add(name);
-          this.references.has(c) && this.references.get(c).delete(name);
-        } else {
-          // Add to references Map
-          if (!this.defined.has(c) || !this.defined.get(c).has(name)) {
-            if (!this.references.has(c)) {
-              this.references.set(c, new Set());
+          if (isDefined) {
+            // Add to defined Map
+            if (!this.defined.has(definingContext)) {
+              this.defined.set(definingContext, new Set());
             }
-            this.references.get(c).add(name);
+            this.defined.get(definingContext).add(name);
+            this.references.has(definingContext) &&
+              this.references.get(definingContext).delete(name);
+          } else {
+            // Add to references Map
+            if (
+              !this.defined.has(definingContext) ||
+              !this.defined.get(definingContext).has(name)
+            ) {
+              if (!this.references.has(definingContext)) {
+                this.references.set(definingContext, new Set());
+              }
+              this.references.get(definingContext).add(name);
+            }
           }
-        }
+        });
       }
     });
 
@@ -143,6 +148,15 @@ export default class RenameVariables extends Transform {
 
   transform(object, parents) {
     var isGlobal = object.type == "Program";
+    var type = isGlobal
+      ? "root"
+      : isVarContext(object)
+      ? "var"
+      : isLexContext(object)
+      ? "lex"
+      : undefined;
+
+    ok(type);
 
     var newNames = Object.create(null);
 

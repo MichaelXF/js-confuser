@@ -3,7 +3,7 @@ import parseJS from "../../src/parser";
 import { isBlock } from "../../src/traverse";
 import {
   deleteDeclaration,
-  isContext,
+  isVarContext,
   isFunction,
 } from "../../src/util/insert";
 
@@ -12,10 +12,10 @@ it("isBlock() should be true for block statements and program", async () => {
   expect(isBlock({ type: "BlockStatement", body: [] })).toStrictEqual(true);
 });
 
-it("isContext() should return true for Function Nodes", () => {
-  expect(isContext({ type: "FunctionDeclaration" })).toStrictEqual(true);
-  expect(isContext({ type: "FunctionExpression" })).toStrictEqual(true);
-  expect(isContext({ type: "ArrowFunctionExpression" })).toStrictEqual(true);
+it("isVarContext() should return true for Function Nodes", () => {
+  expect(isVarContext({ type: "FunctionDeclaration" })).toStrictEqual(true);
+  expect(isVarContext({ type: "FunctionExpression" })).toStrictEqual(true);
+  expect(isVarContext({ type: "ArrowFunctionExpression" })).toStrictEqual(true);
 });
 
 it("isFunction() should return true for Function Nodes", () => {
@@ -24,8 +24,8 @@ it("isFunction() should return true for Function Nodes", () => {
   expect(isFunction({ type: "ArrowFunctionExpression" })).toStrictEqual(true);
 });
 
-it("isContext() should return true for the Program Node (root node)", () => {
-  expect(isContext({ type: "Program" })).toStrictEqual(true);
+it("isVarContext() should return true for the Program Node (root node)", () => {
+  expect(isVarContext({ type: "Program" })).toStrictEqual(true);
 });
 
 it("should delete variable declarations correctly", async () => {

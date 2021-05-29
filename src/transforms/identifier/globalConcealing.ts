@@ -19,7 +19,7 @@ import {
 import { prepend } from "../../util/insert";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { getRandomInteger } from "../../util/random";
-import { reservedKeywords } from "../../constants";
+import { reservedIdentifiers, reservedKeywords } from "../../constants";
 
 class GlobalAnalysis extends Transform {
   notGlobals: Set<string>;
@@ -90,6 +90,10 @@ export default class GlobalConcealing extends Transform {
       var globals: { [name: string]: Location[] } = this.globalAnalysis.globals;
       this.globalAnalysis.notGlobals.forEach((del) => {
         delete globals[del];
+      });
+
+      reservedIdentifiers.forEach((x) => {
+        delete globals[x];
       });
 
       Object.keys(globals).forEach((x) => {

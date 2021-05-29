@@ -1,19 +1,20 @@
+import { readFileSync, writeFileSync } from "fs";
 import JsConfuser from "./index";
+// const file = readFileSync("./test/code/Cash.src", "utf-8");
 
 JsConfuser.obfuscate(
   `
+  
+  function TEST_FUNCTION(){
 
-  console.log("Hello World", "String two", "String three", "String four")
+    return 10;
+  }
 
-
+  console.log( TEST_FUNCTION() )
 `,
   {
     target: "browser",
-    compact: false,
-    shuffle: "hash",
-    renameVariables: true,
-    minify: true,
-    stringConcealing: true,
+    flatten: true,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);

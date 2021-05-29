@@ -14,8 +14,8 @@ import {
 import { ObfuscateOrder } from "../../order";
 import {
   getIndexDirect,
-  getContext,
-  isContext,
+  getVarContext,
+  isVarContext,
   getBlockBody,
   clone,
 } from "../../util/insert";
@@ -269,7 +269,10 @@ export default class Preparation extends Transform {
     // this.before.push(new ExplicitLabel(o));
     // this.before.push(new FunctionsFirst(o));
     this.before.push(new ExplicitDeclarations(o));
-    this.before.push(new AntiDestructuring(o));
+
+    if (this.options.es5) {
+      this.before.push(new AntiDestructuring(o));
+    }
 
     this.before.push(new NameConflicts(o));
   }

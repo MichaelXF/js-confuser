@@ -5,7 +5,7 @@ import {
   getDefiningIdentifier,
   getIdentifierInfo,
 } from "../../util/identifiers";
-import { isContext } from "../../util/insert";
+import { isVarContext } from "../../util/insert";
 import { VariableAnalysis } from "../identifier/renameVariables";
 import Transform from "../transform";
 
@@ -58,7 +58,11 @@ export default class NameConflicts extends Transform {
   }
 
   match(object, parents) {
-    return object.type == "Identifier";
+    return (
+      object.type == "Identifier" &&
+      !reservedIdentifiers.has(object.name) &&
+      !this.options.globalVariables.has(object.name)
+    );
   }
 
   transform(object: Node, parents: Node[]) {

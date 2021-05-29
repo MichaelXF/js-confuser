@@ -119,6 +119,20 @@ export function isModuleSource(object: Node, parents: Node[]) {
     return true;
   }
 
+  if (
+    parents[1] &&
+    parents[1].type == "CallExpression" &&
+    parents[1].arguments[0] === object &&
+    parents[1].callee.type == "Identifier"
+  ) {
+    if (
+      parents[1].callee.name == "require" ||
+      parents[1].callee.name == "import"
+    ) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -143,7 +157,9 @@ export default class StringConcealing extends Transform {
   match(object, parents) {
     return (
       object.type == "Program" ||
-      (object.type == "Literal" && typeof object.value === "string")
+      (object.type == "Literal" &&
+        typeof object.value === "string" &&
+        object.value !== "use strict")
     );
   }
 

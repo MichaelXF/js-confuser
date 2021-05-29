@@ -56,7 +56,11 @@ export default class StringEncoding extends Transform {
   }
 
   match(object, parents) {
-    return object.type == "Literal" && typeof object.value === "string";
+    return (
+      object.type == "Literal" &&
+      typeof object.value === "string" &&
+      object.value !== "use strict"
+    );
   }
 
   transform(object, parents) {

@@ -1,4 +1,5 @@
 import { ok } from "assert";
+import { compileJsSync } from "../../compiler";
 import Template from "../../templates/template";
 import { getBlock, walk } from "../../traverse";
 import {
@@ -80,7 +81,7 @@ class AntiDestructuringParameters extends Transform {
     var isDestructed = false;
     var parameters = object.params;
 
-    walk(parameters, parents, (o, p) => {
+    walk(parameters, [object, ...parents], (o, p) => {
       if (
         o.type == "ArrayPattern" ||
         o.type == "ObjectPattern" ||
@@ -88,6 +89,7 @@ class AntiDestructuringParameters extends Transform {
         o.type == "RestElement"
       ) {
         isDestructed = true;
+        return "EXIT";
       }
     });
 
@@ -101,36 +103,34 @@ class AntiDestructuringParameters extends Transform {
       var arrayPattern = ArrayPattern(parameters);
 
       // `arguments` is not allowed in arrow functions
-      if (object.type == "ArrowFunctionExpression") {
+      if (object.type == "ArrowFunctionExpression" && this.options.es5) {
         // new names
-        object.params = object.params.map((_) =>
-          Identifier(this.getPlaceholder())
-        );
 
-        getBlockBody(object.body).unshift({
-          type: "VariableDeclaration",
-          declarations: [
-            {
-              type: "VariableDeclarator",
-              id: arrayPattern,
-              init: ArrayExpression(object.params),
-            },
-          ],
-        });
+        object.params = Array(10)
+          .fill(0)
+          .map(() => Identifier(this.getPlaceholder()));
+
+        getBlockBody(object.body).unshift(
+          VariableDeclaration(
+            VariableDeclarator(arrayPattern, ArrayExpression(object.params))
+          )
+        );
       } else {
+        if (object.type == "ArrowFunctionExpression") {
+          object.type = "FunctionExpression";
+          object.expression = false;
+        }
         object.params = [];
 
-        getBlockBody(object.body).unshift({
-          type: "VariableDeclaration",
-          declarations: [
-            {
-              type: "VariableDeclarator",
-              id: arrayPattern,
-              init: Template(`Array.prototype.slice.call(arguments)`).single()
-                .expression,
-            },
-          ],
-        });
+        getBlockBody(object.body).unshift(
+          VariableDeclaration(
+            VariableDeclarator(
+              arrayPattern,
+              Template(`Array.prototype.slice.call(arguments)`).single()
+                .expression
+            )
+          )
+        );
       }
     }
   }

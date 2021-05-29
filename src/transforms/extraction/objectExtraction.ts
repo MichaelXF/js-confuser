@@ -9,8 +9,8 @@ import {
 } from "../../util/gen";
 import {
   deleteDeclaration,
-  getContext,
-  isContext,
+  getVarContext,
+  isVarContext,
   prepend,
 } from "../../util/insert";
 import { ObfuscateOrder } from "../../order";
@@ -45,7 +45,7 @@ export default class ObjectExtraction extends Transform {
   }
 
   match(object: Node, parents: Node[]) {
-    return isContext(object);
+    return isVarContext(object);
   }
 
   transform(context: Node, contextParents: Node[]) {
@@ -56,7 +56,7 @@ export default class ObjectExtraction extends Transform {
       var objectDefs: { [name: string]: Location } = {};
 
       walk(context, contextParents, (object: Node, parents: Node[]) => {
-        if (getContext(object, parents) != context) {
+        if (getVarContext(object, parents) != context) {
           return;
         }
         if (object.type == "ObjectExpression") {
@@ -111,7 +111,7 @@ export default class ObjectExtraction extends Transform {
 
         // Second pass through the exclude the dynamic map (counting keys, re-assigning)
         walk(context, contextParents, (object: any, parents: Node[]) => {
-          if (getContext(object, parents) != context) {
+          if (getVarContext(object, parents) != context) {
             return;
           }
           if (

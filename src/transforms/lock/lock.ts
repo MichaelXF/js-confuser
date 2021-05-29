@@ -31,7 +31,7 @@ import {
   CrashTemplate2,
   CrashTemplate3,
 } from "../../templates/crash";
-import { getBlockBody, getContext, prepend } from "../../util/insert";
+import { getBlockBody, getVarContext, prepend } from "../../util/insert";
 import Template from "../../templates/template";
 import { ObfuscateOrder } from "../../order";
 import Integrity from "./integrity";
@@ -279,7 +279,10 @@ export default class Lock extends Transform {
                   "Countermeasures function was already defined, it must have a unique name from the rest of your code"
                 );
               } else {
-                var definingContext = getContext(parents[0], parents.slice(1));
+                var definingContext = getVarContext(
+                  parents[0],
+                  parents.slice(1)
+                );
                 if (definingContext != tree) {
                   throw new Error(
                     "Countermeasures function must be defined at the global level"
@@ -315,7 +318,7 @@ export default class Lock extends Transform {
   getCounterMeasuresCode(): Node[] {
     var opt = this.options.lock.countermeasures;
 
-    if (!opt) {
+    if (opt === false) {
       return null;
     }
 

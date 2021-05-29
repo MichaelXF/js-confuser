@@ -141,7 +141,11 @@ Global Concealing hides global variables being accessed. (`true/false`)
 
 ### `stringConcealing`
 
-[String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. This is useful for both automated tools and reverse engineers. (`true/false`)
+[String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. (`true/false/0-1`)
+
+Use a number to control the percentage of strings.
+
+`"console"` -> `decrypt('<~@rH7+Dert~>')`
    
 - Potency High
 - Resilience Medium
@@ -149,7 +153,11 @@ Global Concealing hides global variables being accessed. (`true/false`)
 
 ### `stringEncoding`
 
-[String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false`)
+[String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false/0-1`)
+
+Use a number to control the percentage of strings.
+
+`"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
 
 - Potency Low
 - Resilience Low
@@ -158,6 +166,8 @@ Global Concealing hides global variables being accessed. (`true/false`)
 ### `stringSplitting`
 
 [String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false`)
+
+`"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
 
 - Potency Medium
 - Resilience Medium
@@ -202,23 +212,28 @@ Q4r1__.Oo$Oz8t("RW11Hj5x");
 
 ### `rgf`
 
-RGF (Runtime-Generated-Functions) uses the `new Function(code...)` syntax to construct executable code from strings.
-Only changes top-level functions and has to pass a reference array around.
+RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings. (`"all"/true/false`)
 
-**This can break your code. This is also as dangerous as `eval` (eval is evil!)**
+- **This can break your code. This is also as dangerous as `eval`.**
+- **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
+- The arbitrary code is also obfuscated.
+
+| Mode | Description |
+| --- | --- |
+| `"all"` | Recursively applies to every scope (slow) |
+| `true` | Applies to the top level only |
+| `false` | Feature disabled |
 
 ```js
 // Input
-function log(x) {
-  console.log(x);
+function log(x){
+  console.log(x)
 }
-log("hi");
+
+log("Hello World")
 
 // Output
-var refs = [new Function('refs', 'x', 'console.log(x);')];
-(function () {
-  return refs[0](refs, ...arguments);
-}('hi'));
+var C6z0jyO=[new Function('a2Fjjl',"function OqNW8x(OqNW8x){console['log'](OqNW8x)}return OqNW8x(...Array.prototype.slice.call(arguments,1))")];(function(){return C6z0jyO[0](C6z0jyO,...arguments)}('Hello World'))
 ```
 
 ### `objectExtraction`
@@ -267,7 +282,7 @@ Use a number to control the percentage from 0 to 1.
 
 ### `calculator`
 
-Creates a calculator function to handle arithmetic and logical expressions. (`true/false`)
+Creates a calculator function to handle arithmetic and logical expressions. (`true/false/0-1`)
 
 - Potency Medium
 - Resilience Medium
@@ -275,7 +290,7 @@ Creates a calculator function to handle arithmetic and logical expressions. (`tr
 
 ### `lock.antiDebug`
 
-Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false`)
+Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false/0-1`)
 
 ### `lock.context`
 
@@ -316,7 +331,7 @@ Set to `true` to use the default native functions. (`string[]/true/false`)
 
 ### `lock.integrity`
 
-Integrity ensures the source code is unchanged. (`true/false`)
+Integrity ensures the source code is unchanged. (`true/false/0-1`)
 [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
 
 - Potency Medium
@@ -325,8 +340,7 @@ Integrity ensures the source code is unchanged. (`true/false`)
 
 ### `lock.countermeasures`
 
-A custom callback function to invoke when a lock is triggered. (`string`)
-
+A custom callback function to invoke when a lock is triggered. (`string/false`)
 
 [Learn more about the countermeasures function](https://github.com/MichaelXF/js-confuser/blob/master/Countermeasures.md).
 
@@ -342,7 +356,7 @@ Moves variable declarations to the top of the context. (`true/false`)
 
 ### `opaquePredicates`
 
-An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers from understanding your code. (`true/false`)
+An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers from understanding your code. (`true/false/0-1`)
 
 - Potency Medium
 - Resilience Medium
@@ -350,7 +364,7 @@ An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predi
 
 ### `shuffle`
 
-Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false`)
+Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false/0-1`)
 
 - Potency Medium
 - Resilience Low
@@ -361,6 +375,26 @@ Shuffles the initial order of arrays. The order is brought back to the original 
 | `"hash"`| Array is shifted based on hash of the elements  |
 | `true`| Arrays are shifted *n* elements, unshifted at runtime |
 | `false` | Feature disabled |
+
+### `stack`
+
+Local variables are consolidated into a rotating array. (`true/false/0-1`)
+
+[Similar to Jscrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)
+
+- Potency Medium
+- Resilience Medium
+- Cost Low
+
+```js
+// input
+function add3(x, y, z){
+  return x + y + z;
+}
+
+// output
+function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+AxaSQr.shift()}
+```
 
 ## High preset
 ```js
@@ -386,6 +420,7 @@ Shuffles the initial order of arrays. The order is brought back to the original 
   stringConcealing: true,
   stringEncoding: true,
   stringSplitting: 0.75,
+  stack: true,
 
   // Use at own risk
   eval: false,
@@ -484,7 +519,72 @@ These features are experimental or a security concern.
 
   // experimental
   identifierGenerator: function(){
-    return "_CUSTOM_VAR_" + (counter++);
+    return "myvar_" + (counter++);
+  }
+}
+```
+
+## Percentages
+
+Most settings allow percentages to control the frequency of the transformation. Fine-tune the percentages to keep file size down, and performance high.
+
+```js
+{
+  target: "node",
+  controlFlowFlattening: true // equal to 1, which is 100% (slow)
+
+  controlFlowFlattening: 0.5 // 50%
+  controlFlowFlattening: 0.01 // 1%
+}
+```
+
+## Probabilities
+
+Mix modes using an object with key-value pairs represent each mode's percentage.
+
+```js
+{
+  target: "node",
+  identifierGenerator: {
+    "hexadecimal": 0.25, // 25% each
+    "randomized": 0.25,
+    "mangled": 0.25,
+    "number": 0.25
+  },
+
+  shuffle: {hash: 0.5, true: 0.5} // 50% hash, 50% normal
+}
+```
+
+## Custom Implementations
+
+```js
+{
+  target: "node",
+  
+  // avoid renaming a certain variable
+  renameVariables: name=>name!="jQuery",
+
+  // custom variable names
+  identifierGenerator: ()=>{
+    return "_0x" + Math.random().toString(16).slice(2, 8);
+  },
+
+  // force encoding on a string
+  stringConcealing: (str)=>{
+    if (str=="https://mywebsite.com/my-secret-api"){
+      return true;
+    }
+
+    // 60%
+    return Math.random() < 0.6;
+  },
+
+  // set limits
+  deadCode: ()=>{
+    dead++; 
+
+    return dead < 50;
   }
 }
 ```
@@ -493,6 +593,15 @@ These features are experimental or a security concern.
 
 - 1.  String Encoding can corrupt files. Disable `stringEncoding` manually if this happens.
 - 2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
+
+## "The obfuscator broke my code!"
+
+Try disabling features in the following order:
+1. `flatten`
+2. `stack`
+3. `dispatcher`
+
+If the issue continues then open an issue.
 
 ## Bug report
 
@@ -514,7 +623,7 @@ However, the dev is quick to fix these. The one above no longer works.
 
 Alternatively, you could go the paid-route with [JScrambler.com (enterprise only)](https://jscrambler.com/) or [PreEmptive.com](https://www.preemptive.com/products/jsdefender/online-javascript-obfuscator-demo)
 
-I've included several alternative obfuscators in the `samples/` folder. They are all derived from the input.js file.
+I've included several alternative obfuscators in the [`samples/`](https://github.com/MichaelXF/js-confuser/tree/master/samples) folder. They are all derived from the `input.js` file.
 
 ## Debugging
 

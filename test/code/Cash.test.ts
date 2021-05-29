@@ -5,7 +5,23 @@ import JsConfuser from "../../src/index";
 var CASH_JS = readFileSync(join(__dirname, "./Cash.src"), "utf-8");
 
 it("works with Cash.js on High Preset", async () => {
-  var output = await JsConfuser(CASH_JS, { target: "node", preset: "low" });
+  var output = await JsConfuser(CASH_JS, {
+    target: "browser",
+    preset: "high",
+    // stringEncoding: true,
+    // stringConcealing: true,
+    // stringSplitting: true,
+    // controlFlowFlattening: true,
+    // deadCode: true,
+    // duplicateLiteralsRemoval: true,
+    // calculator: true,
+    // shuffle: "hash",
+    // objectExtraction: true,
+    // renameVariables: true,
+    // stack: true,
+    // dispatcher: true,
+    // flatten: true,
+  });
 
   // Make the required document variables for initialization
   var document = {
@@ -14,11 +30,25 @@ it("works with Cash.js on High Preset", async () => {
       return { style: {} };
     },
   } as any as Document;
-  var window = { document } as Window;
+  var window = {
+    document,
+    Array,
+    Object,
+    Symbol,
+    Number,
+    parseInt,
+    JSON,
+    setTimeout,
+    encodeURIComponent,
+    RegExp,
+    String,
+    $: false,
+  } as any;
+  window.window = window;
 
   // writeFileSync(join(__dirname, "Cash.output"), output, { encoding: "utf-8" });
 
   eval(output);
 
-  expect(global).toHaveProperty("cash");
+  expect(window).toHaveProperty("cash");
 });

@@ -64,6 +64,24 @@ it("should work with endDate and call countermeasures function", async () => {
   expect(value).toStrictEqual(true);
 });
 
+it("strings should be encoded when startDate and endDate are given", async () => {
+  var startDate = await JsConfuser.obfuscate(` input("ENCODED_STRING") `, {
+    target: "node",
+    lock: {
+      startDate: Date.now() - 1000 * 60 * 60 * 24, // one day in the past
+      endDate: Date.now() + 1000 * 60 * 60 * 24, // one day in the future (2-day window to run this code)
+    },
+  });
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(startDate);
+  expect(value).toStrictEqual("ENCODED_STRING");
+});
+
 it("should work with nativeFunctions and call countermeasures function", async () => {
   var output = await JsConfuser.obfuscate(
     ` function countermeasures(){ input(true) } `,

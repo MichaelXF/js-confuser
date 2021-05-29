@@ -7,26 +7,28 @@ export enum ObfuscateOrder {
   ObjectExtraction = 1,
 
   Lock = 2, // Includes Integrity & Anti Debug
+  Flatten = 3,
 
-  Dispatcher = 3,
+  RGF = 4,
 
-  OpaquePredicates = 4,
-  DeadCode = 5,
+  Stack = 5,
 
-  Calculator = 6,
+  Dispatcher = 6,
 
-  ControlFlowFlattening = 7,
+  OpaquePredicates = 7,
+  DeadCode = 8,
 
-  Flatten = 8,
-  RGF = 9,
+  Calculator = 9,
 
-  Eval = 10,
+  ControlFlowFlattening = 10,
 
-  GlobalConcealing = 11,
+  Eval = 11,
 
-  StringConcealing = 12,
+  GlobalConcealing = 12,
 
-  StringSplitting = 20,
+  StringSplitting = 16,
+
+  StringConcealing = 17,
 
   DuplicateLiteralsRemoval = 23,
 
