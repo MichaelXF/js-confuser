@@ -271,7 +271,9 @@ export function getDefiningIdentifier(object: Node, parents: Node[]): Location {
   ok(typeof object.name === "string");
   ok(
     parents[parents.length - 1].type == "Program",
-    "root node must be type Program"
+    "root node must be type Program. Found '" +
+      parents[parents.length - 1].type +
+      "'"
   );
 
   var seen = new Set<Node>();
