@@ -85,7 +85,7 @@ export default class RGF extends Transform {
               var info = getIdentifierInfo(o, p);
               if (info.spec.isDefined) {
                 defined.add(o.name);
-              } else if (info.spec.isReferenced) {
+              } else if (info.spec.isReferenced || info.spec.isModified) {
                 referenced.add(o.name);
               }
             }

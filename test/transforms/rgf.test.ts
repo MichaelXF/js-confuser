@@ -54,6 +54,49 @@ describe("RGF", () => {
     eval(output);
     expect(value).toStrictEqual(25);
   });
+
+  it("should not change functions that have references to parent scopes", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+      var parentScope = 0;
+      function add(a,b){
+
+        // reference to parent scope
+        return a + parentScope;
+      }
+      
+      input(add(10, 5))
+      `,
+      {
+        target: "node",
+        rgf: true,
+      }
+    );
+
+    expect(output).not.toContain("new Function");
+  });
+
+  it("should not change functions that have mutate their parent scopes", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+      var parentScope = 0;
+      function add(a,b){
+
+        // modifies parent scope
+        parentScope = 1;
+        return a + b;
+      }
+      
+      input(add(10, 5))
+      `,
+      {
+        target: "node",
+        rgf: true,
+      }
+    );
+
+    expect(output).not.toContain("new Function");
+  });
 });
 
 describe("RGF with the 'all' mode", () => {
