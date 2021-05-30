@@ -60,6 +60,7 @@ export default class StringEncoding extends Transform {
   match(object, parents) {
     return (
       object.type == "Literal" &&
+      typeof object.value === "string" &&
       !isModuleSource(object, parents) &&
       !isDirective(object, parents)
     );
