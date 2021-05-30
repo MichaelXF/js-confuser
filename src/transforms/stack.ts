@@ -5,6 +5,7 @@ import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
 import { walk } from "../traverse";
 import {
+  ArrayExpression,
   AssignmentExpression,
   BinaryExpression,
   CallExpression,
@@ -15,6 +16,8 @@ import {
   MemberExpression,
   Node,
   SpreadElement,
+  VariableDeclaration,
+  VariableDeclarator,
   WhileStatement,
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
@@ -116,22 +119,23 @@ export default class Stack extends Transform {
                 varParents[0].type == "VariableDeclarator" &&
                 varParents[0].id === varNode
               ) {
-                if (!varParents[0].init) {
-                  varParents[0].init = Identifier("undefined");
-                }
-                replacing = varParents[0].init;
-                value = { ...varParents[0].init };
-
                 if (
                   varParents[2] &&
                   varParents[2].type == "VariableDeclaration"
                 ) {
                   if (varParents[2].declarations.length === 1) {
                     replacing = Identifier("undefined");
+                    value = Identifier("undefined");
 
                     if (isForInitialize(varParents[2], varParents.slice(3))) {
-                      queue(varParents[2], replacing);
+                      illegal.add(varNode.name);
+                      // queue(varParents[2], replacing);
                     } else {
+                      if (!varParents[0].init) {
+                        varParents[0].init = Identifier("undefined");
+                      }
+                      replacing = varParents[0].init;
+                      value = { ...varParents[0].init };
                       queue(varParents[2], ExpressionStatement(replacing));
                     }
                   }
@@ -169,11 +173,12 @@ export default class Stack extends Transform {
                 illegal.add(varNode.name);
               }
             }
-            const type = info.spec.isDefined
-              ? "defined"
-              : info.spec.isModified
-              ? "modified"
-              : "reference";
+            const type =
+              info.spec.isDefined && value
+                ? "defined"
+                : info.spec.isModified
+                ? "modified"
+                : "reference";
 
             identifiers.push({
               location: [varNode, varParents],
@@ -359,16 +364,22 @@ export default class Stack extends Transform {
         }
       }
 
+      // if (paramNames.length) {
       object.params = [SpreadElement(Identifier(stackName))];
-
-      if (paramNames.length) {
-        prepend(
-          object.body,
-          Template(`
-          ${stackName}.length = ${paramNames.length};
-        `).single()
-        );
-      }
+      prepend(
+        object.body,
+        Template(`
+        ${stackName}.length = ${paramNames.length};
+      `).single()
+      );
+      // } else {
+      // prepend(
+      //   object.body,
+      //   VariableDeclaration(
+      //     VariableDeclarator(Identifier(stackName), ArrayExpression([]))
+      //   )
+      // );
+      // }
     };
   }
 }

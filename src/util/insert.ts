@@ -292,20 +292,25 @@ export function clone<T>(object: T): T {
 export function isForInitialize(o, p) {
   validateChain(o, p);
 
-  var forIndex = p.findIndex((x) => x.type == "ForStatement");
-  var inFor = forIndex != -1 && p[forIndex].init == (p[forIndex - 1] || o);
-
-  if (!inFor) {
-    var forCustomIndex = p.findIndex(
-      (x) => x.type == "ForInStatement" || x.type == "ForOfStatement"
-    );
-
-    inFor =
-      forCustomIndex != -1 &&
-      p[forCustomIndex].left == (p[forCustomIndex - 1] || o);
+  var forIndex = p.findIndex(
+    (x) =>
+      x.type == "ForStatement" ||
+      x.type == "ForInStatement" ||
+      x.type == "ForOfStatement"
+  );
+  if (forIndex !== -1) {
+    if (p[forIndex].type == "ForStatement") {
+      if (p[forIndex].init == p[forIndex - 1] || o) {
+        return true;
+      }
+    } else {
+      if (p[forIndex].left == p[forIndex - 1] || o) {
+        return true;
+      }
+    }
   }
 
-  return inFor;
+  return false;
 }
 
 export function isInBranch(object: Node, parents: Node[], context: Node) {
