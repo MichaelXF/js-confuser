@@ -1,6 +1,8 @@
 import Transform from "../transform";
 import { choice } from "../../util/random";
 import { ObfuscateOrder } from "../../order";
+import { isDirective } from "../../util/compare";
+import { isModuleSource } from "./stringConcealing";
 
 function pad(x: string, len: number): string {
   while (x.length < len) {
@@ -58,8 +60,8 @@ export default class StringEncoding extends Transform {
   match(object, parents) {
     return (
       object.type == "Literal" &&
-      typeof object.value === "string" &&
-      object.value !== "use strict"
+      !isModuleSource(object, parents) &&
+      !isDirective(object, parents)
     );
   }
 

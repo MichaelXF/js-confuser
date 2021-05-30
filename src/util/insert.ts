@@ -169,6 +169,39 @@ export function getDefiningContext(o: Node, p: Node[]): Node {
   return getVarContext(o, p);
 }
 
+export function getReferencingContexts(o: Node, p: Node[]): Node[] {
+  validateChain(o, p);
+  ok(o.type == "Identifier");
+
+  var info = getIdentifierInfo(o, p);
+  ok(info.spec.isReferenced);
+
+  var assignmentPatternIndex = p.findIndex(
+    (x) => x.type == "AssignmentPattern"
+  );
+  if (assignmentPatternIndex != -1) {
+    if (
+      p[assignmentPatternIndex].right == (p[assignmentPatternIndex - 1] || o)
+    ) {
+      var sliced = p.slice(assignmentPatternIndex);
+      var fnIndex = sliced.findIndex((x) => isFunction(x));
+      var associatedFn = sliced[fnIndex];
+      if (
+        fnIndex !== -1 &&
+        sliced[fnIndex].params == (sliced[fnIndex - 1] || o)
+      ) {
+        if (associatedFn == getVarContext(o, p)) {
+          return isLexContext(associatedFn.body)
+            ? [associatedFn, associatedFn.body]
+            : [associatedFn];
+        }
+      }
+    }
+  }
+
+  return [getVarContext(o, p), getLexContext(o, p)];
+}
+
 export function getBlockBody(block: Node): Node[] {
   if (!block) {
     throw new Error("no block body");

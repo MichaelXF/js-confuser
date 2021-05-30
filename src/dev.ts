@@ -4,7 +4,10 @@ import JsConfuser from "./index";
 
 JsConfuser.obfuscate(
   `
-  
+  "use strict"
+
+  var ABC = "use strict";
+
   function sum(number1, number2) {
 
     return number1 + number2;
@@ -17,6 +20,7 @@ JsConfuser.obfuscate(
     target: "node",
     renameVariables: true,
     compact: false,
+    stringConcealing: true,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);

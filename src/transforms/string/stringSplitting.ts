@@ -17,6 +17,7 @@ import { shuffle, splitIntoChunks } from "../../util/random";
 import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "./stringConcealing";
 import { ComputeProbabilityMap } from "../../probability";
+import { isDirective } from "../../util/compare";
 
 export default class StringSplitting extends Transform {
   joinPrototype: string;
@@ -64,7 +65,7 @@ export default class StringSplitting extends Transform {
       object.type == "Literal" &&
       typeof object.value === "string" &&
       !isModuleSource(object, parents) &&
-      object.value !== "use strict"
+      !isDirective(object, parents)
     );
   }
 

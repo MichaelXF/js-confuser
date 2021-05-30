@@ -51,6 +51,15 @@ export function isInsideType(
   return [object, ...parents].some((x) => x.type == type);
 }
 
+export function isDirective(object: Node, parents: Node[]) {
+  var dIndex = parents.findIndex((x) => x.directive);
+  if (dIndex == -1) {
+    return false;
+  }
+
+  return parents[dIndex].expression == (parents[dIndex - 1] || object);
+}
+
 export function isStrictMode(object: Node, parents: Node[]): boolean {
   var functions = parents.filter((x) => isFunction(x));
 

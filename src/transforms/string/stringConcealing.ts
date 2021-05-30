@@ -1,6 +1,7 @@
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import Template from "../../templates/template";
+import { isDirective } from "../../util/compare";
 import {
   ArrayExpression,
   CallExpression,
@@ -157,9 +158,7 @@ export default class StringConcealing extends Transform {
   match(object, parents) {
     return (
       object.type == "Program" ||
-      (object.type == "Literal" &&
-        typeof object.value === "string" &&
-        object.value !== "use strict")
+      (object.type == "Literal" && !isDirective(object, parents))
     );
   }
 
