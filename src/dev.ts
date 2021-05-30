@@ -5,22 +5,13 @@ import JsConfuser from "./index";
 JsConfuser.obfuscate(
   `
 
-  function test_function(){
-    var array = [];
-
-    for ( var i = 1; i <= 10; i++ ) {
-      array.push(i);
-    }
-
-    console.log(array);
+  while ( i <= 10 ) {
+    array.push(i++);
   }
-
-  test_function()
 `,
   {
     target: "node",
-    compact: false,
-    stack: true,
+    controlFlowFlattening: true,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);

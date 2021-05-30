@@ -108,11 +108,11 @@ export class ControlFlowObfuscation extends Transform {
     super(o);
   }
 
-  match(object, parents) {
-    return object.type === "ForStatement";
+  match(object: Node, parents: Node[]) {
+    return object.type === "ForStatement" || object.type === "WhileStatement";
   }
 
-  transform(object, parents) {
+  transform(object: Node, parents: Node[]) {
     return () => {
       if (object.$controlFlowObfuscation) {
         // avoid infinite loop
@@ -147,14 +147,14 @@ export class ControlFlowObfuscation extends Transform {
           init.push({ ...object.init });
         }
         if (object.update) {
-          update.push(ExpressionStatement({ ...object.update }));
+          update.push(ExpressionStatement(clone(object.update)));
         }
         if (object.test) {
-          test = object.test;
+          test = object.test || Literal(true);
         }
       } else if (object.type === "WhileStatement") {
         if (object.test) {
-          test = object.test;
+          test = object.test || Literal(true);
         }
       } else {
         throw new Error("Unknown type: " + object.type);
@@ -317,133 +317,135 @@ export default class ControlFlowFlattening extends Transform {
   }
 
   transform(object, parents) {
-    if (containsLexicallyBoundVariables(object, parents)) {
-      return;
-    }
-
-    if (!ComputeProbabilityMap(this.options.controlFlowFlattening, (x) => x)) {
-      return;
-    }
-
-    var body = getBlockBody(object.body);
-    if (body.length) {
-      // First step is to reorder the body
-      // Fix 1. Bring hoisted functions up to be declared first
-
-      var functionDeclarations: Set<Node> = new Set();
-
-      body.forEach((stmt, i) => {
-        if (stmt.type == "FunctionDeclaration") {
-          functionDeclarations.add(stmt);
-        }
-      });
-
-      var chunks: Node[][] = [[]];
-
-      var fraction = 0.9;
-      if (body.length > 20) {
-        fraction /= body.length - 18;
-      }
-      fraction = Math.min(0.1, fraction);
-
-      body.forEach((x, i) => {
-        if (functionDeclarations.has(x)) {
-          return;
-        }
-
-        var currentChunk = chunks[chunks.length - 1];
-
-        if (!currentChunk.length || Math.random() < fraction) {
-          currentChunk.push(x);
-        } else {
-          // Start new chunk
-          chunks.push([x]);
-        }
-      });
-
-      if (!chunks[chunks.length - 1].length) {
-        chunks.pop();
-      }
-      if (chunks.length < 2) {
+    return () => {
+      if (containsLexicallyBoundVariables(object, parents)) {
         return;
       }
 
-      var emptyCases = getRandomInteger(0, 3);
+      if (
+        !ComputeProbabilityMap(this.options.controlFlowFlattening, (x) => x)
+      ) {
+        return;
+      }
 
-      // Add empty cases serving as transitions
-      Array(emptyCases)
-        .fill(0)
-        .forEach((x) => {
-          var index = getRandomInteger(0, chunks.length);
+      var body = getBlockBody(object.body);
+      if (body.length) {
+        // First step is to reorder the body
+        // Fix 1. Bring hoisted functions up to be declared first
 
-          // Empty chunk = no code
-          chunks.splice(index, 0, []);
+        var functionDeclarations: Set<Node> = new Set();
+
+        body.forEach((stmt, i) => {
+          if (stmt.type == "FunctionDeclaration") {
+            functionDeclarations.add(stmt);
+          }
         });
 
-      var selection: Set<number> = new Set();
+        var chunks: Node[][] = [[]];
 
-      var deadCases = getRandomInteger(0, 3);
+        var fraction = 0.9;
+        if (body.length > 20) {
+          fraction /= body.length - 18;
+        }
+        fraction = Math.min(0.1, fraction);
 
-      for (var i = 0; i < chunks.length + 1 + deadCases; i++) {
-        var newState;
-        do {
-          newState = getRandomInteger(1, chunks.length * 5);
-        } while (selection.has(newState));
+        body.forEach((x, i) => {
+          if (functionDeclarations.has(x)) {
+            return;
+          }
 
-        selection.add(newState);
-      }
+          var currentChunk = chunks[chunks.length - 1];
 
-      ok(selection.size == chunks.length + 1 + deadCases);
+          if (!currentChunk.length || Math.random() < fraction) {
+            currentChunk.push(x);
+          } else {
+            // Start new chunk
+            chunks.push([x]);
+          }
+        });
 
-      var states = Array.from(selection);
-      var stateVar = this.getPlaceholder();
+        if (!chunks[chunks.length - 1].length) {
+          chunks.pop();
+        }
+        if (chunks.length < 2) {
+          return;
+        }
 
-      var endState = states[states.length - 1 - deadCases];
+        var emptyCases = getRandomInteger(0, 3);
 
-      interface Case {
-        state: number;
-        nextState: number;
-        body: Node[];
-        order: number;
-      }
+        // Add empty cases serving as transitions
+        Array(emptyCases)
+          .fill(0)
+          .forEach((x) => {
+            var index = getRandomInteger(0, chunks.length);
 
-      var order = Object.create(null);
-      var cases: Case[] = chunks.map((body, i) => {
-        var caseObject = {
-          body: body,
-          state: states[i],
-          nextState: states[i + 1],
-          order: i,
-        };
-        order[i] = caseObject;
-
-        return caseObject;
-      });
-
-      // Add dead cases that can never be reached
-      Array(deadCases)
-        .fill(0)
-        .forEach((x, i) => {
-          var thisState = states[chunks.length + i];
-          var nextState;
-
-          do {
-            nextState = choice(states);
-          } while (nextState == thisState);
-
-          cases.push({
-            body: [],
-            state: thisState,
-            nextState: nextState,
-            order: -i,
+            // Empty chunk = no code
+            chunks.splice(index, 0, []);
           });
+
+        var selection: Set<number> = new Set();
+
+        var deadCases = getRandomInteger(0, 3);
+
+        for (var i = 0; i < chunks.length + 1 + deadCases; i++) {
+          var newState;
+          do {
+            newState = getRandomInteger(1, chunks.length * 5);
+          } while (selection.has(newState));
+
+          selection.add(newState);
+        }
+
+        ok(selection.size == chunks.length + 1 + deadCases);
+
+        var states = Array.from(selection);
+        var stateVar = this.getPlaceholder();
+
+        var endState = states[states.length - 1 - deadCases];
+
+        interface Case {
+          state: number;
+          nextState: number;
+          body: Node[];
+          order: number;
+        }
+
+        var order = Object.create(null);
+        var cases: Case[] = chunks.map((body, i) => {
+          var caseObject = {
+            body: body,
+            state: states[i],
+            nextState: states[i + 1],
+            order: i,
+          };
+          order[i] = caseObject;
+
+          return caseObject;
         });
 
-      shuffle(cases);
+        // Add dead cases that can never be reached
+        Array(deadCases)
+          .fill(0)
+          .forEach((x, i) => {
+            var thisState = states[chunks.length + i];
+            var nextState;
 
-      var discriminant = Identifier(stateVar);
+            do {
+              nextState = choice(states);
+            } while (nextState == thisState);
 
-      return () => {
+            cases.push({
+              body: [],
+              state: thisState,
+              nextState: nextState,
+              order: -i,
+            });
+          });
+
+        shuffle(cases);
+
+        var discriminant = Identifier(stateVar);
+
         body.length = 0;
 
         if (functionDeclarations.size) {
@@ -484,7 +486,9 @@ export default class ControlFlowFlattening extends Transform {
             [switchStatement]
           )
         );
-      };
-    }
+
+        object.$controlFlowObfuscation = 1;
+      }
+    };
   }
 }

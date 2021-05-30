@@ -21,6 +21,7 @@ it("works with Cash.js on High Preset", async () => {
     // stack: true,
     // dispatcher: true,
     // flatten: true,
+    // controlFlowFlattening: true,
   });
 
   // Make the required document variables for initialization

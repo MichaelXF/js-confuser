@@ -123,21 +123,20 @@ export default class Stack extends Transform {
                   varParents[2] &&
                   varParents[2].type == "VariableDeclaration"
                 ) {
-                  if (varParents[2].declarations.length === 1) {
+                  if (isForInitialize(varParents[2], varParents.slice(3))) {
+                    illegal.add(varNode.name);
+                    // queue(varParents[2], replacing);
+                  } else if (varParents[2].declarations.length === 1) {
                     replacing = Identifier("undefined");
                     value = Identifier("undefined");
-
-                    if (isForInitialize(varParents[2], varParents.slice(3))) {
-                      illegal.add(varNode.name);
-                      // queue(varParents[2], replacing);
-                    } else {
-                      if (!varParents[0].init) {
-                        varParents[0].init = Identifier("undefined");
-                      }
-                      replacing = varParents[0].init;
-                      value = { ...varParents[0].init };
-                      queue(varParents[2], ExpressionStatement(replacing));
+                    if (!varParents[0].init) {
+                      varParents[0].init = Identifier("undefined");
                     }
+                    replacing = varParents[0].init;
+                    value = { ...varParents[0].init };
+                    queue(varParents[2], ExpressionStatement(replacing));
+                  } else if (varParents[2].declarations.length > 1) {
+                    illegal.add(varNode.name);
                   }
                 }
               } else if (
