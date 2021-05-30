@@ -18,7 +18,7 @@ import {
   VariableDeclarator,
   WhileStatement,
 } from "../util/gen";
-import { getBlockBody, prepend } from "../util/insert";
+import { clone, getBlockBody, prepend } from "../util/insert";
 import {
   choice,
   getRandomInteger,
@@ -109,165 +109,175 @@ export class ControlFlowObfuscation extends Transform {
   }
 
   match(object, parents) {
-    return {
-      ForStatement: 1,
-    }[object.type];
+    return object.type === "ForStatement";
   }
 
   transform(object, parents) {
-    if (object.$controlFlowObfuscation) {
-      // avoid infinite loop
-      return;
-    }
-
-    if (containsLexicallyBoundVariables(object)) {
-      return;
-    }
-
-    // No place to insert more statements
-    if (!Array.isArray(parents[0])) {
-      return;
-    }
-
-    if (!ComputeProbabilityMap(this.options.controlFlowFlattening)) {
-      return;
-    }
-
-    var init = [];
-    var update = [];
-    var test: Node = null;
-    var consequent = [];
-
-    if (object.type == "ForStatement") {
-      if (object.init) {
-        init.push({ ...object.init });
+    return () => {
+      if (object.$controlFlowObfuscation) {
+        // avoid infinite loop
+        return;
       }
-      if (object.update) {
-        update.push(ExpressionStatement({ ...object.update }));
+
+      if (containsLexicallyBoundVariables(object, parents)) {
+        return;
       }
-      if (object.test) {
-        test = object.test;
+
+      var body =
+        parents[0].type == "LabeledStatement" ? parents[1] : parents[0];
+
+      // No place to insert more statements
+      if (!Array.isArray(body)) {
+        return;
       }
-    }
 
-    if (object.type == "WhileStatement") {
-      if (object.test) {
-        test = object.test;
+      if (
+        !ComputeProbabilityMap(this.options.controlFlowFlattening, (x) => x)
+      ) {
+        return;
       }
-    }
 
-    if (object.body.type == "BlockStatement") {
-      consequent.push(...getBlockBody(object.body));
-    } else {
-      consequent.push(object.body);
-    }
+      var init = [];
+      var update = [];
+      var test: Node = null;
+      var consequent = [];
 
-    if (!test) {
-      test = Literal(true);
-    }
+      if (object.type === "ForStatement") {
+        if (object.init) {
+          init.push({ ...object.init });
+        }
+        if (object.update) {
+          update.push(ExpressionStatement({ ...object.update }));
+        }
+        if (object.test) {
+          test = object.test;
+        }
+      } else if (object.type === "WhileStatement") {
+        if (object.test) {
+          test = object.test;
+        }
+      } else {
+        throw new Error("Unknown type: " + object.type);
+      }
 
-    ok(test);
+      if (object.body.type == "BlockStatement") {
+        consequent.push(...getBlockBody(object.body));
+      } else {
+        consequent.push(object.body);
+      }
 
-    var stateVar = this.getPlaceholder();
+      if (!test) {
+        test = Literal(true);
+      }
 
-    //            init 0  test 1  run 2  update 3  end 4
-    var states: number[] = [];
+      ok(test);
 
-    // Create 4 random unique number
-    while (states.length <= 4) {
-      var newState;
-      do {
-        newState = getRandomInteger(0, 1000 + states.length);
-      } while (states.indexOf(newState) != -1);
-
-      states.push(newState);
-    }
-
-    getBlockBody(parents[1] || parents[0]).unshift(
-      VariableDeclaration(VariableDeclarator(stateVar, Literal(states[0])))
-    );
-
-    function goto(from: number, to: number) {
-      return ExpressionStatement(
-        AssignmentExpression("+=", Identifier(stateVar), Literal(to - from))
-      );
-    }
-
-    var cases = [
-      SwitchCase(Literal(states[0]), [
-        ...init,
-        goto(states[0], states[1]),
-        BreakStatement(),
-      ]),
-      SwitchCase(Literal(states[1]), [
-        IfStatement(
-          { ...test },
-          [goto(states[1], states[2])],
-          [goto(states[1], states[4])]
-        ),
-        BreakStatement(),
-      ]),
-      SwitchCase(Literal(states[2]), [
-        ...consequent,
-        goto(states[2], states[3]),
-        BreakStatement(),
-      ]),
-      SwitchCase(Literal(states[3]), [
-        ...update,
-        goto(states[3], states[1]),
-        BreakStatement(),
-      ]),
-    ];
-
-    Array(getRandomInteger(0, 3))
-      .fill(0)
-      .map(() => {
-        var newState;
-        do {
-          newState = getRandomInteger(0, 1000 + states.length * 2);
-        } while (states.indexOf(newState) != -1);
-        states.push(newState);
-
-        var nextState;
-        do {
-          nextState = getRandomInteger(0, 1000 + states.length * 3);
-        } while (states.indexOf(nextState) != -1);
-        states.push(nextState);
-
-        var body = [];
-
-        body.push(
-          ExpressionStatement(
-            AssignmentExpression("=", Identifier(stateVar), Literal(nextState))
-          ),
-          BreakStatement()
-        );
-
-        cases.push(SwitchCase(Literal(newState), body));
+      init.forEach((o) => {
+        if (
+          o.type !== "VariableDeclaration" &&
+          o.type !== "ExpressionStatement"
+        ) {
+          this.replace(o, ExpressionStatement(clone(o)));
+        }
       });
 
-    shuffle(cases);
+      var stateVar = this.getPlaceholder();
 
-    this.replace(
-      object,
-      WhileStatement(
-        BinaryExpression(
-          "!=",
-          Identifier(stateVar),
-          Literal(states[states.length - 1])
-        ),
-        [SwitchStatement(Identifier(stateVar), cases)]
-      )
-    );
+      //            init 0  test 1  run 2  update 3  end 4
+      var states: number[] = [];
 
-    // Marked to not be infinite
-    object.$controlFlowObfuscation = 1;
+      // Create 5 random unique number
+      while (states.length < 5) {
+        var newState;
+        do {
+          newState = getRandomInteger(0, 1000 + states.length);
+        } while (states.indexOf(newState) !== -1);
+
+        ok(!isNaN(newState));
+
+        states.push(newState);
+      }
+      ok(new Set(states).size === states.length);
+
+      body.unshift(
+        VariableDeclaration(VariableDeclarator(stateVar, Literal(states[0])))
+      );
+
+      function goto(from: number, to: number) {
+        return ExpressionStatement(
+          AssignmentExpression("+=", Identifier(stateVar), Literal(to - from))
+        );
+      }
+
+      var cases = [
+        SwitchCase(Literal(states[0]), [
+          ...init,
+          goto(states[0], states[1]),
+          BreakStatement(),
+        ]),
+        SwitchCase(Literal(states[1]), [
+          IfStatement(
+            clone(test),
+            [goto(states[1], states[2])],
+            [goto(states[1], states[4])]
+          ),
+          BreakStatement(),
+        ]),
+        SwitchCase(Literal(states[2]), [
+          ...consequent,
+          goto(states[2], states[3]),
+          BreakStatement(),
+        ]),
+        SwitchCase(Literal(states[3]), [
+          ...update,
+          goto(states[3], states[1]),
+          BreakStatement(),
+        ]),
+      ];
+
+      var endState = states[states.length - 1];
+
+      Array(getRandomInteger(0, 3))
+        .fill(0)
+        .map(() => {
+          var newState;
+          do {
+            newState = getRandomInteger(0, 1000 + states.length * 2);
+          } while (states.indexOf(newState) !== -1);
+          states.push(newState);
+
+          var nextState;
+          do {
+            nextState = getRandomInteger(0, 1000 + states.length * 3);
+          } while (states.indexOf(nextState) !== -1 || newState === nextState);
+          states.push(nextState);
+
+          ok(new Set(states).size === states.length);
+
+          var caseBody = [goto(newState, newState), BreakStatement()];
+
+          cases.push(SwitchCase(Literal(newState), caseBody));
+        });
+
+      shuffle(cases);
+
+      this.replace(
+        object,
+        WhileStatement(
+          BinaryExpression("!=", Identifier(stateVar), Literal(endState)),
+          [SwitchStatement(Identifier(stateVar), cases)]
+        )
+      );
+
+      // Marked to not be infinite
+      object.$controlFlowObfuscation = 1;
+    };
   }
 }
 
-function containsLexicallyBoundVariables(object: Node) {
+function containsLexicallyBoundVariables(object: Node, parents: Node[]) {
   var contains = false;
-  walk(object, [], (o, p) => {
+  walk(object, parents, (o, p) => {
     if (o.type == "VariableDeclaration") {
       if (o.kind === "let") {
         // Control Flow Flattening changes the lexical block, therefore this is not possible
@@ -299,7 +309,7 @@ export default class ControlFlowFlattening extends Transform {
 
     this.before.push(new ControlFlowObfuscation(o));
 
-    this.after.push(new SwitchCaseObfuscation(o));
+    // this.after.push(new SwitchCaseObfuscation(o));
   }
 
   match(object, parents) {
@@ -307,11 +317,11 @@ export default class ControlFlowFlattening extends Transform {
   }
 
   transform(object, parents) {
-    if (containsLexicallyBoundVariables(object)) {
+    if (containsLexicallyBoundVariables(object, parents)) {
       return;
     }
 
-    if (!ComputeProbabilityMap(this.options.controlFlowFlattening)) {
+    if (!ComputeProbabilityMap(this.options.controlFlowFlattening, (x) => x)) {
       return;
     }
 

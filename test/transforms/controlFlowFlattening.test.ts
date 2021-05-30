@@ -46,7 +46,34 @@ it("should obfuscate for loops (ControlFlowObfuscation)", async () => {
     controlFlowFlattening: true,
   });
 
-  expect(output).not.toContain("for ( var i");
+  expect(output).toContain("switch");
+
+  function input(array) {
+    expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  }
+
+  eval(output);
+});
+
+it("should obfuscate while loops (ControlFlowObfuscation)", async () => {
+  var code = `
+    var array = [];
+    var i = 1;
+
+    while ( i <= 10 ) {
+      array.push(i);
+      i++
+    }
+
+    input(array);
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    controlFlowFlattening: true,
+  });
+
+  expect(output).toContain("switch");
 
   function input(array) {
     expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -162,4 +189,32 @@ it("should not obfuscate code with `let` (Lexically bound variables, ControlFlow
   });
 
   expect(output).not.toContain("switch");
+});
+
+it("should accept percentages", async () => {
+  var code = `
+    var array = [];
+    var i = 1;
+
+    while ( i <= 10 ) {
+      array.push(i);
+      i++
+    }
+
+    input(array);
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    controlFlowFlattening: 0.5,
+  });
+
+  // expect(output).toContain("switch");
+  // expect(output).toContain("while");
+
+  function input(array) {
+    expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  }
+
+  eval(output);
 });
