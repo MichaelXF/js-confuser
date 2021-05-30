@@ -101,13 +101,6 @@ export class VariableAnalysis extends Transform {
     });
 
     // console.log(isGlobal ? "<Global>" : object.id && object.id.name || "<FunctionExpression>", this.defined.get(object), this.references.get(object));
-
-    if (!this.defined.has(object)) {
-      this.defined.set(object, new Set());
-    }
-    if (!this.references.has(object)) {
-      this.references.set(object, new Set());
-    }
   }
 }
 
@@ -156,8 +149,8 @@ export default class RenameVariables extends Transform {
 
     var newNames = Object.create(null);
 
-    var defined = this.variableAnalysis.defined.get(object);
-    var references = this.variableAnalysis.references.get(object);
+    var defined = this.variableAnalysis.defined.get(object) || new Set();
+    var references = this.variableAnalysis.references.get(object) || new Set();
 
     if (!defined && !this.changed.has(object)) {
       this.changed.set(object, Object.create(null));
