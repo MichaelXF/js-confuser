@@ -70,25 +70,25 @@ export default class Shuffle extends Transform {
   }
 
   transform(object, parents) {
-    if (object.elements.length < 3) {
-      // Min: 4 elements
-      return;
-    }
+    return () => {
+      if (object.elements.length < 3) {
+        // Min: 4 elements
+        return;
+      }
 
-    // Only arrays with only literals
-    var possible = !object.elements.find((x) => !isPrimitive(x));
+      // Only arrays with only literals
+      var possible = !object.elements.find((x) => !isPrimitive(x));
 
-    if (!possible) {
-      return;
-    }
+      if (!possible) {
+        return;
+      }
 
-    var mode = ComputeProbabilityMap(
-      this.options.shuffle,
-      (x) => x,
-      object.elements.map((x) => x.value)
-    );
-    if (mode) {
-      return () => {
+      var mode = ComputeProbabilityMap(
+        this.options.shuffle,
+        (x) => x,
+        object.elements.map((x) => x.value)
+      );
+      if (mode) {
         var shift = getRandomInteger(
           1,
           Math.min(100, object.elements.length * 6)
@@ -114,7 +114,9 @@ export default class Shuffle extends Transform {
             object.elements.push(object.elements.shift());
           }
 
-          var shiftedHash = Hash(object.elements.map((x) => x.value).join(""));
+          var shiftedHash = Hash(
+            object.elements.map((x) => x.value || x.name).join("")
+          );
 
           expr = BinaryExpression(
             "-",
@@ -176,7 +178,7 @@ export default class Shuffle extends Transform {
             )
           );
         }
-      };
-    }
+      }
+    };
   }
 }
