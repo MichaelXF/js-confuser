@@ -127,7 +127,7 @@ export default class RGF extends Transform {
             if (!references1.size && name) {
               collect.forEach((o) => {
                 if (
-                  o.location !== location1 &&
+                  o.location[0] !== location1[0] &&
                   o.references.size &&
                   o.references.delete(name)
                 ) {
@@ -232,6 +232,7 @@ export default class RGF extends Transform {
 
         // Since `new Function` is completely isolated, create an entire new obfuscator and run remaining transformations.
         // RGF runs early and needs completed code before converting to a string.
+        // (^ the variables haven't been renamed yet)
         var o = new Obfuscator({
           ...this.options,
           rgf: false,

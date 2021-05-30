@@ -9,21 +9,11 @@ import {
   VariableDeclarator,
 } from "../../util/gen";
 import { prepend } from "../../util/insert";
+import { isPrimitive } from "../../util/compare";
+
 import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "../string/stringConcealing";
 import { ComputeProbabilityMap } from "../../probability";
-
-var primitiveIdentifiers = new Set(["undefined", "null", "NaN", "infinity"]);
-
-function isPrimitive(node: Node) {
-  if (node.type == "Literal") {
-    return { number: 1, string: 1, boolean: 1 }[typeof node.value];
-  } else if (node.type == "Identifier") {
-    return primitiveIdentifiers.has(node.name);
-  }
-
-  return false;
-}
 
 /**
  * [Duplicate Literals Removal](https://docs.jscrambler.com/code-integrity/documentation/transformations/duplicate-literals-removal) replaces duplicate literals with a variable name.

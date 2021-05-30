@@ -2,6 +2,7 @@ import { ok } from "assert";
 import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
+import { isPrimitive } from "../util/compare";
 import {
   BinaryExpression,
   CallExpression,
@@ -75,7 +76,7 @@ export default class Shuffle extends Transform {
     }
 
     // Only arrays with only literals
-    var possible = !object.elements.find((x) => x.type != "Literal");
+    var possible = !object.elements.find((x) => !isPrimitive(x));
 
     if (!possible) {
       return;
@@ -97,7 +98,7 @@ export default class Shuffle extends Transform {
         var name = this.getPlaceholder();
 
         if (mode == "hash") {
-          var str = object.elements.map((x) => x.value).join("");
+          var str = object.elements.map((x) => x.value || x.name).join("");
           shift = Hash(str);
 
           if (!this.hashName) {

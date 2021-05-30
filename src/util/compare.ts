@@ -100,3 +100,26 @@ export function isIndependent(object: Node, parents: Node[]) {
 
   return false;
 }
+
+var primitiveIdentifiers = new Set(["undefined", "null", "NaN", "infinity"]);
+
+/**
+ * booleans, numbers, string, null, undefined, NaN, infinity
+ *
+ * Types:
+ * - `Literal` with typeof `node.value` = `"number" | "string" | "boolean"`
+ * - `Identifier` with `name` = `"undefined" | "null" | "NaN" | "infinity"`
+ *
+ *
+ * @param node
+ * @returns
+ */
+export function isPrimitive(node: Node) {
+  if (node.type == "Literal") {
+    return { number: 1, string: 1, boolean: 1 }[typeof node.value];
+  } else if (node.type == "Identifier") {
+    return primitiveIdentifiers.has(node.name);
+  }
+
+  return false;
+}
