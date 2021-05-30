@@ -33,14 +33,10 @@ class GlobalAnalysis extends Transform {
   }
 
   match(object: Node, parents: Node[]) {
-    return object.type == "Identifier";
+    return object.type == "Identifier" && !reservedKeywords.has(object.name);
   }
 
   transform(object: Node, parents: Node[]) {
-    if (reservedKeywords.has(object.name)) {
-      return;
-    }
-
     var info = getIdentifierInfo(object, parents);
     if (!info.spec.isReferenced) {
       return;

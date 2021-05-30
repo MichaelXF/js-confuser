@@ -21,13 +21,7 @@ import {
   UnaryExpression,
   VariableDeclarator,
 } from "../../util/gen";
-import {
-  clone,
-  getBlockBody,
-  getBlockName,
-  isFunction,
-  prepend,
-} from "../../util/insert";
+import { clone, getBlockBody, isFunction, prepend } from "../../util/insert";
 import { getRandomInteger } from "../../util/random";
 import Lock from "./lock";
 import { ok } from "assert";

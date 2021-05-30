@@ -89,14 +89,6 @@ export function isLexContext(object: Node): boolean {
   return isBlock(object) || object.type == "Program";
 }
 
-export function isThisContext(object: Node): boolean {
-  return (
-    object.type == "FunctionDeclaration" ||
-    object.type == "FunctionExpression" ||
-    object.type == "Program"
-  );
-}
-
 /**
  * Either a `var context` or `lex context`
  * @param object
@@ -212,166 +204,6 @@ export function getBlockBody(block: Node): Node[] {
   return getBlockBody(block.body);
 }
 
-/**
- * Returns a human readable path.
- * - Example: `Program.anonymous.Rectangle.Rectangle#getVolume`
- * @param object
- * @param parents
- */
-export function getBlockPathName(object: Node, parents: Node[]): string {
-  return getBlockPathArray(object, parents)
-    .reverse()
-    .join(".")
-    .replace("<root>.<root>", "<root>");
-}
-
-/**
- * ["NestedFunction", "MainFunction", "Program"].
- * - See **`getBlockPathName`** for a human readable version.
- * @param object
- * @param parents
- */
-export function getBlockPathArray(object: Node, parents: Node[]): string[] {
-  var list = [object, ...parents];
-  var path = [];
-
-  for (var i = 0; i < list.length; i++) {
-    if (isBlock(list[i])) {
-      var nObject = list[i];
-      var nParents = list.slice(i + 1);
-
-      path.push(getBlockName(nObject, nParents));
-    }
-  }
-
-  return path;
-}
-
-export function getBlockName(object: Node, parents: Node[]): string {
-  var list = [object, ...parents];
-
-  var idName = new Set([
-    "FunctionDeclaration",
-    "VariableDeclarator",
-    "ClassDeclaration",
-  ]);
-  var types = {
-    WhileStatement: "<while>",
-    DoWhileStatement: "<do while>",
-    TryStatement: "<try>",
-    ForStatement: "<for>",
-    ForInStatement: "<for in>",
-    ForOfStatement: "<for of>",
-    CatchClause: "<catch>",
-    ThrowStatement: "<throw>",
-    IfStatement: "<if>",
-    DoStatement: "<do>",
-  };
-  for (var i = 0; i < list.length; i++) {
-    var node = list[i];
-    var next = list[i + 1];
-
-    if (types[node.type]) {
-      return types[node.type];
-    }
-
-    if (
-      node.type == "BlockStatement" &&
-      list[i + 1].type == "TryStatement" &&
-      list[i + 1].finalizer == node
-    ) {
-      return "<finally>";
-    }
-
-    if (next && next.alternate == node) {
-      if (node.type == "IfStatement") {
-        return "<else-if>";
-      }
-      return "<else>";
-    }
-
-    // Function calling
-    if (node.type == "FunctionExpression") {
-      // iife
-      if (next) {
-        if (next.type == "ExpressionStatement") {
-          return "anonymous";
-        }
-        // callbacks
-        if (next.type == "CallExpression") {
-          var callee = next.callee;
-          if (callee.name) {
-            return callee.name;
-          }
-          return "(intermediate value)";
-        }
-        if (next.type == "AssignmentExpression") {
-          if (next.left.type == "MemberExpression") {
-            var r = next.left.object.name;
-            if (next.left.object.type == "ThisExpression") {
-              r = "this";
-            }
-            if (next.left.object.type == "SuperExpression") {
-              r = "super";
-            }
-            return (
-              r + "." + (next.left.property.value || next.left.property.name)
-            );
-          }
-        }
-      }
-
-      return "function()";
-    }
-
-    if (node.type == "MethodDefinition") {
-      var className = parents.find((x) => x.type == "ClassDeclaration").id.name;
-
-      return (
-        className +
-        "#" +
-        node.key.name +
-        (["set", "get"].includes(node.kind) ? "[" + node.kind + "]" : "")
-      );
-    }
-
-    if (idName.has(node.type)) {
-      return node.id.name;
-    }
-
-    if (node.type == "Program") {
-      return i == list.length - 1 ? "<root>" : "<block>";
-    }
-  }
-
-  return "";
-}
-
-export function getIndexAndBlock(
-  object: Node,
-  parents: Node[]
-): { block: Node; index: number } {
-  var index, block;
-  var search = [object, ...parents];
-  var last = object;
-
-  for (var i = 0; i < search.length; i++) {
-    if (isBlock(search[i])) {
-      block = search[i];
-      index = getBlockBody(block).findIndex((x) => x == last);
-
-      break;
-    }
-
-    last = search[i];
-  }
-
-  return {
-    block: block,
-    index: index,
-  };
-}
-
 export function getIndexDirect(object: Node, parent: Node[]): string {
   return Object.keys(parent).find((x) => parent[x] == object);
 }
@@ -466,18 +298,6 @@ export function prepend(block: Node, ...nodes: Node[]) {
 
 export function append(block: Node, ...nodes: Node[]) {
   getBlockBody(block).push(...nodes);
-}
-
-export function insertBefore(object: Node, parents: Node[], node: Node) {
-  var { block, index } = getIndexAndBlock(object, parents);
-
-  getBlockBody(block).splice(index, 0, node);
-}
-
-export function insertAfter(object: Node, parents: Node[], node: Node) {
-  var { block, index } = getIndexAndBlock(object, parents);
-
-  getBlockBody(block).splice(index + 1, 0, node);
 }
 
 export function clone<T>(object: T): T {

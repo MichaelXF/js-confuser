@@ -4,23 +4,18 @@ import JsConfuser from "./index";
 
 JsConfuser.obfuscate(
   `
-  "use strict"
 
-  var ABC = "use strict";
+  var array = [];
 
-  function sum(number1, number2) {
-
-    return number1 + number2;
-
+  for ( var i = 1; i <= 10; i++ ) {
+    array.push(i);
   }
 
-  console.log(sum(5, 45))
+  console.log(array);
 `,
   {
     target: "node",
-    renameVariables: true,
-    compact: false,
-    stringConcealing: true,
+    controlFlowFlattening: true,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);

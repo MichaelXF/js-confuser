@@ -18,7 +18,6 @@ import {
 } from "../util/gen";
 import {
   deleteDeclaration,
-  insertBefore,
   deleteDirect,
   getBlockBody,
   isVarContext,

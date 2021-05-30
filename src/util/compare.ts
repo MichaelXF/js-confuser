@@ -60,35 +60,6 @@ export function isDirective(object: Node, parents: Node[]) {
   return parents[dIndex].expression == (parents[dIndex - 1] || object);
 }
 
-export function isStrictMode(object: Node, parents: Node[]): boolean {
-  var functions = parents.filter((x) => isFunction(x));
-
-  for (var fn of functions) {
-    var first = getBlockBody(fn.body)[0];
-    if (
-      first &&
-      first.type == "ExpressionStatement" &&
-      first.expression.type == "Literal" &&
-      first.expression.value == "strict mode"
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-export function isInside(finding: any, object: any, parents: any): boolean {
-  var found = false;
-  walk(object, parents, (object2, parents2) => {
-    if (object2 == finding) {
-      found = true;
-    }
-  });
-
-  return found;
-}
-
 export function isIndependent(object: Node, parents: Node[]) {
   if (object.type == "Literal") {
     return true;

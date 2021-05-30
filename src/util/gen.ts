@@ -133,35 +133,6 @@ export function ThisExpression() {
   return { type: "ThisExpression" };
 }
 
-/**
- *
- * @param operator "+"
- * @param values [Literal("Hello"), Literal(" "), Literal("World!")]
- */
-export function NestedBinaryExpression(operator: string, values: Node[]) {
-  values.reverse();
-  var nested: any = {
-    type: "BinaryExpression",
-  };
-  var top = nested;
-
-  values.slice(0, -1).forEach((x) => {
-    Object.assign(nested, {
-      type: "BinaryExpression",
-      operator: operator,
-      left: {
-        type: "BinaryExpression",
-      },
-    });
-
-    nested.right = x;
-    nested = nested.left;
-  });
-  Object.assign(nested, values[values.length - 1]);
-
-  return top;
-}
-
 export function SwitchCase(test: any, consequent: any[]) {
   return {
     type: "SwitchCase",
