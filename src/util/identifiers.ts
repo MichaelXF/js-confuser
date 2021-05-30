@@ -130,6 +130,12 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     }
   }
 
+  var isObjectPatternKey = false;
+
+  if (parent.type == "ObjectPattern" && parent.key == object) {
+    isObjectPatternKey = true;
+  }
+
   return {
     /**
      * MemberExpression: `parent.identifier`
@@ -139,6 +145,12 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
      * Property: `{identifier: ...}`
      */
     isPropertyKey,
+
+    /**
+     * Destructing `var {identifier: ...}`
+     */
+    isObjectPatternKey,
+
     /**
      * `var identifier = ...`
      */
@@ -255,12 +267,14 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
        * - true: `if ( identifier ) {...}`
        * - false `if ( obj.identifier ) {...}`
        * - false `identifier: for ( var ...)`
+       * - false `var {identifier: ...}`
        * - false `break identifier;`
        */
       isReferenced:
         !isAccessor &&
         !isPropertyKey &&
         !isMetaProperty &&
+        !isObjectPatternKey &&
         !isLabel &&
         !object.name.startsWith("0") &&
         !object.name.startsWith("'"),

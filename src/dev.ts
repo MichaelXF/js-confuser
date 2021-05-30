@@ -5,16 +5,18 @@ import JsConfuser from "./index";
 JsConfuser.obfuscate(
   `
   
-  function TEST_FUNCTION(){
+  function sum(number1, number2) {
 
-    return 10;
+    return number1 + number2;
+
   }
 
-  console.log( TEST_FUNCTION() )
+  console.log(sum(5, 45))
 `,
   {
-    target: "browser",
-    flatten: true,
+    target: "node",
+    renameVariables: true,
+    compact: false,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);

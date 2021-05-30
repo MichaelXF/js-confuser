@@ -234,6 +234,7 @@ export default class RGF extends Transform {
         // RGF runs early and needs completed code before converting to a string.
         var o = new Obfuscator({
           ...this.options,
+          rgf: false,
         });
         var t = Object.values(o.transforms).filter(
           (x) => x.priority > this.priority

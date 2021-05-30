@@ -93,13 +93,15 @@ export interface ObfuscateOptions {
    * ### `identifierGenerator`
    *
    * Determines how variables are renamed.
-   * Modes:
    *
-   * - **`hexadecimal`** - \_0xa8db5
-   * - **`randomized`** - w$Tsu4G
-   * - **`zeroWidth`** - U+200D
-   * - **`mangled`** - a, b, c
-   * - **`number`** - var_1, var_2
+   * | Mode | Description | Example |
+   * | --- | --- | --- |
+   * | `"hexadecimal"` | Random hex strings | \_0xa8db5 |
+   * | `"randomized"` | Random characters | w$Tsu4G |
+   * | `"zeroWidth"` | Invisible characters | U+200D |
+   * | `"mangled"` | Alphabet sequence | a, b, c |
+   * | `"number"` | Numbered sequence | var_1, var_2 |
+   * | `<function>` | Write a custom name generator | See Below |
    *
    * ```js
    * // Custom implementation
@@ -117,7 +119,7 @@ export interface ObfuscateOptions {
    *   target: "node",
    *   renameVariables: true,
    *   identifierGenerator: function () {
-   *     return "_NAME_" + (counter++);
+   *     return "var_" + (counter++);
    *   },
    * });
    * ```
