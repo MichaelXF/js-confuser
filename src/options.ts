@@ -533,7 +533,7 @@ export interface ObfuscateOptions {
   /**
    * ### `verbose`
    *
-   * Enable logs to view the obfuscators state. (`true/false`)
+   * Enable logs to view the obfuscator's state. (`true/false`)
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -542,7 +542,7 @@ export interface ObfuscateOptions {
   /**
    * ### `globalVariables`
    *
-   * Set of global variables. Optional. (`Set<string>`)
+   * Set of global variables. *Optional*. (`Set<string>`)
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */

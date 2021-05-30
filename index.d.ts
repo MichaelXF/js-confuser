@@ -1,13 +1,9 @@
-import { ObfuscateOptions } from "./src/options";
-
-interface JsConfuser {
-  obfuscate: (code: string, options: ObfuscateOptions) => Promise<string>;
-
-  (code: string, options: ObfuscateOptions): Promise<string>;
-}
+import {
+  IJsConfuser as JsConfuser,
+  IJsConfuserObfuscate,
+  IJsConfuserPresets,
+} from "./src/types";
 
 export default JsConfuser;
-export function obfuscate(
-  code: string,
-  options: ObfuscateOptions
-): Promise<string>;
+export const obfuscate: IJsConfuserObfuscate;
+export const presets: IJsConfuserPresets;

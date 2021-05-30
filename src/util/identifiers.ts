@@ -37,10 +37,6 @@ export function isWithinClass(object: Node, parents: Node[]) {
   );
 }
 
-export function isWithinMethodDefinition(object: Node, parents: Node[]) {
-  return isWithin(object, parents, "MethodDefinition");
-}
-
 export function isWithin(object: Node, parents: Node[], type: string): boolean {
   return [object, ...parents].some((x) => x.type == type);
 }

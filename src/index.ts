@@ -8,6 +8,7 @@ import presets from "./presets";
 import * as assert from "assert";
 import { correctOptions, ObfuscateOptions } from "./options";
 import { ProbabilityMap } from "./probability";
+import { IJsConfuser } from "./types";
 
 /**
  * Determines if a probability map can return a positive result (true, or some string mode).
@@ -62,18 +63,12 @@ export async function obfuscate(code: string, options: ObfuscateOptions) {
   return await JsConfuser(code, options);
 }
 
-interface JsConfuser {
-  obfuscate: (code: string, options: ObfuscateOptions) => Promise<string>;
-
-  (code: string, options: ObfuscateOptions): Promise<string>;
-}
-
 /**
  * **JsConfuser**: Obfuscates JavaScript.
  * @param code - The code to be obfuscated.
  * @param options - An object of obfuscation options: `{preset: "medium", target: "browser"}`.
  */
-var JsConfuser: JsConfuser = async function (
+var JsConfuser: IJsConfuser = async function (
   code: string,
   options: ObfuscateOptions
 ): Promise<string> {
@@ -122,6 +117,7 @@ var JsConfuser: JsConfuser = async function (
 } as any;
 
 JsConfuser.obfuscate = obfuscate;
+JsConfuser.presets = presets;
 export default JsConfuser;
 
 export async function debugTransformations(

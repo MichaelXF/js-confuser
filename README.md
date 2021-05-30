@@ -596,6 +596,18 @@ Mix modes using an object with key-value pairs represent each mode's percentage.
 - 1.  String Encoding can corrupt files. Disable `stringEncoding` manually if this happens.
 - 2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
 
+## File size and Performance
+
+Obfuscation can bloat file size and negatively impact performance. Avoid using the following:
+
+| Option | Description |
+| --- | --- |
+| `deadCode` | Bloats file size. Use low percentages. |
+| `stringSplitting`, `stringEncoding` | Bloats file size. Avoid using these altogether. |
+| `dispatcher` | Slow performance. Use low percentage. | 
+| `controlFlowFlattening` | Significant performance impact. Use very low percentage when source code is large. |
+| `stack` | Can cause performance impacts. |
+
 ## "The obfuscator broke my code!"
 
 Try disabling features in the following order:
@@ -603,33 +615,33 @@ Try disabling features in the following order:
 2. `stack`
 3. `dispatcher`
 
-If the issue continues then open an issue.
+If the error continues then [open an issue](https://github.com/MichaelXF/js-confuser/issues).
 
 ## Bug report
 
-Please open an issue with the code and config used.
+Please [open an issue](https://github.com/MichaelXF/js-confuser/issues) with the code and config used.
 
 ## Feature request
 
-Please open an issue and be descriptive what you want. Don't submit any PRs until approved.
+Please [open an issue]((https://github.com/MichaelXF/js-confuser/issues)) and be descriptive. Don't submit any PRs until approved.
 
 ## JsConfuser vs. Javascript-obfuscator
 
-Javascript-obfuscator ([https://obfuscator.io](obfuscator.io)) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser offers unique features such as Integrity, locks, and RGF.
+Javascript-obfuscator ([https://obfuscator.io](obfuscator.io)) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser provides unique features and is lesser-known.
 
 Automated deobfuscators are aware of [https://obfuscator.io](obfuscator.io)'s techniques:
 
 https://www.youtube.com/watch?v=_UIqhaYyCMI
 
-However, the dev is quick to fix these. The one above no longer works.
+However, the dev is [quick to fix these](https://github.com/LostMyCode/javascript-deobfuscator/issues/12). The one above no longer works.
 
-Alternatively, you could go the paid-route with [JScrambler.com (enterprise only)](https://jscrambler.com/) or [PreEmptive.com](https://www.preemptive.com/products/jsdefender/online-javascript-obfuscator-demo)
+Alternatively, you could go the paid-route with [Jscrambler.com (enterprise only)](https://jscrambler.com/) or [PreEmptive.com](https://www.preemptive.com/products/jsdefender/online-javascript-obfuscator-demo)
 
 I've included several alternative obfuscators in the [`samples/`](https://github.com/MichaelXF/js-confuser/tree/master/samples) folder. They are all derived from the `input.js` file.
 
 ## Debugging
 
-Enable logs to view the obfuscators state.
+Enable logs to view the obfuscator's state.
 
 ```js
 {
@@ -645,6 +657,6 @@ This obfuscator depends on two libraries to work: `acorn` and `escodegen`
 - `acorn` is responsible for parsing source code into an AST.
 - `escodegen` is responsible for generating source from modified AST.
 
-The tree is modified by transformations, which each step the traverse the entire tree.
+The tree is modified by transformations, which each traverse the entire tree.
 Properties starting with `$` are for saving information (typically circular data),
 these properties are deleted before output.
