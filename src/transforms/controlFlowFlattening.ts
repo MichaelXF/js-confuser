@@ -309,7 +309,7 @@ export default class ControlFlowFlattening extends Transform {
 
     this.before.push(new ControlFlowObfuscation(o));
 
-    // this.after.push(new SwitchCaseObfuscation(o));
+    this.after.push(new SwitchCaseObfuscation(o));
   }
 
   match(object, parents) {
