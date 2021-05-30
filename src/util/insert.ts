@@ -445,11 +445,6 @@ export function deleteDirect(object: Node, parent: Node) {
   }
 }
 
-export function replace(object, parents, newObject) {
-  // todo key based on body
-  Object.assign(newObject, object);
-}
-
 export function prepend(block: Node, ...nodes: Node[]) {
   ok(!Array.isArray(block), "block should not be array");
 

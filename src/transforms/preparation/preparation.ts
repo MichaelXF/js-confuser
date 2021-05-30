@@ -77,53 +77,6 @@ class Block extends Transform {
   }
 }
 
-/**
- * Brings all the function declarations to the top.
- *
- * - This is so the first Identifier traversed to is the definition.
- */
-class FunctionsFirst extends Transform {
-  constructor(o) {
-    super(o);
-  }
-
-  match(object, parents) {
-    return isBlock(object);
-  }
-
-  transform(object, parents) {
-    return () => {
-      var body = getBlockBody(object.body);
-      var functionDeclarations: Node[] = [];
-      var indices: number[] = [];
-
-      var isTop = true;
-
-      body.forEach((stmt, i) => {
-        if (stmt.type == "FunctionDeclaration") {
-          if (!isTop) {
-            functionDeclarations.unshift(stmt);
-            indices.unshift(i);
-          }
-        } else {
-          isTop = false;
-        }
-      });
-
-      functionDeclarations.forEach((fn, i) => {
-        var index = indices[i];
-        body.splice(index, 1);
-      });
-
-      body.unshift(
-        ...functionDeclarations.map((x) => {
-          return clone(x);
-        })
-      );
-    };
-  }
-}
-
 class ExplicitIdentifiers extends Transform {
   constructor(o) {
     super(o);
@@ -267,7 +220,6 @@ export default class Preparation extends Transform {
     this.before.push(new Label(o));
     this.before.push(new ExplicitIdentifiers(o));
     // this.before.push(new ExplicitLabel(o));
-    // this.before.push(new FunctionsFirst(o));
     this.before.push(new ExplicitDeclarations(o));
 
     if (this.options.es5) {

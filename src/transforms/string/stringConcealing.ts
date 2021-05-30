@@ -158,13 +158,14 @@ export default class StringConcealing extends Transform {
   match(object, parents) {
     return (
       object.type == "Program" ||
-      (object.type == "Literal" && !isDirective(object, parents))
+      (object.type == "Literal" &&
+        !isModuleSource(object, parents) &&
+        !isDirective(object, parents))
     );
   }
 
   transform(object, parents) {
     if (object.type == "Program") {
-      var encoding = true;
       this.arrayExpression = ArrayExpression([]);
 
       return () => {
@@ -175,19 +176,13 @@ export default class StringConcealing extends Transform {
             [Identifier("x")],
             [
               ReturnStatement(
-                encoding
-                  ? CallExpression(Identifier(this.decodeFn), [
-                      MemberExpression(
-                        Identifier(this.arrayName),
-                        Identifier("x"),
-                        true
-                      ),
-                    ])
-                  : MemberExpression(
-                      Identifier(this.arrayName),
-                      Identifier("x"),
-                      true
-                    )
+                CallExpression(Identifier(this.decodeFn), [
+                  MemberExpression(
+                    Identifier(this.arrayName),
+                    Identifier("x"),
+                    true
+                  ),
+                ])
               ),
             ]
           )
@@ -217,11 +212,6 @@ export default class StringConcealing extends Transform {
 
       // Empty strings are discarded
       if (!object.value) {
-        return;
-      }
-
-      // Module sources are not changed
-      if (isModuleSource(object, parents)) {
         return;
       }
 

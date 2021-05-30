@@ -1,5 +1,7 @@
 import { createObject } from "./util/object";
 
+type Stringed<V> = V extends string ? V : never;
+
 /**
  * Configurable probabilities for obfuscator options.
  * - **`false`** = this feature is disabled
@@ -17,7 +19,7 @@ export type ProbabilityMap<T> =
   | number
   | T
   | T[]
-  | { [name: string]: number }
+  | { [key in Stringed<T>]?: number }
   | ((object: any) => any);
 
 /**

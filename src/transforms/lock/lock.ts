@@ -22,6 +22,7 @@ import {
   SequenceExpression,
   VariableDeclarator,
   Location,
+  LogicalExpression,
 } from "../../util/gen";
 import traverse, { getBlock, isBlock, walk } from "../../traverse";
 import { ok } from "assert";
@@ -350,9 +351,6 @@ export default class Lock extends Transform {
         return Template(
           "for ( var i=0; i < 1000; i++ ) { var x = Math.cos(i) }"
         ).compile();
-
-      case "sideeffect": // A Side effect involves disrupting the programs flow
-        return;
     }
   }
 
@@ -444,6 +442,7 @@ export default class Lock extends Transform {
       }
 
       var test;
+      var offset = 0;
 
       switch (type) {
         case "nativeFunction":
@@ -508,11 +507,21 @@ export default class Lock extends Transform {
 
           // Todo: Alternative to `this`
           if (!this.globalVar) {
+            offset = 1;
             this.globalVar = this.getPlaceholder();
             prepend(
               parents[parents.length - 1] || block,
               VariableDeclaration(
-                VariableDeclarator(this.globalVar, ThisExpression())
+                VariableDeclarator(
+                  this.globalVar,
+                  LogicalExpression(
+                    "||",
+                    Identifier(
+                      this.options.globalVariables.keys().next().value
+                    ),
+                    ThisExpression()
+                  )
+                )
               )
             );
           }
@@ -564,7 +573,7 @@ export default class Lock extends Transform {
 
             test = UnaryExpression("!", test);
             if (Math.random() > 0.5) {
-              test = BinaryExpression(
+              test = LogicalExpression(
                 "||",
                 BinaryExpression(
                   "==",
@@ -583,9 +592,13 @@ export default class Lock extends Transform {
       }
 
       var body = getBlockBody(block);
-      var randomIndex = getRandomInteger(0, body.length);
+      var randomIndex = getRandomInteger(0, body.length) + offset;
 
-      body.splice(randomIndex, 0, ...nodes);
+      if (randomIndex >= body.length) {
+        body.push(...nodes);
+      } else {
+        body.splice(randomIndex, 0, ...nodes);
+      }
     };
   }
 }
