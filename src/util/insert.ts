@@ -36,35 +36,19 @@ export function getFunction(object: Node, parents: Node[]): Node {
  * @param parents
  */
 export function getVarContext(object: Node, parents: Node[]): Node {
-  var fn = getFunction(null, parents);
+  var fn = getFunction(object, parents);
   if (fn) {
     return fn;
   }
 
-  var top = parents[parents.length - 1];
+  var top = parents[parents.length - 1] || object;
 
   if (top) {
-    ok(
-      top.type == "Program",
-      "Should be Program found " +
-        top.type +
-        " (" +
-        parents
-          .map((x) =>
-            x.type || Array.isArray(x) ? "<array>" : "<" + typeof x + ">"
-          )
-          .join(", ") +
-        " parents, " +
-        (object && object.type) +
-        " object)"
-    );
-
+    ok(top.type == "Program", "Root node not program, its " + top.type);
     return top;
   }
 
-  ok(object, "No parents and no object");
-
-  return object;
+  throw new Error("Missing root node");
 }
 
 /**
@@ -107,35 +91,15 @@ export function getContexts(object: Node, parents: Node[]): Node[] {
  * @param parents
  */
 export function getLexContext(object: Node, parents: Node[]): Node {
-  var block = getBlock(null, parents);
+  var block = getBlock(object, parents);
   if (block) {
     return block;
   }
 
   var top = parents[parents.length - 1];
-
-  if (top) {
-    ok(
-      top.type == "Program",
-      "Should be Program found " +
-        top.type +
-        " (" +
-        parents
-          .map((x) =>
-            x.type || Array.isArray(x) ? "<array>" : "<" + typeof x + ">"
-          )
-          .join(", ") +
-        " parents, " +
-        (object && object.type) +
-        " object)"
-    );
-
-    return top;
+  if (!top) {
+    throw new Error("Missing root node");
   }
-
-  ok(object, "No parents and no object");
-
-  return object;
 }
 
 export function getDefiningContext(o: Node, p: Node[]): Node {

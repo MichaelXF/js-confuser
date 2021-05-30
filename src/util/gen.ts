@@ -591,7 +591,7 @@ export function SpreadElement(argument: Node) {
  */
 export function RestElement(argument: Node) {
   return {
-    type: "SpreadElement",
+    type: "RestElement",
     argument,
   };
 }
