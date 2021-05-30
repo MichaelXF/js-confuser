@@ -37,6 +37,18 @@ class GlobalAnalysis extends Transform {
   }
 
   transform(object: Node, parents: Node[]) {
+    // no touching `import()` or `import x from ...`
+    var importIndex = parents.findIndex(
+      (x) => x.type == "ImportExpression" || x.type == "ImportDeclaration"
+    );
+    if (importIndex !== -1) {
+      if (
+        parents[importIndex].source === (parents[importIndex - 1] || object)
+      ) {
+        return;
+      }
+    }
+
     var info = getIdentifierInfo(object, parents);
     if (!info.spec.isReferenced) {
       return;
