@@ -74,6 +74,8 @@ export default class Stack extends Transform {
         subscripts.set(param.name, subscripts.size);
       });
 
+      var startingSize = subscripts.size;
+
       walk(object.body, [object, ...parents], (o, p) => {
         if (o.type == "Identifier") {
           var info = getIdentifierInfo(o, p);
@@ -222,6 +224,11 @@ export default class Stack extends Transform {
       });
 
       object.params = [RestElement(Identifier(stackName))];
+
+      prepend(
+        object.body,
+        Template(`${stackName}.length = ${startingSize}`).single()
+      );
     };
   }
 }

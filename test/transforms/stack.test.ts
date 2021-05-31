@@ -126,7 +126,6 @@ it("should replace all variables with array indexes (nested function)", async ()
   );
 
   expect(output).not.toContain("TEST_NESTED_FUNCTION");
-  // expect(output).toContain("unshift");
   expect(output).toContain("...");
 
   var value = "never_called",
@@ -164,7 +163,6 @@ it("should replace all variables with array indexes (nested class)", async () =>
   );
 
   expect(output).toContain("TEST_CLASS");
-  // expect(output).toContain("unshift");
   expect(output).toContain("class");
   expect(output).toContain("...");
 
@@ -173,47 +171,6 @@ it("should replace all variables with array indexes (nested class)", async () =>
 
   eval(output);
   expect(value).toStrictEqual("Value");
-});
-
-it("should avoid rotation while in branched code", async () => {
-  var output = await JsConfuser(
-    `
-      function TEST_FUNCTION(param){
-
-        "START_SPLIT";
-        if ( true ) {
-          var A1 = 1;
-          var A2 = 2;
-          var A3 = 3;
-
-          var sum = 1 + 2 + 3;
-        }
-        "END_SPLIT";
-
-        input(param);
-      }
-
-      TEST_FUNCTION(100)
-    `,
-    {
-      target: "node",
-      stack: true,
-    }
-  );
-
-  var branch = output.split("START_SPLIT")[1].split("END_SPLIT")[0];
-  expect(branch).not.toContain("push");
-  expect(branch).not.toContain("shift");
-  expect(branch).not.toContain("unshift");
-  expect(branch).not.toContain("pop");
-
-  // expect(output).toContain("shift");
-
-  var value = "never_called",
-    input = (x) => (value = x);
-
-  eval(output);
-  expect(value).toStrictEqual(100);
 });
 
 it("should only replace variables defined within the function, and not run if any changes can be made", async () => {
@@ -233,6 +190,30 @@ it("should only replace variables defined within the function, and not run if an
 
   expect(output).toContain("TEST_VARIABLE");
   expect(output).not.toContain("...");
+});
+
+it("should work even when differing amount of arguments passed in", async () => {
+  var output = await JsConfuser(
+    `
+      function add3(x, y, z){
+        return x + y;
+      }
+      
+      input(add3(10, 15), add3(10, 15, 30))
+    `,
+    {
+      target: "node",
+      stack: true,
+    }
+  );
+
+  expect(output).not.toContain("x");
+
+  var value = "never_called",
+    input = (x) => (value = x);
+
+  eval(output);
+  expect(value).toStrictEqual(25);
 });
 
 it("should replace all variables with array indexes (middle indexes use array[index] syntax)", async () => {
@@ -267,61 +248,6 @@ it("should replace all variables with array indexes (middle indexes use array[in
   eval(output);
   expect(value).toStrictEqual("Updated");
 });
-
-// it("should use '.unshift' when defining the first item", async () => {
-//   var output = await JsConfuser(
-//     `
-//       function TEST_FUNCTION(){
-
-//         var TEST_VARIABLE_1 = 100;
-//         return TEST_VARIABLE_1;
-//       }
-
-//       input(TEST_FUNCTION())
-//     `,
-//     {
-//       target: "node",
-//       stack: true,
-//     }
-//   );
-
-//   expect(output).toContain("unshift");
-//   expect(output).toContain("...");
-
-//   var value = "never_called",
-//     input = (x) => (value = x);
-
-//   eval(output);
-//   expect(value).toStrictEqual(100);
-// });
-
-// it("should use '.push' when defining the last item", async () => {
-//   var output = await JsConfuser(
-//     `
-//       function TEST_FUNCTION(){
-
-//         var TEST_VARIABLE_1 = 25;
-//         var TEST_VARIABLE_2 = 20;
-//         return TEST_VARIABLE_2 + TEST_VARIABLE_1;
-//       }
-
-//       input(TEST_FUNCTION())
-//     `,
-//     {
-//       target: "node",
-//       stack: true,
-//     }
-//   );
-
-//   expect(output).toContain("push");
-//   expect(output).toContain("...");
-
-//   var value = "never_called",
-//     input = (x) => (value = x);
-
-//   eval(output);
-//   expect(value).toStrictEqual(45);
-// });
 
 it("should guess execution order correctly (CallExpression, arguments run before callee)", async () => {
   var output = await JsConfuser(
