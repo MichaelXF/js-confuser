@@ -558,9 +558,47 @@ export interface ObfuscateOptions {
   debugComments?: boolean;
 }
 
+var validProperties = new Set([
+  "preset",
+  "target",
+  "indent",
+  "compact",
+  "minify",
+  "es5",
+  "renameVariables",
+  "renameGlobals",
+  "identifierGenerator",
+  "controlFlowFlattening",
+  "globalConcealing",
+  "stringConcealing",
+  "stringEncoding",
+  "stringSplitting",
+  "duplicateLiteralsRemoval",
+  "dispatcher",
+  "eval",
+  "rgf",
+  "objectExtraction",
+  "flatten",
+  "deadCode",
+  "calculator",
+  "lock",
+  "movedDeclarations",
+  "opaquePredicates",
+  "shuffle",
+  "stack",
+  "verbose",
+  "debugComments",
+]);
+
 export async function correctOptions(
   options: ObfuscateOptions
 ): Promise<ObfuscateOptions> {
+  Object.keys(options).forEach((key) => {
+    if (!validProperties.has(key)) {
+      throw new TypeError("Invalid option: '" + key + "'");
+    }
+  });
+
   if (options.preset) {
     ok(presets[options.preset], "Unknown preset of '" + options.preset + "'");
 

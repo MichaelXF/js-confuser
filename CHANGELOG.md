@@ -15,6 +15,8 @@ General fixes
 
 - Increased test coverage to 90%
 
+- Checks for invalid options
+
 
 # `1.1.0`
 New feature: Stack, and various improvements

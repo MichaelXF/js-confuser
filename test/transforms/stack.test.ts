@@ -322,3 +322,59 @@ it("should use '.push' when defining the last item", async () => {
   eval(output);
   expect(value).toStrictEqual(45);
 });
+
+it("should guess execution order correctly (CallExpression, arguments run before callee)", async () => {
+  var output = await JsConfuser(
+    `
+      function TEST_FUNCTION(a,b){
+        var TEST_NESTED_FUNCTION = (x,y)=>{
+          input(x + y)
+        }
+        
+        TEST_NESTED_FUNCTION(a,b)
+      }
+      
+      TEST_FUNCTION(10, 15)
+    `,
+    {
+      target: "node",
+      stack: true,
+    }
+  );
+
+  expect(output).not.toContain("TEST_NESTED_FUNCTION");
+
+  var value = "never_called",
+    input = (x) => (value = x);
+
+  eval(output);
+  expect(value).toStrictEqual(25);
+});
+
+it("should guess execution order correctly (AssignmentExpression, right side executes first)", async () => {
+  var output = await JsConfuser(
+    `
+      function TEST_FUNCTION(a,b){
+        
+        var C;
+        C = a + b;
+        input(C)
+        
+      }
+      
+      TEST_FUNCTION(10, 15)
+    `,
+    {
+      target: "node",
+      stack: true,
+    }
+  );
+
+  expect(output).not.toContain("C=");
+
+  var value = "never_called",
+    input = (x) => (value = x);
+
+  eval(output);
+  expect(value).toStrictEqual(25);
+});

@@ -8,6 +8,7 @@ import {
   Identifier,
   LabeledStatement,
   Literal,
+  Location,
   Node,
   ReturnStatement,
 } from "../../util/gen";
@@ -26,6 +27,7 @@ import Label from "../label";
 import { VariableAnalysis } from "../identifier/renameVariables";
 import NameConflicts from "./nameConflicts";
 import AntiDestructuring from "../es5/antiDestructuring";
+import { OPERATOR_PRECEDENCE } from "../../precedence";
 
 /**
  * People use shortcuts and its harder to parse.
@@ -212,10 +214,137 @@ class ExplicitDeclarations extends Transform {
     }
   }
 }
+
+export class ReOrderNodeKeys extends Transform {
+  constructor(o) {
+    super(o);
+  }
+
+  match(object, parents) {
+    return object.type;
+  }
+
+  apply(tree) {
+    // console.log(tree.body[0].expression);
+
+    super.apply(tree);
+
+    // console.log(tree.body[0].expression);
+  }
+
+  transform(object: Node, parents: Node[]) {
+    return () => {
+      if (object.type == "AssignmentExpression") {
+        this.replace(object, {
+          type: "AssignmentExpression",
+          operator: "=",
+          right: object.right,
+          left: object.left,
+        });
+
+        ok(
+          Object.keys(object).indexOf("right") <
+            Object.keys(object).indexOf("left")
+        );
+      } else if (
+        object.type == "BinaryExpression" ||
+        object.type == "LogicalExpression"
+      ) {
+        if (
+          object.left.type == "BinaryExpression" ||
+          object.left.type == "LogicalExpression"
+        ) {
+          return;
+        }
+
+        if (
+          object.right.type == "BinaryExpression" ||
+          object.right.type == "LogicalExpression"
+        ) {
+          return;
+        }
+
+        var exprs: Location[] = [];
+        var i = 0;
+        for (var p of parents) {
+          if (p.type == "BinaryExpression" || p.type == "LogicalExpression") {
+            exprs.push([p, parents.slice(i + 1)]);
+          } else {
+            break;
+          }
+          i++;
+        }
+
+        if (exprs.length) {
+          const chain: Location[] = [[object, parents], ...exprs];
+
+          chain.forEach((location) => {
+            location[0].precedence = OPERATOR_PRECEDENCE[location[0].operator];
+          });
+
+          chain.forEach((location) => {
+            var v = [location[0].precedence];
+            function recursive(o) {
+              if (o) {
+                if (o.precedence) {
+                  v.push(o.precedence);
+
+                  recursive(o.left);
+                  recursive(o.right);
+                }
+              }
+            }
+            recursive(location[0].left);
+            recursive(location[0].right);
+
+            var max = v.sort((a, b) => b - a)[0];
+
+            location[0].precedence = max;
+          });
+
+          chain.reverse().forEach((location) => {
+            var { left, right, operator } = location[0];
+            ok(left);
+            ok(right);
+
+            var leftPrecedence = left.precedence || 1;
+            var rightPrecedence = right.precedence || 1;
+            var isRightToLeft = { "**": 1 }[operator];
+
+            if (leftPrecedence === rightPrecedence && !isRightToLeft) {
+              return;
+            }
+
+            if (
+              (!isRightToLeft && leftPrecedence >= rightPrecedence) ||
+              (isRightToLeft && leftPrecedence > rightPrecedence)
+            ) {
+              this.replace(location[0], {
+                type: location[0].type,
+                operator: operator,
+                left: left,
+                right: right,
+              });
+            } else {
+              this.replace(location[0], {
+                type: location[0].type,
+                operator: operator,
+                right: right,
+                left: left,
+              });
+            }
+          });
+        }
+      }
+    };
+  }
+}
+
 export default class Preparation extends Transform {
   constructor(o) {
     super(o, ObfuscateOrder.Preparation);
 
+    this.before.push(new ReOrderNodeKeys(o));
     this.before.push(new Block(o));
     this.before.push(new Label(o));
     this.before.push(new ExplicitIdentifiers(o));

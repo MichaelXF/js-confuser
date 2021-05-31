@@ -4,14 +4,21 @@ import JsConfuser from "./index";
 
 JsConfuser.obfuscate(
   `
-
-  while ( i <= 10 ) {
-    array.push(i++);
+  function TEST_FUNCTION(a,b){
+    var TEST_NESTED_FUNCTION = (x,y)=>{
+      console.log(x + y)
+    }
+    
+    TEST_NESTED_FUNCTION(a,b)
   }
+  
+  TEST_FUNCTION(10, 15)
 `,
   {
     target: "node",
-    controlFlowFlattening: true,
+    verbose: true,
+    stack: true,
+    compact: false,
   }
 ).then((obfuscated) => {
   console.log(obfuscated);
