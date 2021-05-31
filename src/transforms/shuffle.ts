@@ -40,7 +40,7 @@ var Hash = function (s) {
 var HashTemplate = Template(
   `
   var {name} = function(arr) {
-    var s = arr.join(''), a = 1, c = 0, h, o;
+    var s = arr.map(x=>x+"").join(''), a = 1, c = 0, h, o;
     if (s) {
         a = 0;
         for (h = s.length - 1; h >= 0; h--) {
@@ -77,7 +77,9 @@ export default class Shuffle extends Transform {
       }
 
       // Only arrays with only literals
-      var possible = !object.elements.find((x) => !isPrimitive(x));
+      var possible = !object.elements.find(
+        (x) => x.type == "Literal" && typeof x.value === "string"
+      );
 
       if (!possible) {
         return;
@@ -98,7 +100,7 @@ export default class Shuffle extends Transform {
         var name = this.getPlaceholder();
 
         if (mode == "hash") {
-          var str = object.elements.map((x) => x.value || x.name).join("");
+          var str = object.elements.map((x) => x.value + "").join("");
           shift = Hash(str);
 
           if (!this.hashName) {
@@ -115,7 +117,7 @@ export default class Shuffle extends Transform {
           }
 
           var shiftedHash = Hash(
-            object.elements.map((x) => x.value || x.name).join("")
+            object.elements.map((x) => x.value + "").join("")
           );
 
           expr = BinaryExpression(

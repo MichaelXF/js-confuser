@@ -101,7 +101,7 @@ export function isIndependent(object: Node, parents: Node[]) {
   return false;
 }
 
-var primitiveIdentifiers = new Set(["undefined", "null", "NaN", "infinity"]);
+var primitiveIdentifiers = new Set(["undefined", "null", "NaN", "Infinity"]);
 
 /**
  * booleans, numbers, string, null, undefined, NaN, infinity

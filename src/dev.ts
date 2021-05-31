@@ -4,21 +4,17 @@ import JsConfuser from "./index";
 
 JsConfuser.obfuscate(
   `
-  function TEST_FUNCTION(a,b){
-    var TEST_NESTED_FUNCTION = (x,y)=>{
-      console.log(x + y)
-    }
-    
-    TEST_NESTED_FUNCTION(a,b)
-  }
+
+  var result = 1 + 1;
+  console.log("1 + 1 is " + result);
+  console.log("The source code is only three lines long!");
   
-  TEST_FUNCTION(10, 15)
+  
 `,
   {
     target: "node",
-    verbose: true,
-    stack: true,
-    compact: false,
+    preset: "high",
+    shuffle: "hash",
   }
 ).then((obfuscated) => {
   console.log(obfuscated);
