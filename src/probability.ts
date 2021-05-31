@@ -1,6 +1,6 @@
 import { createObject } from "./util/object";
 
-type Stringed<V> = V extends string ? V : never;
+type Stringed<V> = (V extends string ? V : never) | "true" | "false";
 
 /**
  * Configurable probabilities for obfuscator options.

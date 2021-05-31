@@ -347,7 +347,12 @@ export function isInBranch(object: Node, parents: Node[], context: Node) {
         "LogicalExpression",
         "TryStatement",
         "ChainExpression",
-        // "BinaryExpression",
+        "BinaryExpression",
+        "FunctionExpression",
+        "FunctionDeclaration",
+        "ArrowFunctionExpression",
+        "ClassExpression",
+        "ClassDeclaration",
       ].find((x) => slicedTypes.has(x))
     ) {
       isBranch = true;

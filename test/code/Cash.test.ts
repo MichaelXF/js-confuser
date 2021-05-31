@@ -8,21 +8,6 @@ it("works with Cash.js on High Preset", async () => {
   var output = await JsConfuser(CASH_JS, {
     target: "browser",
     preset: "high",
-    stringEncoding: false,
-    stringConcealing: false,
-    stringSplitting: false,
-    controlFlowFlattening: false,
-    deadCode: false,
-    duplicateLiteralsRemoval: false,
-    calculator: false,
-    shuffle: false,
-    objectExtraction: false,
-    renameVariables: false,
-    // stack: true,
-    dispatcher: false,
-    flatten: false,
-    compact: false,
-    globalConcealing: false,
   });
 
   // Make the required document variables for initialization
