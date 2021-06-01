@@ -177,3 +177,39 @@ it("should handle variable defined with let (3)", async () => {
 
   expect(value).toStrictEqual(100);
 });
+
+it("should not rename null (reservedIdentifiers)", async () => {
+  var code = `
+    input(null)
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    renameVariables: true,
+    renameGlobals: true,
+  });
+
+  var value = false;
+  function input(valueIn) {
+    value = valueIn;
+  }
+  eval(output);
+
+  expect(value).toStrictEqual(null);
+});
+
+it("should not rename exported names", async () => {
+  var code = `
+    export function abc(){
+
+    }
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    renameVariables: true,
+    renameGlobals: true,
+  });
+
+  expect(output).toContain("abc");
+});

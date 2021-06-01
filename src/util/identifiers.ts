@@ -37,10 +37,6 @@ export function isWithinClass(object: Node, parents: Node[]) {
   );
 }
 
-export function isWithinMethodDefinition(object: Node, parents: Node[]) {
-  return isWithin(object, parents, "MethodDefinition");
-}
-
 export function isWithin(object: Node, parents: Node[], type: string): boolean {
   return [object, ...parents].some((x) => x.type == type);
 }
@@ -130,6 +126,12 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     }
   }
 
+  var isObjectPatternKey = false;
+
+  if (parent.type == "ObjectPattern" && parent.key == object) {
+    isObjectPatternKey = true;
+  }
+
   return {
     /**
      * MemberExpression: `parent.identifier`
@@ -139,6 +141,12 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
      * Property: `{identifier: ...}`
      */
     isPropertyKey,
+
+    /**
+     * Destructing `var {identifier: ...}`
+     */
+    isObjectPatternKey,
+
     /**
      * `var identifier = ...`
      */
@@ -255,12 +263,14 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
        * - true: `if ( identifier ) {...}`
        * - false `if ( obj.identifier ) {...}`
        * - false `identifier: for ( var ...)`
+       * - false `var {identifier: ...}`
        * - false `break identifier;`
        */
       isReferenced:
         !isAccessor &&
         !isPropertyKey &&
         !isMetaProperty &&
+        !isObjectPatternKey &&
         !isLabel &&
         !object.name.startsWith("0") &&
         !object.name.startsWith("'"),
@@ -393,4 +403,19 @@ export function getFunctionParameters(
   });
 
   return locations;
+}
+
+export function containsLexicallyBoundVariables(object: Node, parents: Node[]) {
+  var contains = false;
+  walk(object, parents, (o, p) => {
+    if (o.type == "VariableDeclaration") {
+      if (o.kind === "let") {
+        // Control Flow Flattening changes the lexical block, therefore this is not possible
+        // Maybe a transformation to remove let
+        contains = true;
+      }
+    }
+  });
+
+  return contains;
 }

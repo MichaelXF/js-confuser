@@ -2,7 +2,8 @@ import { ok } from "assert";
 import { EventEmitter } from "events";
 import { Node } from "./util/gen";
 import traverse from "./traverse";
-import { isProbabilityMapProbable } from "./index";
+import { ObfuscateOptions } from "./options";
+import { ProbabilityMap, isProbabilityMapProbable } from "./probability";
 
 import Transform from "./transforms/transform";
 
@@ -13,7 +14,7 @@ import Dispatcher from "./transforms/dispatcher";
 import DeadCode from "./transforms/deadCode";
 import OpaquePredicates from "./transforms/opaquePredicates";
 import Calculator from "./transforms/calculator";
-import ControlFlowFlattening from "./transforms/controlFlowFlattening";
+import ControlFlowFlattening from "./transforms/controlFlowFlattening/controlFlowFlattening";
 import Eval from "./transforms/eval";
 import GlobalConcealing from "./transforms/identifier/globalConcealing";
 import StringConcealing from "./transforms/string/stringConcealing";
@@ -29,8 +30,6 @@ import StringEncoding from "./transforms/string/stringEncoding";
 import RGF from "./transforms/rgf";
 import Flatten from "./transforms/flatten";
 import Stack from "./transforms/stack";
-import { ObfuscateOptions } from "./options";
-import { ProbabilityMap } from "./probability";
 
 /**
  * The parent transformation holding the `state`.

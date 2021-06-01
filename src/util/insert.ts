@@ -36,35 +36,19 @@ export function getFunction(object: Node, parents: Node[]): Node {
  * @param parents
  */
 export function getVarContext(object: Node, parents: Node[]): Node {
-  var fn = getFunction(null, parents);
+  var fn = getFunction(object, parents);
   if (fn) {
     return fn;
   }
 
-  var top = parents[parents.length - 1];
+  var top = parents[parents.length - 1] || object;
 
   if (top) {
-    ok(
-      top.type == "Program",
-      "Should be Program found " +
-        top.type +
-        " (" +
-        parents
-          .map((x) =>
-            x.type || Array.isArray(x) ? "<array>" : "<" + typeof x + ">"
-          )
-          .join(", ") +
-        " parents, " +
-        (object && object.type) +
-        " object)"
-    );
-
+    ok(top.type == "Program", "Root node not program, its " + top.type);
     return top;
   }
 
-  ok(object, "No parents and no object");
-
-  return object;
+  throw new Error("Missing root node");
 }
 
 /**
@@ -89,14 +73,6 @@ export function isLexContext(object: Node): boolean {
   return isBlock(object) || object.type == "Program";
 }
 
-export function isThisContext(object: Node): boolean {
-  return (
-    object.type == "FunctionDeclaration" ||
-    object.type == "FunctionExpression" ||
-    object.type == "Program"
-  );
-}
-
 /**
  * Either a `var context` or `lex context`
  * @param object
@@ -115,35 +91,15 @@ export function getContexts(object: Node, parents: Node[]): Node[] {
  * @param parents
  */
 export function getLexContext(object: Node, parents: Node[]): Node {
-  var block = getBlock(null, parents);
+  var block = getBlock(object, parents);
   if (block) {
     return block;
   }
 
   var top = parents[parents.length - 1];
-
-  if (top) {
-    ok(
-      top.type == "Program",
-      "Should be Program found " +
-        top.type +
-        " (" +
-        parents
-          .map((x) =>
-            x.type || Array.isArray(x) ? "<array>" : "<" + typeof x + ">"
-          )
-          .join(", ") +
-        " parents, " +
-        (object && object.type) +
-        " object)"
-    );
-
-    return top;
+  if (!top) {
+    throw new Error("Missing root node");
   }
-
-  ok(object, "No parents and no object");
-
-  return object;
 }
 
 export function getDefiningContext(o: Node, p: Node[]): Node {
@@ -169,6 +125,39 @@ export function getDefiningContext(o: Node, p: Node[]): Node {
   return getVarContext(o, p);
 }
 
+export function getReferencingContexts(o: Node, p: Node[]): Node[] {
+  validateChain(o, p);
+  ok(o.type == "Identifier");
+
+  var info = getIdentifierInfo(o, p);
+  ok(info.spec.isReferenced);
+
+  var assignmentPatternIndex = p.findIndex(
+    (x) => x.type == "AssignmentPattern"
+  );
+  if (assignmentPatternIndex != -1) {
+    if (
+      p[assignmentPatternIndex].right == (p[assignmentPatternIndex - 1] || o)
+    ) {
+      var sliced = p.slice(assignmentPatternIndex);
+      var fnIndex = sliced.findIndex((x) => isFunction(x));
+      var associatedFn = sliced[fnIndex];
+      if (
+        fnIndex !== -1 &&
+        sliced[fnIndex].params == (sliced[fnIndex - 1] || o)
+      ) {
+        if (associatedFn == getVarContext(o, p)) {
+          return isLexContext(associatedFn.body)
+            ? [associatedFn, associatedFn.body]
+            : [associatedFn];
+        }
+      }
+    }
+  }
+
+  return [getVarContext(o, p), getLexContext(o, p)];
+}
+
 export function getBlockBody(block: Node): Node[] {
   if (!block) {
     throw new Error("no block body");
@@ -177,166 +166,6 @@ export function getBlockBody(block: Node): Node[] {
     return block;
   }
   return getBlockBody(block.body);
-}
-
-/**
- * Returns a human readable path.
- * - Example: `Program.anonymous.Rectangle.Rectangle#getVolume`
- * @param object
- * @param parents
- */
-export function getBlockPathName(object: Node, parents: Node[]): string {
-  return getBlockPathArray(object, parents)
-    .reverse()
-    .join(".")
-    .replace("<root>.<root>", "<root>");
-}
-
-/**
- * ["NestedFunction", "MainFunction", "Program"].
- * - See **`getBlockPathName`** for a human readable version.
- * @param object
- * @param parents
- */
-export function getBlockPathArray(object: Node, parents: Node[]): string[] {
-  var list = [object, ...parents];
-  var path = [];
-
-  for (var i = 0; i < list.length; i++) {
-    if (isBlock(list[i])) {
-      var nObject = list[i];
-      var nParents = list.slice(i + 1);
-
-      path.push(getBlockName(nObject, nParents));
-    }
-  }
-
-  return path;
-}
-
-export function getBlockName(object: Node, parents: Node[]): string {
-  var list = [object, ...parents];
-
-  var idName = new Set([
-    "FunctionDeclaration",
-    "VariableDeclarator",
-    "ClassDeclaration",
-  ]);
-  var types = {
-    WhileStatement: "<while>",
-    DoWhileStatement: "<do while>",
-    TryStatement: "<try>",
-    ForStatement: "<for>",
-    ForInStatement: "<for in>",
-    ForOfStatement: "<for of>",
-    CatchClause: "<catch>",
-    ThrowStatement: "<throw>",
-    IfStatement: "<if>",
-    DoStatement: "<do>",
-  };
-  for (var i = 0; i < list.length; i++) {
-    var node = list[i];
-    var next = list[i + 1];
-
-    if (types[node.type]) {
-      return types[node.type];
-    }
-
-    if (
-      node.type == "BlockStatement" &&
-      list[i + 1].type == "TryStatement" &&
-      list[i + 1].finalizer == node
-    ) {
-      return "<finally>";
-    }
-
-    if (next && next.alternate == node) {
-      if (node.type == "IfStatement") {
-        return "<else-if>";
-      }
-      return "<else>";
-    }
-
-    // Function calling
-    if (node.type == "FunctionExpression") {
-      // iife
-      if (next) {
-        if (next.type == "ExpressionStatement") {
-          return "anonymous";
-        }
-        // callbacks
-        if (next.type == "CallExpression") {
-          var callee = next.callee;
-          if (callee.name) {
-            return callee.name;
-          }
-          return "(intermediate value)";
-        }
-        if (next.type == "AssignmentExpression") {
-          if (next.left.type == "MemberExpression") {
-            var r = next.left.object.name;
-            if (next.left.object.type == "ThisExpression") {
-              r = "this";
-            }
-            if (next.left.object.type == "SuperExpression") {
-              r = "super";
-            }
-            return (
-              r + "." + (next.left.property.value || next.left.property.name)
-            );
-          }
-        }
-      }
-
-      return "function()";
-    }
-
-    if (node.type == "MethodDefinition") {
-      var className = parents.find((x) => x.type == "ClassDeclaration").id.name;
-
-      return (
-        className +
-        "#" +
-        node.key.name +
-        (["set", "get"].includes(node.kind) ? "[" + node.kind + "]" : "")
-      );
-    }
-
-    if (idName.has(node.type)) {
-      return node.id.name;
-    }
-
-    if (node.type == "Program") {
-      return i == list.length - 1 ? "<root>" : "<block>";
-    }
-  }
-
-  return "";
-}
-
-export function getIndexAndBlock(
-  object: Node,
-  parents: Node[]
-): { block: Node; index: number } {
-  var index, block;
-  var search = [object, ...parents];
-  var last = object;
-
-  for (var i = 0; i < search.length; i++) {
-    if (isBlock(search[i])) {
-      block = search[i];
-      index = getBlockBody(block).findIndex((x) => x == last);
-
-      break;
-    }
-
-    last = search[i];
-  }
-
-  return {
-    block: block,
-    index: index,
-  };
 }
 
 export function getIndexDirect(object: Node, parent: Node[]): string {
@@ -412,11 +241,6 @@ export function deleteDirect(object: Node, parent: Node) {
   }
 }
 
-export function replace(object, parents, newObject) {
-  // todo key based on body
-  Object.assign(newObject, object);
-}
-
 export function prepend(block: Node, ...nodes: Node[]) {
   ok(!Array.isArray(block), "block should not be array");
 
@@ -438,18 +262,6 @@ export function prepend(block: Node, ...nodes: Node[]) {
 
 export function append(block: Node, ...nodes: Node[]) {
   getBlockBody(block).push(...nodes);
-}
-
-export function insertBefore(object: Node, parents: Node[], node: Node) {
-  var { block, index } = getIndexAndBlock(object, parents);
-
-  getBlockBody(block).splice(index, 0, node);
-}
-
-export function insertAfter(object: Node, parents: Node[], node: Node) {
-  var { block, index } = getIndexAndBlock(object, parents);
-
-  getBlockBody(block).splice(index + 1, 0, node);
 }
 
 export function clone<T>(object: T): T {
@@ -480,20 +292,25 @@ export function clone<T>(object: T): T {
 export function isForInitialize(o, p) {
   validateChain(o, p);
 
-  var forIndex = p.findIndex((x) => x.type == "ForStatement");
-  var inFor = forIndex != -1 && p[forIndex].init == (p[forIndex - 1] || o);
-
-  if (!inFor) {
-    var forCustomIndex = p.findIndex(
-      (x) => x.type == "ForInStatement" || x.type == "ForOfStatement"
-    );
-
-    inFor =
-      forCustomIndex != -1 &&
-      p[forCustomIndex].left == (p[forCustomIndex - 1] || o);
+  var forIndex = p.findIndex(
+    (x) =>
+      x.type == "ForStatement" ||
+      x.type == "ForInStatement" ||
+      x.type == "ForOfStatement"
+  );
+  if (forIndex !== -1) {
+    if (p[forIndex].type == "ForStatement") {
+      if (p[forIndex].init == p[forIndex - 1] || o) {
+        return true;
+      }
+    } else {
+      if (p[forIndex].left == p[forIndex - 1] || o) {
+        return true;
+      }
+    }
   }
 
-  return inFor;
+  return false;
 }
 
 export function isInBranch(object: Node, parents: Node[], context: Node) {
@@ -530,6 +347,12 @@ export function isInBranch(object: Node, parents: Node[], context: Node) {
         "LogicalExpression",
         "TryStatement",
         "ChainExpression",
+        "BinaryExpression",
+        "FunctionExpression",
+        "FunctionDeclaration",
+        "ArrowFunctionExpression",
+        "ClassExpression",
+        "ClassDeclaration",
       ].find((x) => slicedTypes.has(x))
     ) {
       isBranch = true;

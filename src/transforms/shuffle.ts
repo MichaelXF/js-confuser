@@ -2,6 +2,7 @@ import { ok } from "assert";
 import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
+import { isPrimitive } from "../util/compare";
 import {
   BinaryExpression,
   CallExpression,
@@ -39,7 +40,7 @@ var Hash = function (s) {
 var HashTemplate = Template(
   `
   var {name} = function(arr) {
-    var s = arr.join(''), a = 1, c = 0, h, o;
+    var s = arr.map(x=>x+"").join(''), a = 1, c = 0, h, o;
     if (s) {
         a = 0;
         for (h = s.length - 1; h >= 0; h--) {
@@ -69,25 +70,27 @@ export default class Shuffle extends Transform {
   }
 
   transform(object, parents) {
-    if (object.elements.length < 3) {
-      // Min: 4 elements
-      return;
-    }
+    return () => {
+      if (object.elements.length < 3) {
+        // Min: 4 elements
+        return;
+      }
 
-    // Only arrays with only literals
-    var possible = !object.elements.find((x) => x.type != "Literal");
+      // Only arrays with only literals
+      var possible = !object.elements.find(
+        (x) => x.type == "Literal" && typeof x.value === "string"
+      );
 
-    if (!possible) {
-      return;
-    }
+      if (!possible) {
+        return;
+      }
 
-    var mode = ComputeProbabilityMap(
-      this.options.shuffle,
-      (x) => x,
-      object.elements.map((x) => x.value)
-    );
-    if (mode) {
-      return () => {
+      var mode = ComputeProbabilityMap(
+        this.options.shuffle,
+        (x) => x,
+        object.elements.map((x) => x.value)
+      );
+      if (mode) {
         var shift = getRandomInteger(
           1,
           Math.min(100, object.elements.length * 6)
@@ -97,7 +100,7 @@ export default class Shuffle extends Transform {
         var name = this.getPlaceholder();
 
         if (mode == "hash") {
-          var str = object.elements.map((x) => x.value).join("");
+          var str = object.elements.map((x) => x.value + "").join("");
           shift = Hash(str);
 
           if (!this.hashName) {
@@ -113,7 +116,9 @@ export default class Shuffle extends Transform {
             object.elements.push(object.elements.shift());
           }
 
-          var shiftedHash = Hash(object.elements.map((x) => x.value).join(""));
+          var shiftedHash = Hash(
+            object.elements.map((x) => x.value + "").join("")
+          );
 
           expr = BinaryExpression(
             "-",
@@ -175,7 +180,7 @@ export default class Shuffle extends Transform {
             )
           );
         }
-      };
-    }
+      }
+    };
   }
 }

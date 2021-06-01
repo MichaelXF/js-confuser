@@ -248,9 +248,7 @@ export default class Transform {
         switch (mode) {
           case "randomized":
             var characters =
-              "_$ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".split(
-                ""
-              );
+              "_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".split("");
             var numbers = "0123456789".split("");
 
             var combined = [...characters, ...numbers];

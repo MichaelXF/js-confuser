@@ -11,12 +11,17 @@ import {
   ArrayExpression,
   ExpressionStatement,
   ThisExpression,
+  BinaryExpression,
 } from "../../util/gen";
 import { prepend } from "../../util/insert";
 import { shuffle, splitIntoChunks } from "../../util/random";
 import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "./stringConcealing";
 import { ComputeProbabilityMap } from "../../probability";
+import { isDirective } from "../../util/compare";
+import Template from "../../templates/template";
+import { compileJsSync } from "../../compiler";
+import { ok } from "assert";
 
 export default class StringSplitting extends Transform {
   joinPrototype: string;
@@ -64,105 +69,46 @@ export default class StringSplitting extends Transform {
       object.type == "Literal" &&
       typeof object.value === "string" &&
       !isModuleSource(object, parents) &&
-      object.value !== "use strict"
+      !isDirective(object, parents)
     );
   }
 
   transform(object: Node, parents: Node[]) {
     return () => {
-      if (!object.value) {
-        return;
-      }
-      var chunks = splitIntoChunks(object.value, 5, 25);
-
       var propIndex = parents.findIndex((x) => x.type == "Property");
-      if (propIndex != -1) {
-        if (parents[propIndex].key == (parents[propIndex - 1] || object)) {
-          parents[propIndex].computed = true;
-        }
+      if (propIndex !== -1 && parents[propIndex].key == object) {
+        parents[propIndex].computed = true;
       }
 
-      if (this.strings[object.value]) {
-        this.replace(object, Identifier(this.strings[object.value]));
+      var chunks = splitIntoChunks(object.value);
+      if (!chunks || chunks.length <= 1) {
         return;
       }
 
-      if (
-        chunks.length >= 2 &&
-        chunks[1].length > 2 &&
-        ComputeProbabilityMap(
-          this.options.stringSplitting,
-          (x) => x,
-          object.value
-        )
-      ) {
-        this.log(
-          `'${object.value}' -> ${chunks.map((x) => `'${x}'`).join(" + ")}`
-        );
-
-        if (Math.random() > 0.5) {
-          // use .join instead
-
-          if (!this.joinPrototype) {
-            this.joinPrototype = this.generateIdentifier();
-
-            var assignment = AssignmentExpression(
-              "=",
-              MemberExpression(
-                MemberExpression(Identifier("Array"), Literal("prototype")),
-                Identifier(this.joinPrototype),
-                false
-              ),
-              FunctionExpression(
-                [],
-                [
-                  ReturnStatement(
-                    CallExpression(
-                      MemberExpression(ThisExpression(), Literal("join")),
-                      [Literal("")]
-                    )
-                  ),
-                ]
-              )
-            );
-            prepend(
-              parents[parents.length - 1],
-              ExpressionStatement(assignment)
-            );
-          }
-
-          var arrayExpression = ArrayExpression(chunks.map(Literal));
-
-          this.replace(
-            object,
-            CallExpression(
-              MemberExpression(arrayExpression, Literal(this.joinPrototype)),
-              []
-            )
+      var binaryExpression;
+      var parent;
+      var last = chunks.pop();
+      chunks.forEach((chunk, i) => {
+        if (i == 0) {
+          ok(i == 0);
+          parent = binaryExpression = BinaryExpression(
+            "+",
+            Literal(chunk),
+            Literal("")
           );
         } else {
-          var newVar = this.getPlaceholder();
-
-          var adders = chunks
-            .slice(1)
-            .reverse()
-            .map((x) => {
-              return ExpressionStatement(
-                AssignmentExpression("+=", Identifier(newVar), Literal(x))
-              );
-            });
-
-          this.adders.push(adders);
-          this.vars.push({
-            type: "VariableDeclarator",
-            id: Identifier(newVar),
-            init: Literal(chunks[0]),
-          });
-          this.strings[object.value] = newVar;
-
-          this.objectAssign(object, Identifier(newVar));
+          binaryExpression.left = BinaryExpression(
+            "+",
+            binaryExpression.left,
+            Literal(chunk)
+          );
+          ok(binaryExpression);
         }
-      }
+      });
+
+      parent.right = Literal(last);
+
+      this.replace(object, parent);
     };
   }
 }

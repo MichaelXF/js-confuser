@@ -155,3 +155,97 @@ it("countermeasures function should still work even with renameVariables enabled
   eval(output);
   expect(value).toStrictEqual(true);
 });
+
+it("should not call countermeasures when domainLock is correct", async () => {
+  var output = await JsConfuser.obfuscate(
+    ` function countermeasures(){ input(true) } `,
+    {
+      target: "browser",
+      lock: {
+        domainLock: ["mywebsite.com"],
+        countermeasures: "countermeasures",
+      },
+    }
+  );
+
+  var location = {
+    href: "mywebsite.com",
+  };
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual("never_called");
+});
+
+it("should call countermeasures when domain is different", async () => {
+  var output = await JsConfuser.obfuscate(
+    ` function countermeasures(){ input(true) } `,
+    {
+      target: "browser",
+      lock: {
+        domainLock: ["mywebsite.com"],
+        countermeasures: "countermeasures",
+      },
+    }
+  );
+
+  var location = {
+    href: "anotherwebsite.com",
+  };
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual(true);
+});
+
+it("should not call countermeasures when context is correct", async () => {
+  var output = await JsConfuser.obfuscate(
+    ` function countermeasures(){ input(true) } `,
+    {
+      target: "node",
+      lock: {
+        context: ["authenticated"],
+        countermeasures: "countermeasures",
+      },
+    }
+  );
+
+  (global as any).authenticated = true;
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual("never_called");
+});
+
+it("should call countermeasures when context is different", async () => {
+  var output = await JsConfuser.obfuscate(
+    ` function countermeasures(){ input(true) } `,
+    {
+      target: "node",
+      lock: {
+        context: ["missingProperty"],
+        countermeasures: "countermeasures",
+      },
+    }
+  );
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual(true);
+});

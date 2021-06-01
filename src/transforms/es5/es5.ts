@@ -17,6 +17,7 @@ import {
   ConditionalExpression,
   ThisExpression,
   VariableDeclarator,
+  Property,
 } from "../../util/gen";
 import {
   clone,
@@ -61,50 +62,45 @@ export class AntiArrowFunction extends Transform {
   }
 
   transform(object, parents) {
-    var usesThis = false;
+    return () => {
+      var usesThis = false;
 
-    if (object.body.type != "BlockStatement") {
-      if (object.body.type == "ExpressionStatement") {
-        object.body = BlockStatement([
-          ReturnStatement(clone(object.body.expression)),
-        ]);
-      } else if (object.body.type == "ReturnStatement") {
-        object.body = BlockStatement([clone(object.body)]);
-      } else {
+      if (object.body.type != "BlockStatement" && object.expression) {
         object.body = BlockStatement([ReturnStatement(clone(object.body))]);
+        object.expression = false;
       }
-    }
 
-    walk(object.body, [object, ...parents], (o, p) => {
-      if (p.filter((x) => isBlock(x))[0] == object.body) {
-        if (
-          o.type == "ThisExpression" ||
-          (o.type == "Identifier" && o.name == "this")
-        ) {
-          usesThis = true;
+      walk(object.body, [object, ...parents], (o, p) => {
+        if (p.filter((x) => isBlock(x))[0] == object.body) {
+          if (
+            o.type == "ThisExpression" ||
+            (o.type == "Identifier" && o.name == "this")
+          ) {
+            usesThis = true;
+          }
         }
-      }
-    });
+      });
 
-    ok(object.body.type == "BlockStatement", "Should be a BlockStatement");
-    ok(Array.isArray(object.body.body), "Body should be an array");
-    ok(
-      !object.body.body.find((x) => Array.isArray(x)),
-      "All elements should be statements"
-    );
-
-    object.type = "FunctionExpression";
-    object.expression = false;
-
-    if (usesThis) {
-      this.objectAssign(
-        object,
-        CallExpression(
-          MemberExpression(clone(object), Identifier("bind"), false),
-          [ThisExpression()]
-        )
+      ok(object.body.type == "BlockStatement", "Should be a BlockStatement");
+      ok(Array.isArray(object.body.body), "Body should be an array");
+      ok(
+        !object.body.body.find((x) => Array.isArray(x)),
+        "All elements should be statements"
       );
-    }
+
+      object.type = "FunctionExpression";
+      object.expression = false;
+
+      if (usesThis) {
+        this.objectAssign(
+          object,
+          CallExpression(
+            MemberExpression(clone(object), Identifier("bind"), false),
+            [ThisExpression()]
+          )
+        );
+      }
+    };
   }
 }
 
@@ -170,32 +166,36 @@ class AntiES6Object extends Transform {
           prepend(
             parents[parents.length - 1] || block,
             Template(`
-            function {name}(base, computedProps, descriptors){
+            function {name}(base, computedProps, getters, setters){
 
               for ( var i = 0; i < computedProps.length; i++ ) {
                 base[computedProps[i][0]] = computedProps[i][1];
               }
 
-              for ( var i = 0; i < descriptors.length; i++ ) {
-                Object.defineProperty(base, descriptors[i][0], {
-                  set: descriptors[i][1],
-                  get: descriptors[i][2],
+              var keys=Object.create(null);
+              Object.keys(getters).forEach(key=>(keys[key] = 1))
+              Object.keys(setters).forEach(key=>(keys[key] = 1))
+
+              Object.keys(keys).forEach(key=>{
+                Object.defineProperty(base, key, {
+                  set: setters[key],
+                  get: getters[key],
                   configurable: true
                 });
-              }
-
+              })
               return base; 
             }
           `).single({ name: this.makerFn })
           );
         }
 
-        /** {a: 1} Es5 compliant properties */
+        // {a: 1} Es5 compliant properties
         var baseProps = [];
-        /** {[a]: 1} -> Computed props to array [a, 1] */
+        // {[a]: 1} -> Computed props to array [a, 1]
         var computedProps = [];
-        /** {get a(){}} -> Property descriptors */
-        var descriptors = [];
+        // {get a(){}} -> Property descriptors
+        var getters = ObjectExpression([]);
+        var setters = ObjectExpression([]);
 
         object.properties.forEach((prop) => {
           var key = prop.key;
@@ -212,13 +212,11 @@ class AntiES6Object extends Transform {
 
             computedProps.push(ArrayExpression(array));
           } else if (prop.kind == "get" || prop.kind == "set") {
-            var array = [key, Identifier("undefined"), Identifier("undefined")];
             if (prop.kind == "get") {
-              array[2] = prop.value;
+              getters.properties.push(Property(key, prop.value));
             } else {
-              array[1] = prop.value;
+              setters.properties.push(Property(key, prop.value));
             }
-            descriptors.push(array);
           } else {
             prop.method = false;
 
@@ -226,13 +224,18 @@ class AntiES6Object extends Transform {
           }
         });
 
-        if (descriptors.length || computedProps.length) {
+        if (
+          setters.properties.length ||
+          getters.properties.length ||
+          computedProps.length
+        ) {
           this.objectAssign(
             object,
             CallExpression(Identifier(this.makerFn), [
               ObjectExpression(baseProps),
               ArrayExpression(computedProps),
-              ArrayExpression(descriptors.map((x) => ArrayExpression(x))),
+              getters,
+              setters,
             ])
           );
         }
@@ -251,29 +254,31 @@ class FixedExpressions extends Transform {
   }
 
   transform(object, parents) {
-    if (
-      object.type == "ForStatement" &&
-      object.init.type == "ExpressionStatement"
-    ) {
-      object.init = object.init.expression;
-    }
+    return () => {
+      if (
+        object.type == "ForStatement" &&
+        object.init.type == "ExpressionStatement"
+      ) {
+        object.init = object.init.expression;
+      }
 
-    if (object.type == "MemberExpression") {
-      if (!object.computed && object.property.type == "Identifier") {
-        if (reservedKeywords.has(object.property.name)) {
-          object.property = Literal(object.property.name);
-          object.computed = true;
+      if (object.type == "MemberExpression") {
+        if (!object.computed && object.property.type == "Identifier") {
+          if (reservedKeywords.has(object.property.name)) {
+            object.property = Literal(object.property.name);
+            object.computed = true;
+          }
         }
       }
-    }
 
-    if (object.type == "Property") {
-      if (!object.computed && object.key.type == "Identifier") {
-        if (reservedIdentifiers.has(object.key.name)) {
-          object.key = Literal(object.key.name);
+      if (object.type == "Property") {
+        if (!object.computed && object.key.type == "Identifier") {
+          if (reservedKeywords.has(object.key.name)) {
+            object.key = Literal(object.key.name);
+          }
         }
       }
-    }
+    };
   }
 }
 

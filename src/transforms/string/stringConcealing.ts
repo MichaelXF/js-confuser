@@ -1,6 +1,7 @@
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import Template from "../../templates/template";
+import { isDirective } from "../../util/compare";
 import {
   ArrayExpression,
   CallExpression,
@@ -158,14 +159,13 @@ export default class StringConcealing extends Transform {
     return (
       object.type == "Program" ||
       (object.type == "Literal" &&
-        typeof object.value === "string" &&
-        object.value !== "use strict")
+        !isModuleSource(object, parents) &&
+        !isDirective(object, parents))
     );
   }
 
   transform(object, parents) {
     if (object.type == "Program") {
-      var encoding = true;
       this.arrayExpression = ArrayExpression([]);
 
       return () => {
@@ -176,19 +176,13 @@ export default class StringConcealing extends Transform {
             [Identifier("x")],
             [
               ReturnStatement(
-                encoding
-                  ? CallExpression(Identifier(this.decodeFn), [
-                      MemberExpression(
-                        Identifier(this.arrayName),
-                        Identifier("x"),
-                        true
-                      ),
-                    ])
-                  : MemberExpression(
-                      Identifier(this.arrayName),
-                      Identifier("x"),
-                      true
-                    )
+                CallExpression(Identifier(this.decodeFn), [
+                  MemberExpression(
+                    Identifier(this.arrayName),
+                    Identifier("x"),
+                    true
+                  ),
+                ])
               ),
             ]
           )
@@ -218,11 +212,6 @@ export default class StringConcealing extends Transform {
 
       // Empty strings are discarded
       if (!object.value) {
-        return;
-      }
-
-      // Module sources are not changed
-      if (isModuleSource(object, parents)) {
         return;
       }
 

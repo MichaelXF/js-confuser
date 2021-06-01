@@ -229,7 +229,7 @@ export default class AntiDestructuring extends Transform {
           });
         } else if (x.type == "AssignmentPattern") {
           var condition = ConditionalExpression(
-            BinaryExpression("==", realm, Identifier("undefined")),
+            BinaryExpression("===", realm, Identifier("undefined")),
             x.right,
             realm
           );

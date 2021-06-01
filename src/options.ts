@@ -93,13 +93,15 @@ export interface ObfuscateOptions {
    * ### `identifierGenerator`
    *
    * Determines how variables are renamed.
-   * Modes:
    *
-   * - **`hexadecimal`** - \_0xa8db5
-   * - **`randomized`** - w$Tsu4G
-   * - **`zeroWidth`** - U+200D
-   * - **`mangled`** - a, b, c
-   * - **`number`** - var_1, var_2
+   * | Mode | Description | Example |
+   * | --- | --- | --- |
+   * | `"hexadecimal"` | Random hex strings | \_0xa8db5 |
+   * | `"randomized"` | Random characters | w$Tsu4G |
+   * | `"zeroWidth"` | Invisible characters | U+200D |
+   * | `"mangled"` | Alphabet sequence | a, b, c |
+   * | `"number"` | Numbered sequence | var_1, var_2 |
+   * | `<function>` | Write a custom name generator | See Below |
    *
    * ```js
    * // Custom implementation
@@ -117,7 +119,7 @@ export interface ObfuscateOptions {
    *   target: "node",
    *   renameVariables: true,
    *   identifierGenerator: function () {
-   *     return "_NAME_" + (counter++);
+   *     return "var_" + (counter++);
    *   },
    * });
    * ```
@@ -531,7 +533,7 @@ export interface ObfuscateOptions {
   /**
    * ### `verbose`
    *
-   * Enable logs to view the obfuscators state. (`true/false`)
+   * Enable logs to view the obfuscator's state. (`true/false`)
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -540,7 +542,7 @@ export interface ObfuscateOptions {
   /**
    * ### `globalVariables`
    *
-   * Set of global variables. Optional. (`Set<string>`)
+   * Set of global variables. *Optional*. (`Set<string>`)
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -556,9 +558,47 @@ export interface ObfuscateOptions {
   debugComments?: boolean;
 }
 
+var validProperties = new Set([
+  "preset",
+  "target",
+  "indent",
+  "compact",
+  "minify",
+  "es5",
+  "renameVariables",
+  "renameGlobals",
+  "identifierGenerator",
+  "controlFlowFlattening",
+  "globalConcealing",
+  "stringConcealing",
+  "stringEncoding",
+  "stringSplitting",
+  "duplicateLiteralsRemoval",
+  "dispatcher",
+  "eval",
+  "rgf",
+  "objectExtraction",
+  "flatten",
+  "deadCode",
+  "calculator",
+  "lock",
+  "movedDeclarations",
+  "opaquePredicates",
+  "shuffle",
+  "stack",
+  "verbose",
+  "debugComments",
+]);
+
 export async function correctOptions(
   options: ObfuscateOptions
 ): Promise<ObfuscateOptions> {
+  Object.keys(options).forEach((key) => {
+    if (!validProperties.has(key)) {
+      throw new TypeError("Invalid option: '" + key + "'");
+    }
+  });
+
   if (options.preset) {
     ok(presets[options.preset], "Unknown preset of '" + options.preset + "'");
 

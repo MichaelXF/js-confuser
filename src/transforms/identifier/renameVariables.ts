@@ -23,10 +23,6 @@ import { reservedIdentifiers } from "../../constants";
 export class VariableAnalysis extends Transform {
   /**
    * Node being the context.
-   *
-   * A context is:
-   * - Program (global context, the root node)
-   * - or Function
    */
   defined: Map<Node, Set<string>>;
   references: Map<Node, Set<string>>;
@@ -105,13 +101,6 @@ export class VariableAnalysis extends Transform {
     });
 
     // console.log(isGlobal ? "<Global>" : object.id && object.id.name || "<FunctionExpression>", this.defined.get(object), this.references.get(object));
-
-    if (!this.defined.has(object)) {
-      this.defined.set(object, new Set());
-    }
-    if (!this.references.has(object)) {
-      this.references.set(object, new Set());
-    }
   }
 }
 
@@ -160,8 +149,8 @@ export default class RenameVariables extends Transform {
 
     var newNames = Object.create(null);
 
-    var defined = this.variableAnalysis.defined.get(object);
-    var references = this.variableAnalysis.references.get(object);
+    var defined = this.variableAnalysis.defined.get(object) || new Set();
+    var references = this.variableAnalysis.references.get(object) || new Set();
 
     if (!defined && !this.changed.has(object)) {
       this.changed.set(object, Object.create(null));
@@ -174,16 +163,14 @@ export default class RenameVariables extends Transform {
       var allReferences = new Set(references || []);
       var nope = new Set(defined);
       walk(object, [], (o, p) => {
-        if (isContext(o)) {
-          var ref = this.variableAnalysis.references.get(o);
-          if (ref) {
-            ref.forEach((x) => allReferences.add(x));
-          }
+        var ref = this.variableAnalysis.references.get(o);
+        if (ref) {
+          ref.forEach((x) => allReferences.add(x));
+        }
 
-          var def = this.variableAnalysis.defined.get(o);
-          if (def) {
-            def.forEach((x) => allReferences.add(x));
-          }
+        var def = this.variableAnalysis.defined.get(o);
+        if (def) {
+          def.forEach((x) => allReferences.add(x));
         }
       });
 

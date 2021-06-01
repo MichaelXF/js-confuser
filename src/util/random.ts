@@ -43,17 +43,8 @@ export function getRandomInteger(min, max) {
   return Math.floor(getRandom(min, max));
 }
 
-export function splitIntoChunks(array, min, max): any[] {
-  var chunks = [];
-  for (var i = 0; i < array.length; i += 0) {
-    var currentLength = getRandomInteger(min, max);
-
-    chunks.push(array.slice(i, i + currentLength));
-
-    i += currentLength;
-  }
-
-  return chunks;
+export function splitIntoChunks(string: string): any[] {
+  return string.match(/.{1,8}/g);
 }
 
 /**
@@ -73,11 +64,10 @@ export function getRandomFalseExpression() {
       return Identifier("undefined");
     case "NaN":
       return Identifier("NaN");
-    case "emptyString":
+    default:
+      // case "emptyString":
       return Literal("");
   }
-
-  return Literal(false);
 }
 
 /**
@@ -98,70 +88,16 @@ export function getRandomTrueExpression() {
       return Literal(getRandomInteger(1, 100));
     case "true":
       return Identifier("true");
-    case "undefined":
-      return Identifier("undefined");
     case "Infinity":
       return Identifier("Infinity");
     case "nonEmptyString":
       return Literal(getRandomString(getRandomInteger(3, 9)));
     case "array":
       return ArrayExpression([]);
-    case "object":
+    default:
+      //case "object":
       return ObjectExpression([]);
   }
-
-  return Literal(false);
-}
-
-export function getRandomExpression(nested = false) {
-  var type = choice(["object", "literal"]);
-
-  if (type == "object") {
-    return ObjectExpression(
-      Array(getRandomInteger(2, 7))
-        .fill(0)
-        .map((x) => {
-          var key = Literal(getRandomString(getRandomInteger(3, 7)));
-          var computed = false;
-
-          // why is TypeScript so fucking dumb about isNaN
-          if (
-            typeof key.value == "string" &&
-            isNaN(key.value.charAt(0) as any)
-          ) {
-            key = Identifier(key.value);
-            computed = false;
-          }
-
-          return Property(
-            key,
-            nested ? getRandomExpression() : getRandomLiteral(),
-            computed
-          );
-        })
-    );
-  } else {
-    return getRandomLiteral();
-  }
-}
-
-export function getRandomLiteral(): Node {
-  var type = choice(["number", "string", "boolean", "undefined", "null"]);
-
-  switch (type) {
-    case "number":
-      return Literal(getRandomInteger(1, 100));
-    case "string":
-      return Literal(getRandomString(getRandomInteger(5, 14)));
-    case "boolean":
-      return Literal(choice([true, false]));
-    case "undefined":
-      return Identifier("undefined");
-    case "null":
-      return Identifier("null");
-  }
-
-  throw new Error("type=" + type);
 }
 
 export function alphabeticalGenerator(index: number) {

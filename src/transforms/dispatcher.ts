@@ -83,7 +83,11 @@ export default class Dispatcher extends Transform {
       return false;
     }
 
-    return isVarContext(object) && !object.$dispatcherSkip;
+    return (
+      isVarContext(object) &&
+      object.type !== "ArrowFunctionExpression" &&
+      !object.$dispatcherSkip
+    );
   }
 
   transform(object: Node, parents: Node[]) {
@@ -120,7 +124,7 @@ export default class Dispatcher extends Transform {
           }
 
           if (context === c) {
-            if (o.type == "FunctionDeclaration") {
+            if (o.type == "FunctionDeclaration" && o.id.name) {
               if (o.body.type != "BlockStatement") {
                 illegalFnNames.add(name);
               }

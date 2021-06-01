@@ -51,33 +51,13 @@ export function isInsideType(
   return [object, ...parents].some((x) => x.type == type);
 }
 
-export function isStrictMode(object: Node, parents: Node[]): boolean {
-  var functions = parents.filter((x) => isFunction(x));
-
-  for (var fn of functions) {
-    var first = getBlockBody(fn.body)[0];
-    if (
-      first &&
-      first.type == "ExpressionStatement" &&
-      first.expression.type == "Literal" &&
-      first.expression.value == "strict mode"
-    ) {
-      return true;
-    }
+export function isDirective(object: Node, parents: Node[]) {
+  var dIndex = parents.findIndex((x) => x.directive);
+  if (dIndex == -1) {
+    return false;
   }
 
-  return false;
-}
-
-export function isInside(finding: any, object: any, parents: any): boolean {
-  var found = false;
-  walk(object, parents, (object2, parents2) => {
-    if (object2 == finding) {
-      found = true;
-    }
-  });
-
-  return found;
+  return parents[dIndex].expression == (parents[dIndex - 1] || object);
 }
 
 export function isIndependent(object: Node, parents: Node[]) {
@@ -116,6 +96,29 @@ export function isIndependent(object: Node, parents: Node[]) {
     });
 
     return allowIt;
+  }
+
+  return false;
+}
+
+var primitiveIdentifiers = new Set(["undefined", "null", "NaN", "Infinity"]);
+
+/**
+ * booleans, numbers, string, null, undefined, NaN, infinity
+ *
+ * Types:
+ * - `Literal` with typeof `node.value` = `"number" | "string" | "boolean"`
+ * - `Identifier` with `name` = `"undefined" | "null" | "NaN" | "infinity"`
+ *
+ *
+ * @param node
+ * @returns
+ */
+export function isPrimitive(node: Node) {
+  if (node.type == "Literal") {
+    return { number: 1, string: 1, boolean: 1 }[typeof node.value];
+  } else if (node.type == "Identifier") {
+    return primitiveIdentifiers.has(node.name);
   }
 
   return false;
