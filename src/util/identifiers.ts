@@ -404,3 +404,18 @@ export function getFunctionParameters(
 
   return locations;
 }
+
+export function containsLexicallyBoundVariables(object: Node, parents: Node[]) {
+  var contains = false;
+  walk(object, parents, (o, p) => {
+    if (o.type == "VariableDeclaration") {
+      if (o.kind === "let") {
+        // Control Flow Flattening changes the lexical block, therefore this is not possible
+        // Maybe a transformation to remove let
+        contains = true;
+      }
+    }
+  });
+
+  return contains;
+}

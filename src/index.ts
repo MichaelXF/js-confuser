@@ -8,51 +8,7 @@ import presets from "./presets";
 import * as assert from "assert";
 import { correctOptions, ObfuscateOptions } from "./options";
 import { ProbabilityMap } from "./probability";
-import { IJsConfuser } from "./types";
-
-/**
- * Determines if a probability map can return a positive result (true, or some string mode).
- * - Negative probability maps are used to remove transformations from running entirely.
- * @param map
- */
-export function isProbabilityMapProbable<T>(map: ProbabilityMap<T>): boolean {
-  if (!map || typeof map === "undefined") {
-    return false;
-  }
-  if (typeof map === "function") {
-    return true;
-  }
-  if (typeof map === "number") {
-    if (map > 1 || map < 0) {
-      throw new Error(`Numbers must be between 0 and 1 for 0% - 100%`);
-    }
-    if (isNaN(map)) {
-      throw new Error("Numbers cannot be NaN");
-    }
-  }
-  if (Array.isArray(map)) {
-    assert.ok(
-      map.length != 0,
-      "Empty arrays are not allowed for options. Use false instead."
-    );
-
-    if (map.length == 1) {
-      return !!map[0];
-    }
-  }
-  if (typeof map === "object") {
-    var keys = Object.keys(map);
-    assert.ok(
-      keys.length != 0,
-      "Empty objects are not allowed for options. Use false instead."
-    );
-
-    if (keys.length == 1) {
-      return !!keys[0];
-    }
-  }
-  return true;
-}
+import { IJsConfuser, IJsConfuserDebugTransformations } from "./types";
 
 /**
  * **JsConfuser**: Obfuscates JavaScript.
@@ -116,31 +72,41 @@ var JsConfuser: IJsConfuser = async function (
   return result;
 } as any;
 
+var debugTransformations: IJsConfuserDebugTransformations =
+  async function debugTransformations(
+    code: string,
+    options: ObfuscateOptions
+  ): Promise<{ name: string; code: string; ms: number }[]> {
+    options = await correctOptions(options);
+
+    var frames = [];
+
+    var tree = parseSync(code);
+    var obfuscator = new Obfuscator(options);
+
+    var time = Date.now();
+
+    obfuscator.on("debug", (name: string, tree: Node) => {
+      frames.push({
+        name: name,
+        code: compileJsSync(tree, options),
+        ms: Date.now() - time,
+      });
+
+      time = Date.now();
+    });
+
+    await obfuscator.apply(tree, true);
+
+    return frames;
+  };
+
 JsConfuser.obfuscate = obfuscate;
 JsConfuser.presets = presets;
+JsConfuser.debugTransformations = debugTransformations;
+JsConfuser.Obfuscator = Obfuscator;
+JsConfuser.Transform = Transform;
+
 export default JsConfuser;
-
-export async function debugTransformations(
-  code: string,
-  options: ObfuscateOptions
-): Promise<{ name: string; code: string }[]> {
-  options = await correctOptions(options);
-
-  var frames = [];
-
-  var tree = parseSync(code);
-  var obfuscator = new Obfuscator(options);
-
-  obfuscator.on("debug", (name: string, tree: Node) => {
-    frames.push({
-      name: name,
-      code: compileJsSync(tree, options),
-    });
-  });
-
-  await obfuscator.apply(tree);
-
-  return frames;
-}
 
 export { presets, Obfuscator, Transform };

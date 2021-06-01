@@ -6,10 +6,11 @@ export enum ObfuscateOrder {
 
   ObjectExtraction = 1,
 
-  Lock = 2, // Includes Integrity & Anti Debug
-  Flatten = 3,
+  Flatten = 2,
 
-  RGF = 4,
+  RGF = 3,
+
+  Lock = 4, // Includes Integrity & Anti Debug
 
   Stack = 5,
 

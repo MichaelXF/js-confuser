@@ -4,7 +4,7 @@ General fixes
 - No longer encodes `require("str")` or `import("str")` strings
 
 - Fixed several `controlFlowFlattening` bugs:
-  Fixed rare code corruption nested
+  Fixed rare code corruption when nested
   Fixed obfuscation on `for` and `while` loops
 
 - Fixed `stack` from creating syntax errors
@@ -13,10 +13,12 @@ General fixes
 - Fixed renaming identifiers in object destructing
 - Better support for `let` variables
 
+- Checks for invalid options
 - Increased test coverage to 90%
 
-- Checks for invalid options
+- `debugTransformations`, `Obfuscator` and `Transform` objects exposed.
 
+Available now on NPM: https://www.npmjs.com/package/js-confuser
 
 # `1.1.0`
 New feature: Stack, and various improvements

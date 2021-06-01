@@ -123,7 +123,10 @@ export default class Integrity extends Transform {
 
   match(object: Node, parents: Node[]) {
     // ArrowFunctions are excluded!
-    return object.type == "Program" || isFunction(object);
+    return (
+      object.type == "Program" ||
+      (isFunction(object) && object.type !== "ArrowFunctionExpression")
+    );
   }
 
   transform(object: Node, parents: Node[]) {
@@ -168,15 +171,20 @@ export default class Integrity extends Transform {
         }
 
         object.$eval = () => {
-          functionExpression.body.body.unshift(...hashingUtils);
+          if (
+            isFunction(functionExpression) &&
+            functionExpression.body.type == "BlockStatement"
+          ) {
+            functionExpression.body.body.unshift(...hashingUtils);
 
-          if (this.lock.counterMeasuresNode) {
-            functionExpression.body.body.unshift(
-              clone(this.lock.counterMeasuresNode[0])
-            );
+            if (this.lock.counterMeasuresNode) {
+              functionExpression.body.body.unshift(
+                clone(this.lock.counterMeasuresNode[0])
+              );
+            }
+
+            functionExpression.body.body.unshift(...hashingUtils);
           }
-
-          functionExpression.body.body.unshift(...hashingUtils);
         };
       };
     }

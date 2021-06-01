@@ -15,16 +15,19 @@ import { prepend } from "../util/insert";
 import { getBlock } from "../traverse";
 import { getRandomInteger } from "../util/random";
 import { ObfuscateOrder } from "../order";
+import { ok } from "assert";
 
 export default class Calculator extends Transform {
   gen: any;
-  ops: { [operator: string]: string };
+  ops: { [operator: string]: number };
+  statesUsed: Set<string>;
   calculatorFn: string;
 
   constructor(o) {
     super(o, ObfuscateOrder.Calculator);
 
     this.ops = Object.create(null);
+    this.statesUsed = new Set();
     this.calculatorFn = this.getPlaceholder();
 
     this.gen = this.getGenerator();
@@ -76,29 +79,32 @@ export default class Calculator extends Transform {
     }
 
     if (object.type == "BinaryExpression") {
-      var operator = object.operator;
-      if (
-        !operator ||
-        operator == "==" ||
-        operator == "!=" ||
-        operator == "==="
-      ) {
-        return;
-      }
-      if (!this.ops[operator]) {
-        var newState;
-        do {
-          newState = getRandomInteger(
-            -1000,
-            1000 + Object.keys(this.ops).length * 5
-          );
-        } while (Object.values(this.ops).indexOf(newState) != -1);
-
-        this.ops[operator] = newState;
-        this.log(operator, `calc(${newState}, left, right)`);
-      }
-
       return () => {
+        var operator = object.operator;
+        if (
+          !operator ||
+          operator == "==" ||
+          operator == "!=" ||
+          operator == "==="
+        ) {
+          return;
+        }
+        if (typeof this.ops[operator] !== "number") {
+          var newState;
+          do {
+            newState = getRandomInteger(
+              -1000,
+              1000 + Object.keys(this.ops).length * 5
+            );
+          } while (this.statesUsed.has(newState));
+
+          ok(!isNaN(newState));
+
+          this.statesUsed.add(newState);
+          this.ops[operator] = newState;
+          this.log(operator, `calc(${newState}, left, right)`);
+        }
+
         this.replace(
           object,
           CallExpression(Identifier(this.calculatorFn), [

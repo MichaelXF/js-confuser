@@ -43,17 +43,8 @@ export function getRandomInteger(min, max) {
   return Math.floor(getRandom(min, max));
 }
 
-export function splitIntoChunks(array, min, max): any[] {
-  var chunks = [];
-  for (var i = 0; i < array.length; i += 0) {
-    var currentLength = getRandomInteger(min, max);
-
-    chunks.push(array.slice(i, i + currentLength));
-
-    i += currentLength;
-  }
-
-  return chunks;
+export function splitIntoChunks(string: string): any[] {
+  return string.match(/.{1,8}/g);
 }
 
 /**

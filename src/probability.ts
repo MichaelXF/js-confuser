@@ -1,3 +1,4 @@
+import { ok } from "assert";
 import { createObject } from "./util/object";
 
 type Stringed<V> = (V extends string ? V : never) | "true" | "false";
@@ -78,4 +79,48 @@ export function ComputeProbabilityMap<T>(
   });
 
   return runner(winner);
+}
+
+/**
+ * Determines if a probability map can return a positive result (true, or some string mode).
+ * - Negative probability maps are used to remove transformations from running entirely.
+ * @param map
+ */
+export function isProbabilityMapProbable<T>(map: ProbabilityMap<T>): boolean {
+  if (!map || typeof map === "undefined") {
+    return false;
+  }
+  if (typeof map === "function") {
+    return true;
+  }
+  if (typeof map === "number") {
+    if (map > 1 || map < 0) {
+      throw new Error(`Numbers must be between 0 and 1 for 0% - 100%`);
+    }
+    if (isNaN(map)) {
+      throw new Error("Numbers cannot be NaN");
+    }
+  }
+  if (Array.isArray(map)) {
+    ok(
+      map.length != 0,
+      "Empty arrays are not allowed for options. Use false instead."
+    );
+
+    if (map.length == 1) {
+      return !!map[0];
+    }
+  }
+  if (typeof map === "object") {
+    var keys = Object.keys(map);
+    ok(
+      keys.length != 0,
+      "Empty objects are not allowed for options. Use false instead."
+    );
+
+    if (keys.length == 1) {
+      return !!keys[0];
+    }
+  }
+  return true;
 }

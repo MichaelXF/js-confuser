@@ -1,4 +1,6 @@
+import Obfuscator from "./obfuscator";
 import { ObfuscateOptions } from "./options";
+import Transform from "./transforms/transform";
 
 /**
  * **JsConfuser**: Obfuscates JavaScript.
@@ -10,8 +12,12 @@ import { ObfuscateOptions } from "./options";
 export interface IJsConfuser {
   obfuscate: IJsConfuserObfuscate;
   presets: IJsConfuserPresets;
+  debugTransformations: IJsConfuserDebugTransformations;
 
   (code: string, options: ObfuscateOptions): Promise<string>;
+
+  Transform: typeof Transform;
+  Obfuscator: typeof Obfuscator;
 }
 
 /**
@@ -30,3 +36,8 @@ export interface IJsConfuserPresets {
   medium: ObfuscateOptions;
   low: ObfuscateOptions;
 }
+
+export type IJsConfuserDebugTransformations = (
+  code: string,
+  options: ObfuscateOptions
+) => Promise<{ name: string; code: string; ms: number }[]>;

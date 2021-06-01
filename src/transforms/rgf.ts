@@ -51,7 +51,7 @@ export default class RGF extends Transform {
   }
 
   match(object, parents) {
-    return isVarContext(object);
+    return isVarContext(object) && object.type !== "ArrowFunctionExpression";
   }
 
   transform(contextObject, contextParents) {
@@ -230,6 +230,8 @@ export default class RGF extends Transform {
         var hasName = !!name;
         var params = object.params.map((x) => x.name) || [];
 
+        var embeddedName = name || this.getPlaceholder();
+
         // Since `new Function` is completely isolated, create an entire new obfuscator and run remaining transformations.
         // RGF runs early and needs completed code before converting to a string.
         // (^ the variables haven't been renamed yet)
@@ -244,9 +246,13 @@ export default class RGF extends Transform {
         var tree = {
           type: "Program",
           body: [
-            object,
+            {
+              ...object,
+              type: "FunctionDeclaration",
+              id: Identifier(embeddedName),
+            },
             ReturnStatement(
-              CallExpression(Identifier(object.id.name), [
+              CallExpression(Identifier(embeddedName), [
                 SpreadElement(
                   Template(`Array.prototype.slice.call(arguments, 1)`).single()
                     .expression
@@ -272,6 +278,13 @@ export default class RGF extends Transform {
 
           if (Array.isArray(parents[0])) {
             parents[0].splice(parents[0].indexOf(object), 1);
+          } else {
+            this.error(
+              new Error(
+                "Error deleting function declaration: " +
+                  parents.map((x) => x.type).join(",")
+              )
+            );
           }
         } else {
           this.replace(object, newFunction);
