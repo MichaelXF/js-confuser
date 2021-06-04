@@ -31,6 +31,7 @@ import { ObfuscateOrder } from "../../order";
 import { ok } from "assert";
 import { reservedIdentifiers, reservedKeywords } from "../../constants";
 import AntiDestructuring from "./antiDestructuring";
+import AntiTemplate from "./antiTemplate";
 
 /**
  * `Const` and `Let` are not allowed in ES5.
@@ -286,6 +287,7 @@ export default class ES5 extends Transform {
   constructor(o) {
     super(o, ObfuscateOrder.ES5);
 
+    this.before.push(new AntiTemplate(o));
     this.before.push(new AntiES6Object(o));
     this.before.push(new AntiArrowFunction(o));
     this.before.push(new AntiDestructuring(o));

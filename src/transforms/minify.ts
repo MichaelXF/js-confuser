@@ -31,7 +31,7 @@ import { walk, getBlock, isBlock } from "../traverse";
 import { ok } from "assert";
 import { reservedIdentifiers } from "../constants";
 
-class MinifyFlow extends Transform {
+class MinifyBlock extends Transform {
   constructor(o) {
     super(o);
   }
@@ -41,47 +41,11 @@ class MinifyFlow extends Transform {
   }
 
   transform(object: Node, parents: Node[]) {
-    var body =
-      object.type == "SwitchCase" ? object.consequent : getBlockBody(object);
-    var earlyReturn = body.length;
-
-    body.forEach((stmt, i) => {
-      if (
-        stmt.type == "ReturnStatement" ||
-        stmt.type == "BreakStatement" ||
-        stmt.type == "ContinueStatement"
-      ) {
-        if (earlyReturn > i + 1) {
-          earlyReturn = i + 1;
-        }
-      }
-    });
-
-    body.length = earlyReturn;
-  }
-}
-
-class MinifyBlock extends Transform {
-  constructor(o) {
-    super(o);
-  }
-
-  match(object: Node, parents: Node[]) {
-    return isBlock(object);
-  }
-
-  transform(object: Node, parents: Node[]) {
     return () => {
-      // 1. Check for dead code (early return)
-      // 2. Check for re-assigning just-defined variable
-
-      var justDefined = new Set();
-      var decs: { [name: string]: Node } = Object.create(null);
-
-      var body = getBlockBody(object);
+      var body =
+        object.type == "SwitchCase" ? object.consequent : getBlockBody(object);
       var earlyReturn = body.length;
 
-      var remove = [];
       body.forEach((stmt, i) => {
         if (
           stmt.type == "ReturnStatement" ||
@@ -92,51 +56,9 @@ class MinifyBlock extends Transform {
             earlyReturn = i + 1;
           }
         }
-        if (stmt.type == "VariableDeclaration") {
-          stmt.declarations.forEach((x) => {
-            if (x.id.type == "Identifier" && !x.init) {
-              justDefined.add(x.id.name);
-              decs[x.id.name] = x;
-            }
-          });
-        } else if (stmt.type == "ExpressionStatement") {
-          if (stmt.expression.type == "AssignmentExpression") {
-            var name = stmt.expression.left.name;
-            if (stmt.expression.operator == "=" && justDefined.has(name)) {
-              var possible = true;
-              walk(stmt.expression.right, [], (o, p) => {
-                if (
-                  o.type == "Identifier" &&
-                  !reservedIdentifiers.has(o.name) &&
-                  !this.options.globalVariables.has(o.name)
-                ) {
-                  var info = getIdentifierInfo(o, p);
-                  if (
-                    info.spec.isDefined ||
-                    info.spec.isModified ||
-                    info.spec.isReferenced
-                  ) {
-                    if (justDefined.has(o.name)) {
-                      possible = false;
-                    }
-                  }
-                }
-              });
-
-              if (possible) {
-                decs[name].init = stmt.expression.right;
-                remove.unshift(i);
-              }
-            }
-          }
-        }
       });
 
       body.length = earlyReturn;
-
-      remove.forEach((x) => {
-        body.splice(x, 1);
-      });
 
       // Now combine ExpressionStatements
 
@@ -179,40 +101,47 @@ class MinifyBlock extends Transform {
         });
       }
 
-      // Unnecessary return
-      if (body.length && body[body.length - 1]) {
-        var last = body[body.length - 1];
-        var isUndefined = last.argument == null;
-        if (last.type == "ReturnStatement" && isUndefined) {
-          body.pop();
-        }
-      }
-
-      // Part 3
-      var stmts = getBlockBody(object);
-      var lastDec = null;
-
-      var remove = [];
-
-      stmts.forEach((x, i) => {
-        if (x.type == "VariableDeclaration") {
-          if (!lastDec) {
-            lastDec = x;
-          } else {
-            lastDec.declarations.push(...x.declarations);
-            remove.push(i);
+      if (object.type != "SwitchCase") {
+        // Unnecessary return
+        if (body.length && body[body.length - 1]) {
+          var last = body[body.length - 1];
+          var isUndefined = last.argument == null;
+          if (last.type == "ReturnStatement" && isUndefined) {
+            body.pop();
           }
-        } else {
-          lastDec = null;
         }
-      });
 
-      remove
-        .sort()
-        .reverse()
-        .forEach((x) => {
-          stmts.splice(x, 1);
+        // Variable declaration grouping
+        // var a = 1;
+        // var b = 1;
+        // var c = 1;
+        //
+        // var a=1,b=1,c=1;
+        var stmts = getBlockBody(object);
+        var lastDec = null;
+
+        var remove = [];
+
+        stmts.forEach((x, i) => {
+          if (x.type == "VariableDeclaration") {
+            if (!lastDec) {
+              lastDec = x;
+            } else {
+              lastDec.declarations.push(...x.declarations);
+              remove.push(i);
+            }
+          } else {
+            lastDec = null;
+          }
         });
+
+        remove
+          .sort()
+          .reverse()
+          .forEach((x) => {
+            stmts.splice(x, 1);
+          });
+      }
     };
   }
 }
@@ -238,7 +167,6 @@ export default class Minify extends Transform {
      * MinifyBlock runs only on Blocks, making Statement-based minification.
      */
     this.after.push(new MinifyBlock(o));
-    this.after.push(new MinifyFlow(o));
   }
 
   match(object: Node, parents: Node[]) {

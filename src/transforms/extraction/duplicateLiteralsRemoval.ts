@@ -39,7 +39,7 @@ export default class DuplicateLiteralsRemoval extends Transform {
   arrayName: string;
   arrayExpression: Node;
   map: Map<string, number>;
-  first: Map<string, Location[] | null>;
+  first: Map<string, Location | null>;
 
   constructor(o) {
     super(o, ObfuscateOrder.DuplicateLiteralsRemoval);
@@ -101,6 +101,8 @@ export default class DuplicateLiteralsRemoval extends Transform {
       }
     } else if (object.type == "Identifier") {
       value = "identifier:" + object.name;
+    } else {
+      throw new Error("Unsupported primitive type: " + object.type);
     }
 
     ok(value);
@@ -138,8 +140,6 @@ export default class DuplicateLiteralsRemoval extends Transform {
 
       var index = this.map.get(value);
       ok(typeof index === "number");
-
-      console.log(index, value);
 
       this.toMember(object, parents, index);
     }

@@ -79,14 +79,15 @@ export default class Shuffle extends Transform {
         return;
       }
 
+      function isAllowed(e) {
+        return (
+          e.type == "Literal" &&
+          { number: 1, boolean: 1, string: 1 }[typeof e.value]
+        );
+      }
+
       // Only arrays with only literals
-      var illegal = object.elements.find(
-        (x) =>
-          x.type !== "Literal" ||
-          (typeof x.value !== "string" &&
-            typeof x.value !== "boolean" &&
-            typeof x.value !== "number")
-      );
+      var illegal = object.elements.find((x) => !isAllowed(x));
 
       if (illegal) {
         return;

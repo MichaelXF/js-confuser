@@ -6,9 +6,11 @@ import JsConfuser from "./index";
   for (var i = 0; i < 2000; i++) {
     var output = await JsConfuser.obfuscate(
       `
+
+      // Variant #1 Using
       let myVariable = 1;
       
-      console.log(myVariable)
+      console.log(myVariable);
       
       // Variant #2 Destructing variable from object (ObjectPattern)
       let { key } = { key: 2 };
@@ -42,7 +44,7 @@ import JsConfuser from "./index";
         },
       };
       
-      console.log(es6Object.method(), "above ^^^");
+      console.log(es6Object.method());
       
       // Variant #8 Make sure getters on object work
       es6Object = {
@@ -83,6 +85,7 @@ import JsConfuser from "./index";
       process.exit = () => {
         throw new Error("(process.exit was called)");
       };
+
       eval(output);
     } catch (e) {
       console.log(output);
