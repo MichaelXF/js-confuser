@@ -109,7 +109,11 @@ export default class DeadCode extends Transform {
   }
 
   match(object: Node, parents: Node[]) {
-    return isFunction(object) && isBlock(object.body);
+    return (
+      isFunction(object) &&
+      isBlock(object.body) &&
+      !parents.find((x) => x.$dispatcherSkip)
+    );
   }
 
   transform(object: Node, parents: Node[]) {

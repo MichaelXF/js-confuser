@@ -30,6 +30,7 @@ import StringEncoding from "./transforms/string/stringEncoding";
 import RGF from "./transforms/rgf";
 import Flatten from "./transforms/flatten";
 import Stack from "./transforms/stack";
+import StringCompression from "./transforms/string/stringCompression";
 
 /**
  * The parent transformation holding the `state`.
@@ -40,6 +41,7 @@ export default class Obfuscator extends EventEmitter {
   array: Transform[];
 
   state: "transform" | "eval" = "transform";
+  generated: Set<string>;
 
   constructor(public options: ObfuscateOptions) {
     super();
@@ -67,6 +69,7 @@ export default class Obfuscator extends EventEmitter {
     test(options.dispatcher, Dispatcher);
     test(options.controlFlowFlattening, ControlFlowFlattening);
     test(options.globalConcealing, GlobalConcealing);
+    test(options.stringCompression, StringCompression);
     test(options.stringConcealing, StringConcealing);
     test(options.stringEncoding, StringEncoding);
     test(options.stringSplitting, StringSplitting);
@@ -114,12 +117,18 @@ export default class Obfuscator extends EventEmitter {
     this.transforms[transform.className] = transform;
   }
 
+  resetState() {
+    this.varCount = 0;
+    this.generated = new Set();
+    this.state = "transform";
+  }
+
   async apply(tree: Node, debugMode = false) {
     ok(tree.type == "Program", "The root node must be type 'Program'");
     ok(Array.isArray(tree.body), "The root's body property must be an array");
     ok(Array.isArray(this.array));
 
-    this.state = "transform";
+    this.resetState();
 
     for (var transform of this.array) {
       await transform.apply(tree);

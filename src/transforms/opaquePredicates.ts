@@ -19,19 +19,15 @@ import { ObfuscateOrder } from "../order";
 import { clone, prepend } from "../util/insert";
 import Template from "../templates/template";
 import { ComputeProbabilityMap } from "../probability";
+import { ok } from "assert";
 
 function isTestExpression(object: Node, parents: Node[]) {
   if (!object || !parents[0]) {
     return false;
   }
 
-  if (parents[0].type == "SwitchCase" && parents[0].test == object) {
-    return true;
-  }
-
   if (
     {
-      SwitchStatement: 1,
       ForStatement: 1,
       WhileStatement: 1,
       DoWhileStatement: 1,
@@ -39,7 +35,7 @@ function isTestExpression(object: Node, parents: Node[]) {
       ConditionExpression: 1,
       SwitchCase: 1,
     }[parents[0].type] &&
-    parents[0].test == object
+    parents[0].test === object
   ) {
     return true;
   }
@@ -73,7 +69,10 @@ export default class OpaquePredicates extends Transform {
   }
 
   match(object: Node, parents: Node[]) {
-    return isTestExpression(object, parents);
+    return (
+      isTestExpression(object, parents) &&
+      !parents.find((x) => x.$dispatcherSkip)
+    );
   }
 
   transform(object: Node, parents: Node[]) {
@@ -84,15 +83,13 @@ export default class OpaquePredicates extends Transform {
           return;
         }
 
-        if (!this.predicateName) {
+        if (!this.predicate) {
           this.predicateName = this.getPlaceholder();
+          this.predicate = ObjectExpression([]);
           prepend(
             parents[parents.length - 1] || object,
             VariableDeclaration(
-              VariableDeclarator(
-                this.predicateName,
-                (this.predicate = ObjectExpression([]))
-              )
+              VariableDeclarator(this.predicateName, this.predicate)
             )
           );
         }
@@ -164,9 +161,10 @@ export default class OpaquePredicates extends Transform {
               break;
           }
 
+          ok(expr);
           this.predicates[prop] = expr;
 
-          if (Math.random() > 0.5) {
+          if (Math.random() > 0.8) {
             shuffle(this.predicate.properties);
           }
         }
@@ -176,7 +174,7 @@ export default class OpaquePredicates extends Transform {
         if (object.type == "Literal" && object.value) {
           this.replace(object, cloned);
         } else {
-          this.replace(object, LogicalExpression("&&", { ...object }, cloned));
+          this.replace(object, LogicalExpression("&&", clone(object), cloned));
         }
       }
     };

@@ -13,7 +13,7 @@ import {
   ThisExpression,
   BinaryExpression,
 } from "../../util/gen";
-import { prepend } from "../../util/insert";
+import { clone, prepend } from "../../util/insert";
 import { shuffle, splitIntoChunks } from "../../util/random";
 import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "./stringConcealing";
@@ -99,7 +99,7 @@ export default class StringSplitting extends Transform {
         } else {
           binaryExpression.left = BinaryExpression(
             "+",
-            binaryExpression.left,
+            clone(binaryExpression.left),
             Literal(chunk)
           );
           ok(binaryExpression);

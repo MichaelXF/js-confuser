@@ -7,13 +7,15 @@ import {
   ArrayExpression,
   MemberExpression,
   VariableDeclarator,
+  Location,
 } from "../../util/gen";
-import { prepend } from "../../util/insert";
-import { isPrimitive } from "../../util/compare";
+import { clone, prepend } from "../../util/insert";
+import { isDirective, isPrimitive } from "../../util/compare";
 
 import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "../string/stringConcealing";
 import { ComputeProbabilityMap } from "../../probability";
+import { ok } from "assert";
 
 /**
  * [Duplicate Literals Removal](https://docs.jscrambler.com/code-integrity/documentation/transformations/duplicate-literals-removal) replaces duplicate literals with a variable name.
@@ -37,7 +39,7 @@ export default class DuplicateLiteralsRemoval extends Transform {
   arrayName: string;
   arrayExpression: Node;
   map: Map<string, number>;
-  first: Map<string, Node[] | 0>;
+  first: Map<string, Location | null>;
 
   constructor(o) {
     super(o, ObfuscateOrder.DuplicateLiteralsRemoval);
@@ -49,8 +51,9 @@ export default class DuplicateLiteralsRemoval extends Transform {
   match(object: Node, parents: Node[]) {
     return (
       isPrimitive(object) &&
+      !isDirective(object, parents) &&
       !isModuleSource(object, parents) &&
-      !(object.type == "Literal" && object.value === "use strict")
+      !parents.find((x) => x.$dispatcherSkip)
     );
   }
 
@@ -59,6 +62,16 @@ export default class DuplicateLiteralsRemoval extends Transform {
       object,
       MemberExpression(Identifier(this.arrayName), Literal(index), true)
     );
+
+    var propertyIndex = parents.findIndex((x) => x.type == "Property");
+    if (propertyIndex != -1) {
+      if (
+        !parents[propertyIndex].computed &&
+        parents[propertyIndex].key == (parents[propertyIndex - 1] || object)
+      ) {
+        parents[propertyIndex].computed = true;
+      }
+    }
   }
 
   transform(object: Node, parents: Node[]) {
@@ -79,25 +92,23 @@ export default class DuplicateLiteralsRemoval extends Transform {
       return;
     }
 
-    var propertyIndex = parents.findIndex((x) => x.type == "Property");
-    if (propertyIndex != -1) {
-      if (
-        !parents[propertyIndex].computed &&
-        parents[propertyIndex].key == (parents[propertyIndex - 1] || object)
-      ) {
-        parents[propertyIndex].computed = true;
-      }
-    }
-
     var value;
     if (object.type == "Literal") {
       value = typeof object.value + ":" + object.value;
-    } else {
+
+      if (!object.value) {
+        return;
+      }
+    } else if (object.type == "Identifier") {
       value = "identifier:" + object.name;
+    } else {
+      throw new Error("Unsupported primitive type: " + object.type);
     }
 
-    if (!this.first.has(value)) {
-      this.first.set(value, [object, ...parents]);
+    ok(value);
+
+    if (!this.first.has(value) && !this.map.has(value)) {
+      this.first.set(value, [object, parents]);
     } else {
       if (!this.arrayName) {
         this.arrayName = this.getPlaceholder();
@@ -113,16 +124,24 @@ export default class DuplicateLiteralsRemoval extends Transform {
 
       var first = this.first.get(value);
       if (first) {
-        this.first.set(value, 0);
+        this.first.set(value, null);
         var index = this.map.size;
+
+        ok(!this.map.has(value));
         this.map.set(value, index);
 
-        this.toMember(first[0], first.slice(1), index);
+        this.toMember(first[0], first[1], index);
 
-        this.arrayExpression.elements.push({ ...object });
+        var pushing = clone(object);
+        this.arrayExpression.elements.push(pushing);
+
+        ok(this.arrayExpression.elements[index] === pushing);
       }
 
-      this.toMember(object, parents, this.map.get(value));
+      var index = this.map.get(value);
+      ok(typeof index === "number");
+
+      this.toMember(object, parents, index);
     }
   }
 }

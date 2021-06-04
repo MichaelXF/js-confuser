@@ -59,3 +59,43 @@ it("should shorten guaranteed assignment expressions", async () => {
   expect(output).toContain("value=");
   expect(output).toContain("?");
 });
+
+it("should convert eligible functions to arrow functions", async () => {
+  var code = `
+  function FN(){
+    return 1;
+  }
+  input( FN() )
+  `;
+
+  var output = await JsConfuser(code, { target: "browser", minify: true });
+
+  expect(output).toContain("=>");
+
+  var value = "never_called",
+    input = (x) => (value = x);
+
+  eval(output);
+
+  expect(value).toStrictEqual(1);
+});
+
+it("should not convert lower functions to arrow functions", async () => {
+  var code = `
+  input( FN() )
+  function FN(){
+    return 1;
+  }
+  `;
+
+  var output = await JsConfuser(code, { target: "browser", minify: true });
+
+  expect(output).not.toContain("=>");
+
+  var value = "never_called",
+    input = (x) => (value = x);
+
+  eval(output);
+
+  expect(value).toStrictEqual(1);
+});

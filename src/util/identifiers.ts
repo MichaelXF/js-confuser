@@ -66,6 +66,18 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     parents[propIndex].key == (parents[propIndex - 1] || object) &&
     !parents[propIndex].computed;
 
+  var objectPatternIndex = parents.findIndex((x) => x.type == "ObjectPattern");
+  if (
+    objectPatternIndex !== -1 &&
+    parents[objectPatternIndex].properties == parents[objectPatternIndex - 1]
+  ) {
+    if (objectPatternIndex - propIndex == 2) {
+      if (parents[propIndex].value === (parents[propIndex - 1] || object)) {
+        isPropertyKey = false;
+      }
+    }
+  }
+
   var varIndex = parents.findIndex((x) => x.type == "VariableDeclarator");
 
   var isVariableDeclaration =
@@ -126,12 +138,6 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     }
   }
 
-  var isObjectPatternKey = false;
-
-  if (parent.type == "ObjectPattern" && parent.key == object) {
-    isObjectPatternKey = true;
-  }
-
   return {
     /**
      * MemberExpression: `parent.identifier`
@@ -141,11 +147,6 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
      * Property: `{identifier: ...}`
      */
     isPropertyKey,
-
-    /**
-     * Destructing `var {identifier: ...}`
-     */
-    isObjectPatternKey,
 
     /**
      * `var identifier = ...`
@@ -270,7 +271,6 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
         !isAccessor &&
         !isPropertyKey &&
         !isMetaProperty &&
-        !isObjectPatternKey &&
         !isLabel &&
         !object.name.startsWith("0") &&
         !object.name.startsWith("'"),

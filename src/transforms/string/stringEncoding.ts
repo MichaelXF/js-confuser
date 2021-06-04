@@ -22,7 +22,11 @@ function toHexRepresentation(str: string) {
   var escapedString = "";
   str.split("").forEach((char) => {
     var code = char.charCodeAt(0);
-    escapedString += "\\x" + even(pad(code.toString(16), 2));
+    if (code < 128) {
+      escapedString += "\\x" + even(pad(code.toString(16), 2));
+    } else {
+      escapedString += char;
+    }
   });
 
   return escapedString;
@@ -32,7 +36,11 @@ function toUnicodeRepresentation(str: string) {
   var escapedString = "";
   str.split("").forEach((char) => {
     var code = char.charCodeAt(0);
-    escapedString += "\\u" + even(pad(code.toString(16), 4));
+    if (code < 128) {
+      escapedString += "\\u" + even(pad(code.toString(16), 4));
+    } else {
+      escapedString += char;
+    }
   });
 
   return escapedString;

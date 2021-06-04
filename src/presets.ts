@@ -43,6 +43,7 @@ const reduction_98_percent: ObfuscateOptions = {
   renameVariables: true,
   shuffle: { hash: 0.5, true: 0.5 },
   stringConcealing: true,
+  stringCompression: true,
   stringEncoding: true,
   stringSplitting: 0.75,
   stack: true,

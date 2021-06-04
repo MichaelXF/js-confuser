@@ -261,6 +261,7 @@ export function prepend(block: Node, ...nodes: Node[]) {
 }
 
 export function append(block: Node, ...nodes: Node[]) {
+  ok(!Array.isArray(block), "block should not be array");
   getBlockBody(block).push(...nodes);
 }
 

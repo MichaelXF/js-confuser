@@ -162,9 +162,22 @@ export interface ObfuscateOptions {
   globalConcealing?: ProbabilityMap<boolean>;
 
   /**
+   * ### `stringCompression`
+   *
+   * String Compression uses LZW's compression algorithm to reduce file size. (`true/false/0-1`)
+   *
+   * `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
+   *
+   * - Potency High
+   * - Resilience Medium
+   * - Cost Medium
+   */
+  stringCompression?: ProbabilityMap<boolean>;
+
+  /**
    * ### `stringConcealing`
    *
-   * [String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. This is useful for both automated tools and reverse engineers. (`true/false`)
+   * [String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. (`true/false`)
    *
    * `"console"` -> `decrypt('<~@rH7+Dert~>')`
    *
@@ -570,6 +583,7 @@ var validProperties = new Set([
   "identifierGenerator",
   "controlFlowFlattening",
   "globalConcealing",
+  "stringCompression",
   "stringConcealing",
   "stringEncoding",
   "stringSplitting",

@@ -136,6 +136,9 @@ export default class Integrity extends Transform {
 
         var imulName = this.getPlaceholder();
         var imulVariableDeclaration = ImulTemplate.single({ name: imulName });
+
+        imulVariableDeclaration.$dispatcherSkip = true;
+
         this.imulFn = imulVariableDeclaration._hiddenId = Identifier(imulName);
         hashingUtils.push(imulVariableDeclaration);
 
@@ -147,6 +150,8 @@ export default class Integrity extends Transform {
         this.hashFn = hashFunctionDeclaration._hiddenId = Identifier(hashName);
         hashingUtils.push(hashFunctionDeclaration);
 
+        hashFunctionDeclaration.$dispatcherSkip = true;
+
         var stringName = this.getPlaceholder();
         var stringFunctionDeclaration = StringTemplate.single({
           name: stringName,
@@ -155,9 +160,15 @@ export default class Integrity extends Transform {
           Identifier(stringName);
         hashingUtils.push(stringFunctionDeclaration);
 
-        var functionExpression = FunctionExpression([], [...object.body]);
+        stringFunctionDeclaration.$dispatcherSkip = true;
 
-        object.body = [CallExpression(functionExpression, [])];
+        var functionExpression = FunctionExpression([], clone(object.body));
+
+        object.body = [
+          ExpressionStatement(CallExpression(functionExpression, [])),
+        ];
+
+        object.$dispatcherSkip = true;
 
         object._hiddenHashingUtils = hashingUtils;
 
@@ -175,8 +186,6 @@ export default class Integrity extends Transform {
             isFunction(functionExpression) &&
             functionExpression.body.type == "BlockStatement"
           ) {
-            functionExpression.body.body.unshift(...hashingUtils);
-
             if (this.lock.counterMeasuresNode) {
               functionExpression.body.body.unshift(
                 clone(this.lock.counterMeasuresNode[0])

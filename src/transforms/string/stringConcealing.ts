@@ -160,7 +160,8 @@ export default class StringConcealing extends Transform {
       object.type == "Program" ||
       (object.type == "Literal" &&
         !isModuleSource(object, parents) &&
-        !isDirective(object, parents))
+        !isDirective(object, parents)) //&&
+      /*!parents.find((x) => x.$dispatcherSkip)*/
     );
   }
 
@@ -248,6 +249,7 @@ export default class StringConcealing extends Transform {
           parents[0].key == object
         ) {
           parents[0].computed = true;
+          parents[0].shorthand = false;
         }
       }
     };

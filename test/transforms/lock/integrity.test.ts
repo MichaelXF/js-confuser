@@ -120,3 +120,18 @@ it("should error when countermeasures function doesn't exist", async () => {
   );
   expect(errorCaught.toString()).toContain("TEST_COUNTERMEASURES");
 });
+
+it("should work on High Preset", async () => {
+  var output = await JsConfuser(`TEST_OUTPUT = ("Hello World")`, {
+    target: "node",
+    preset: "high",
+    lock: {
+      integrity: true,
+    },
+  });
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
+});

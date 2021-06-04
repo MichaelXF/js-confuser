@@ -53,12 +53,22 @@ export default class Stack extends Transform {
     return (
       isFunction(object) &&
       !object.params.find((x) => x.type !== "Identifier") &&
-      object.body.type === "BlockStatement"
+      object.body.type === "BlockStatement" &&
+      !parents.find((x) => x.$dispatcherSkip)
     );
   }
 
   transform(object: Node, parents: Node[]) {
     return () => {
+      var propIndex = parents.findIndex((x) => x.type == "Property");
+      if (propIndex !== -1) {
+        if (parents[propIndex].value === (parents[propIndex - 1] || object)) {
+          if (parents[propIndex].kind !== "init" || parents[propIndex].method) {
+            return;
+          }
+        }
+      }
+
       var defined = new Set<string>();
       var referenced = new Set<string>();
       var illegal = new Set<string>();
@@ -135,6 +145,10 @@ export default class Stack extends Transform {
           subscripts.delete(name);
         }
       });
+
+      if (object.params.find((x) => illegal.has(x.name))) {
+        return;
+      }
 
       if (!subscripts.size) {
         return;

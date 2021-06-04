@@ -37,6 +37,7 @@ import {
   isVarContext,
   isFunction,
   prepend,
+  append,
 } from "../util/insert";
 import Transform from "./transform";
 import { isInsideType } from "../util/compare";
@@ -86,7 +87,8 @@ export default class Dispatcher extends Transform {
     return (
       isVarContext(object) &&
       object.type !== "ArrowFunctionExpression" &&
-      !object.$dispatcherSkip
+      !object.$dispatcherSkip &&
+      !parents.find((x) => x.$dispatcherSkip)
     );
   }
 
@@ -125,7 +127,10 @@ export default class Dispatcher extends Transform {
 
           if (context === c) {
             if (o.type == "FunctionDeclaration" && o.id.name) {
-              if (o.body.type != "BlockStatement") {
+              if (
+                p.find((x) => x.$dispatcherSkip) ||
+                o.body.type != "BlockStatement"
+              ) {
                 illegalFnNames.add(name);
               }
 
@@ -409,7 +414,7 @@ export default class Dispatcher extends Transform {
             ]
           );
 
-          prepend(object, fn);
+          append(object, fn);
 
           if (payloadArg) {
             prepend(

@@ -31,7 +31,9 @@ export enum ObfuscateOrder {
 
   StringConcealing = 17,
 
-  DuplicateLiteralsRemoval = 23,
+  StringCompression = 18,
+
+  DuplicateLiteralsRemoval = 22,
 
   Shuffle = 24,
 

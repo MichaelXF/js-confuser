@@ -154,10 +154,12 @@ export default class GlobalConcealing extends Transform {
           newNames[name] = state;
 
           locations.forEach(([node, parents]) => {
-            this.replace(
-              node,
-              CallExpression(Identifier(globalFn), [Literal(state)])
-            );
+            if (!parents.find((x) => x.$dispatcherSkip)) {
+              this.replace(
+                node,
+                CallExpression(Identifier(globalFn), [Literal(state)])
+              );
+            }
           });
         });
 
