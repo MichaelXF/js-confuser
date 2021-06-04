@@ -95,6 +95,7 @@ class ExplicitIdentifiers extends Transform {
 
       this.replace(object, Literal(object.name));
       parents[0].computed = true;
+      parents[0].shorthand = false;
     }
   }
 }

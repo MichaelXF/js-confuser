@@ -23,6 +23,7 @@ import {
   isVarContext,
   clone,
   isForInitialize,
+  isLexContext,
 } from "../util/insert";
 import { getIdentifierInfo } from "../util/identifiers";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
@@ -93,7 +94,7 @@ class MinifyBlock extends Transform {
         }
         if (stmt.type == "VariableDeclaration") {
           stmt.declarations.forEach((x) => {
-            if (x.id.type == "Identifier") {
+            if (x.id.type == "Identifier" && !x.init) {
               justDefined.add(x.id.name);
               decs[x.id.name] = x;
             }
@@ -199,16 +200,19 @@ class MinifyBlock extends Transform {
             lastDec = x;
           } else {
             lastDec.declarations.push(...x.declarations);
-            remove.unshift(i);
+            remove.push(i);
           }
         } else {
           lastDec = null;
         }
       });
 
-      remove.forEach((x) => {
-        stmts.splice(x, 1);
-      });
+      remove
+        .sort()
+        .reverse()
+        .forEach((x) => {
+          stmts.splice(x, 1);
+        });
     };
   }
 }
@@ -253,6 +257,46 @@ export default class Minify extends Transform {
         object.type == "FunctionDeclaration")
     ) {
       return () => {
+        // Don't touch `{get key(){...}}`
+        var propIndex = parents.findIndex((x) => x.type == "Property");
+        if (propIndex !== -1) {
+          if (parents[propIndex].value === (parents[propIndex - 1] || object)) {
+            if (
+              parents[propIndex].kind !== "init" ||
+              parents[propIndex].method
+            ) {
+              return;
+            }
+          }
+        }
+
+        var blockIndex = parents.findIndex((x) => isLexContext(x));
+        if (blockIndex !== -1) {
+          var block = parents[blockIndex];
+          var body = block.body;
+          if (!Array.isArray(body)) {
+            return;
+          }
+
+          var stmt = parents[blockIndex - 2] || object;
+
+          var index = body.indexOf(stmt);
+          if (index == -1) {
+            return;
+          }
+
+          var before = body.slice(0, index);
+          ok(!before.includes(stmt));
+
+          var set = new Set(before.map((x) => x.type));
+          set.delete("FunctionDeclaration");
+          set.delete("ClassDeclaration");
+
+          if (set.size) {
+            return;
+          }
+        }
+
         var canTransform = true;
         walk(object.body, [], ($object, $parents) => {
           if ($object.type == "ThisExpression") {

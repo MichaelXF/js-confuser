@@ -1,3 +1,22 @@
+# `1.1.2`
+New String Compression feature and Fixed Syntax errors
+
+- **New feature**: `stringCompression`
+- - String Compression uses LZW's compression algorithm to reduce file size. (`true/false/0-1`)
+- - `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
+- - Potency High
+- - Resilience Medium
+- - Cost Medium
+
+- Fixed error with String encoding
+
+- Fixed syntax error from obfuscating destructing with computed keys
+- Fixed syntax error when getters/setters were being converted to arrow functions
+- Integrity fixes:
+- - Better support with Dispatcher
+- - Better support with Calculator
+
+
 # `1.1.1`
 General fixes
 - No longer encodes `"use strict"` and other directives

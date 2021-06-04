@@ -10,9 +10,10 @@ import {
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
-import { isForInitialize, prepend } from "../../util/insert";
+import { clone, isForInitialize, isFunction, prepend } from "../../util/insert";
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
+import { getIdentifierInfo } from "../../util/identifiers";
 
 /**
  * Defines all the names at the top of every lexical block.
@@ -28,6 +29,11 @@ export default class MovedDeclarations extends Transform {
 
   transform(object: Node, parents: Node[]) {
     return () => {
+      var switchCaseIndex = parents.findIndex((x) => x.type == "SwitchCase");
+      if (switchCaseIndex != -1) {
+        this.log("(Switch Edge Case)", varNames);
+      }
+
       var block = getBlock(object, parents);
 
       var varDecs: Location[] = [];
@@ -38,58 +44,53 @@ export default class MovedDeclarations extends Transform {
         if (s != block) {
           return;
         }
+        return () => {
+          if (
+            o.type == "VariableDeclaration" &&
+            o.declarations.length &&
+            o.kind !== "let"
+          ) {
+            if (isForInitialize(o, p)) {
+              return;
+            }
 
-        if (o.type == "VariableDeclaration" && o.declarations.length) {
-          if (p[0].type == "ForStatement" && p[0].init == o) {
-            return;
-          }
+            varDecs.push([o, p]);
 
-          if (isForInitialize(o, p)) {
-            return;
-          }
-
-          varDecs.push([o, p]);
-
-          o.declarations.forEach((declarator) => {
-            walk(declarator.id, [], (dO, dP) => {
-              if (dO.type == "Identifier") {
-                varNames.add(dO.name);
-              }
+            o.declarations.forEach((declarator) => {
+              walk(declarator.id, [declarator, ...p], (dO, dP) => {
+                if (dO.type == "Identifier") {
+                  var info = getIdentifierInfo(dO, dP);
+                  if (info.spec.isReferenced) {
+                    varNames.add(dO.name);
+                  }
+                }
+              });
             });
-          });
 
-          // Change this line to assignment expressions
+            // Change this line to assignment expressions
 
-          var assignmentExpressions = o.declarations.map((x) =>
-            AssignmentExpression("=", x.id, x.init || Identifier("undefined"))
-          );
+            var assignmentExpressions = o.declarations.map((x) =>
+              AssignmentExpression(
+                "=",
+                clone(x.id),
+                clone(x.init) || Identifier("undefined")
+              )
+            );
 
-          ok(assignmentExpressions.length, "Should be at least 1");
+            ok(assignmentExpressions.length, "Should be at least 1");
 
-          var value: Node = SequenceExpression(assignmentExpressions);
-          if (assignmentExpressions.length == 1) {
-            // If only 1, then single assignment expression
-            value = assignmentExpressions[0];
-          }
+            var value: Node = SequenceExpression(assignmentExpressions);
 
-          var inFor = isForInitialize(o, p);
-
-          if (!inFor) {
             value = ExpressionStatement(value);
-          }
 
-          this.objectAssign(o, value);
-        }
+            this.replace(o, value);
+          }
+        };
       });
 
       // Define the names in this block as 1 variable declaration
       if (varNames.size > 0) {
         this.log("Moved", varNames);
-
-        var switchCaseIndex = parents.findIndex((x) => x.type == "SwitchCase");
-        if (switchCaseIndex != -1) {
-          this.log("(Switch Edge Case)", varNames);
-        }
 
         var variableDeclaration = VariableDeclaration(
           Array.from(varNames).map((x) => {

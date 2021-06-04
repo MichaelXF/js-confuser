@@ -141,6 +141,14 @@ Global Concealing hides global variables being accessed. (`true/false`)
 - Resilience High
 - Cost Low
 
+### `stringCompression`
+String Compression uses LZW's compression algorithm to reduce file size. (`true/false/0-1`)
+
+`"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
+- Potency High
+- Resilience Medium
+- Cost Medium
+
 ### `stringConcealing`
 
 [String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. (`true/false/0-1`)
@@ -533,16 +541,16 @@ Most settings allow percentages to control the frequency of the transformation. 
 ```js
 {
   target: "node",
-  controlFlowFlattening: true // equal to 1, which is 100% (slow)
+  controlFlowFlattening: true, // equal to 1, which is 100% (slow)
 
-  controlFlowFlattening: 0.5 // 50%
+  controlFlowFlattening: 0.5, // 50%
   controlFlowFlattening: 0.01 // 1%
 }
 ```
 
 ## Probabilities
 
-Mix modes using an object with key-value pairs represent each mode's percentage.
+Mix modes using an object with key-value pairs to represent each mode's percentage.
 
 ```js
 {
@@ -593,8 +601,8 @@ Mix modes using an object with key-value pairs represent each mode's percentage.
 
 ## Potential Issues
 
-- 1.  String Encoding can corrupt files. Disable `stringEncoding` manually if this happens.
-- 2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
+1.  String Encoding can corrupt files. Disable `stringEncoding` manually if this happens.
+2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
 
 ## File size and Performance
 
@@ -623,7 +631,7 @@ Please [open an issue](https://github.com/MichaelXF/js-confuser/issues) with the
 
 ## Feature request
 
-Please [open an issue]((https://github.com/MichaelXF/js-confuser/issues)) and be descriptive. Don't submit any PRs until approved.
+Please [open an issue](https://github.com/MichaelXF/js-confuser/issues) and be descriptive. Don't submit any PRs until approved.
 
 ## JsConfuser vs. Javascript-obfuscator
 

@@ -237,108 +237,120 @@ export default class Transform {
     if (length == -1) {
       length = getRandomInteger(6, 8);
     }
+
+    var set = new Set();
+
     if (count == -1) {
       this.obfuscator.varCount++;
       count = this.obfuscator.varCount;
+      set = this.obfuscator.generated;
     }
 
-    var identifier = ComputeProbabilityMap(
-      this.options.identifierGenerator,
-      (mode = "randomized") => {
-        switch (mode) {
-          case "randomized":
-            var characters =
-              "_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".split("");
-            var numbers = "0123456789".split("");
+    var identifier;
+    do {
+      identifier = ComputeProbabilityMap(
+        this.options.identifierGenerator,
+        (mode = "randomized") => {
+          switch (mode) {
+            case "randomized":
+              var characters =
+                "_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".split(
+                  ""
+                );
+              var numbers = "0123456789".split("");
 
-            var combined = [...characters, ...numbers];
+              var combined = [...characters, ...numbers];
 
-            var result = "";
-            for (var i = 0; i < length; i++) {
-              result += choice(i == 0 ? characters : combined);
-            }
-            return result;
-
-          case "hexadecimal":
-            const genRanHex = (size) =>
-              [...Array(size)]
-                .map(() => Math.floor(Math.random() * 16).toString(16))
-                .join("");
-
-            return "_0x" + genRanHex(length).toUpperCase();
-
-          case "mangled":
-            while (1) {
-              var result = alphabeticalGenerator(count);
-              count++;
-
-              if (
-                reservedKeywords.has(result) ||
-                reservedIdentifiers.has(result)
-              ) {
-              } else {
-                return result;
+              var result = "";
+              for (var i = 0; i < length; i++) {
+                result += choice(i == 0 ? characters : combined);
               }
-            }
+              return result;
 
-            throw new Error("impossible but TypeScript insists");
+            case "hexadecimal":
+              const genRanHex = (size) =>
+                [...Array(size)]
+                  .map(() => Math.floor(Math.random() * 16).toString(16))
+                  .join("");
 
-          case "number":
-            return "var_" + count;
+              return "_0x" + genRanHex(length).toUpperCase();
 
-          case "zeroWidth":
-            var keyWords = [
-              "if",
-              "in",
-              "for",
-              "let",
-              "new",
-              "try",
-              "var",
-              "case",
-              "else",
-              "null",
-              "break",
-              "catch",
-              "class",
-              "const",
-              "super",
-              "throw",
-              "while",
-              "yield",
-              "delete",
-              "export",
-              "import",
-              "public",
-              "return",
-              "switch",
-              "default",
-              "finally",
-              "private",
-              "continue",
-              "debugger",
-              "function",
-              "arguments",
-              "protected",
-              "instanceof",
-              "function",
-              "await",
-              "async",
-            ];
+            case "mangled":
+              while (1) {
+                var result = alphabeticalGenerator(count);
+                count++;
 
-            var safe = "\u200C".repeat(count + 1);
+                if (
+                  reservedKeywords.has(result) ||
+                  reservedIdentifiers.has(result)
+                ) {
+                } else {
+                  return result;
+                }
+              }
 
-            var base = choice(keyWords) + safe;
-            return base;
+              throw new Error("impossible but TypeScript insists");
+
+            case "number":
+              return "var_" + count;
+
+            case "zeroWidth":
+              var keyWords = [
+                "if",
+                "in",
+                "for",
+                "let",
+                "new",
+                "try",
+                "var",
+                "case",
+                "else",
+                "null",
+                "break",
+                "catch",
+                "class",
+                "const",
+                "super",
+                "throw",
+                "while",
+                "yield",
+                "delete",
+                "export",
+                "import",
+                "public",
+                "return",
+                "switch",
+                "default",
+                "finally",
+                "private",
+                "continue",
+                "debugger",
+                "function",
+                "arguments",
+                "protected",
+                "instanceof",
+                "function",
+                "await",
+                "async",
+              ];
+
+              var safe = "\u200C".repeat(count + 1);
+
+              var base = choice(keyWords) + safe;
+              return base;
+          }
+
+          throw new Error("Invalid 'identifierGenerator' mode: " + mode);
         }
-
-        throw new Error("Invalid 'identifierGenerator' mode: " + mode);
-      }
-    );
+      );
+    } while (set.has(identifier));
 
     if (!identifier) {
       throw new Error("identifier null");
     }
+
+    set.add(identifier);
+
     return identifier;
   }
 

@@ -80,6 +80,10 @@ export default class Calculator extends Transform {
 
     if (object.type == "BinaryExpression") {
       return () => {
+        if (parents.find((x) => x.$dispatcherSkip)) {
+          return;
+        }
+
         var operator = object.operator;
         if (
           !operator ||

@@ -66,7 +66,10 @@ export default class Shuffle extends Transform {
   }
 
   match(object, parents) {
-    return object.type == "ArrayExpression";
+    return (
+      object.type == "ArrayExpression" &&
+      !parents.find((x) => x.$dispatcherSkip)
+    );
   }
 
   transform(object, parents) {
@@ -77,11 +80,15 @@ export default class Shuffle extends Transform {
       }
 
       // Only arrays with only literals
-      var possible = !object.elements.find(
-        (x) => x.type == "Literal" && typeof x.value === "string"
+      var illegal = object.elements.find(
+        (x) =>
+          x.type !== "Literal" ||
+          (typeof x.value !== "string" &&
+            typeof x.value !== "boolean" &&
+            typeof x.value !== "number")
       );
 
-      if (!possible) {
+      if (illegal) {
         return;
       }
 
