@@ -16,6 +16,7 @@ New String Compression feature and Fixed Syntax errors
 - - Better support with Dispatcher
 - - Better support with Calculator
 
+Available now on NPM: https://www.npmjs.com/package/js-confuser
 
 # `1.1.1`
 General fixes
