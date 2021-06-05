@@ -16,7 +16,7 @@ export type Type =
   | "BlockStatement"
   | "Program"
   | "ThisExpression"
-  | "SuperExpression"
+  | "Super"
   | "ForInStatement"
   | "ForOfStatement"
   | "WhileStatement"
@@ -90,7 +90,7 @@ export function Identifier(name: string) {
     throw new Error("Use ThisExpression");
   }
   if (name == "super") {
-    throw new Error("Use SuperExpression");
+    throw new Error("Use Super");
   }
   return {
     type: "Identifier",

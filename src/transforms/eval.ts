@@ -3,7 +3,6 @@ import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
 import {
   CallExpression,
-  ExpressionStatement,
   Identifier,
   Literal,
   Node,
@@ -19,7 +18,11 @@ export default class Eval extends Transform {
   }
 
   match(object, parents) {
-    return isFunction(object) && object.type != "ArrowFunctionExpression";
+    return (
+      isFunction(object) &&
+      object.type != "ArrowFunctionExpression" &&
+      !object.$eval
+    );
   }
 
   transform(object, parents) {
@@ -47,8 +50,6 @@ export default class Eval extends Transform {
       }
 
       var literal = Literal(code);
-
-      this.dynamicallyObfuscate(literal);
 
       var expr: Node = CallExpression(Identifier("eval"), [literal]);
       if (name) {

@@ -6,10 +6,7 @@ import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
 import { walk } from "../traverse";
 import {
-  ArrayExpression,
   AssignmentExpression,
-  BinaryExpression,
-  CallExpression,
   ExpressionStatement,
   Identifier,
   Literal,
@@ -17,27 +14,9 @@ import {
   MemberExpression,
   Node,
   RestElement,
-  SequenceExpression,
-  SpreadElement,
-  VariableDeclaration,
-  VariableDeclarator,
-  WhileStatement,
 } from "../util/gen";
-import {
-  getDefiningIdentifier,
-  getIdentifierInfo,
-  validateChain,
-} from "../util/identifiers";
-import {
-  clone,
-  getVarContext,
-  isVarContext,
-  isForInitialize,
-  isFunction,
-  isInBranch,
-  prepend,
-} from "../util/insert";
-import { getRandomInteger } from "../util/random";
+import { getIdentifierInfo } from "../util/identifiers";
+import { isForInitialize, isFunction, prepend } from "../util/insert";
 import Transform from "./transform";
 
 export default class Stack extends Transform {

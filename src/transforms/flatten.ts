@@ -1,45 +1,28 @@
-import { ok } from "assert";
 import { reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
-import Template from "../templates/template";
-import traverse, { walk } from "../traverse";
+import { walk } from "../traverse";
 import {
   FunctionDeclaration,
   Identifier,
   ReturnStatement,
-  FunctionExpression,
-  SwitchStatement,
   VariableDeclaration,
   VariableDeclarator,
   CallExpression,
   MemberExpression,
   ThisExpression,
   ArrayExpression,
-  SwitchCase,
-  Literal,
   ExpressionStatement,
-  BreakStatement,
   AssignmentExpression,
-  Location,
   Node,
   BlockStatement,
-  SpreadElement,
-  ObjectExpression,
-  Property,
   ArrayPattern,
 } from "../util/gen";
-import {
-  getDefiningIdentifier,
-  getFunctionParameters,
-  getIdentifierInfo,
-} from "../util/identifiers";
+import { getIdentifierInfo } from "../util/identifiers";
 import {
   getBlockBody,
   getVarContext,
-  isVarContext,
   isFunction,
   prepend,
-  getDefiningContext,
   clone,
 } from "../util/insert";
 import Transform from "./transform";
@@ -101,7 +84,7 @@ export default class Flatten extends Transform {
           }
         } else if (o.type == "ThisExpression") {
           illegal.add("1");
-        } else if (o.type == "SuperExpression") {
+        } else if (o.type == "Super") {
           illegal.add("1");
         } else if (o.type == "MetaProperty") {
           illegal.add("1");
@@ -138,8 +121,10 @@ export default class Flatten extends Transform {
             var elements = output.map(Identifier);
             if (
               o.argument &&
-              o.argument.type !== "Identifier" &&
-              o.argument.name !== "undefined"
+              !(
+                o.argument.type == "Identifier" &&
+                o.argument.name == "undefined"
+              )
             ) {
               elements.unshift(clone(o.argument));
             }

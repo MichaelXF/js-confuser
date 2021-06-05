@@ -2,7 +2,6 @@ import { ok } from "assert";
 import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
-import { isPrimitive } from "../util/compare";
 import {
   BinaryExpression,
   CallExpression,
@@ -10,7 +9,6 @@ import {
   FunctionExpression,
   Identifier,
   Literal,
-  MemberExpression,
   ReturnStatement,
   UpdateExpression,
   VariableDeclaration,

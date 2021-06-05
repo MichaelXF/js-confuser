@@ -2,12 +2,11 @@ import compileJs, { compileJsSync } from "./compiler";
 import parseJS, { parseSync } from "./parser";
 import Obfuscator from "./obfuscator";
 import Transform from "./transforms/transform";
-import { createObject, remove$Properties } from "./util/object";
+import { remove$Properties } from "./util/object";
 import presets from "./presets";
 
 import * as assert from "assert";
 import { correctOptions, ObfuscateOptions } from "./options";
-import { ProbabilityMap } from "./probability";
 import { IJsConfuser, IJsConfuserDebugTransformations } from "./types";
 
 /**
@@ -106,6 +105,13 @@ JsConfuser.presets = presets;
 JsConfuser.debugTransformations = debugTransformations;
 JsConfuser.Obfuscator = Obfuscator;
 JsConfuser.Transform = Transform;
+
+if (typeof window !== "undefined") {
+  window["JsConfuser"] = JsConfuser;
+}
+if (typeof global !== "undefined") {
+  global["JsConfuser"] = JsConfuser;
+}
 
 export default JsConfuser;
 

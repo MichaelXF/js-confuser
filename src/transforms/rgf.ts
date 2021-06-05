@@ -1,4 +1,3 @@
-import { ok } from "assert";
 import { compileJsSync } from "../compiler";
 import { reservedIdentifiers } from "../constants";
 import Obfuscator from "../obfuscator";
@@ -18,6 +17,7 @@ import {
   Node,
   ReturnStatement,
   SpreadElement,
+  ThisExpression,
   VariableDeclaration,
   VariableDeclarator,
 } from "../util/gen";
@@ -81,6 +81,8 @@ export default class RGF extends Transform {
           var defined = new Set<string>(),
             referenced = new Set<string>();
 
+          var isBound = false;
+
           walk(object.body, [object, ...parents], (o, p) => {
             if (
               o.type == "Identifier" &&
@@ -94,21 +96,27 @@ export default class RGF extends Transform {
                 referenced.add(o.name);
               }
             }
+
+            if (o.type == "ThisExpression" || o.type == "Super") {
+              isBound = true;
+            }
           });
 
-          defined.forEach((identifier) => {
-            referenced.delete(identifier);
-          });
+          if (!isBound) {
+            defined.forEach((identifier) => {
+              referenced.delete(identifier);
+            });
 
-          object.params.forEach((param) => {
-            referenced.delete(param.name);
-          });
+            object.params.forEach((param) => {
+              referenced.delete(param.name);
+            });
 
-          collect.push({
-            location: [object, parents],
-            references: referenced,
-            name: object.id?.name,
-          });
+            collect.push({
+              location: [object, parents],
+              references: referenced,
+              name: object.id?.name,
+            });
+          }
         }
       });
 
@@ -238,32 +246,65 @@ export default class RGF extends Transform {
         var o = new Obfuscator({
           ...this.options,
           rgf: false,
+          globalVariables: new Set([
+            ...this.options.globalVariables,
+            referenceArray,
+          ]),
+          lock: {
+            integrity: false,
+          },
+          eval: false,
         });
         var t = Object.values(o.transforms).filter(
           (x) => x.priority > this.priority
         );
 
+        var embeddedFunction = {
+          ...object,
+          type: "FunctionDeclaration",
+          id: Identifier(embeddedName),
+        };
+
         var tree = {
           type: "Program",
           body: [
-            {
-              ...object,
-              type: "FunctionDeclaration",
-              id: Identifier(embeddedName),
-            },
+            embeddedFunction,
             ReturnStatement(
-              CallExpression(Identifier(embeddedName), [
-                SpreadElement(
-                  Template(`Array.prototype.slice.call(arguments, 1)`).single()
-                    .expression
+              CallExpression(
+                MemberExpression(
+                  Identifier(embeddedName),
+                  Identifier("call"),
+                  false
                 ),
-              ])
+                [
+                  ThisExpression(),
+                  SpreadElement(
+                    Template(
+                      `Array.prototype.slice.call(arguments, 1)`
+                    ).single().expression
+                  ),
+                ]
+              )
             ),
           ],
         };
 
+        (tree as any).__hiddenDeclarations = VariableDeclaration(
+          VariableDeclarator(referenceArray)
+        );
+        (tree as any).__hiddenDeclarations.hidden = true;
+
         t.forEach((x) => {
           x.apply(tree);
+        });
+
+        // Find eval callbacks
+        traverse(tree, (o, p) => {
+          if (o.$eval) {
+            return () => {
+              o.$eval();
+            };
+          }
         });
 
         var toString = compileJsSync(tree, this.options);

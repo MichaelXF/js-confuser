@@ -24,8 +24,6 @@ import {
   LogicalExpression,
   ThisExpression,
   VariableDeclarator,
-  ArrayPattern,
-  SpreadElement,
   RestElement,
 } from "../util/gen";
 import { getIdentifierInfo, isWithinClass } from "../util/identifiers";
@@ -33,9 +31,7 @@ import {
   deleteDirect,
   getBlockBody,
   getVarContext,
-  getFunction,
   isVarContext,
-  isFunction,
   prepend,
   append,
 } from "../util/insert";

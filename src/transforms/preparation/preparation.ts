@@ -13,18 +13,11 @@ import {
   ReturnStatement,
 } from "../../util/gen";
 import { ObfuscateOrder } from "../../order";
-import {
-  getIndexDirect,
-  getVarContext,
-  isVarContext,
-  getBlockBody,
-  clone,
-} from "../../util/insert";
+import { getIndexDirect, clone } from "../../util/insert";
 import { ok } from "assert";
 import { getIdentifierInfo } from "../../util/identifiers";
-import { isBlock, walk } from "../../traverse";
+import { walk } from "../../traverse";
 import Label from "../label";
-import { VariableAnalysis } from "../identifier/renameVariables";
 import NameConflicts from "./nameConflicts";
 import AntiDestructuring from "../es5/antiDestructuring";
 import { OPERATOR_PRECEDENCE } from "../../precedence";

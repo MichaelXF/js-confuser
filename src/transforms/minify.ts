@@ -17,19 +17,14 @@ import {
   Identifier,
 } from "../util/gen";
 import {
-  deleteDeclaration,
-  deleteDirect,
   getBlockBody,
-  isVarContext,
   clone,
   isForInitialize,
   isLexContext,
 } from "../util/insert";
-import { getIdentifierInfo } from "../util/identifiers";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
-import { walk, getBlock, isBlock } from "../traverse";
+import { walk, isBlock } from "../traverse";
 import { ok } from "assert";
-import { reservedIdentifiers } from "../constants";
 
 class MinifyBlock extends Transform {
   constructor(o) {
@@ -45,6 +40,7 @@ class MinifyBlock extends Transform {
       var body =
         object.type == "SwitchCase" ? object.consequent : getBlockBody(object);
       var earlyReturn = body.length;
+      var fnDecs: [Node, number][] = [];
 
       body.forEach((stmt, i) => {
         if (
@@ -56,9 +52,21 @@ class MinifyBlock extends Transform {
             earlyReturn = i + 1;
           }
         }
+
+        if (
+          stmt.type == "FunctionDeclaration" ||
+          stmt.type == "ClassDeclaration"
+        ) {
+          fnDecs.push([stmt, i]);
+        }
       });
 
-      body.length = earlyReturn;
+      if (earlyReturn < body.length) {
+        body.length = earlyReturn;
+        body.push(
+          ...fnDecs.filter((x) => x[1] >= earlyReturn).map((x) => x[0])
+        );
+      }
 
       // Now combine ExpressionStatements
 

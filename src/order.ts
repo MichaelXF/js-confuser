@@ -16,7 +16,6 @@ export enum ObfuscateOrder {
 
   Dispatcher = 6,
 
-  OpaquePredicates = 7,
   DeadCode = 8,
 
   Calculator = 9,
@@ -26,6 +25,8 @@ export enum ObfuscateOrder {
   Eval = 11,
 
   GlobalConcealing = 12,
+
+  OpaquePredicates = 13,
 
   StringSplitting = 16,
 

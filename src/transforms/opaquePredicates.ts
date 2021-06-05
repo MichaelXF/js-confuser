@@ -13,8 +13,15 @@ import {
   ArrayExpression,
   LogicalExpression,
   VariableDeclarator,
+  ConditionalExpression,
+  UnaryExpression,
 } from "../util/gen";
-import { choice, getRandomInteger, shuffle } from "../util/random";
+import {
+  choice,
+  getRandomInteger,
+  getRandomString,
+  shuffle,
+} from "../util/random";
 import { ObfuscateOrder } from "../order";
 import { clone, prepend } from "../util/insert";
 import Template from "../templates/template";
@@ -77,102 +84,132 @@ export default class OpaquePredicates extends Transform {
 
   transform(object: Node, parents: Node[]) {
     return () => {
-      if (ComputeProbabilityMap(this.options.opaquePredicates)) {
-        this.made++;
-        if (this.made > 150) {
-          return;
-        }
+      if (!ComputeProbabilityMap(this.options.opaquePredicates)) {
+        return;
+      }
+      this.made++;
+      if (this.made > 150) {
+        return;
+      }
 
-        if (!this.predicate) {
-          this.predicateName = this.getPlaceholder();
-          this.predicate = ObjectExpression([]);
-          prepend(
-            parents[parents.length - 1] || object,
-            VariableDeclaration(
-              VariableDeclarator(this.predicateName, this.predicate)
-            )
-          );
-        }
+      if (!this.predicate) {
+        this.predicateName = this.getPlaceholder();
+        this.predicate = ObjectExpression([]);
+        prepend(
+          parents[parents.length - 1] || object,
+          VariableDeclaration(
+            VariableDeclarator(this.predicateName, this.predicate)
+          )
+        );
+      }
 
-        var expr = choice(Object.values(this.predicates));
+      var expr = choice(Object.values(this.predicates));
 
-        if (
-          !expr ||
-          Math.random() < 0.5 / (Object.keys(this.predicates).length || 1)
-        ) {
-          var prop = this.gen.generate();
-          var accessor = MemberExpression(
-            Identifier(this.predicateName),
-            Identifier(prop),
-            false
-          );
-          switch (choice(["array", "number", "string"])) {
-            case "array":
-              var arrayProp = this.gen.generate();
-              this.predicate.properties.push(
-                Property(Identifier(arrayProp), ArrayExpression([]))
-              );
-              this.predicate.properties.push(
-                Property(
-                  Identifier(prop),
-                  FunctionExpression(
-                    [],
-                    Template(`
+      if (
+        !expr ||
+        Math.random() < 0.5 / (Object.keys(this.predicates).length || 1)
+      ) {
+        var prop = this.gen.generate();
+        var accessor = MemberExpression(
+          Identifier(this.predicateName),
+          Identifier(prop),
+          false
+        );
+        switch (choice(["array", "number", "string"])) {
+          case "array":
+            var arrayProp = this.gen.generate();
+            this.predicate.properties.push(
+              Property(Identifier(arrayProp), ArrayExpression([]))
+            );
+            this.predicate.properties.push(
+              Property(
+                Identifier(prop),
+                FunctionExpression(
+                  [],
+                  Template(`
                   if ( !${this.predicateName}.${arrayProp}[0] ) {
                     ${this.predicateName}.${arrayProp}.push(${getRandomInteger(
-                      -100,
-                      100
-                    )});
+                    -100,
+                    100
+                  )});
                   }
                   return ${this.predicateName}.${arrayProp}.length;
                 `).compile()
-                  )
                 )
-              );
-              expr = CallExpression(accessor, []);
-              break;
+              )
+            );
+            expr = CallExpression(accessor, []);
+            break;
 
-            case "number":
-              this.predicate.properties.push(
-                Property(Identifier(prop), Literal(getRandomInteger(10, 90)))
-              );
-              expr = BinaryExpression(
-                ">",
-                accessor,
-                Literal(getRandomInteger(2, 9))
-              );
-              break;
+          case "number":
+            this.predicate.properties.push(
+              Property(Identifier(prop), Literal(getRandomInteger(10, 90)))
+            );
+            expr = BinaryExpression(
+              ">",
+              accessor,
+              Literal(getRandomInteger(2, 9))
+            );
+            break;
 
-            case "string":
-              var str = this.getPlaceholder();
-              var index = getRandomInteger(0, str.length);
-              var fn = Math.random() > 0.5 ? "charAt" : "charCodeAt";
+          case "string":
+            var str = this.gen.generate();
+            var index = getRandomInteger(0, str.length);
+            var fn = Math.random() > 0.5 ? "charAt" : "charCodeAt";
 
-              this.predicate.properties.push(
-                Property(Identifier(prop), Literal(str))
-              );
-              expr = BinaryExpression(
-                "==",
-                CallExpression(MemberExpression(accessor, Literal(fn), true), [
-                  Literal(index),
-                ]),
-                Literal(str[fn](index))
-              );
-              break;
-          }
+            this.predicate.properties.push(
+              Property(Identifier(prop), Literal(str))
+            );
+            expr = BinaryExpression(
+              "==",
+              CallExpression(MemberExpression(accessor, Literal(fn), true), [
+                Literal(index),
+              ]),
+              Literal(str[fn](index))
+            );
+            break;
+        }
 
-          ok(expr);
-          this.predicates[prop] = expr;
+        ok(expr);
+        this.predicates[prop] = expr;
 
-          if (Math.random() > 0.8) {
-            shuffle(this.predicate.properties);
+        if (Math.random() > 0.8) {
+          shuffle(this.predicate.properties);
+        }
+      }
+
+      var cloned = clone(expr);
+      if (parents[0].type == "SwitchCase") {
+        var matching = Identifier(choice(["undefined", "null"]));
+        if (object.type == "Literal") {
+          if (typeof object.value === "number") {
+            matching = Literal(getRandomInteger(-250, 250));
+          } else if (typeof object.value === "string") {
+            matching = Literal(getRandomString(4));
           }
         }
 
-        var cloned = clone(expr);
+        var conditionalExpression = ConditionalExpression(
+          cloned,
+          clone(object),
+          matching
+        );
+        if (Math.random() > 0.5) {
+          conditionalExpression = ConditionalExpression(
+            UnaryExpression("!", cloned),
+            matching,
+            clone(object)
+          );
+        }
 
-        if (object.type == "Literal" && object.value) {
-          this.replace(object, cloned);
+        this.replace(object, conditionalExpression);
+      } else {
+        if (object.type == "Literal" && !object.regex) {
+          if (object.value) {
+            this.replace(object, cloned);
+          } else {
+            this.replace(object, UnaryExpression("!", cloned));
+          }
         } else {
           this.replace(object, LogicalExpression("&&", clone(object), cloned));
         }

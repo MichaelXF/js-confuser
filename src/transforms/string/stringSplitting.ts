@@ -1,26 +1,10 @@
 import Transform from "../transform";
-import {
-  Node,
-  AssignmentExpression,
-  MemberExpression,
-  Identifier,
-  Literal,
-  FunctionExpression,
-  ReturnStatement,
-  CallExpression,
-  ArrayExpression,
-  ExpressionStatement,
-  ThisExpression,
-  BinaryExpression,
-} from "../../util/gen";
-import { clone, prepend } from "../../util/insert";
+import { Node, Literal, BinaryExpression } from "../../util/gen";
+import { clone } from "../../util/insert";
 import { shuffle, splitIntoChunks } from "../../util/random";
 import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "./stringConcealing";
-import { ComputeProbabilityMap } from "../../probability";
 import { isDirective } from "../../util/compare";
-import Template from "../../templates/template";
-import { compileJsSync } from "../../compiler";
 import { ok } from "assert";
 
 export default class StringSplitting extends Transform {
