@@ -95,29 +95,6 @@ export default class Transform {
   }
 
   /**
-   * A special method for fast-tracking a node through all the remaining transformations.
-   *
-   * For instance, while `eval` runs at order 8, it needs nodes that are completed when it converts to strings.
-   * @param node
-   */
-  dynamicallyObfuscate(node: Node) {
-    if (this.obfuscator.state == "transform") {
-      var index = this.obfuscator.array.indexOf(this);
-      ok(index != -1, "index != -1");
-
-      this.obfuscator.array.slice(0, index - 1).forEach((t) => {
-        t.apply(node);
-      });
-    } else {
-      this.obfuscator.array.forEach((t) => {
-        if (t != this) {
-          t.apply(node);
-        }
-      });
-    }
-  }
-
-  /**
    * The transformation name.
    */
   get className() {
@@ -397,10 +374,6 @@ export default class Transform {
 
     return Object.assign(node1, node2);
   }
-
-  /**
-   * Logging utils below
-   */
 
   /**
    * Verbose logging for this transformation.

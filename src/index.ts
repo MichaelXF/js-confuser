@@ -106,6 +106,13 @@ JsConfuser.debugTransformations = debugTransformations;
 JsConfuser.Obfuscator = Obfuscator;
 JsConfuser.Transform = Transform;
 
+if (typeof window !== "undefined") {
+  window["JsConfuser"] = JsConfuser;
+}
+if (typeof global !== "undefined") {
+  global["JsConfuser"] = JsConfuser;
+}
+
 export default JsConfuser;
 
 export { presets, Obfuscator, Transform };

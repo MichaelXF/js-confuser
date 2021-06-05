@@ -93,7 +93,6 @@ function setCookie(cname, cvalue, exdays) {
 /**
  * Adds dead code to blocks.
  *
- * - Adds fake variables.
  * - Adds fake predicates.
  * - Adds fake code from various samples.
  */
@@ -104,7 +103,6 @@ export default class DeadCode extends Transform {
   constructor(o) {
     super(o, ObfuscateOrder.DeadCode);
 
-    this.usedNames = new Set();
     this.made = 0;
   }
 

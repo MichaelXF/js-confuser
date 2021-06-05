@@ -17,19 +17,14 @@ import {
   Identifier,
 } from "../util/gen";
 import {
-  deleteDeclaration,
-  deleteDirect,
   getBlockBody,
-  isVarContext,
   clone,
   isForInitialize,
   isLexContext,
 } from "../util/insert";
-import { getIdentifierInfo } from "../util/identifiers";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
-import { walk, getBlock, isBlock } from "../traverse";
+import { walk, isBlock } from "../traverse";
 import { ok } from "assert";
-import { reservedIdentifiers } from "../constants";
 
 class MinifyBlock extends Transform {
   constructor(o) {

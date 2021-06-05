@@ -19,14 +19,12 @@ import {
   ArrayExpression,
   FunctionExpression,
   ThisExpression,
-  SequenceExpression,
   VariableDeclarator,
   Location,
   LogicalExpression,
 } from "../../util/gen";
-import traverse, { getBlock, isBlock, walk } from "../../traverse";
-import { ok } from "assert";
-import { choice, getRandomInteger, shuffle } from "../../util/random";
+import traverse, { getBlock, isBlock } from "../../traverse";
+import { choice, getRandomInteger } from "../../util/random";
 import {
   CrashTemplate1,
   CrashTemplate2,

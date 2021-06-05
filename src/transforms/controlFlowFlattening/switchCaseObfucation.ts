@@ -1,30 +1,11 @@
-import { ok } from "assert";
-import { ObfuscateOrder } from "../../order";
-import { ComputeProbabilityMap } from "../../probability";
 import Template from "../../templates/template";
-import { isBlock, walk } from "../../traverse";
 import {
-  AssignmentExpression,
-  BinaryExpression,
-  BreakStatement,
-  ExpressionStatement,
   Identifier,
-  IfStatement,
   Literal,
-  Node,
-  SwitchCase,
-  SwitchStatement,
   VariableDeclaration,
   VariableDeclarator,
-  WhileStatement,
 } from "../../util/gen";
-import { clone, getBlockBody, prepend } from "../../util/insert";
-import {
-  choice,
-  getRandomInteger,
-  getRandomTrueExpression,
-  shuffle,
-} from "../../util/random";
+import { getRandomInteger } from "../../util/random";
 import Transform from "../transform";
 
 /**

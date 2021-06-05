@@ -1,45 +1,28 @@
-import { ok } from "assert";
 import { reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
-import Template from "../templates/template";
-import traverse, { walk } from "../traverse";
+import { walk } from "../traverse";
 import {
   FunctionDeclaration,
   Identifier,
   ReturnStatement,
-  FunctionExpression,
-  SwitchStatement,
   VariableDeclaration,
   VariableDeclarator,
   CallExpression,
   MemberExpression,
   ThisExpression,
   ArrayExpression,
-  SwitchCase,
-  Literal,
   ExpressionStatement,
-  BreakStatement,
   AssignmentExpression,
-  Location,
   Node,
   BlockStatement,
-  SpreadElement,
-  ObjectExpression,
-  Property,
   ArrayPattern,
 } from "../util/gen";
-import {
-  getDefiningIdentifier,
-  getFunctionParameters,
-  getIdentifierInfo,
-} from "../util/identifiers";
+import { getIdentifierInfo } from "../util/identifiers";
 import {
   getBlockBody,
   getVarContext,
-  isVarContext,
   isFunction,
   prepend,
-  getDefiningContext,
   clone,
 } from "../util/insert";
 import Transform from "./transform";

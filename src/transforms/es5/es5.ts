@@ -2,34 +2,22 @@ import Transform from "../transform";
 import {
   Node,
   Literal,
-  VariableDeclaration,
-  SequenceExpression,
-  AssignmentExpression,
   Identifier,
   MemberExpression,
   BlockStatement,
   ReturnStatement,
   CallExpression,
-  ArrayPattern,
   ObjectExpression,
   ArrayExpression,
-  BinaryExpression,
-  ConditionalExpression,
   ThisExpression,
-  VariableDeclarator,
   Property,
 } from "../../util/gen";
-import {
-  clone,
-  getBlockBody,
-  getIndexDirect,
-  prepend,
-} from "../../util/insert";
+import { clone, getBlockBody, prepend } from "../../util/insert";
 import { isBlock, getBlock, walk } from "../../traverse";
 import Template from "../../templates/template";
 import { ObfuscateOrder } from "../../order";
 import { ok } from "assert";
-import { reservedIdentifiers, reservedKeywords } from "../../constants";
+import { reservedKeywords } from "../../constants";
 import AntiDestructuring from "./antiDestructuring";
 import AntiTemplate from "./antiTemplate";
 

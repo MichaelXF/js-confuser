@@ -1,15 +1,13 @@
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import { ComputeProbabilityMap } from "../../probability";
-import Template from "../../templates/template";
-import { isBlock, walk } from "../../traverse";
+import { isBlock } from "../../traverse";
 import {
   AssignmentExpression,
   BinaryExpression,
   BreakStatement,
   ExpressionStatement,
   Identifier,
-  IfStatement,
   Literal,
   Node,
   SwitchCase,
@@ -19,13 +17,8 @@ import {
   WhileStatement,
 } from "../../util/gen";
 import { containsLexicallyBoundVariables } from "../../util/identifiers";
-import { clone, getBlockBody, prepend } from "../../util/insert";
-import {
-  choice,
-  getRandomInteger,
-  getRandomTrueExpression,
-  shuffle,
-} from "../../util/random";
+import { clone, getBlockBody } from "../../util/insert";
+import { getRandomInteger, shuffle } from "../../util/random";
 import Transform from "../transform";
 import ControlFlowObfuscation from "./controlFlowObfuscation";
 import SwitchCaseObfuscation from "./switchCaseObfucation";

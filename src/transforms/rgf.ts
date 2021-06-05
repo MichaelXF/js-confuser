@@ -1,4 +1,3 @@
-import { ok } from "assert";
 import { compileJsSync } from "../compiler";
 import { reservedIdentifiers } from "../constants";
 import Obfuscator from "../obfuscator";

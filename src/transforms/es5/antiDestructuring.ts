@@ -1,5 +1,4 @@
 import { ok } from "assert";
-import { compileJsSync } from "../../compiler";
 import Template from "../../templates/template";
 import { getBlock, walk } from "../../traverse";
 import {

@@ -6,8 +6,6 @@ import { getIdentifierInfo } from "../../util/identifiers";
 import {
   getVarContext,
   isVarContext,
-  isFunction,
-  isInBranch,
   getLexContext,
   isContext,
   isLexContext,

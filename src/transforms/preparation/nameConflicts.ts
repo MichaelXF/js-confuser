@@ -1,12 +1,9 @@
 import { reservedIdentifiers } from "../../constants";
-import { walk } from "../../traverse";
 import { Node } from "../../util/gen";
 import {
   getDefiningIdentifier,
   getIdentifierInfo,
 } from "../../util/identifiers";
-import { isVarContext } from "../../util/insert";
-import { VariableAnalysis } from "../identifier/renameVariables";
 import Transform from "../transform";
 
 export class NameMappingAnalysis extends Transform {

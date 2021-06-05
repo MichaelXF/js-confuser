@@ -2,20 +2,27 @@ import { readFileSync, writeFileSync } from "fs";
 import JsConfuser from "./index";
 
 var code = `
-function fibonacci(num){   
-  var a = 0, b = 1, c = num;
-  while (num-- > 1) {
-    c = a + b;
-    a = b;
-    b = c;
+function run(){
+  function fibonacci(num){   
+    var a = 0, b = 1, c = num;
+    while (num-- > 1) {
+      c = a + b;
+      a = b;
+      b = c;
+    }
+    return c;
   }
-  return c;
+  function log(i){   
+    console.log(i, fibonacci(i))
+  }
+  function runLoop(){
+    for ( var i = 1; i <= 1000; i++ ) {
+      log(i)
+    }
+  }
+  runLoop()
 }
-
-for ( var i = 1; i <= 1000; i++ ) {
-  console.log(i, fibonacci(i))
-}
-`;
+run();`;
 
 var start = Date.now();
 eval(code);
@@ -26,10 +33,11 @@ var fetch = (() => {}).bind(this);
 (global as any).userAuthenticated = true;
 
 var window = { location: { href: "https://mywebsite.com" } };
+var location = window.location;
 
 JsConfuser.debugTransformations(code, {
   target: "node",
-  rgf: true,
+  rgf: "all",
   preset: "high",
   eval: true,
   lock: {

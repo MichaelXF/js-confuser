@@ -1,32 +1,23 @@
 import Transform from "../transform";
 import Template from "../../templates/template";
 import {
-  FunctionDeclaration,
   VariableDeclaration,
   IfStatement,
   Identifier,
   BinaryExpression,
   Literal,
-  ReturnStatement,
   CallExpression,
-  MemberExpression,
   BlockStatement,
-  ThisExpression,
-  LogicalExpression,
   ExpressionStatement,
   Node,
   FunctionExpression,
-  AssignmentExpression,
-  ConditionalExpression,
-  UnaryExpression,
   VariableDeclarator,
 } from "../../util/gen";
-import { clone, getBlockBody, isFunction, prepend } from "../../util/insert";
+import { clone, isFunction } from "../../util/insert";
 import { getRandomInteger } from "../../util/random";
 import Lock from "./lock";
 import { ok } from "assert";
 import { compileJsSync } from "../../compiler";
-import { isValidIdentifier } from "../../util/compare";
 
 /**
  * Hashing Algorithm for function integrity
