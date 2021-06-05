@@ -10,36 +10,24 @@ function input(x) {
   for (var i = 0; i < 2000; i++) {
     var output = await JsConfuser.obfuscate(
       `
-      function getNumbers(){
-        return [5, 10];
+      function fibonacci(num)
+    {   
+        if(num==1)
+            return 0;
+        if (num == 2)
+            return 1;
+        return fibonacci(num - 1) + fibonacci(num - 2);
+    }
+    
+      for ( var i = 1; i < 25; i++ ) {
+        console.log(i, fibonacci(i))
       }
-      
-      function multiply(x,y){
-        return x*y;
-      }
-      
-      function testFunction(){
-        function add(x,y){
-          return x+y;
-        }
-      
-        function testInnerFunction(){
-          var numbers = getNumbers();
-      
-          // 5*10 + 10 = 60
-          return add(multiply(numbers[0], numbers[1]), numbers[1])
-        }
-      
-        input( testInnerFunction() );
-      }
-      
-      testFunction();
       
     `,
       {
         target: "node",
-        rgf: "all",
         preset: "high",
+        stringEncoding: false,
       }
     );
 
@@ -49,6 +37,7 @@ function input(x) {
         throw new Error("(process.exit was called)");
       };
 
+      console.log(output);
       eval(output);
     } catch (e) {
       console.log(output);
