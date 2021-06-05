@@ -1,3 +1,20 @@
+# `1.1.3`
+Minification Changes
+
+- Fixed minification errors
+- - No longer accidentally removes function declarations/class declarations
+
+- RGF Changes
+- - Function cannot rely on `this`
+- - Better support with `renameVariables`
+
+- Opaque Predicate Changes
+- - Now correctly applies to switch case tests
+
+- Fixed Flatten bug causing undefined return values
+
+- Support for transpiling [ES6 template strings](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals)
+
 # `1.1.2`
 New String Compression feature and Fixed Syntax errors
 
@@ -10,7 +27,7 @@ New String Compression feature and Fixed Syntax errors
 
 - Fixed error with String encoding
 
-- Fixed syntax error from obfuscating destructing with computed keys
+- Fixed syntax error from obfuscating destructuring with computed keys
 - Fixed syntax error when getters/setters were being converted to arrow functions
 - Integrity fixes:
 - - Better support with Dispatcher

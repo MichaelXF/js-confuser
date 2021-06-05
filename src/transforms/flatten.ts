@@ -138,8 +138,10 @@ export default class Flatten extends Transform {
             var elements = output.map(Identifier);
             if (
               o.argument &&
-              o.argument.type !== "Identifier" &&
-              o.argument.name !== "undefined"
+              !(
+                o.argument.type == "Identifier" &&
+                o.argument.name == "undefined"
+              )
             ) {
               elements.unshift(clone(o.argument));
             }
