@@ -107,3 +107,9 @@ dist
 
 # VS Code prettier ignore list
 .prettierignore
+
+dev.error.js
+
+Cash.output.js
+
+ES6.output.js

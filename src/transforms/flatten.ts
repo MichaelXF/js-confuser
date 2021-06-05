@@ -101,7 +101,7 @@ export default class Flatten extends Transform {
           }
         } else if (o.type == "ThisExpression") {
           illegal.add("1");
-        } else if (o.type == "SuperExpression") {
+        } else if (o.type == "Super") {
           illegal.add("1");
         } else if (o.type == "MetaProperty") {
           illegal.add("1");

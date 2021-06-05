@@ -48,6 +48,7 @@ export default class Obfuscator extends EventEmitter {
 
     this.varCount = 0;
     this.transforms = Object.create(null);
+    this.generated = new Set();
 
     this.push(new Preparation(this));
     this.push(new RenameLabels(this));

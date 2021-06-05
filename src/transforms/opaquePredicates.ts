@@ -13,6 +13,7 @@ import {
   ArrayExpression,
   LogicalExpression,
   VariableDeclarator,
+  ConditionalExpression,
 } from "../util/gen";
 import { choice, getRandomInteger, shuffle } from "../util/random";
 import { ObfuscateOrder } from "../order";
@@ -170,11 +171,24 @@ export default class OpaquePredicates extends Transform {
         }
 
         var cloned = clone(expr);
-
-        if (object.type == "Literal" && object.value) {
-          this.replace(object, cloned);
+        if (parents[0].type == "SwitchCase") {
+          this.replace(
+            object,
+            ConditionalExpression(
+              cloned,
+              clone(object),
+              Identifier("undefined")
+            )
+          );
         } else {
-          this.replace(object, LogicalExpression("&&", clone(object), cloned));
+          if (object.type == "Literal" && object.value) {
+            this.replace(object, cloned);
+          } else {
+            this.replace(
+              object,
+              LogicalExpression("&&", clone(object), cloned)
+            );
+          }
         }
       }
     };

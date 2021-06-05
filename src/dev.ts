@@ -2,81 +2,44 @@ import { readFileSync, writeFileSync } from "fs";
 import JsConfuser from "./index";
 // const file = readFileSync("./test/code/Cash.src", "utf-8");
 
+function input(x) {
+  console.log(x);
+}
+
 (async () => {
   for (var i = 0; i < 2000; i++) {
     var output = await JsConfuser.obfuscate(
       `
-
-      // Variant #1 Using
-      let myVariable = 1;
+      function getNumbers(){
+        return [5, 10];
+      }
       
-      console.log(myVariable);
+      function multiply(x,y){
+        return x*y;
+      }
       
-      // Variant #2 Destructing variable from object (ObjectPattern)
-      let { key } = { key: 2 };
+      function testFunction(){
+        function add(x,y){
+          return x+y;
+        }
       
-      console.log(key);
+        function testInnerFunction(){
+          var numbers = getNumbers();
       
-      // Variant #3 Destructing variable and using differing output name (ObjectPattern)
-      let { key: customName } = { key: 3 };
+          // 5*10 + 10 = 60
+          return add(multiply(numbers[0], numbers[1]), numbers[1])
+        }
       
-      console.log(customName);
+        input( testInnerFunction() );
+      }
       
-      // Variant #4 Destructing variable from array (ArrayPattern)
-      let [element] = [4];
-      
-      console.log(element);
-      
-      // Variant #5 Destructing computed property from nested pattern
-      let [{ ["key"]: deeplyNestedKey }] = [{ key: 5 }];
-      
-      console.log(deeplyNestedKey);
-      
-      // Variant #6 Make sure arrow functions work
-      const arrowFn = () => 6;
-      
-      console.log(arrowFn());
-      
-      // Variant #7 Make sure inline methods on object work
-      let es6Object = {
-        method() {
-          return 7;
-        },
-      };
-      
-      console.log(es6Object.method());
-      
-      // Variant #8 Make sure getters on object work
-      es6Object = {
-        get getter() {
-          return 8;
-        },
-      };
-      
-      console.log(es6Object.getter);
-      
-      // Variant #9 Make sure getters with computed properties work
-      let customKey = "myGetter";
-      es6Object = {
-        get [customKey]() {
-          return 9;
-        },
-      };
-      
-      console.log(es6Object.myGetter);
+      testFunction();
       
     `,
       {
         target: "node",
-        globalConcealing: true,
-        stringCompression: true,
-        stringEncoding: false,
-        duplicateLiteralsRemoval: true,
-        shuffle: "hash",
-        renameVariables: true,
-        movedDeclarations: true,
-        minify: true,
-        stack: true,
+        rgf: "all",
+        preset: "high",
       }
     );
 

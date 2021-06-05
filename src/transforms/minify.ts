@@ -45,6 +45,7 @@ class MinifyBlock extends Transform {
       var body =
         object.type == "SwitchCase" ? object.consequent : getBlockBody(object);
       var earlyReturn = body.length;
+      var fnDecs: [Node, number][] = [];
 
       body.forEach((stmt, i) => {
         if (
@@ -56,9 +57,21 @@ class MinifyBlock extends Transform {
             earlyReturn = i + 1;
           }
         }
+
+        if (
+          stmt.type == "FunctionDeclaration" ||
+          stmt.type == "ClassDeclaration"
+        ) {
+          fnDecs.push([stmt, i]);
+        }
       });
 
-      body.length = earlyReturn;
+      if (earlyReturn < body.length) {
+        body.length = earlyReturn;
+        body.push(
+          ...fnDecs.filter((x) => x[1] >= earlyReturn).map((x) => x[0])
+        );
+      }
 
       // Now combine ExpressionStatements
 

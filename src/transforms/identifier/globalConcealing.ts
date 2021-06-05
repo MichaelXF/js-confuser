@@ -20,6 +20,7 @@ import { prepend } from "../../util/insert";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { getRandomInteger } from "../../util/random";
 import { reservedIdentifiers, reservedKeywords } from "../../constants";
+import { ComputeProbabilityMap } from "../../probability";
 
 class GlobalAnalysis extends Transform {
   notGlobals: Set<string>;
@@ -68,6 +69,16 @@ class GlobalAnalysis extends Transform {
 
       this.notGlobals.add(object.name);
     }
+
+    var memberIndex = parents.findIndex((x) => x.type == "MemberExpression");
+    if (
+      memberIndex == -1 ||
+      parents[memberIndex].object !== (parents[memberIndex - 1] || object)
+    ) {
+      delete this.globals[object.name];
+
+      this.notGlobals.add(object.name);
+    }
   }
 }
 
@@ -106,6 +117,10 @@ export default class GlobalConcealing extends Transform {
 
       Object.keys(globals).forEach((x) => {
         if (this.globalAnalysis.globals[x].length < 1) {
+          delete globals[x];
+        } else if (
+          !ComputeProbabilityMap(this.options.globalConcealing, (x) => x, x)
+        ) {
           delete globals[x];
         }
       });

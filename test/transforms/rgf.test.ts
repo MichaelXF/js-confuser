@@ -1,3 +1,4 @@
+import { writeFileSync } from "fs";
 import JsConfuser from "../../src/index";
 
 describe("RGF", () => {
