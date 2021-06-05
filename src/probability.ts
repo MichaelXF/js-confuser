@@ -31,7 +31,7 @@ export type ProbabilityMap<T> =
  */
 export function ComputeProbabilityMap<T>(
   map: ProbabilityMap<T>,
-  runner: (mode?: T) => any = (x) => x,
+  runner: (mode?: T) => any = (x?: T) => x,
   ...customFnArgs: any[]
 ): any {
   if (!map) {

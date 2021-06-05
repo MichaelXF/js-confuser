@@ -251,6 +251,10 @@ export default class RGF extends Transform {
             ...this.options.globalVariables,
             referenceArray,
           ]),
+          lock: {
+            integrity: false,
+          },
+          eval: false,
         });
         var t = Object.values(o.transforms).filter(
           (x) => x.priority > this.priority
@@ -293,6 +297,15 @@ export default class RGF extends Transform {
 
         t.forEach((x) => {
           x.apply(tree);
+        });
+
+        // Find eval callbacks
+        traverse(tree, (o, p) => {
+          if (o.$eval) {
+            return () => {
+              o.$eval();
+            };
+          }
         });
 
         var toString = compileJsSync(tree, this.options);

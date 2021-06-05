@@ -70,14 +70,26 @@ class GlobalAnalysis extends Transform {
       this.notGlobals.add(object.name);
     }
 
-    var memberIndex = parents.findIndex((x) => x.type == "MemberExpression");
-    if (
-      memberIndex == -1 ||
-      parents[memberIndex].object !== (parents[memberIndex - 1] || object)
-    ) {
-      delete this.globals[object.name];
+    var assignmentIndex = parents.findIndex(
+      (x) => x.type == "AssignmentExpression"
+    );
+    var updateIndex = parents.findIndex((x) => x.type == "UpdateExpression");
 
-      this.notGlobals.add(object.name);
+    if (
+      (assignmentIndex != -1 &&
+        parents[assignmentIndex].left ===
+          (parents[assignmentIndex - 1] || object)) ||
+      updateIndex != -1
+    ) {
+      var memberIndex = parents.findIndex((x) => x.type == "MemberExpression");
+      if (
+        memberIndex == -1 ||
+        parents[memberIndex].object !== (parents[memberIndex - 1] || object)
+      ) {
+        delete this.globals[object.name];
+
+        this.notGlobals.add(object.name);
+      }
     }
   }
 }
