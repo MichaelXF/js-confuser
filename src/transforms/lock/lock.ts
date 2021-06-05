@@ -448,7 +448,11 @@ export default class Lock extends Transform {
         case "nativeFunction":
           var set = this.options.lock.nativeFunctions;
           if (set === true) {
-            set = new Set(["require"]);
+            if (this.options.target == "node") {
+              set = new Set(["Function", "String"]);
+            } else {
+              set = new Set(["Function", "String", "fetch"]);
+            }
           }
           if (Array.isArray(set)) {
             set = new Set(set);
@@ -591,13 +595,15 @@ export default class Lock extends Transform {
           break;
       }
 
-      var body = getBlockBody(block);
-      var randomIndex = getRandomInteger(0, body.length) + offset;
+      if (nodes.length) {
+        var body = getBlockBody(block);
+        var randomIndex = getRandomInteger(0, body.length) + offset;
 
-      if (randomIndex >= body.length) {
-        body.push(...nodes);
-      } else {
-        body.splice(randomIndex, 0, ...nodes);
+        if (randomIndex >= body.length) {
+          body.push(...nodes);
+        } else {
+          body.splice(randomIndex, 0, ...nodes);
+        }
       }
     };
   }
