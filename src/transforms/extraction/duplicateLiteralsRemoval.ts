@@ -8,14 +8,27 @@ import {
   MemberExpression,
   VariableDeclarator,
   Location,
+  ReturnStatement,
+  CallExpression,
+  BinaryExpression,
+  FunctionDeclaration,
 } from "../../util/gen";
-import { clone, prepend } from "../../util/insert";
+import {
+  clone,
+  getContexts,
+  getLexContext,
+  getVarContext,
+  isLexContext,
+  isVarContext,
+  prepend,
+} from "../../util/insert";
 import { isDirective, isPrimitive } from "../../util/compare";
 
 import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "../string/stringConcealing";
 import { ComputeProbabilityMap } from "../../probability";
 import { ok } from "assert";
+import { choice, getRandomInteger } from "../../util/random";
 
 /**
  * [Duplicate Literals Removal](https://docs.jscrambler.com/code-integrity/documentation/transformations/duplicate-literals-removal) replaces duplicate literals with a variable name.
@@ -41,11 +54,24 @@ export default class DuplicateLiteralsRemoval extends Transform {
   map: Map<string, number>;
   first: Map<string, Location | null>;
 
+  /**
+   * getter fn name -> accumulative shift
+   */
+  fnShifts: Map<string, number>;
+
+  /**
+   * lex context -> getter fn name
+   */
+  fnGetters: Map<Node, string>;
+
   constructor(o) {
     super(o, ObfuscateOrder.DuplicateLiteralsRemoval);
 
     this.map = new Map();
     this.first = new Map();
+
+    this.fnShifts = new Map();
+    this.fnGetters = new Map();
   }
 
   match(object: Node, parents: Node[]) {
@@ -57,10 +83,93 @@ export default class DuplicateLiteralsRemoval extends Transform {
     );
   }
 
-  toMember(object: Node, parents: Node[], index: number) {
+  /**
+   * Converts ordinary literal to go through a getter function.
+   * @param object
+   * @param parents
+   * @param index
+   */
+  toCaller(object: Node, parents: Node[], index: number) {
+    // get all the getters defined here or higher
+    var getterNames = [object, ...parents]
+      .map((x) => this.fnGetters.get(x))
+      .filter((x) => x);
+
+    // use random getter function
+    var getterName = choice(getterNames);
+
+    // get this literals context
+    var lexContext = getLexContext(object, parents);
+
+    var hasGetterHere = this.fnGetters.has(lexContext);
+
+    // create one if none are available (or by random chance if none are here locally)
+    var shouldCreateNew =
+      !getterName || (!hasGetterHere && Math.random() > 0.8);
+
+    if (shouldCreateNew) {
+      ok(!this.fnGetters.has(lexContext));
+
+      var lexContextIndex = parents.findIndex(
+        (x) => x !== lexContext && isLexContext(x)
+      );
+      var basedOn =
+        lexContextIndex !== -1
+          ? choice(
+              parents
+                .slice(lexContextIndex + 1)
+                .map((x) => this.fnGetters.get(x))
+                .filter((x) => x)
+            )
+          : null;
+
+      var body = [];
+      var thisShift = getRandomInteger(-250, 250);
+      // the name of the getter
+      getterName = this.getPlaceholder();
+
+      if (basedOn) {
+        var shift = this.fnShifts.get(basedOn);
+        ok(typeof shift === "number");
+
+        body = [
+          ReturnStatement(
+            CallExpression(Identifier(basedOn), [
+              BinaryExpression("+", Identifier("index"), Literal(thisShift)),
+            ])
+          ),
+        ];
+
+        this.fnShifts.set(getterName, shift + thisShift);
+      } else {
+        // from scratch
+
+        body = [
+          ReturnStatement(
+            MemberExpression(
+              Identifier(this.arrayName),
+              BinaryExpression("+", Identifier("index"), Literal(thisShift)),
+              true
+            )
+          ),
+        ];
+
+        this.fnShifts.set(getterName, thisShift);
+      }
+
+      this.fnGetters.set(lexContext, getterName);
+
+      prepend(
+        lexContext,
+        FunctionDeclaration(getterName, [Identifier("index")], body)
+      );
+    }
+
+    var theShift = this.fnShifts.get(getterName);
+
     this.replace(
       object,
-      MemberExpression(Identifier(this.arrayName), Literal(index), true)
+      CallExpression(Identifier(getterName), [Literal(index - theShift)])
     );
 
     var propertyIndex = parents.findIndex((x) => x.type == "Property");
@@ -75,73 +184,75 @@ export default class DuplicateLiteralsRemoval extends Transform {
   }
 
   transform(object: Node, parents: Node[]) {
-    var value = object.value;
-    if (object.regex) {
-      return;
-    }
-
-    if (!ComputeProbabilityMap(this.options.duplicateLiteralsRemoval)) {
-      return;
-    }
-
-    if (
-      this.arrayName &&
-      parents[0].object &&
-      parents[0].object.name == this.arrayName
-    ) {
-      return;
-    }
-
-    var value;
-    if (object.type == "Literal") {
-      value = typeof object.value + ":" + object.value;
-
-      if (!object.value) {
+    return () => {
+      var value = object.value;
+      if (object.regex) {
         return;
       }
-    } else if (object.type == "Identifier") {
-      value = "identifier:" + object.name;
-    } else {
-      throw new Error("Unsupported primitive type: " + object.type);
-    }
 
-    ok(value);
-
-    if (!this.first.has(value) && !this.map.has(value)) {
-      this.first.set(value, [object, parents]);
-    } else {
-      if (!this.arrayName) {
-        this.arrayName = this.getPlaceholder();
-        this.arrayExpression = ArrayExpression([]);
-
-        prepend(
-          parents[parents.length - 1] || object,
-          VariableDeclaration(
-            VariableDeclarator(this.arrayName, this.arrayExpression)
-          )
-        );
+      if (!ComputeProbabilityMap(this.options.duplicateLiteralsRemoval)) {
+        return;
       }
 
-      var first = this.first.get(value);
-      if (first) {
-        this.first.set(value, null);
-        var index = this.map.size;
-
-        ok(!this.map.has(value));
-        this.map.set(value, index);
-
-        this.toMember(first[0], first[1], index);
-
-        var pushing = clone(object);
-        this.arrayExpression.elements.push(pushing);
-
-        ok(this.arrayExpression.elements[index] === pushing);
+      if (
+        this.arrayName &&
+        parents[0].object &&
+        parents[0].object.name == this.arrayName
+      ) {
+        return;
       }
 
-      var index = this.map.get(value);
-      ok(typeof index === "number");
+      var value;
+      if (object.type == "Literal") {
+        value = typeof object.value + ":" + object.value;
 
-      this.toMember(object, parents, index);
-    }
+        if (!object.value) {
+          return;
+        }
+      } else if (object.type == "Identifier") {
+        value = "identifier:" + object.name;
+      } else {
+        throw new Error("Unsupported primitive type: " + object.type);
+      }
+
+      ok(value);
+
+      if (!this.first.has(value) && !this.map.has(value)) {
+        this.first.set(value, [object, parents]);
+      } else {
+        if (!this.arrayName) {
+          this.arrayName = this.getPlaceholder();
+          this.arrayExpression = ArrayExpression([]);
+
+          prepend(
+            parents[parents.length - 1] || object,
+            VariableDeclaration(
+              VariableDeclarator(this.arrayName, this.arrayExpression)
+            )
+          );
+        }
+
+        var first = this.first.get(value);
+        if (first) {
+          this.first.set(value, null);
+          var index = this.map.size;
+
+          ok(!this.map.has(value));
+          this.map.set(value, index);
+
+          this.toCaller(first[0], first[1], index);
+
+          var pushing = clone(object);
+          this.arrayExpression.elements.push(pushing);
+
+          ok(this.arrayExpression.elements[index] === pushing);
+        }
+
+        var index = this.map.get(value);
+        ok(typeof index === "number");
+
+        this.toCaller(object, parents, index);
+      }
+    };
   }
 }

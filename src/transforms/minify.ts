@@ -53,10 +53,7 @@ class MinifyBlock extends Transform {
           }
         }
 
-        if (
-          stmt.type == "FunctionDeclaration" ||
-          stmt.type == "ClassDeclaration"
-        ) {
+        if (stmt.type == "FunctionDeclaration") {
           fnDecs.push([stmt, i]);
         }
       });
@@ -194,7 +191,9 @@ export default class Minify extends Transform {
     ) {
       return () => {
         // Don't touch `{get key(){...}}`
-        var propIndex = parents.findIndex((x) => x.type == "Property");
+        var propIndex = parents.findIndex(
+          (x) => x.type == "Property" || x.type == "MethodDefinition"
+        );
         if (propIndex !== -1) {
           if (parents[propIndex].value === (parents[propIndex - 1] || object)) {
             if (
@@ -226,7 +225,6 @@ export default class Minify extends Transform {
 
           var set = new Set(before.map((x) => x.type));
           set.delete("FunctionDeclaration");
-          set.delete("ClassDeclaration");
 
           if (set.size) {
             return;

@@ -1,12 +1,17 @@
+import Template from "../../templates/template";
 import {
   ArrayExpression,
   BinaryExpression,
   CallExpression,
+  Identifier,
   Literal,
 } from "../../util/gen";
+import { prepend } from "../../util/insert";
 import Transform from "../transform";
 
 export default class AntiTemplate extends Transform {
+  makerFn: string;
+
   constructor(o) {
     super(o);
   }
@@ -61,10 +66,29 @@ export default class AntiTemplate extends Transform {
       } else if (object.type == "TaggedTemplateExpression") {
         var literal = object.quasi;
 
+        if (!this.makerFn) {
+          this.makerFn = "es6_template" + this.getPlaceholder();
+
+          prepend(
+            parents[parents.length - 1],
+            Template(`
+          function {name}(arr, raw){
+            arr.raw = raw;
+            return arr;
+          }
+          `).single({ name: this.makerFn })
+          );
+        }
+
         this.replace(
           object,
           CallExpression(object.tag, [
-            ArrayExpression(literal.quasis.map((x) => Literal(x.value.cooked))),
+            CallExpression(Identifier(this.makerFn), [
+              ArrayExpression(
+                literal.quasis.map((x) => Literal(x.value.cooked))
+              ),
+              ArrayExpression(literal.quasis.map((x) => Literal(x.value.raw))),
+            ]),
             ...literal.expressions,
           ])
         );

@@ -59,12 +59,8 @@ class Block extends Transform {
         break;
 
       case "ArrowFunctionExpression":
-        if (object.body.type != "BlockStatement") {
-          if (!object.expression) {
-            object.body = BlockStatement([clone(object.body)]);
-          } else {
-            object.body = BlockStatement([ReturnStatement(clone(object.body))]);
-          }
+        if (object.body.type !== "BlockStatement" && object.expression) {
+          object.body = BlockStatement([ReturnStatement(clone(object.body))]);
           object.expression = false;
         }
         break;
@@ -83,7 +79,7 @@ class ExplicitIdentifiers extends Transform {
 
   transform(object, parents) {
     var info = getIdentifierInfo(object, parents);
-    if (info.isPropertyKey || info.isAccessor || info.isMethodDefinition) {
+    if (info.isPropertyKey || info.isAccessor) {
       this.log(object.name, "->", `'${object.name}'`);
 
       this.replace(object, Literal(object.name));
@@ -106,43 +102,6 @@ export function isLoop(object: Node) {
     "ForInStatement",
     "ForOfStatement",
   ].includes(object.type);
-}
-
-/**
- * Ensures all `break;` and `continue;` are labeled.
- * - Needed for complex CFF.
- */
-class ExplicitLabel extends Transform {
-  constructor(o) {
-    super(o);
-  }
-
-  match(object, parents) {
-    return isLoop(object);
-  }
-
-  transform(object, parents) {
-    var parent = parents[0];
-    if (parent.type != "LabeledStatement") {
-      var label = this.getPlaceholder();
-
-      walk(object, parents, (o, p) => {
-        var context = p.find((x) => isLoop(x));
-        if (context == object) {
-          if (o.type == "BreakStatement") {
-            if (!o.label) {
-              o.label = Identifier(label);
-            }
-          }
-        }
-      });
-
-      var index = getIndexDirect(object, parent);
-      ok(index !== undefined, "index cannot be undefined");
-
-      this.replace(object, LabeledStatement(label, clone(object)));
-    }
-  }
 }
 
 class ExplicitDeclarations extends Transform {
@@ -209,136 +168,10 @@ class ExplicitDeclarations extends Transform {
   }
 }
 
-export class ReOrderNodeKeys extends Transform {
-  constructor(o) {
-    super(o);
-  }
-
-  match(object, parents) {
-    return object.type;
-  }
-
-  apply(tree) {
-    // console.log(tree.body[0].expression);
-
-    super.apply(tree);
-
-    // console.log(tree.body[0].expression);
-  }
-
-  transform(object: Node, parents: Node[]) {
-    return () => {
-      if (object.type == "AssignmentExpression") {
-        this.replace(object, {
-          type: "AssignmentExpression",
-          operator: "=",
-          right: object.right,
-          left: object.left,
-        });
-
-        ok(
-          Object.keys(object).indexOf("right") <
-            Object.keys(object).indexOf("left")
-        );
-      } else if (
-        object.type == "BinaryExpression" ||
-        object.type == "LogicalExpression"
-      ) {
-        if (
-          object.left.type == "BinaryExpression" ||
-          object.left.type == "LogicalExpression"
-        ) {
-          return;
-        }
-
-        if (
-          object.right.type == "BinaryExpression" ||
-          object.right.type == "LogicalExpression"
-        ) {
-          return;
-        }
-
-        var exprs: Location[] = [];
-        var i = 0;
-        for (var p of parents) {
-          if (p.type == "BinaryExpression" || p.type == "LogicalExpression") {
-            exprs.push([p, parents.slice(i + 1)]);
-          } else {
-            break;
-          }
-          i++;
-        }
-
-        if (exprs.length) {
-          const chain: Location[] = [[object, parents], ...exprs];
-
-          chain.forEach((location) => {
-            location[0].precedence = OPERATOR_PRECEDENCE[location[0].operator];
-          });
-
-          chain.forEach((location) => {
-            var v = [location[0].precedence];
-            function recursive(o) {
-              if (o) {
-                if (o.precedence) {
-                  v.push(o.precedence);
-
-                  recursive(o.left);
-                  recursive(o.right);
-                }
-              }
-            }
-            recursive(location[0].left);
-            recursive(location[0].right);
-
-            var max = v.sort((a, b) => b - a)[0];
-
-            location[0].precedence = max;
-          });
-
-          chain.reverse().forEach((location) => {
-            var { left, right, operator } = location[0];
-            ok(left);
-            ok(right);
-
-            var leftPrecedence = left.precedence || 1;
-            var rightPrecedence = right.precedence || 1;
-            var isRightToLeft = { "**": 1 }[operator];
-
-            if (leftPrecedence === rightPrecedence && !isRightToLeft) {
-              return;
-            }
-
-            if (
-              (!isRightToLeft && leftPrecedence >= rightPrecedence) ||
-              (isRightToLeft && leftPrecedence > rightPrecedence)
-            ) {
-              this.replace(location[0], {
-                type: location[0].type,
-                operator: operator,
-                left: left,
-                right: right,
-              });
-            } else {
-              this.replace(location[0], {
-                type: location[0].type,
-                operator: operator,
-                right: right,
-                left: left,
-              });
-            }
-          });
-        }
-      }
-    };
-  }
-}
-
 export default class Preparation extends Transform {
   constructor(o) {
     super(o, ObfuscateOrder.Preparation);
 
-    this.before.push(new ReOrderNodeKeys(o));
     this.before.push(new Block(o));
     this.before.push(new Label(o));
     this.before.push(new ExplicitIdentifiers(o));

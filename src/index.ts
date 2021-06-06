@@ -71,7 +71,7 @@ var JsConfuser: IJsConfuser = async function (
   return result;
 } as any;
 
-var debugTransformations: IJsConfuserDebugTransformations =
+export var debugTransformations: IJsConfuserDebugTransformations =
   async function debugTransformations(
     code: string,
     options: ObfuscateOptions

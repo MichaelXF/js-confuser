@@ -15,6 +15,7 @@ import {
   Node,
   ReturnStatement,
   SequenceExpression,
+  ThisExpression,
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
@@ -58,80 +59,94 @@ class AntiDestructuringParameters extends Transform {
   }
 
   transform(object: Node, parents: Node[]) {
-    if (object.param) {
-      // Catch clause
-      if (object.param.type != "Identifier") {
-        var catchName = this.getPlaceholder();
-        var cloned = { ...object.param };
+    return () => {
+      if (object.param) {
+        // Catch clause
+        if (object.param.type != "Identifier") {
+          var catchName = this.getPlaceholder();
+          var cloned = { ...object.param };
 
-        object.param = Identifier(catchName);
+          object.param = Identifier(catchName);
 
-        getBlockBody(object.body).unshift(
-          VariableDeclaration([
-            VariableDeclarator(cloned, Identifier(catchName)),
-          ])
-        );
-      }
-
-      return;
-    }
-
-    // For function parameters
-    var isDestructed = false;
-    var parameters = object.params;
-
-    walk(parameters, [object, ...parents], (o, p) => {
-      if (
-        o.type == "ArrayPattern" ||
-        o.type == "ObjectPattern" ||
-        o.type == "AssignmentPattern" ||
-        o.type == "RestElement"
-      ) {
-        isDestructed = true;
-        return "EXIT";
-      }
-    });
-
-    if (isDestructed) {
-      if (object.expression) {
-        object.body = BlockStatement([ReturnStatement({ ...object.body })]);
-      } else if (object.body.type != "BlockStatement") {
-        object.body = BlockStatement([{ ...object.body }]);
-      }
-
-      var arrayPattern = ArrayPattern(parameters);
-
-      // `arguments` is not allowed in arrow functions
-      if (object.type == "ArrowFunctionExpression" && this.options.es5) {
-        // new names
-
-        object.params = Array(10)
-          .fill(0)
-          .map(() => Identifier(this.getPlaceholder()));
-
-        getBlockBody(object.body).unshift(
-          VariableDeclaration(
-            VariableDeclarator(arrayPattern, ArrayExpression(object.params))
-          )
-        );
-      } else {
-        if (object.type == "ArrowFunctionExpression") {
-          object.type = "FunctionExpression";
-          object.expression = false;
+          getBlockBody(object.body).unshift(
+            VariableDeclaration([
+              VariableDeclarator(cloned, Identifier(catchName)),
+            ])
+          );
         }
-        object.params = [];
 
-        getBlockBody(object.body).unshift(
-          VariableDeclaration(
-            VariableDeclarator(
-              arrayPattern,
-              Template(`Array.prototype.slice.call(arguments)`).single()
-                .expression
-            )
-          )
-        );
+        return;
       }
-    }
+
+      // For function parameters
+      var isDestructed = false;
+      var parameters = object.params;
+
+      walk(parameters, [object, ...parents], (o, p) => {
+        if (
+          o.type == "ArrayPattern" ||
+          o.type == "ObjectPattern" ||
+          o.type == "AssignmentPattern" ||
+          o.type == "RestElement"
+        ) {
+          isDestructed = true;
+          return "EXIT";
+        }
+      });
+
+      if (isDestructed) {
+        if (object.expression) {
+          object.body = BlockStatement([ReturnStatement({ ...object.body })]);
+        } else if (object.body.type != "BlockStatement") {
+          object.body = BlockStatement([{ ...object.body }]);
+        }
+
+        var arrayPattern = ArrayPattern(parameters);
+
+        // `arguments` is not allowed in arrow functions
+        if (
+          object.type == "ArrowFunctionExpression" &&
+          !object.params.find((x) => x.type == "RestElement")
+        ) {
+          // new names
+
+          object.params = Array(object.params.length)
+            .fill(0)
+            .map(() => Identifier(this.getPlaceholder()));
+
+          getBlockBody(object.body).unshift(
+            VariableDeclaration(
+              VariableDeclarator(arrayPattern, ArrayExpression(object.params))
+            )
+          );
+        } else {
+          object.params = [];
+
+          getBlockBody(object.body).unshift(
+            VariableDeclaration(
+              VariableDeclarator(
+                arrayPattern,
+                Template(`Array.prototype.slice.call(arguments)`).single()
+                  .expression
+              )
+            )
+          );
+
+          if (object.type == "ArrowFunctionExpression") {
+            object.type = "FunctionExpression";
+            object.expression = false;
+
+            this.replace(
+              object,
+              CallExpression(
+                MemberExpression(clone(object), Identifier("bind"), false),
+                [ThisExpression()]
+              )
+            );
+          }
+        }
+      }
+    };
   }
 }
 

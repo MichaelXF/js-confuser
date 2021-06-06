@@ -60,7 +60,9 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     parent.property === object &&
     !parent.computed;
 
-  var propIndex = parents.findIndex((x) => x.type == "Property");
+  var propIndex = parents.findIndex(
+    (x) => x.type == "Property" || x.type == "MethodDefinition"
+  );
   var isPropertyKey =
     propIndex != -1 &&
     parents[propIndex].key == (parents[propIndex - 1] || object) &&
@@ -125,7 +127,9 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
   var isClassDeclaration =
     parent.type == "ClassDeclaration" && parent.id == object;
   var isMethodDefinition =
-    parent.type == "MethodDefinition" && parent.key == object;
+    parent.type == "MethodDefinition" &&
+    parent.key == object &&
+    !parent.computed;
 
   var isMetaProperty = parent.type == "MetaProperty";
 
