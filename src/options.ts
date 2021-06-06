@@ -434,6 +434,8 @@ export interface ObfuscateOptions {
      *
      * When the program is first able to be used. (`number` or `Date`)
      *
+     * Number should be in milliseconds.
+     *
      * - Potency Low
      * - Resilience Medium
      * - Cost Medium
@@ -446,6 +448,8 @@ export interface ObfuscateOptions {
      * ### `lock.endDate`
      *
      * When the program is no longer able to be used. (`number` or `Date`)
+     *
+     * Number should be in milliseconds.
      *
      * - Potency Low
      * - Resilience Medium
