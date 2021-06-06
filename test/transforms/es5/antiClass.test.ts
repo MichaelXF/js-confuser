@@ -317,3 +317,78 @@ it("should support preserving the class name", async () => {
 
   expect(TEST_VALUE).toStrictEqual("Rectangle");
 });
+
+it("should properly pass arguments to super class", async () => {
+  var output = await JsConfuser(
+    `
+    class Logger {
+      constructor(name){
+        TEST_INIT_ARG = name;
+        this.name = name;
+      }
+    
+      log(message){
+        TEST_NAME = this.name;
+      }
+    }
+    
+    class Player extends Logger {
+      constructor(){
+        super("Player")
+      }
+    
+      jump(){
+        this.log("I jumped")
+      }
+    }
+
+    var player = new Player();
+    player.jump();
+  `,
+    {
+      target: "node",
+      es5: true,
+    }
+  );
+
+  expect(output).not.toContain("class");
+
+  var TEST_INIT_ARG, TEST_NAME;
+  eval(output);
+
+  expect(TEST_INIT_ARG).toStrictEqual("Player");
+  expect(TEST_NAME).toStrictEqual("Player");
+});
+
+it("should work with stringConcealing and hide method names", async () => {
+  var output = await JsConfuser(
+    `
+    class MyClass {
+
+      constructor(value){
+        this.value = value
+      }
+
+      getValue(){
+        return this.value
+      }
+    }
+
+    var instance = new MyClass(100)
+    TEST_VALUE = instance.getValue()
+  `,
+    {
+      target: "node",
+      es5: true,
+      stringConcealing: true,
+    }
+  );
+
+  expect(output).not.toContain("class");
+  expect(output).not.toContain("getValue");
+
+  var TEST_VALUE;
+  eval(output);
+
+  expect(TEST_VALUE).toStrictEqual(100);
+});

@@ -15,6 +15,7 @@ import {
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
+import { ok } from "assert";
 
 export default class AntiClass extends Transform {
   constructor(o) {
@@ -47,33 +48,11 @@ export default class AntiClass extends Transform {
       // self this
       virtualBody.push(Template(`var ${thisName} = this;`).single());
       virtualBody.push(Template(`${thisName}["constructor"] = null;`).single());
+      var superArguments;
+      var superBody = [];
 
       if (object.superClass) {
         superName = "super" + this.getPlaceholder();
-        virtualBody.push(
-          ExpressionStatement(
-            CallExpression(
-              MemberExpression(object.superClass, Identifier("call"), false),
-              [ThisExpression(), SpreadElement(Identifier("arguments"))]
-            )
-          )
-        );
-
-        // save the super state
-        virtualBody.push(
-          ...Template(
-            `
-            var ${superName} = {}
-            Object.keys(this).forEach(key=>{
-              var descriptor = Object.getOwnPropertyDescriptor(this, key);
-              if ( descriptor) {
-                Object.defineProperty(${superName}, key, descriptor)
-              } else {
-                ${superName}[key] = this[key];
-              }
-            })`
-          ).compile()
-        );
       }
 
       var virtualDescriptorsName = this.getPlaceholder();
@@ -112,6 +91,7 @@ export default class AntiClass extends Transform {
             first.expression.type == "CallExpression"
           ) {
             if (first.expression.callee.type == "Super") {
+              superArguments = first.expression.arguments;
               value.body.body.shift();
             }
           }
@@ -204,6 +184,36 @@ export default class AntiClass extends Transform {
       
       `).single()
       );
+
+      if (superName) {
+        ok(superArguments, "Super class with no super arguments");
+
+        // save the super state
+        virtualBody.unshift(
+          Template(
+            `
+            Object.keys(this).forEach(key=>{
+              var descriptor = Object.getOwnPropertyDescriptor(this, key);
+              if ( descriptor) {
+                Object.defineProperty(${superName}, key, descriptor)
+              } else {
+                ${superName}[key] = this[key];
+              }
+            })`
+          ).single()
+        );
+
+        virtualBody.unshift(
+          ExpressionStatement(
+            CallExpression(
+              MemberExpression(object.superClass, Identifier("call"), false),
+              [ThisExpression(), ...superArguments]
+            )
+          )
+        );
+
+        virtualBody.unshift(Template(`var ${superName} = {}`).single());
+      }
 
       virtualBody.push(
         Template(

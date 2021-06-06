@@ -191,7 +191,9 @@ export default class Minify extends Transform {
     ) {
       return () => {
         // Don't touch `{get key(){...}}`
-        var propIndex = parents.findIndex((x) => x.type == "Property");
+        var propIndex = parents.findIndex(
+          (x) => x.type == "Property" || x.type == "MethodDefinition"
+        );
         if (propIndex !== -1) {
           if (parents[propIndex].value === (parents[propIndex - 1] || object)) {
             if (

@@ -3,24 +3,26 @@ import JsConfuser from "./index";
 
 var code = `
 
-function myFunction(){
-  
-  var a= new ABC();
-  console.log(a)
+class MyClass {
 
-  return;
-  function ABC(){
-    return 1;
+  constructor(value){
+    this.value = value
+  }
+
+  getValue(){
+    return this.value
   }
 }
 
-myFunction()
+var instance = new MyClass(100)
+TEST_VALUE = instance.getValue()
 
 `;
 
 JsConfuser.obfuscate(code, {
   target: "node",
-  minify: true,
+  es5: true,
+  stringConcealing: true,
 }).then((output) => {
   console.log(output);
   writeFileSync("./dev.error.js", output, { encoding: "utf-8" });
