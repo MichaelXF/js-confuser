@@ -8,7 +8,7 @@ Improved ES5 Support
 - Transpiling the [ES6 spread operator in arrays](https://www.samanthaming.com/tidbits/92-6-use-cases-of-spread-with-array/)
 - Transpiling the [ES6 spread operator in objects](https://lucybain.com/blog/2018/js-es6-spread-operator/)
 
-- Improved `controlFlowFlattening`
+- Improved `controlFlowFlattening` to use multiple state variables
 - Added chained-calls to `duplicateLiteralsRemoval`, similar to obfuscator.io's [`stringArrayWrappersChainedCalls`](https://github.com/javascript-obfuscator/javascript-obfuscator) option
 
 
