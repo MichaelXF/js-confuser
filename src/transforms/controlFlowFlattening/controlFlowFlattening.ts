@@ -1,11 +1,13 @@
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import { ComputeProbabilityMap } from "../../probability";
+import Template from "../../templates/template";
 import { isBlock } from "../../traverse";
 import {
   AssignmentExpression,
   BinaryExpression,
   BreakStatement,
+  ConditionalExpression,
   ExpressionStatement,
   Identifier,
   Literal,
@@ -18,7 +20,7 @@ import {
 } from "../../util/gen";
 import { containsLexicallyBoundVariables } from "../../util/identifiers";
 import { clone, getBlockBody } from "../../util/insert";
-import { getRandomInteger, shuffle } from "../../util/random";
+import { choice, getRandomInteger, shuffle } from "../../util/random";
 import Transform from "../transform";
 import ControlFlowObfuscation from "./controlFlowObfuscation";
 import SwitchCaseObfuscation from "./switchCaseObfucation";
@@ -106,39 +108,164 @@ export default class ControlFlowFlattening extends Transform {
           return;
         }
 
-        var selection: Set<number> = new Set();
+        var caseSelection: Set<number> = new Set();
 
         for (var i = 0; i < chunks.length + 1; i++) {
           var newState;
           do {
-            newState = getRandomInteger(1, chunks.length * 10);
-          } while (selection.has(newState));
+            newState = getRandomInteger(1, chunks.length * 15);
+          } while (caseSelection.has(newState));
 
-          selection.add(newState);
+          caseSelection.add(newState);
         }
 
-        ok(selection.size == chunks.length + 1);
+        ok(caseSelection.size == chunks.length + 1);
 
-        var states = Array.from(selection);
-        var stateVar = this.getPlaceholder();
+        var caseStates = Array.from(caseSelection);
 
-        var startState = states[0];
-        var endState = states[states.length - 1];
+        var startState = caseStates[0];
+        var endState = caseStates[caseStates.length - 1];
+
+        var stateVars = Array(getRandomInteger(2, 7))
+          .fill(0)
+          .map(() => this.getPlaceholder());
+        var stateValues = Array(stateVars.length)
+          .fill(0)
+          .map(() => getRandomInteger(-250, 250));
+
+        const getCurrentState = () => {
+          return stateValues.reduce((a, b) => b + a, 0);
+        };
+
+        var correctIndex = getRandomInteger(0, stateVars.length);
+        stateValues[correctIndex] =
+          startState - (getCurrentState() - stateValues[correctIndex]);
+
+        var initStateValues = [...stateValues];
+
+        const numberLiteral = (num, depth) => {
+          if (Math.random() > 0.9 / (depth * 4)) {
+            return Literal(num);
+          } else {
+            var opposing = getRandomInteger(0, stateVars.length);
+
+            if (Math.random() < 0.25) {
+              var opposing2;
+              do {
+                opposing2 = getRandomInteger(0, stateVars.length);
+              } while (opposing2 === opposing);
+
+              var computed = stateValues[opposing] * stateValues[opposing2];
+
+              return BinaryExpression(
+                "+",
+                BinaryExpression(
+                  "*",
+                  Identifier(stateVars[opposing]),
+                  Identifier(stateVars[opposing2])
+                ),
+                numberLiteral(num - computed, depth + 1)
+              );
+            } else if (Math.random() > 0.5) {
+              var x = getRandomInteger(-250, 250);
+              var operator = choice([">", "<"]);
+              var answer =
+                operator == ">"
+                  ? x > stateValues[opposing]
+                  : x < stateValues[opposing];
+              var correct = numberLiteral(num, depth + 1);
+              var incorrect = numberLiteral(
+                getRandomInteger(-250, 250),
+                depth + 1
+              );
+
+              return ConditionalExpression(
+                BinaryExpression(
+                  operator,
+                  numberLiteral(x, depth + 1),
+                  Identifier(stateVars[opposing])
+                ),
+                answer ? correct : incorrect,
+                answer ? incorrect : correct
+              );
+            } else {
+              return BinaryExpression(
+                "-",
+                Identifier(stateVars[opposing]),
+                numberLiteral(stateValues[opposing] - num, depth + 1)
+              );
+            }
+          }
+        };
+
+        const createTransitionStatement = (index, add) => {
+          var newValue = stateValues[index] + add;
+
+          var expr = ExpressionStatement(
+            AssignmentExpression(
+              "+=",
+              Identifier(stateVars[index]),
+              numberLiteral(add, 0)
+            )
+          );
+
+          stateValues[index] = newValue;
+
+          return expr;
+        };
 
         interface Case {
           state: number;
           nextState: number;
           body: Node[];
           order: number;
+          transitionStatements: Node[];
         }
 
         var order = Object.create(null);
         var cases: Case[] = chunks.map((body, i) => {
+          var state = caseStates[i];
+          var nextState = caseStates[i + 1];
+          var diff = nextState - state;
+          var transitionStatements = [];
+
+          ok(!isNaN(diff));
+          var modifying = getRandomInteger(0, stateVars.length);
+          var shift = 0;
+
+          // var c1 = Identifier("undefined");
+          // this.addComment(c1, stateValues.join(", "));
+          // transitionStatements.push(c1);
+
+          transitionStatements.push(
+            ...Array.from(
+              new Set(
+                Array(getRandomInteger(0, stateVars.length - 2))
+                  .fill(0)
+                  .map(() => getRandomInteger(0, stateVars.length))
+                  .filter((x) => x != modifying)
+              )
+            ).map((x) => {
+              var randomNumber = getRandomInteger(-250, 250);
+
+              shift += randomNumber;
+              return createTransitionStatement(x, randomNumber);
+            })
+          );
+          transitionStatements.push(
+            createTransitionStatement(modifying, diff - shift)
+          );
+
+          // var c = Identifier("undefined");
+          // this.addComment(c, stateValues.join(", "));
+          // transitionStatements.push(c);
+
           var caseObject = {
             body: body,
-            state: states[i],
-            nextState: states[i + 1],
+            state: state,
+            nextState: nextState,
             order: i,
+            transitionStatements: transitionStatements,
           };
           order[i] = caseObject;
 
@@ -147,7 +274,8 @@ export default class ControlFlowFlattening extends Transform {
 
         shuffle(cases);
 
-        var discriminant = Identifier(stateVar);
+        var discriminant = Template(`${stateVars.join("+")}`).single()
+          .expression;
 
         body.length = 0;
 
@@ -160,24 +288,15 @@ export default class ControlFlowFlattening extends Transform {
         var switchStatement: Node = SwitchStatement(
           discriminant,
           cases.map((x, i) => {
-            var state = x.state;
-            var nextState = x.nextState;
-            var diff = nextState - state;
-
-            ok(!isNaN(diff));
-
             var statements = [];
 
             statements.push(...x.body);
-            statements.push(
-              ExpressionStatement(
-                AssignmentExpression("+=", Identifier(stateVar), Literal(diff))
-              )
-            );
+
+            statements.push(...x.transitionStatements);
 
             statements.push(BreakStatement());
 
-            var test = Literal(state);
+            var test = Literal(x.state);
 
             return SwitchCase(test, statements);
           })
@@ -185,11 +304,13 @@ export default class ControlFlowFlattening extends Transform {
 
         body.push(
           VariableDeclaration(
-            VariableDeclarator(stateVar, Literal(startState))
+            stateVars.map((stateVar, i) => {
+              return VariableDeclarator(stateVar, Literal(initStateValues[i]));
+            })
           ),
 
           WhileStatement(
-            BinaryExpression("!=", Identifier(stateVar), Literal(endState)),
+            BinaryExpression("!=", clone(discriminant), Literal(endState)),
             [switchStatement]
           )
         );
