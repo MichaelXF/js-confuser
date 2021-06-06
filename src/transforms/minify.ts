@@ -53,10 +53,7 @@ class MinifyBlock extends Transform {
           }
         }
 
-        if (
-          stmt.type == "FunctionDeclaration" ||
-          stmt.type == "ClassDeclaration"
-        ) {
+        if (stmt.type == "FunctionDeclaration") {
           fnDecs.push([stmt, i]);
         }
       });
@@ -226,7 +223,6 @@ export default class Minify extends Transform {
 
           var set = new Set(before.map((x) => x.type));
           set.delete("FunctionDeclaration");
-          set.delete("ClassDeclaration");
 
           if (set.size) {
             return;

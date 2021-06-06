@@ -3,18 +3,24 @@ import JsConfuser from "./index";
 
 var code = `
 
-var b = {b: 2};
-var d = {e:2};
-var c = {a: 1,...b,c:2,...d}
+function myFunction(){
+  
+  var a= new ABC();
+  console.log(a)
 
-console.log(c)
+  return;
+  function ABC(){
+    return 1;
+  }
+}
+
+myFunction()
 
 `;
 
 JsConfuser.obfuscate(code, {
   target: "node",
-  es5: true,
-  compact: false,
+  minify: true,
 }).then((output) => {
   console.log(output);
   writeFileSync("./dev.error.js", output, { encoding: "utf-8" });

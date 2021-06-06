@@ -36,9 +36,6 @@ export default class AntiClass extends Transform {
       }
 
       var isDeclaration = object.type == "ClassDeclaration";
-      var correspondingType = isDeclaration
-        ? "FunctionDeclaration"
-        : "FunctionExpression";
 
       var virtualName = "virtual" + this.getPlaceholder();
 
