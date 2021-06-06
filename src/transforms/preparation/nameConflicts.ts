@@ -21,6 +21,7 @@ export class NameMappingAnalysis extends Transform {
 
   transform(object, parents) {
     var info = getIdentifierInfo(object, parents);
+
     if (info.spec.isReferenced && !info.spec.isDefined) {
       object.$definedAt = getDefiningIdentifier(object, parents);
     }
@@ -64,6 +65,10 @@ export default class NameConflicts extends Transform {
 
   transform(object: Node, parents: Node[]) {
     var info = getIdentifierInfo(object, parents);
+
+    if (info.isMethodDefinition) {
+      return;
+    }
 
     if (object.$definedAt) {
       object.name = this.changes.get(object.$definedAt[0]) || object.name;

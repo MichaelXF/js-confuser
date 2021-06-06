@@ -83,7 +83,7 @@ class ExplicitIdentifiers extends Transform {
 
   transform(object, parents) {
     var info = getIdentifierInfo(object, parents);
-    if (info.isPropertyKey || info.isAccessor || info.isMethodDefinition) {
+    if (info.isPropertyKey || info.isAccessor) {
       this.log(object.name, "->", `'${object.name}'`);
 
       this.replace(object, Literal(object.name));
