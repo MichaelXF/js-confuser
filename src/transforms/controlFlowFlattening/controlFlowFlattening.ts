@@ -12,6 +12,7 @@ import {
   Identifier,
   Literal,
   Node,
+  SequenceExpression,
   SwitchCase,
   SwitchStatement,
   VariableDeclaration,
@@ -144,7 +145,7 @@ export default class ControlFlowFlattening extends Transform {
         var initStateValues = [...stateValues];
 
         const numberLiteral = (num, depth) => {
-          if (Math.random() > 0.9 / (depth * 4)) {
+          if (Math.random() > 0.9 / (depth * 4) || depth > 15) {
             return Literal(num);
           } else {
             var opposing = getRandomInteger(0, stateVars.length);
@@ -201,13 +202,38 @@ export default class ControlFlowFlattening extends Transform {
         const createTransitionStatement = (index, add) => {
           var newValue = stateValues[index] + add;
 
-          var expr = ExpressionStatement(
-            AssignmentExpression(
-              "+=",
+          var expr = null;
+
+          if (Math.random() > 0.5) {
+            expr = ExpressionStatement(
+              AssignmentExpression(
+                "+=",
+                Identifier(stateVars[index]),
+                numberLiteral(add, 0)
+              )
+            );
+          } else {
+            var double = stateValues[index] * 2;
+            var diff = double - newValue;
+
+            var first = AssignmentExpression(
+              "*=",
               Identifier(stateVars[index]),
-              numberLiteral(add, 0)
-            )
-          );
+              numberLiteral(2, 0)
+            );
+            stateValues[index] = double;
+
+            expr = ExpressionStatement(
+              SequenceExpression([
+                first,
+                AssignmentExpression(
+                  "-=",
+                  Identifier(stateVars[index]),
+                  numberLiteral(diff, 0)
+                ),
+              ])
+            );
+          }
 
           stateValues[index] = newValue;
 
