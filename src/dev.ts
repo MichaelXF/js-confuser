@@ -2,51 +2,23 @@ import { readFileSync, writeFileSync } from "fs";
 import JsConfuser from "./index";
 
 var code = `
-console.log(1)
-console.log(1)
-if ( true ) {
-  console.log(1)
-  console.log(1)
-  console.log(1)
+
+var a = 1, b= 0;
+switch(a+b){
+  case 1:
+    console.log(1);
+    break;
+    case 2:
+      console.log(1);
+      break;
 }
-
-if( true ) {
-  console.log(1)
-  console.log(1)
-  console.log(1)
-  console.log(1)
-  if( true ) {
-    console.log(1)
-    console.log(1)
-    console.log(1)
-    console.log(1)
-    if( true ) {
-      console.log(1)
-      console.log(1)
-      console.log(1)
-      console.log(1)
-      if( true ) {
-        console.log(1)
-        console.log(1)
-        console.log(1)
-        console.log(1)
-      }
-    }
-    
-  }
-}
-
-
-
-
-
 `;
 
 eval(code);
 
 JsConfuser.obfuscate(code, {
   target: "node",
-  duplicateLiteralsRemoval: true,
+  controlFlowFlattening: true,
   compact: false,
 }).then((output) => {
   console.log(output);
