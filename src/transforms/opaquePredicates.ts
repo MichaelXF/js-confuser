@@ -78,7 +78,7 @@ export default class OpaquePredicates extends Transform {
   match(object: Node, parents: Node[]) {
     return (
       isTestExpression(object, parents) &&
-      !parents.find((x) => x.$dispatcherSkip)
+      !parents.find((x) => x.$dispatcherSkip || x.type == "AwaitExpression")
     );
   }
 
