@@ -18,6 +18,10 @@ Performance Improvements
 - Ensure `controlFlowFlattening` numbers don't get too large
   (hardcoded limit of 100,000)
 
+- Opaque Predicates now excludes await expressions 
+
+Available now on NPM: https://www.npmjs.com/package/js-confuser
+
 # `1.1.4`
 Improved ES5 Support
 
