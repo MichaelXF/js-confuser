@@ -149,8 +149,11 @@ export default class ObjectExtraction extends Transform {
                   parents[0].object == object;
 
                 if (
-                  parents.some((x) => x.type == "AssignmentExpression") &&
-                  !isMemberExpression
+                  (parents.find((x) => x.type == "AssignmentExpression") &&
+                    !isMemberExpression) ||
+                  parents.find(
+                    (x) => x.type == "UnaryExpression" && x.operator == "delete"
+                  )
                 ) {
                   this.log(object.name, "you can't re-assign the object");
 
