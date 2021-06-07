@@ -25,7 +25,12 @@ export default class SwitchCaseObfuscation extends Transform {
     return (
       object.type == "SwitchStatement" &&
       !object.cases.find(
-        (x) => !(x.test.type == "Literal" && typeof x.test.value === "number")
+        (x) =>
+          !(
+            x.test.type == "Literal" &&
+            typeof x.test.value === "number" &&
+            Math.abs(x.test.value) < 100_000
+          )
       )
     );
   }
@@ -58,21 +63,29 @@ export default class SwitchCaseObfuscation extends Transform {
 
     var factor = getRandomInteger(-250, 250);
     if (factor == 0) {
-      factor = 1;
+      factor = 2;
     }
     var offset = getRandomInteger(-250, 250);
 
     var newVar = this.getPlaceholder();
 
     var newStates = [];
+    var max;
     object.cases.forEach((x) => {
       var current = x.test.value;
       var value = current * factor + offset;
 
       newStates.push(value);
+      if (!max || Math.abs(value) > max) {
+        max = Math.abs(value);
+      }
     });
 
-    if (new Set(newStates).size != newStates.length) {
+    if (max > 100_000) {
+      return;
+    }
+
+    if (new Set(newStates).size !== newStates.length) {
       // not possible because of clashing case test
       return;
     }

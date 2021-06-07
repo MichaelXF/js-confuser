@@ -1,5 +1,6 @@
 import { ok } from "assert";
 import { ComputeProbabilityMap } from "../../probability";
+import { walk } from "../../traverse";
 import {
   AssignmentExpression,
   BinaryExpression,
@@ -43,11 +44,29 @@ export default class ControlFlowObfuscation extends Transform {
         return;
       }
 
+      var illegal = false;
+      walk(object, parents, (o, p) => {
+        if (o.type == "FunctionDeclaration") {
+          illegal = true;
+          return "EXIT";
+        }
+      });
+
+      if (illegal) {
+        return;
+      }
+
       var body =
         parents[0].type == "LabeledStatement" ? parents[1] : parents[0];
+      var element = parents[0].type == "LabeledStatement" ? parents[0] : object;
 
       // No place to insert more statements
       if (!Array.isArray(body)) {
+        return;
+      }
+
+      // No place to insert variable declaration
+      if (body.indexOf(element) === -1) {
         return;
       }
 
@@ -74,7 +93,7 @@ export default class ControlFlowObfuscation extends Transform {
         }
       } else if (object.type === "WhileStatement") {
         if (object.test) {
-          test = object.test || Literal(true);
+          test = object.test;
         }
       } else {
         throw new Error("Unknown type: " + object.type);
@@ -103,6 +122,8 @@ export default class ControlFlowObfuscation extends Transform {
 
       var stateVar = this.getPlaceholder();
 
+      var selection = new Set();
+
       //            init 0  test 1  run 2  update 3  end 4
       var states: number[] = [];
 
@@ -111,75 +132,61 @@ export default class ControlFlowObfuscation extends Transform {
         var newState;
         do {
           newState = getRandomInteger(0, 1000 + states.length);
-        } while (states.indexOf(newState) !== -1);
+        } while (selection.has(newState));
 
         ok(!isNaN(newState));
 
         states.push(newState);
+        selection.add(newState);
       }
-      ok(new Set(states).size === states.length);
+      ok(selection.size === states.length);
+      ok(states.length === 5);
 
-      body.unshift(
-        VariableDeclaration(VariableDeclarator(stateVar, Literal(states[0])))
+      var startState = states[0];
+      var testState = states[1];
+      var bodyState = states[2];
+      var updateState = states[3];
+      var endState = states[4];
+
+      body.splice(
+        body.indexOf(element),
+        0,
+        VariableDeclaration(VariableDeclarator(stateVar, Literal(startState)))
       );
 
       function goto(from: number, to: number) {
+        var diff = to - from;
+        ok(!isNaN(diff));
         return ExpressionStatement(
-          AssignmentExpression("+=", Identifier(stateVar), Literal(to - from))
+          AssignmentExpression("+=", Identifier(stateVar), Literal(diff))
         );
       }
 
       var cases = [
-        SwitchCase(Literal(states[0]), [
+        SwitchCase(Literal(startState), [
           ...init,
-          goto(states[0], states[1]),
+          goto(startState, testState),
           BreakStatement(),
         ]),
-        SwitchCase(Literal(states[1]), [
+        SwitchCase(Literal(testState), [
           IfStatement(
             clone(test),
-            [goto(states[1], states[2])],
-            [goto(states[1], states[4])]
+            [goto(testState, bodyState)],
+            [goto(testState, endState)]
           ),
           BreakStatement(),
         ]),
-        SwitchCase(Literal(states[2]), [
+        SwitchCase(Literal(bodyState), [
           ...consequent,
-          goto(states[2], states[3]),
+          goto(bodyState, updateState),
           BreakStatement(),
         ]),
-        SwitchCase(Literal(states[3]), [
+        SwitchCase(Literal(updateState), [
           ...update,
-          goto(states[3], states[1]),
+          goto(updateState, testState),
           BreakStatement(),
         ]),
       ];
-
-      var endState = states[states.length - 1];
-
-      Array(getRandomInteger(0, 3))
-        .fill(0)
-        .map(() => {
-          var newState;
-          do {
-            newState = getRandomInteger(0, 1000 + states.length * 2);
-          } while (states.indexOf(newState) !== -1);
-          states.push(newState);
-
-          var nextState;
-          do {
-            nextState = getRandomInteger(0, 1000 + states.length * 3);
-          } while (states.indexOf(nextState) !== -1 || newState === nextState);
-          states.push(nextState);
-
-          ok(new Set(states).size === states.length);
-
-          var caseBody = [goto(newState, newState), BreakStatement()];
-
-          cases.push(SwitchCase(Literal(newState), caseBody));
-        });
-
-      shuffle(cases);
 
       this.replace(
         object,

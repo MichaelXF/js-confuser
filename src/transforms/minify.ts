@@ -323,6 +323,36 @@ export default class Minify extends Transform {
         ) {
           object.operator = "-=";
           object.right = object.right.argument;
+        } else if (
+          // a -= -1 -> a += 1
+          object.operator == "-=" &&
+          object.right.type == "UnaryExpression" &&
+          object.right.operator == "-"
+        ) {
+          object.operator = "+=";
+          object.right = object.right.argument;
+        }
+      };
+    }
+
+    // a + -b -> a - b
+    if (object.type == "BinaryExpression") {
+      return () => {
+        if (
+          object.operator == "+" &&
+          object.right.type == "UnaryExpression" &&
+          object.right.operator == "-"
+        ) {
+          object.operator = "-";
+          object.right = object.right.argument;
+        } else if (
+          // a - -1 -> a + 1
+          object.operator == "-" &&
+          object.right.type == "UnaryExpression" &&
+          object.right.operator == "-"
+        ) {
+          object.operator = "+";
+          object.right = object.right.argument;
         }
       };
     }
@@ -454,7 +484,7 @@ export default class Minify extends Transform {
               e2.type == "AssignmentExpression"
             ) {
               if (
-                e1.operator == e2.operator &&
+                e1.operator === e2.operator &&
                 isEquivalent(e1.left, e2.left)
               ) {
                 this.replace(

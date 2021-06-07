@@ -14,7 +14,7 @@ import {
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
-import { prepend } from "../../util/insert";
+import { append, prepend } from "../../util/insert";
 import Transform from "../transform";
 
 /* eslint-disable @typescript-eslint/no-unused-expressions */
@@ -170,33 +170,28 @@ export default class StringConcealing extends Transform {
       this.arrayExpression = ArrayExpression([]);
 
       return () => {
-        prepend(
+        var cacheName = this.getPlaceholder();
+
+        append(
           object,
-          FunctionDeclaration(
-            this.getterName,
-            [Identifier("x")],
-            [
-              ReturnStatement(
-                CallExpression(Identifier(this.decodeFn), [
-                  MemberExpression(
-                    Identifier(this.arrayName),
-                    Identifier("x"),
-                    true
-                  ),
-                ])
-              ),
-            ]
-          )
+          Template(`
+          
+          function ${this.getterName}(x){
+            return ${cacheName}[x] || (${cacheName}[x] = ${this.decodeFn}(${this.arrayName}[x]), ${cacheName}[x])
+          }
+
+          `).single()
         );
 
         prepend(
           object,
-          VariableDeclaration(
-            VariableDeclarator(this.arrayName, this.arrayExpression)
-          )
+          VariableDeclaration([
+            VariableDeclarator(cacheName, ArrayExpression([])),
+            VariableDeclarator(this.arrayName, this.arrayExpression),
+          ])
         );
 
-        prepend(
+        append(
           object,
           (this.decodeNode = Ascii85Template.single({
             name: this.decodeFn,

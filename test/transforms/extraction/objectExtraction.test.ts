@@ -100,6 +100,41 @@ it("should not extract properties on with dynamically added keys", async () => {
   eval(output);
 });
 
+it("should not extract properties on with dynamically added keys even when in nested contexts", async () => {
+  var code = `
+    var TEST_OBJECT = {
+      first_key: 1
+    };
+
+    (function(){
+      TEST_OBJECT['DYNAMIC_PROPERTY'] = 1;
+      TEST_OBJECT.DYNAMIC_PROPERTY = 1;
+    })()
+  
+
+
+    var check = false;
+    eval(\`
+      try {TEST_OBJECT} catch(e) {
+        check = true;
+      }
+    \`);
+    
+    input(check);
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    objectExtraction: true,
+  });
+
+  function input(x) {
+    expect(x).toStrictEqual(false);
+  }
+
+  eval(output);
+});
+
 it("should not extract properties on objects with computed properties", async () => {
   var code = `
     
