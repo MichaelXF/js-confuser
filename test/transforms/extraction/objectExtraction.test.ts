@@ -261,6 +261,37 @@ it("should not extract properties on objects when the variable gets reassigned",
   eval(output);
 });
 
+it("should not extract properties on objects when properties are dynamically deleted", async () => {
+  var code = `
+    
+    var TEST_OBJECT = {
+      key: "value"
+    };
+
+    delete TEST_OBJECT.key;
+
+    var check = false;
+    eval(\`
+      try {TEST_OBJECT} catch(e) {
+        check = true;
+      }
+    \`);
+    
+    input(check);
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    objectExtraction: true,
+  });
+
+  function input(x) {
+    expect(x).toStrictEqual(false);
+  }
+
+  eval(output);
+});
+
 it("should not extract properties on objects with computed accessors", async () => {
   var code = `
     

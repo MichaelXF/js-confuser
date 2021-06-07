@@ -9,12 +9,12 @@ JsConfuser.obfuscate(code, {
   target: "node",
   preset: "high",
 
-  globalConcealing: false,
-  flatten: false,
-  stack: false,
-  opaquePredicates: false,
+  globalConcealing: true,
+  flatten: true,
+  stack: true,
+  opaquePredicates: true,
   dispatcher: true,
-  controlFlowFlattening: false,
+  controlFlowFlattening: true,
 
   stringConcealing: false,
   stringCompression: false,

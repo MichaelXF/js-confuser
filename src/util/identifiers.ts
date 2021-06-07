@@ -142,6 +142,23 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     }
   }
 
+  var isDeleteExpression = false;
+  var deleteIndex = parents.findIndex(
+    (x) => x.type == "UnaryExpression" && x.operator == "delete"
+  );
+
+  if (deleteIndex != -1) {
+    isDeleteExpression = true;
+  }
+
+  var isReferenced =
+    !isAccessor &&
+    !isPropertyKey &&
+    !isMetaProperty &&
+    !isLabel &&
+    !object.name.startsWith("0") &&
+    !object.name.startsWith("'");
+
   return {
     /**
      * MemberExpression: `parent.identifier`
@@ -233,6 +250,11 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
      */
     isImportSpecifier,
 
+    /**
+     * `delete identifier[identifier]`
+     */
+    isDeleteExpression: isDeleteExpression,
+
     spec: {
       /**
        * - `export function identifier()...`
@@ -260,7 +282,7 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
       /**
        * Is the Identifier modified, either by an `AssignmentExpression` or `UpdateExpression`
        */
-      isModified: isAssignmentLeft || isUpdateExpression,
+      isModified: isAssignmentLeft || isUpdateExpression || isDeleteExpression,
 
       /**
        * Is the Identifier referenced as a variable.
@@ -271,13 +293,7 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
        * - false `var {identifier: ...}`
        * - false `break identifier;`
        */
-      isReferenced:
-        !isAccessor &&
-        !isPropertyKey &&
-        !isMetaProperty &&
-        !isLabel &&
-        !object.name.startsWith("0") &&
-        !object.name.startsWith("'"),
+      isReferenced: isReferenced,
     },
   };
 }
@@ -298,7 +314,7 @@ export function getDefiningIdentifier(object: Node, parents: Node[]): Location {
     var l;
     var bestScore = Infinity;
     walk(parent, parents.slice(i + 1), (o, p) => {
-      // if (seen.has(o)) {
+      // if (p.find((x) => seen.has(x))) {
       //   return "EXIT";
       // }
 
