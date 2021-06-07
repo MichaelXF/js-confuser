@@ -175,7 +175,6 @@ export default class Preparation extends Transform {
     this.before.push(new Block(o));
     this.before.push(new Label(o));
     this.before.push(new ExplicitIdentifiers(o));
-    // this.before.push(new ExplicitLabel(o));
     this.before.push(new ExplicitDeclarations(o));
 
     if (this.options.es5) {
