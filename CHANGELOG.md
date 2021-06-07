@@ -1,6 +1,10 @@
 # `1.1.5`
 Performance Improvements
 
+- **Bug fix**: Object Extraction
+- - Improved safety checks (searches further down tree)
+- - No longer applies to empty objects
+
 - String Concealing results are now cached
 
 - Minification improvements

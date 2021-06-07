@@ -13,8 +13,8 @@ JsConfuser.obfuscate(code, {
   flatten: false,
   stack: false,
   opaquePredicates: false,
-  dispatcher: false,
-  controlFlowFlattening: true,
+  dispatcher: true,
+  controlFlowFlattening: false,
 
   stringConcealing: false,
   stringCompression: false,
@@ -27,6 +27,9 @@ JsConfuser.obfuscate(code, {
   calculator: false,
   movedDeclarations: false,
   minify: false,
+  compact: false,
+
+  verbose: true,
 }).then((output) => {
   console.log(output);
   writeFileSync("./dev.error.js", output, { encoding: "utf-8" });
