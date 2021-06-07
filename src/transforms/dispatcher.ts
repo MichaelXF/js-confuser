@@ -41,6 +41,7 @@ import { choice, shuffle } from "../util/random";
 import { ComputeProbabilityMap } from "../probability";
 import { reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
+import Template from "../templates/template";
 
 /**
  * A Dispatcher processes function calls. All the function declarations are brought into a dictionary.
@@ -207,6 +208,8 @@ export default class Dispatcher extends Transform {
           var shuffledKeys = shuffle(Object.keys(functionDeclarations));
           var mapName = this.getPlaceholder();
 
+          var cacheName = this.getPlaceholder();
+
           // creating the dispatcher function
           // 1. create function map
           var map = VariableDeclaration(
@@ -359,30 +362,46 @@ export default class Dispatcher extends Transform {
                     AssignmentExpression(
                       "=",
                       Identifier(returnProp),
-                      FunctionExpression(
-                        [RestElement(Identifier(getterArgName))],
-                        [
-                          // Arg setter
-                          ExpressionStatement(
-                            AssignmentExpression(
-                              "=",
-                              Identifier(payloadArg),
-                              Identifier(getterArgName)
-                            )
+                      LogicalExpression(
+                        "||",
+                        MemberExpression(
+                          Identifier(cacheName),
+                          Identifier(x),
+                          true
+                        ),
+                        AssignmentExpression(
+                          "=",
+                          MemberExpression(
+                            Identifier(cacheName),
+                            Identifier(x),
+                            true
                           ),
-
-                          // Call fn & return
-                          ReturnStatement(
-                            CallExpression(
-                              MemberExpression(
-                                getAccessor(),
-                                Identifier("call"),
-                                false
+                          FunctionExpression(
+                            [RestElement(Identifier(getterArgName))],
+                            [
+                              // Arg setter
+                              ExpressionStatement(
+                                AssignmentExpression(
+                                  "=",
+                                  Identifier(payloadArg),
+                                  Identifier(getterArgName)
+                                )
                               ),
-                              [ThisExpression(), Literal(gen.generate())]
-                            )
-                          ),
-                        ]
+
+                              // Call fn & return
+                              ReturnStatement(
+                                CallExpression(
+                                  MemberExpression(
+                                    getAccessor(),
+                                    Identifier("call"),
+                                    false
+                                  ),
+                                  [ThisExpression(), Literal(gen.generate())]
+                                )
+                              ),
+                            ]
+                          )
+                        )
                       )
                     )
                   ),
@@ -547,6 +566,16 @@ export default class Dispatcher extends Transform {
               );
             }
           });
+
+          prepend(
+            object,
+            VariableDeclaration(
+              VariableDeclarator(
+                Identifier(cacheName),
+                Template(`Object.create(null)`).single().expression
+              )
+            )
+          );
         }
       }
     };
