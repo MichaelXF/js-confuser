@@ -155,7 +155,19 @@ export default class Dispatcher extends Transform {
               return;
             }
             var info = getIdentifierInfo(o, p);
-            if (info.spec.isModified) {
+            if (info.spec.isDefined) {
+              if (info.isFunctionDeclaration) {
+                if (
+                  p[0].id &&
+                  (!functionDeclarations[p[0].id.name] ||
+                    functionDeclarations[p[0].id.name][0] !== p[0])
+                ) {
+                  illegalFnNames.add(o.name);
+                }
+              } else {
+                illegalFnNames.add(o.name);
+              }
+            } else if (info.spec.isModified) {
               illegalFnNames.add(o.name);
             } else if (info.spec.isReferenced) {
               identifiers.push([o, p]);
