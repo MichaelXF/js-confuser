@@ -53,13 +53,17 @@ export default class ObjectExtraction extends Transform {
 
     return () => {
       // First pass through to find the maps
-      var objectDefs: { [name: string]: Location } = {};
+      var objectDefs: { [name: string]: Location } = Object.create(null);
+      var objectDefiningIdentifiers: { [name: string]: Location } =
+        Object.create(null);
+
+      var illegal = new Set<string>();
 
       walk(context, contextParents, (object: Node, parents: Node[]) => {
         if (getVarContext(object, parents) != context) {
           return;
         }
-        if (object.type == "ObjectExpression") {
+        if (object.type == "ObjectExpression" && object.properties.length) {
           // this.log(object, parents);
           if (
             parents[0].type == "VariableDeclarator" &&
@@ -68,8 +72,13 @@ export default class ObjectExtraction extends Transform {
           ) {
             var name = parents[0].id.name;
             if (name) {
-              // check for computed properties
+              // duplicate name
+              if (objectDefiningIdentifiers[name]) {
+                illegal.add(name);
+                return;
+              }
 
+              // check for computed properties
               object.properties.forEach((prop) => {
                 if (prop.computed && prop.key.type == "Literal") {
                   prop.computed = false;
@@ -93,11 +102,20 @@ export default class ObjectExtraction extends Transform {
                   );
                 } else {
                   objectDefs[name] = [object, parents];
+                  objectDefiningIdentifiers[name] = [
+                    parents[0].id,
+                    [...parents],
+                  ];
                 }
               }
             }
           }
         }
+      });
+
+      illegal.forEach((name) => {
+        delete objectDefs[name];
+        delete objectDefiningIdentifiers[name];
       });
 
       // this.log("object defs", objectDefs);
@@ -111,92 +129,98 @@ export default class ObjectExtraction extends Transform {
 
         // Second pass through the exclude the dynamic map (counting keys, re-assigning)
         walk(context, contextParents, (object: any, parents: Node[]) => {
-          if (getVarContext(object, parents) != context) {
-            return;
-          }
-          if (
-            object.type == "Identifier" &&
-            parents[0].type != "VariableDeclarator"
-          ) {
+          if (object.type == "Identifier") {
             var info = getIdentifierInfo(object, parents);
             if (!info.spec.isReferenced) {
               return;
             }
-            if (objectDefs[object.name]) {
-              var def = objectDefs[object.name];
-              var isMemberExpression =
-                parents[0].type == "MemberExpression" &&
-                parents[0].object == object;
-
+            var def = objectDefs[object.name];
+            if (def) {
               var isIllegal = false;
-              if (
-                parents.some((x) => x.type == "AssignmentExpression") &&
-                !isMemberExpression
-              ) {
-                this.log(object.name, "you can't re-assign the object");
 
-                isIllegal = true;
-              } else if (isMemberExpression) {
-                var key = parents[0].property.value || parents[0].property.name;
-                if (
-                  !["Literal", "Identifier"].includes(parents[0].property.type)
-                ) {
-                  // only allow literal and identifier accessors
-                  // Literal: obj["key"]
-                  // Identifier: obj.key
-                  this.log(
-                    object.name,
-                    "Only allowed literal and identifier accessors"
-                  );
+              if (info.spec.isDefined) {
+                if (objectDefiningIdentifiers[object.name][0] !== object) {
+                  this.log(object.name, "you can't redefine the object");
                   isIllegal = true;
-                } else if (
-                  parents[0].property.type == "Identifier" &&
-                  parents[0].computed
-                ) {
-                  // no: object[key], only: object.key
-                  this.log(object.name, "no: object[key], only: object.key");
-
-                  isIllegal = true;
-                } else if (
-                  !def[0].properties.some(
-                    (x) => (x.key.value || x.key.name) == key
-                  )
-                ) {
-                  // check if initialized property
-                  // not in initialized object.
-                  this.log(
-                    object.name,
-                    "not in initialized object.",
-                    def[0].properties,
-                    key
-                  );
-                  isIllegal = true;
-                } else {
-                  // allowed.
-                  // start the array if first time
-                  if (!objectDefChanges[object.name]) {
-                    objectDefChanges[object.name] = [];
-                  }
-                  if (
-                    !objectDefChanges[object.name].some(
-                      (x) => x.object == object
-                    )
-                  ) {
-                    // add to array
-                    objectDefChanges[object.name].push({
-                      key: key,
-                      object: object,
-                      parents: parents,
-                    });
-                  }
                 }
               } else {
-                this.log(
-                  object.name,
-                  "you must access a property on the when referring to the identifier (accessors must be hard-coded literals)"
-                );
+                var isMemberExpression =
+                  parents[0].type == "MemberExpression" &&
+                  parents[0].object == object;
 
-                isIllegal = true;
+                if (
+                  parents.some((x) => x.type == "AssignmentExpression") &&
+                  !isMemberExpression
+                ) {
+                  this.log(object.name, "you can't re-assign the object");
+
+                  isIllegal = true;
+                } else if (isMemberExpression) {
+                  var key =
+                    parents[0].property.value || parents[0].property.name;
+                  if (
+                    !["Literal", "Identifier"].includes(
+                      parents[0].property.type
+                    )
+                  ) {
+                    // only allow literal and identifier accessors
+                    // Literal: obj["key"]
+                    // Identifier: obj.key
+                    this.log(
+                      object.name,
+                      "Only allowed literal and identifier accessors"
+                    );
+                    isIllegal = true;
+                  } else if (
+                    parents[0].property.type == "Identifier" &&
+                    parents[0].computed
+                  ) {
+                    // no: object[key], only: object.key
+                    this.log(object.name, "no: object[key], only: object.key");
+
+                    isIllegal = true;
+                  } else if (
+                    !def[0].properties.some(
+                      (x) => (x.key.value || x.key.name) == key
+                    )
+                  ) {
+                    // check if initialized property
+                    // not in initialized object.
+                    this.log(
+                      object.name,
+                      "not in initialized object.",
+                      def[0].properties,
+                      key
+                    );
+                    isIllegal = true;
+                  } else {
+                    // allowed.
+                    // start the array if first time
+                    if (!objectDefChanges[object.name]) {
+                      objectDefChanges[object.name] = [];
+                    }
+                    if (
+                      !objectDefChanges[object.name].some(
+                        (x) => x.object == object
+                      )
+                    ) {
+                      // add to array
+                      objectDefChanges[object.name].push({
+                        key: key,
+                        object: object,
+                        parents: parents,
+                      });
+                    }
+                  }
+                } else {
+                  this.log(
+                    object.name,
+                    "you must access a property on the when referring to the identifier (accessors must be hard-coded literals), parent is " +
+                      parents[0].type
+                  );
+
+                  isIllegal = true;
+                }
               }
 
               if (isIllegal) {
