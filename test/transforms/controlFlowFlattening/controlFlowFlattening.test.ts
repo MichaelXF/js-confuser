@@ -1,4 +1,4 @@
-import JsConfuser from "../../src/index";
+import JsConfuser from "../../../src/index";
 
 it("should execute in the correct order (ControlFlowFlattening)", async () => {
   var code = `
@@ -74,41 +74,6 @@ it("should obfuscate while loops (ControlFlowObfuscation)", async () => {
   });
 
   expect(output).toContain("switch");
-
-  function input(array) {
-    expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  }
-
-  eval(output);
-});
-
-it("should obfuscate numbered switch statements (SwitchCaseObfuscation)", async () => {
-  var code = `
-    var array = [];
-
-    function runOnce(stateParam){
-      switch(stateParam){
-        case 1: array.push(1, 2, 3); break;
-        case 2: array.push(4, 5, 6); break;
-        case 3: array.push(7, 8, 9); break;
-        case 4: array.push(10); break;
-      }
-    }
-
-    runOnce(1);
-    runOnce(2);
-    runOnce(3);
-    runOnce(4);
-
-    input(array);
-  `;
-
-  var output = await JsConfuser(code, {
-    target: "browser",
-    controlFlowFlattening: true,
-  });
-
-  expect(output).not.toContain("case 1:");
 
   function input(array) {
     expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -217,4 +182,37 @@ it("should accept percentages", async () => {
   }
 
   eval(output);
+});
+
+it("should work when obfuscated multiple times", async () => {
+  var code = `
+    var array = [];
+    var i = 1;
+
+    while ( i <= 10 ) {
+      array.push(i);
+      i++
+    }
+
+    input(array);
+  `; // [1,2,3,4,5,6,7,8,9,10]
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    controlFlowFlattening: true,
+  });
+
+  var doublyObfuscated = await JsConfuser(output, {
+    target: "node",
+    controlFlowFlattening: true,
+  });
+
+  // expect(output).toContain("switch");
+  // expect(output).toContain("while");
+
+  function input(array) {
+    expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  }
+
+  eval(doublyObfuscated);
 });

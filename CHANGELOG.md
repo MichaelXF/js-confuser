@@ -1,3 +1,19 @@
+# `1.1.5`
+Performance Improvements
+
+- String Concealing results are now cached
+
+- Minification improvements
+- - `a += -1` -> `a -= 1`
+- - `a -= -1` -> `a += 1`
+- - `a + -b` -> `a - b`
+- - `a - -b` -> `a + b`
+
+- Dispatcher no longer applies to redefined functions
+
+- Ensure `controlFlowFlattening` numbers don't get too large
+  (hardcoded limit of 100,000)
+
 # `1.1.4`
 Improved ES5 Support
 
@@ -11,6 +27,7 @@ Improved ES5 Support
 - Improved `controlFlowFlattening` to use multiple state variables
 - Added chained-calls to `duplicateLiteralsRemoval`, similar to obfuscator.io's [`stringArrayWrappersChainedCalls`](https://github.com/javascript-obfuscator/javascript-obfuscator) option
 
+Available now on NPM: https://www.npmjs.com/package/js-confuser
 
 # `1.1.3`
 Minification Changes
@@ -28,6 +45,8 @@ Minification Changes
 - Fixed Flatten bug causing undefined return values
 
 - Support for transpiling [ES6 template strings](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals)
+
+Available now on NPM: https://www.npmjs.com/package/js-confuser
 
 # `1.1.2`
 New String Compression feature and Fixed Syntax errors

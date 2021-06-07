@@ -2,7 +2,7 @@ import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import { ComputeProbabilityMap } from "../../probability";
 import Template from "../../templates/template";
-import { isBlock } from "../../traverse";
+import { isBlock, walk } from "../../traverse";
 import {
   AssignmentExpression,
   BinaryExpression,
@@ -19,7 +19,10 @@ import {
   VariableDeclarator,
   WhileStatement,
 } from "../../util/gen";
-import { containsLexicallyBoundVariables } from "../../util/identifiers";
+import {
+  containsLexicallyBoundVariables,
+  getIdentifierInfo,
+} from "../../util/identifiers";
 import { clone, getBlockBody } from "../../util/insert";
 import { choice, getRandomInteger, shuffle } from "../../util/random";
 import Transform from "../transform";
@@ -69,12 +72,42 @@ export default class ControlFlowFlattening extends Transform {
         // Fix 1. Bring hoisted functions up to be declared first
 
         var functionDeclarations: Set<Node> = new Set();
+        var fnNames: Set<string> = new Set();
 
         body.forEach((stmt, i) => {
           if (stmt.type == "FunctionDeclaration") {
             functionDeclarations.add(stmt);
+            fnNames.add(stmt.id && stmt.id.name);
           }
         });
+
+        if (functionDeclarations.size) {
+          walk(object, parents, (o, p) => {
+            if (o.type == "Identifier") {
+              var info = getIdentifierInfo(o, p);
+              if (!info.spec.isReferenced) {
+                return;
+              }
+
+              if (info.spec.isModified) {
+                fnNames.delete(o.name);
+              } else if (info.spec.isDefined) {
+                if (info.isFunctionDeclaration) {
+                  if (!functionDeclarations.has(p[0])) {
+                    fnNames.delete(o.name);
+                  }
+                } else {
+                  fnNames.delete(o.name);
+                }
+              }
+            }
+          });
+        }
+
+        // redefined function,
+        if (functionDeclarations.size !== fnNames.size) {
+          return;
+        }
 
         var chunks: Node[][] = [[]];
 
@@ -340,8 +373,6 @@ export default class ControlFlowFlattening extends Transform {
             [switchStatement]
           )
         );
-
-        object.$controlFlowObfuscation = 1;
       }
     };
   }
