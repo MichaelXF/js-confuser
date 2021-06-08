@@ -269,14 +269,6 @@ export default class ObjectExtraction extends Transform {
             newPropNames[keyName] = nn;
 
             var v = property.value;
-            if (v.type == "FunctionExpression") {
-              // Use FunctionDeclaration for functions
-              v = {
-                ...v,
-                type: "FunctionDeclaration",
-                id: Identifier(nn),
-              };
-            }
 
             variableDeclarators.push(
               VariableDeclarator(nn, this.addComment(v, `${name}.${keyName}`))
