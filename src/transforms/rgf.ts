@@ -76,6 +76,8 @@ export default class RGF extends Transform {
         if (
           object !== contextObject &&
           isFunction(object) &&
+          !object.async &&
+          !object.generator &&
           getVarContext(parents[0], parents.slice(1)) === contextObject
         ) {
           var defined = new Set<string>(),
