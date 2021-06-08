@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import JsConfuser from "./index";
 
-var code = readFileSync("./dev.error.js", "utf-8");
+var code = readFileSync("./dev.input.js", "utf-8");
 
 eval(code);
 
@@ -9,19 +9,18 @@ JsConfuser.obfuscate(code, {
   target: "node",
   preset: "high",
 
-  globalConcealing: true,
-  flatten: true,
+  globalConcealing: false,
+  flatten: false,
   stack: true,
-  opaquePredicates: true,
-  dispatcher: true,
-  controlFlowFlattening: true,
+  opaquePredicates: false,
+  dispatcher: false,
+  controlFlowFlattening: false,
 
   stringConcealing: false,
   stringCompression: false,
   stringEncoding: false,
   stringSplitting: false,
 
-  deadCode: false,
   duplicateLiteralsRemoval: false,
   shuffle: false,
   calculator: false,
@@ -30,8 +29,10 @@ JsConfuser.obfuscate(code, {
   compact: false,
 
   verbose: true,
+  deadCode: false,
+  renameVariables: false,
+  debugComments: true,
 }).then((output) => {
-  console.log(output);
   writeFileSync("./dev.error.js", output, { encoding: "utf-8" });
 
   eval(output);

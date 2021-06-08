@@ -147,10 +147,15 @@ export default class Flatten extends Transform {
         );
       }
 
-      prepend(
-        parents[parents.length - 1],
-        FunctionDeclaration(newName, clone(object.params), newBody)
+      var newFunctionDeclaration = FunctionDeclaration(
+        newName,
+        clone(object.params),
+        newBody
       );
+      newFunctionDeclaration.async = !!object.async;
+      newFunctionDeclaration.generator = !!object.generator;
+
+      prepend(parents[parents.length - 1], newFunctionDeclaration);
 
       var newParamNodes = object.params.map(() =>
         Identifier(this.getPlaceholder())

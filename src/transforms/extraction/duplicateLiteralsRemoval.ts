@@ -74,6 +74,19 @@ export default class DuplicateLiteralsRemoval extends Transform {
     this.fnGetters = new Map();
   }
 
+  apply(tree) {
+    super.apply(tree);
+
+    if (this.arrayName && this.arrayExpression.elements.length) {
+      prepend(
+        tree,
+        VariableDeclaration(
+          VariableDeclarator(this.arrayName, this.arrayExpression)
+        )
+      );
+    }
+  }
+
   match(object: Node, parents: Node[]) {
     return (
       isPrimitive(object) &&
@@ -223,13 +236,6 @@ export default class DuplicateLiteralsRemoval extends Transform {
         if (!this.arrayName) {
           this.arrayName = this.getPlaceholder();
           this.arrayExpression = ArrayExpression([]);
-
-          prepend(
-            parents[parents.length - 1] || object,
-            VariableDeclaration(
-              VariableDeclarator(this.arrayName, this.arrayExpression)
-            )
-          );
         }
 
         var first = this.first.get(value);

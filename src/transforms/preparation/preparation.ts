@@ -181,7 +181,7 @@ export default class Preparation extends Transform {
       this.before.push(new AntiDestructuring(o));
     }
 
-    this.before.push(new NameConflicts(o));
+    // this.before.push(new NameConflicts(o));
   }
 
   match() {

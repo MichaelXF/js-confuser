@@ -1,3 +1,6 @@
+# `1.1.6`
+- `delete` operator is now properly parsed
+
 # `1.1.5`
 Performance Improvements
 
@@ -18,7 +21,7 @@ Performance Improvements
 - Ensure `controlFlowFlattening` numbers don't get too large
   (hardcoded limit of 100,000)
 
-- Opaque Predicates now excludes await expressions 
+- Opaque Predicates now excludes await expressions
 
 Available now on NPM: https://www.npmjs.com/package/js-confuser
 
