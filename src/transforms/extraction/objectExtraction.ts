@@ -62,10 +62,7 @@ export default class ObjectExtraction extends Transform {
       var illegal = new Set<string>();
 
       walk(context, contextParents, (object: Node, parents: Node[]) => {
-        if (getVarContext(object, parents) != context) {
-          return;
-        }
-        if (object.type == "ObjectExpression" && object.properties.length) {
+        if (object.type == "ObjectExpression") {
           // this.log(object, parents);
           if (
             parents[0].type == "VariableDeclarator" &&
@@ -74,6 +71,15 @@ export default class ObjectExtraction extends Transform {
           ) {
             var name = parents[0].id.name;
             if (name) {
+              if (getVarContext(object, parents) != context) {
+                illegal.add(name);
+                return;
+              }
+              if (!object.properties.length) {
+                illegal.add(name);
+                return;
+              }
+
               // duplicate name
               if (objectDefiningIdentifiers[name]) {
                 illegal.add(name);
@@ -93,6 +99,8 @@ export default class ObjectExtraction extends Transform {
                   name + " has computed property: " + computed.key.name ||
                     computed.key.value
                 );
+                illegal.add(name);
+                return;
               } else {
                 var illegalName = object.properties
                   .map((x) =>
@@ -104,7 +112,21 @@ export default class ObjectExtraction extends Transform {
                   this.log(
                     name + " has an illegal property '" + illegalName + "'"
                   );
+                  illegal.add(name);
+                  return;
                 } else {
+                  var isIllegal = false;
+                  walk(object, parents, (o, p) => {
+                    if (o.type == "ThisExpression" || o.type == "Super") {
+                      isIllegal = true;
+                      return "EXIT";
+                    }
+                  });
+                  if (isIllegal) {
+                    illegal.add(name);
+                    return;
+                  }
+
                   objectDefs[name] = [object, parents];
                   objectDefiningIdentifiers[name] = [
                     parents[0].id,
