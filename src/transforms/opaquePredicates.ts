@@ -141,12 +141,12 @@ export default class OpaquePredicates extends Transform {
 
           case "number":
             this.predicate.properties.push(
-              Property(Identifier(prop), Literal(getRandomInteger(10, 90)))
+              Property(Identifier(prop), Literal(getRandomInteger(15, 90)))
             );
             expr = BinaryExpression(
               ">",
               accessor,
-              Literal(getRandomInteger(2, 9))
+              Literal(getRandomInteger(-90, 10))
             );
             break;
 
