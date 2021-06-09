@@ -81,7 +81,7 @@ class GlobalAnalysis extends Transform {
       var memberIndex = parents.findIndex((x) => x.type == "MemberExpression");
       if (
         memberIndex == -1 ||
-        parents[memberIndex].object !== (parents[memberIndex - 1] || object)
+        memberIndex > (assignmentIndex == -1 ? assignmentIndex : updateIndex)
       ) {
         delete this.globals[object.name];
 
