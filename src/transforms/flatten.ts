@@ -1,6 +1,6 @@
 import { reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
-import { walk } from "../traverse";
+import traverse, { walk } from "../traverse";
 import {
   FunctionDeclaration,
   Identifier,
@@ -39,12 +39,46 @@ import Transform from "./transform";
  * ```
  */
 export default class Flatten extends Transform {
+  definedNames: Map<Node, Set<string>>;
+
   constructor(o) {
     super(o, ObfuscateOrder.Flatten);
+
+    this.definedNames = new Map();
+  }
+
+  apply(tree) {
+    traverse(tree, (o, p) => {
+      if (
+        o.type == "Identifier" &&
+        !reservedIdentifiers.has(o.name) &&
+        !this.options.globalVariables.has(o.name)
+      ) {
+        var info = getIdentifierInfo(o, p);
+        if (info.spec.isReferenced) {
+          if (info.spec.isDefined) {
+            var c = getVarContext(o, p);
+            if (c) {
+              if (!this.definedNames.has(c)) {
+                this.definedNames.set(c, new Set([o.name]));
+              } else {
+                this.definedNames.get(c).add(o.name);
+              }
+            }
+          }
+        }
+      }
+    });
+
+    super.apply(tree);
   }
 
   match(object: Node, parents: Node[]) {
-    return isFunction(object) && object.body.type == "BlockStatement";
+    return (
+      isFunction(object) &&
+      object.body.type == "BlockStatement" &&
+      !object.generator
+    );
   }
 
   transform(object: Node, parents: Node[]) {
@@ -56,6 +90,16 @@ export default class Flatten extends Transform {
       var modified = new Set<string>();
 
       var illegal = new Set<string>();
+      var isIllegal = false;
+
+      var definedAbove = new Set<string>(this.options.globalVariables);
+
+      parents.forEach((x) => {
+        var set = this.definedNames.get(x);
+        if (set) {
+          set.forEach((name) => definedAbove.add(name));
+        }
+      });
 
       walk(object, parents, (o, p) => {
         if (object.id && o === object.id) {
@@ -68,28 +112,53 @@ export default class Flatten extends Transform {
           !reservedIdentifiers.has(o.name)
         ) {
           var info = getIdentifierInfo(o, p);
+          if (!info.spec.isReferenced) {
+            return;
+          }
 
           if (info.spec.isDefined) {
             defined.add(o.name);
           } else if (info.spec.isModified) {
             modified.add(o.name);
-          } else if (info.spec.isReferenced) {
+          } else {
             references.add(o.name);
           }
         }
 
         if (o.type == "Identifier") {
           if (o.name == "arguments") {
-            illegal.add("1");
+            isIllegal = true;
+            return "EXIT";
           }
-        } else if (o.type == "ThisExpression") {
-          illegal.add("1");
-        } else if (o.type == "Super") {
-          illegal.add("1");
-        } else if (o.type == "MetaProperty") {
-          illegal.add("1");
+        }
+
+        if (o.type == "ThisExpression") {
+          isIllegal = true;
+          return "EXIT";
+        }
+
+        if (o.type == "Super") {
+          isIllegal = true;
+          return "EXIT";
+        }
+
+        if (o.type == "MetaProperty") {
+          isIllegal = true;
+          return "EXIT";
+        }
+
+        if (o.type == "VariableDeclaration" && o.kind !== "var") {
+          isIllegal = true;
+          return "EXIT";
         }
       });
+
+      if (isIllegal) {
+        return;
+      }
+      if (illegal.size) {
+        return;
+      }
 
       illegal.forEach((name) => {
         defined.delete(name);
@@ -102,11 +171,12 @@ export default class Flatten extends Transform {
       // console.log(object.id.name, illegal, references);
 
       var input = Array.from(new Set([...modified, ...references]));
-      var output = Array.from(modified);
 
-      if (illegal.size) {
+      if (Array.from(input).find((x) => !definedAbove.has(x))) {
         return;
       }
+
+      var output = Array.from(modified);
 
       var newName =
         "flatten" +
@@ -161,6 +231,7 @@ export default class Flatten extends Transform {
         Identifier(this.getPlaceholder())
       );
 
+      // var result = newFn.call([...refs], ...arguments)
       var call = VariableDeclaration(
         VariableDeclarator(
           "result",
@@ -171,10 +242,18 @@ export default class Flatten extends Transform {
         )
       );
 
+      // result.pop()
       var pop = CallExpression(
         MemberExpression(Identifier("result"), Identifier("pop"), false),
         []
       );
+
+      // var result = newFn.call([...refs], ...arguments)
+      // modified1 = result.pop();
+      // modified2 = result.pop();
+      // ...modifiedN = result.pop();...
+      //
+      // return result.pop()
 
       object.body = BlockStatement([
         call,
