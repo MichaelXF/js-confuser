@@ -37,55 +37,109 @@ export default class MovedDeclarations extends Transform {
       var block = getBlock(object, parents);
 
       var varDecs: Location[] = [];
-      var varNames: Set<string> = new Set();
+      var varNames = new Set<string>();
+      var illegal = new Set<string>();
+      var toReplace: [string[], Node, Node][] = [];
+      var definingIdentifiers = new Map<string, Node>();
 
       walk(object, parents, (o: Node, p: Node[]) => {
-        var s = getBlock(o, p);
-        if (s != block) {
-          return;
+        if (o.type == "Identifier") {
+          var info = getIdentifierInfo(o, p);
+          if (info.spec.isDefined && definingIdentifiers.has(o.name)) {
+            illegal.add(o.name);
+            this.log(o.name, "is illegal due to detected being redefined");
+          }
         }
-        return () => {
-          if (
-            o.type == "VariableDeclaration" &&
-            o.declarations.length &&
-            o.kind !== "let"
-          ) {
-            if (isForInitialize(o, p)) {
-              return;
-            }
 
-            varDecs.push([o, p]);
+        var s = getBlock(o, p);
+        if (s == block) {
+          return () => {
+            if (
+              o.type == "VariableDeclaration" &&
+              o.declarations.length &&
+              o.kind !== "let" &&
+              !o.declarations.find(
+                (x) => x.id.type !== "Identifier" || illegal.has(x.id.name)
+              )
+            ) {
+              var index = block.body.indexOf(o);
+              if (index === 0) {
+                o.declarations.forEach((x) => {
+                  illegal.add(x.id.name);
+                });
+                this.log(
+                  o.declarations.map((x) => x.id.name).join(", "),
+                  "is/are illegal due to already being at the top"
+                );
+                return;
+              }
 
-            o.declarations.forEach((declarator) => {
-              walk(declarator.id, [declarator, ...p], (dO, dP) => {
-                if (dO.type == "Identifier") {
-                  var info = getIdentifierInfo(dO, dP);
-                  if (info.spec.isReferenced) {
-                    varNames.add(dO.name);
-                  }
+              if (isForInitialize(o, p)) {
+                this.log(
+                  o.declarations.map((x) => x.id.name).join(", "),
+                  "is/are illegal due to being in for initializer"
+                );
+                return;
+              }
+
+              var isIllegal = false;
+              o.declarations.forEach((x) => {
+                if (varNames.has(x.id.name)) {
+                  illegal.add(x.id.name);
+                  isIllegal = true;
+
+                  this.log(
+                    x.id.name,
+                    "is illegal due to already being defined"
+                  );
                 }
               });
-            });
 
-            // Change this line to assignment expressions
+              if (!isIllegal) {
+                varDecs.push([o, p]);
 
-            var assignmentExpressions = o.declarations.map((x) =>
-              AssignmentExpression(
-                "=",
-                clone(x.id),
-                clone(x.init) || Identifier("undefined")
-              )
-            );
+                o.declarations.forEach((x) => {
+                  ok(x.id.name);
+                  varNames.add(x.id.name);
 
-            ok(assignmentExpressions.length, "Should be at least 1");
+                  definingIdentifiers.set(x.id.name, x.id);
+                });
 
-            var value: Node = SequenceExpression(assignmentExpressions);
+                // Change this line to assignment expressions
 
-            value = ExpressionStatement(value);
+                var assignmentExpressions = o.declarations.map((x) =>
+                  AssignmentExpression(
+                    "=",
+                    clone(x.id),
+                    clone(x.init) || Identifier("undefined")
+                  )
+                );
 
-            this.replace(o, value);
-          }
-        };
+                ok(assignmentExpressions.length, "Should be at least 1");
+
+                var value: Node = SequenceExpression(assignmentExpressions);
+
+                value = ExpressionStatement(value);
+
+                toReplace.push([
+                  o.declarations.map((x) => x.id.name),
+                  o,
+                  value,
+                ]);
+              }
+            }
+          };
+        }
+      });
+
+      illegal.forEach((name) => {
+        varNames.delete(name);
+      });
+
+      toReplace.forEach((x) => {
+        if (!x[0].find((x) => illegal.has(x))) {
+          this.replace(x[1], x[2]);
+        }
       });
 
       // Define the names in this block as 1 variable declaration
