@@ -122,30 +122,29 @@ class MinifyBlock extends Transform {
         // var c = 1;
         //
         // var a=1,b=1,c=1;
-        var stmts = getBlockBody(object);
         var lastDec = null;
 
         var remove = [];
-
-        stmts.forEach((x, i) => {
-          if (x.type == "VariableDeclaration") {
-            if (!lastDec) {
+        body.forEach((x, i) => {
+          if (x.type === "VariableDeclaration") {
+            if (
+              !lastDec ||
+              lastDec.kind !== x.kind ||
+              !lastDec.declarations.length
+            ) {
               lastDec = x;
             } else {
               lastDec.declarations.push(...x.declarations);
-              remove.push(i);
+              remove.unshift(i);
             }
           } else {
             lastDec = null;
           }
         });
 
-        remove
-          .sort()
-          .reverse()
-          .forEach((x) => {
-            stmts.splice(x, 1);
-          });
+        remove.forEach((x) => {
+          body.splice(x, 1);
+        });
       }
     };
   }
@@ -277,6 +276,7 @@ export default class Minify extends Transform {
           // x=>{a: 1} // Invalid syntax
           if (stmt1.argument.type != "ObjectExpression") {
             object.body = stmt1.argument;
+            object.expression = true;
           }
         } else {
           // ()=>{exprStmt;exprStmt;} -> ()=>(expr, expr, expr, undefined)
@@ -366,7 +366,7 @@ export default class Minify extends Transform {
       if (object.body.type == "BlockStatement") {
         return () => {
           if (object.body.body.length === 1) {
-            object.body = clone(object.body.body[0]);
+            object.body = object.body.body[0];
           }
         };
       }
