@@ -251,7 +251,9 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     isImportSpecifier,
 
     /**
-     * `delete identifier[identifier]`
+     * ```js
+     * delete identifier[identifier]
+     * ```
      */
     isDeleteExpression: isDeleteExpression,
 

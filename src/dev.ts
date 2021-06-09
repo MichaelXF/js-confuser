@@ -5,34 +5,34 @@ var code = readFileSync("./dev.input.js", "utf-8");
 
 eval(code);
 
-JsConfuser.obfuscate(code, {
-  target: "node",
+// {preset: "high"} twice errors
+// Cannot read property 'GpIJHtL' of undefined
+// Cannot set property 'length' of undefined
+
+/**
+ *  target: "node",
   preset: "high",
-
-  globalConcealing: false,
-  flatten: false,
-  stack: true,
   opaquePredicates: false,
-  dispatcher: false,
-  controlFlowFlattening: false,
-
+  stringSplitting: false,
   stringConcealing: false,
   stringCompression: false,
   stringEncoding: false,
-  stringSplitting: false,
-
-  duplicateLiteralsRemoval: false,
-  shuffle: false,
+  objectExtraction: false,
   calculator: false,
-  movedDeclarations: false,
-  minify: false,
-  compact: false,
+  controlFlowFlattening: false,
 
-  verbose: true,
-  deadCode: false,
-  renameVariables: false,
-  debugComments: true,
+  Three times errors
+  (node:8788) UnhandledPromiseRejectionWarning: ReferenceError: version is not defined
+ */
+
+// {preset: "high", duplicateLiteralsRemoval: false} twice infinte loops and no output
+
+console.log(">");
+JsConfuser.obfuscate(code, {
+  target: "node",
+  preset: "high",
 }).then((output) => {
+  console.log("<");
   writeFileSync("./dev.error.js", output, { encoding: "utf-8" });
 
   eval(output);

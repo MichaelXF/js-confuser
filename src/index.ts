@@ -54,7 +54,11 @@ var JsConfuser: IJsConfuser = async function (
 
   options = await correctOptions(options);
 
+  options.verbose && console.log("* Parsing source code");
+
   var tree = await parseJS(code);
+
+  options.verbose && console.log("* Obfuscating...");
 
   var obfuscator = new Obfuscator(options);
 

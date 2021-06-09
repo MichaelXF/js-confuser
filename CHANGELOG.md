@@ -1,5 +1,10 @@
 # `1.1.6`
 - `delete` operator is now properly parsed
+- RGF now skips async and generator functions
+- Object Extraction now places the extracted properties in the same position as the declaration
+- Name Conflicts disabled to speed up obfuscation times
+- Improvements to Minify
+  (better Variable Grouping)
 
 # `1.1.5`
 Performance Improvements
