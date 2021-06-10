@@ -125,6 +125,11 @@ export default class Flatten extends Transform {
           }
         }
 
+        if (o.type == "TryStatement") {
+          isIllegal = true;
+          return "EXIT";
+        }
+
         if (o.type == "Identifier") {
           if (o.name == "arguments") {
             isIllegal = true;
