@@ -35,6 +35,8 @@ function percentage(decimal) {
   (better Variable Grouping)
 - The `renameGlobals` option now has affect
 
+Available now on NPM: https://www.npmjs.com/package/js-confuser
+
 # `1.1.5`
 Performance Improvements
 
