@@ -159,6 +159,7 @@ export default class StringConcealing extends Transform {
     return (
       object.type == "Program" ||
       (object.type == "Literal" &&
+        typeof object.value === "string" &&
         !isModuleSource(object, parents) &&
         !isDirective(object, parents)) //&&
       /*!parents.find((x) => x.$dispatcherSkip)*/
@@ -213,7 +214,7 @@ export default class StringConcealing extends Transform {
 
       // The decode function must return correct result
       if (decode_ascii85(encode_ascii85(object.value)) != object.value) {
-        this.warn(object.value);
+        this.warn(object.value.slice(0, 100));
         return;
       }
 
