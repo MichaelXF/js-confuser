@@ -56,7 +56,7 @@ const { version: dashboardPluginVersion } = require('@redacted/enterprise-plugin
 const { version: componentsVersion } = require('@redacted/components/package');
 const { sdkVersion } = require('@redacted/enterprise-plugin');
 const isStandaloneExecutable = require('../utils/isStandaloneExecutable');
-const resolveLocalredactedPath = require('./resolve-local-redacted-path');
+const resolveLocalRedactedPath = require('./resolve-local-redacted-path');
 
 const redactedPath = path.resolve(__dirname, '../redacted.js');`),
 
@@ -158,7 +158,10 @@ export default class DeadCode extends Transform {
         var body = getBlockBody(object);
         var index = getRandomInteger(0, body.length);
 
-        var template = choice(templates);
+        var template;
+        do {
+          template = choice(templates);
+        } while (this.options.es5 && template.source.includes("async"));
 
         var ifStatement = IfStatement(
           Identifier(name),
