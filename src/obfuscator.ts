@@ -31,6 +31,7 @@ import RGF from "./transforms/rgf";
 import Flatten from "./transforms/flatten";
 import Stack from "./transforms/stack";
 import StringCompression from "./transforms/string/stringCompression";
+import NameRecycling from "./transforms/identifier/nameRecycling";
 
 /**
  * The parent transformation holding the `state`.
@@ -75,6 +76,8 @@ export default class Obfuscator extends EventEmitter {
     test(options.stringEncoding, StringEncoding);
     test(options.stringSplitting, StringSplitting);
     test(options.renameVariables, RenameVariables);
+    test(options.nameRecycling, NameRecycling);
+
     test(options.eval, Eval);
     test(options.opaquePredicates, OpaquePredicates);
     test(options.duplicateLiteralsRemoval, DuplicateLiteralsRemoval);

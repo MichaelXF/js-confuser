@@ -21,3 +21,18 @@ it("should result with correct values", async () => {
 
   eval(output);
 });
+
+it("should execute property with complex operations", async () => {
+  var code = `input((40 * 35 + 4) * 4 + 2)`;
+
+  var output = await JsConfuser(code, { target: "browser", calculator: true });
+
+  var value;
+  function input(x) {
+    value = x;
+  }
+
+  eval(output);
+
+  expect(value).toStrictEqual(5618);
+});

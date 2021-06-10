@@ -80,6 +80,18 @@ class ExplicitIdentifiers extends Transform {
   transform(object, parents) {
     var info = getIdentifierInfo(object, parents);
     if (info.isPropertyKey || info.isAccessor) {
+      var propIndex = parents.findIndex(
+        (x) => x.type == "MethodDefinition" || x.type == "Property"
+      );
+      if (propIndex !== -1) {
+        if (
+          parents[propIndex].type == "MethodDefinition" &&
+          parents[propIndex].kind == "constructor"
+        ) {
+          return;
+        }
+      }
+
       this.log(object.name, "->", `'${object.name}'`);
 
       this.replace(object, Literal(object.name));
@@ -181,7 +193,7 @@ export default class Preparation extends Transform {
       this.before.push(new AntiDestructuring(o));
     }
 
-    this.before.push(new NameConflicts(o));
+    // this.before.push(new NameConflicts(o));
   }
 
   match() {

@@ -1,3 +1,42 @@
+# `1.1.6`
+New feature: Name Recycling
+
+- **New feature:** `nameRecycling`
+- - Attempts to reuse released names.
+- - Potency Medium
+- - Resilience High
+- - Cost Low
+
+```js
+// Input
+function percentage(decimal) {
+  var multiplied = x * 100;
+  var floored = Math.floor(multiplied);
+  var output = floored + "%"
+  return output;
+}
+
+// Output
+function percentage(decimal) {
+  var multiplied = x * 100;
+  var floored = Math.floor(multiplied);
+  multiplied = floored + "%";
+  return multiplied;
+}
+```
+
+- `delete` operator is now properly parsed
+- No longers changes `constructor` method on classes
+- Added two new Dead Code samples and fixed one
+- RGF now skips async and generator functions
+- Object Extraction now places the extracted properties in the same position as the declaration
+- Name Conflicts disabled to speed up obfuscation times
+- Improvements to Minify
+  (better Variable Grouping)
+- The `renameGlobals` option now has affect
+
+Available now on NPM: https://www.npmjs.com/package/js-confuser
+
 # `1.1.5`
 Performance Improvements
 
@@ -18,7 +57,7 @@ Performance Improvements
 - Ensure `controlFlowFlattening` numbers don't get too large
   (hardcoded limit of 100,000)
 
-- Opaque Predicates now excludes await expressions 
+- Opaque Predicates now excludes await expressions
 
 Available now on NPM: https://www.npmjs.com/package/js-confuser
 

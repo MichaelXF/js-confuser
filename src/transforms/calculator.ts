@@ -16,6 +16,7 @@ import { getBlock } from "../traverse";
 import { getRandomInteger } from "../util/random";
 import { ObfuscateOrder } from "../order";
 import { ok } from "assert";
+import { OPERATOR_PRECEDENCE } from "../precedence";
 
 export default class Calculator extends Transform {
   gen: any;
@@ -79,20 +80,33 @@ export default class Calculator extends Transform {
     }
 
     if (object.type == "BinaryExpression") {
+      var operator = object.operator;
+      if (!{ "+": 1, "-": 1, "*": 1, "/": 1 }[object.operator]) {
+        return;
+      }
+
+      var myPrecedence =
+        OPERATOR_PRECEDENCE[operator] +
+        Object.keys(OPERATOR_PRECEDENCE).indexOf(operator) / 100;
+      var maxParentPrecedence = parents
+        .map(
+          (x) =>
+            x.type == "BinaryExpression" &&
+            OPERATOR_PRECEDENCE[x.operator] +
+              Object.keys(OPERATOR_PRECEDENCE).indexOf(x.operator) / 100
+        )
+        .sort()
+        .pop();
+
+      // corrupt AST
+      if (maxParentPrecedence && maxParentPrecedence > myPrecedence) {
+        return;
+      }
       return () => {
         if (parents.find((x) => x.$dispatcherSkip)) {
           return;
         }
 
-        var operator = object.operator;
-        if (
-          !operator ||
-          operator == "==" ||
-          operator == "!=" ||
-          operator == "==="
-        ) {
-          return;
-        }
         if (typeof this.ops[operator] !== "number") {
           var newState;
           do {

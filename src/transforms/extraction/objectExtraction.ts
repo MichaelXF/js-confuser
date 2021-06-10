@@ -8,6 +8,7 @@ import {
   VariableDeclarator,
 } from "../../util/gen";
 import {
+  clone,
   deleteDeclaration,
   getVarContext,
   isVarContext,
@@ -17,6 +18,7 @@ import { ObfuscateOrder } from "../../order";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { isValidIdentifier } from "../../util/compare";
 import { ComputeProbabilityMap } from "../../probability";
+import { ok } from "assert";
 
 /**
  * Extracts keys out of an object if possible.
@@ -60,10 +62,7 @@ export default class ObjectExtraction extends Transform {
       var illegal = new Set<string>();
 
       walk(context, contextParents, (object: Node, parents: Node[]) => {
-        if (getVarContext(object, parents) != context) {
-          return;
-        }
-        if (object.type == "ObjectExpression" && object.properties.length) {
+        if (object.type == "ObjectExpression") {
           // this.log(object, parents);
           if (
             parents[0].type == "VariableDeclarator" &&
@@ -72,6 +71,15 @@ export default class ObjectExtraction extends Transform {
           ) {
             var name = parents[0].id.name;
             if (name) {
+              if (getVarContext(object, parents) != context) {
+                illegal.add(name);
+                return;
+              }
+              if (!object.properties.length) {
+                illegal.add(name);
+                return;
+              }
+
               // duplicate name
               if (objectDefiningIdentifiers[name]) {
                 illegal.add(name);
@@ -91,16 +99,34 @@ export default class ObjectExtraction extends Transform {
                   name + " has computed property: " + computed.key.name ||
                     computed.key.value
                 );
+                illegal.add(name);
+                return;
               } else {
                 var illegalName = object.properties
-                  .map((x) => x.key.name || x.key.value)
-                  .find((x) => !isValidIdentifier(x));
+                  .map((x) =>
+                    x.computed ? x.key.value : x.key.name || x.key.value
+                  )
+                  .find((x) => !x || !isValidIdentifier(x));
 
                 if (illegalName) {
                   this.log(
                     name + " has an illegal property '" + illegalName + "'"
                   );
+                  illegal.add(name);
+                  return;
                 } else {
+                  var isIllegal = false;
+                  walk(object, parents, (o, p) => {
+                    if (o.type == "ThisExpression" || o.type == "Super") {
+                      isIllegal = true;
+                      return "EXIT";
+                    }
+                  });
+                  if (isIllegal) {
+                    illegal.add(name);
+                    return;
+                  }
+
                   objectDefs[name] = [object, parents];
                   objectDefiningIdentifiers[name] = [
                     parents[0].id,
@@ -149,8 +175,11 @@ export default class ObjectExtraction extends Transform {
                   parents[0].object == object;
 
                 if (
-                  parents.some((x) => x.type == "AssignmentExpression") &&
-                  !isMemberExpression
+                  (parents.find((x) => x.type == "AssignmentExpression") &&
+                    !isMemberExpression) ||
+                  parents.find(
+                    (x) => x.type == "UnaryExpression" && x.operator == "delete"
+                  )
                 ) {
                   this.log(object.name, "you can't re-assign the object");
 
@@ -158,28 +187,29 @@ export default class ObjectExtraction extends Transform {
                 } else if (isMemberExpression) {
                   var key =
                     parents[0].property.value || parents[0].property.name;
+
                   if (
-                    !["Literal", "Identifier"].includes(
-                      parents[0].property.type
-                    )
+                    parents[0].computed &&
+                    parents[0].property.type !== "Literal"
                   ) {
-                    // only allow literal and identifier accessors
-                    // Literal: obj["key"]
-                    // Identifier: obj.key
                     this.log(
                       object.name,
-                      "Only allowed literal and identifier accessors"
+                      "object[expr] detected, only object['key'] is allowed"
                     );
-                    isIllegal = true;
-                  } else if (
-                    parents[0].property.type == "Identifier" &&
-                    parents[0].computed
-                  ) {
-                    // no: object[key], only: object.key
-                    this.log(object.name, "no: object[key], only: object.key");
 
                     isIllegal = true;
                   } else if (
+                    !parents[0].computed &&
+                    parents[0].property.type !== "Identifier"
+                  ) {
+                    this.log(
+                      object.name,
+                      "object.<expr> detected, only object.key is allowed"
+                    );
+
+                    isIllegal = true;
+                  } else if (
+                    !key ||
                     !def[0].properties.some(
                       (x) => (x.key.value || x.key.name) == key
                     )
@@ -193,24 +223,20 @@ export default class ObjectExtraction extends Transform {
                       key
                     );
                     isIllegal = true;
-                  } else {
+                  }
+
+                  if (!isIllegal && key) {
                     // allowed.
                     // start the array if first time
                     if (!objectDefChanges[object.name]) {
                       objectDefChanges[object.name] = [];
                     }
-                    if (
-                      !objectDefChanges[object.name].some(
-                        (x) => x.object == object
-                      )
-                    ) {
-                      // add to array
-                      objectDefChanges[object.name].push({
-                        key: key,
-                        object: object,
-                        parents: parents,
-                      });
-                    }
+                    // add to array
+                    objectDefChanges[object.name].push({
+                      key: key,
+                      object: object,
+                      parents: parents,
+                    });
                   }
                 } else {
                   this.log(
@@ -233,12 +259,6 @@ export default class ObjectExtraction extends Transform {
           }
         });
 
-        var newVariableDeclarations: {
-          name: string;
-          map: string;
-          object: Node;
-          parents: Node[];
-        }[] = [];
         Object.keys(objectDefs).forEach((name) => {
           if (
             !ComputeProbabilityMap(
@@ -252,34 +272,42 @@ export default class ObjectExtraction extends Transform {
           }
 
           var [object, parents] = objectDefs[name];
+          var declarator = parents[0];
+          var declaration = parents[2];
+
+          ok(declarator.type === "VariableDeclarator");
+          ok(declaration.type === "VariableDeclaration");
 
           var properties = object.properties;
           // change the prop names while extracting
           var newPropNames: { [key: string]: string } = {};
+
+          var variableDeclarators = [];
+
           properties.forEach((property: Node) => {
             var keyName = property.key.name || property.key.value;
 
             var nn = name + "_" + keyName;
             newPropNames[keyName] = nn;
 
-            // Keep same order
-            newVariableDeclarations.unshift({
-              name: nn,
-              object: this.addComment(property.value, `${name}.${keyName}`),
-              parents: parents,
-              map: name,
-            });
+            var v = property.value;
+
+            variableDeclarators.push(
+              VariableDeclarator(nn, this.addComment(v, `${name}.${keyName}`))
+            );
           });
 
-          // delete the original object declaration
-          // deleteDirect(object, parents[0]);
-          deleteDeclaration(object, parents);
+          declaration.declarations.splice(
+            declaration.declarations.indexOf(declarator),
+            1,
+            ...variableDeclarators
+          );
 
-          // The array can be uninitialized (no accessors, this object has no purpose)
+          // update all identifiers that pointed to the old object
           objectDefChanges[name] &&
             objectDefChanges[name].forEach((change) => {
               if (!change.key) {
-                throw new Error("key undefined");
+                this.error(new Error("key is undefined"));
               }
               if (newPropNames[change.key]) {
                 var memberExpression = change.parents[0];
@@ -319,22 +347,6 @@ export default class ObjectExtraction extends Transform {
               Object.keys(objectDefChanges[name] || {}).length
             } line(s) of code.`
           );
-        });
-        // put the new ones in
-        newVariableDeclarations.forEach((x) => {
-          var declaration: Node = VariableDeclaration(
-            VariableDeclarator(x.name, x.object)
-          );
-          if (x.object.type == "FunctionExpression") {
-            // Use FunctionDeclaration for functions
-            declaration = {
-              ...x.object,
-              type: "FunctionDeclaration",
-              id: Identifier(x.name),
-            };
-          }
-
-          prepend(context, declaration);
         });
       }
     };

@@ -58,7 +58,6 @@ function LZ_decode(b) {
 
 const DecodeTemplate = Template(
   `function {name}(b){
-
     var o,
     f,
     a,
@@ -76,7 +75,6 @@ const DecodeTemplate = Template(
       o++,
       (f = a);
   return g.join("");
-
   }`
 );
 

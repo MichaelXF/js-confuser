@@ -61,21 +61,16 @@ const resolveLocalredactedPath = require('./resolve-local-redacted-path');
 const redactedPath = path.resolve(__dirname, '../redacted.js');`),
 
   Template(`
-module.exports = async () => {
+module.exports = async (resolveLocalRedactedPath = ()=>{throw new Error("No redacted path provided")}) => {
   const cliParams = new Set(process.argv.slice(2));
   if (!cliParams.has('--version')) {
-    // Ideally we should output version info in whatever context "--version" or "-v" params
-    // are used. Still "-v" is defined also as a "--verbose" alias in some commands.
-    // Support for "--verbose" is expected to go away with
-    // https://github.com/redacted/redacted/issues/1720
-    // Until that's addressed we can recognize "-v" only as top-level param
     if (cliParams.size !== 1) return false;
     if (!cliParams.has('-v')) return false;
   }
 
-  const installationModePostfix = await (async () => {
+  const installationModePostfix = await (async (isStandaloneExecutable, redactedPath) => {
     if (isStandaloneExecutable) return ' (standalone)';
-    if (redactedPath === (await resolveLocalredactedPath())) return ' (local)';
+    if (redactedPath === (await resolveLocalRedactedPath())) return ' (local)';
     return '';
   })();
 
@@ -88,6 +83,39 @@ function setCookie(cname, cvalue, exdays) {
   var expires = "expires="+ d.toUTCString();
   document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
 }`),
+
+  Template(`function getCookie(cname) {
+  var name = cname + "=";
+  var decodedCookie = decodeURIComponent(document.cookie);
+  var ca = decodedCookie.split(';');
+  for(var i = 0; i <ca.length; i++) {
+    var c = ca[i];
+    while (c.charAt(0) == ' ') {
+      c = c.substring(1);
+    }
+    if (c.indexOf(name) == 0) {
+      return c.substring(name.length, c.length);
+    }
+  }
+  return "";
+}`),
+
+  Template(`function getLocalStorageValue(key, cb){
+    if ( typeof key !== "string" ) {
+      throw new Error("Invalid data key provided (not type string)")
+    }
+    if ( !key ) {
+      throw new Error("Invalid data key provided (empty string)")
+    }
+    var value = window.localStorage.getItem(key)
+    try {
+      value = JSON.parse(value)
+    } catch ( e ) {
+      cb(new Error("Serialization error for data '" + key + "': " + e.message))
+    }
+
+    cb(null, value)
+  }`),
 ];
 
 /**

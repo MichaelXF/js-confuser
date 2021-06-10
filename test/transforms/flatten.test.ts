@@ -45,11 +45,11 @@ it("should have correct return values", async () => {
 it("should have correct parameters", async () => {
   var output = await JsConfuser.obfuscate(
     `
-    function TEST_FUNCTION(x){
-      input(x);
+    function TEST_FUNCTION(x, y){
+      input(x + y);
     }
 
-    TEST_FUNCTION(10);
+    TEST_FUNCTION(10, 15);
     `,
     {
       target: "node",
@@ -61,7 +61,7 @@ it("should have correct parameters", async () => {
     input = (x) => (value = x);
 
   eval(output);
-  expect(value).toStrictEqual(10);
+  expect(value).toStrictEqual(25);
 });
 
 it("should have correct parameters when nested", async () => {
@@ -208,4 +208,30 @@ it("should work with dispatcher", async () => {
 
   eval(output);
   expect(value).toStrictEqual(100);
+});
+
+it("should not change functions with const", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    function TEST_FUNCTION(x, y){
+      const CONSTANT = 20;
+
+      return CONSTANT + x + y;
+    }
+
+    input(TEST_FUNCTION(10, 5));
+    `,
+    {
+      target: "node",
+      flatten: true,
+    }
+  );
+
+  expect(output).not.toContain("this");
+
+  var value = "never_called",
+    input = (x) => (value = x);
+
+  eval(output);
+  expect(value).toStrictEqual(35);
 });

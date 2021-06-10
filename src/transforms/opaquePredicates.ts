@@ -28,22 +28,20 @@ import Template from "../templates/template";
 import { ComputeProbabilityMap } from "../probability";
 import { ok } from "assert";
 
+const testTypes = new Set([
+  "ForStatement",
+  "WhileStatement",
+  "DoWhileStatement",
+  "IfStatement",
+  "ConditionExpression",
+]);
+
 function isTestExpression(object: Node, parents: Node[]) {
   if (!object || !parents[0]) {
     return false;
   }
 
-  if (
-    {
-      ForStatement: 1,
-      WhileStatement: 1,
-      DoWhileStatement: 1,
-      IfStatement: 1,
-      ConditionExpression: 1,
-      SwitchCase: 1,
-    }[parents[0].type] &&
-    parents[0].test === object
-  ) {
+  if (testTypes.has(parents[0].type) && parents[0].test === object) {
     return true;
   }
 
@@ -77,7 +75,7 @@ export default class OpaquePredicates extends Transform {
 
   match(object: Node, parents: Node[]) {
     return (
-      isTestExpression(object, parents) &&
+      (isTestExpression(object, parents) || object.type == "SwitchCase") &&
       !parents.find((x) => x.$dispatcherSkip || x.type == "AwaitExpression")
     );
   }
@@ -143,12 +141,12 @@ export default class OpaquePredicates extends Transform {
 
           case "number":
             this.predicate.properties.push(
-              Property(Identifier(prop), Literal(getRandomInteger(10, 90)))
+              Property(Identifier(prop), Literal(getRandomInteger(15, 90)))
             );
             expr = BinaryExpression(
               ">",
               accessor,
-              Literal(getRandomInteger(2, 9))
+              Literal(getRandomInteger(-90, 10))
             );
             break;
 
@@ -179,31 +177,34 @@ export default class OpaquePredicates extends Transform {
       }
 
       var cloned = clone(expr);
-      if (parents[0].type == "SwitchCase") {
+      if (object.type == "SwitchCase") {
         var matching = Identifier(choice(["undefined", "null"]));
-        if (object.type == "Literal") {
-          if (typeof object.value === "number") {
+
+        var test = object.test;
+
+        if (test.type == "Literal") {
+          if (typeof test.value === "number") {
             matching = Literal(getRandomInteger(-250, 250));
-          } else if (typeof object.value === "string") {
+          } else if (typeof test.value === "string") {
             matching = Literal(getRandomString(4));
           }
         }
 
         var conditionalExpression = ConditionalExpression(
           cloned,
-          clone(object),
+          clone(test),
           matching
         );
         if (Math.random() > 0.5) {
           conditionalExpression = ConditionalExpression(
             UnaryExpression("!", cloned),
             matching,
-            clone(object)
+            clone(test)
           );
         }
 
-        this.replace(object, conditionalExpression);
-      } else {
+        this.replace(test, conditionalExpression);
+      } else if (isTestExpression(object, parents)) {
         if (object.type == "Literal" && !object.regex) {
           if (object.value) {
             this.replace(object, cloned);

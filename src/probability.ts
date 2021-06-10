@@ -21,7 +21,7 @@ export type ProbabilityMap<T> =
   | T
   | T[]
   | { [key in Stringed<T>]?: number }
-  | ((object: any) => any);
+  | ((...params: any[]) => any);
 
 /**
  * Evaluates a ProbabilityMap.

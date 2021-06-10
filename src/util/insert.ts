@@ -15,7 +15,7 @@ export function isFunction(object: Node): boolean {
     "FunctionDeclaration",
     "FunctionExpression",
     "ArrowFunctionExpression",
-  ].includes(object.type);
+  ].includes(object && object.type);
 }
 
 /**

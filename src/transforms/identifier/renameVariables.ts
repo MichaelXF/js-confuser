@@ -14,6 +14,7 @@ import {
 import { isValidIdentifier } from "../../util/compare";
 import Transform from "../transform";
 import { reservedIdentifiers } from "../../constants";
+import { ComputeProbabilityMap } from "../../probability";
 
 /**
  * Keeps track of what identifiers are defined and referenced in each context.
@@ -97,8 +98,6 @@ export class VariableAnalysis extends Transform {
         });
       }
     });
-
-    // console.log(isGlobal ? "<Global>" : object.id && object.id.name || "<FunctionExpression>", this.defined.get(object), this.references.get(object));
   }
 }
 
@@ -194,15 +193,29 @@ export default class RenameVariables extends Transform {
     }
 
     defined.forEach((name) => {
-      if (possible.size) {
-        var first = possible.values().next().value;
-        possible.delete(first);
-        newNames[name] = first;
+      if (
+        (isGlobal
+          ? ComputeProbabilityMap(this.options.renameGlobals, (x) => x, name)
+          : true) &&
+        ComputeProbabilityMap(
+          this.options.renameVariables,
+          (x) => x,
+          name,
+          isGlobal
+        )
+      ) {
+        if (possible.size) {
+          var first = possible.values().next().value;
+          possible.delete(first);
+          newNames[name] = first;
+        } else {
+          // Fix 1. Use `generateIdentifier` over `gen.generate()` so Integrity can get unique variable names
+          var g = this.generateIdentifier();
+          newNames[name] = g;
+          this.generated.push(g);
+        }
       } else {
-        // Fix 1. Use `generateIdentifier` over `gen.generate()` so Integrity can get unique variable names
-        var g = this.generateIdentifier();
-        newNames[name] = g;
-        this.generated.push(g);
+        newNames[name] = name;
       }
     });
 
@@ -242,7 +255,7 @@ export default class RenameVariables extends Transform {
           }
         }
 
-        if (newName) {
+        if (newName && typeof newName === "string") {
           if (o.$renamed) {
             return;
           }

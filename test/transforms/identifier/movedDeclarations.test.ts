@@ -62,3 +62,22 @@ it("should not move declarations in for statements", async () => {
 
   expect(output).toContain("for(var i=0;");
 });
+
+it("should not move redefined names", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var a;
+    var output;
+    (function(){
+      var a;
+      var output;
+    })();
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    }
+  );
+
+  expect(output).toContain("var a;var output;");
+});

@@ -74,6 +74,19 @@ export default class DuplicateLiteralsRemoval extends Transform {
     this.fnGetters = new Map();
   }
 
+  apply(tree) {
+    super.apply(tree);
+
+    if (this.arrayName && this.arrayExpression.elements.length) {
+      prepend(
+        tree,
+        VariableDeclaration(
+          VariableDeclarator(this.arrayName, this.arrayExpression)
+        )
+      );
+    }
+  }
+
   match(object: Node, parents: Node[]) {
     return (
       isPrimitive(object) &&
@@ -105,7 +118,7 @@ export default class DuplicateLiteralsRemoval extends Transform {
 
     // create one if none are available (or by random chance if none are here locally)
     var shouldCreateNew =
-      !getterName || (!hasGetterHere && Math.random() > 0.8);
+      !getterName || (!hasGetterHere && Math.random() > 0.9);
 
     if (shouldCreateNew) {
       ok(!this.fnGetters.has(lexContext));
@@ -205,9 +218,13 @@ export default class DuplicateLiteralsRemoval extends Transform {
       var value;
       if (object.type == "Literal") {
         value = typeof object.value + ":" + object.value;
-
-        if (!object.value) {
-          return;
+        if (object.value === null) {
+          value = "null:null";
+        } else {
+          // Skip empty strings
+          if (typeof object.value === "string" && !object.value) {
+            return;
+          }
         }
       } else if (object.type == "Identifier") {
         value = "identifier:" + object.name;
@@ -223,13 +240,6 @@ export default class DuplicateLiteralsRemoval extends Transform {
         if (!this.arrayName) {
           this.arrayName = this.getPlaceholder();
           this.arrayExpression = ArrayExpression([]);
-
-          prepend(
-            parents[parents.length - 1] || object,
-            VariableDeclaration(
-              VariableDeclarator(this.arrayName, this.arrayExpression)
-            )
-          );
         }
 
         var first = this.first.get(value);

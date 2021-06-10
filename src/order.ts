@@ -38,11 +38,13 @@ export enum ObfuscateOrder {
 
   Shuffle = 24,
 
-  MovedDeclarations = 25,
+  NameRecycling = 25,
 
-  RenameVariables = 26,
+  MovedDeclarations = 26,
 
-  RenameLabels = 27,
+  RenameVariables = 27,
+
+  RenameLabels = 28,
 
   Minify = 30,
 

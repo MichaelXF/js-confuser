@@ -26,7 +26,12 @@ it("should obfuscate numbered switch statements (SwitchCaseObfuscation)", async 
     controlFlowFlattening: true,
   });
 
-  expect(output).not.toContain("case 1:");
+  expect(
+    output.includes("case 1:") &&
+      output.includes("case 2:") &&
+      output.includes("case 3:") &&
+      output.includes("case 4:")
+  ).toStrictEqual(false);
 
   function input(array) {
     expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);

@@ -178,29 +178,12 @@ export default class ControlFlowFlattening extends Transform {
         var initStateValues = [...stateValues];
 
         const numberLiteral = (num, depth) => {
-          if (Math.random() > 0.9 / (depth * 4) || depth > 15) {
+          if (depth > 12 || Math.random() > 0.9 / (depth * 4)) {
             return Literal(num);
           } else {
             var opposing = getRandomInteger(0, stateVars.length);
 
-            if (Math.random() < 0.25) {
-              var opposing2;
-              do {
-                opposing2 = getRandomInteger(0, stateVars.length);
-              } while (opposing2 === opposing);
-
-              var computed = stateValues[opposing] * stateValues[opposing2];
-
-              return BinaryExpression(
-                "+",
-                BinaryExpression(
-                  "*",
-                  Identifier(stateVars[opposing]),
-                  Identifier(stateVars[opposing2])
-                ),
-                numberLiteral(num - computed, depth + 1)
-              );
-            } else if (Math.random() > 0.5) {
+            if (Math.random() > 0.5) {
               var x = getRandomInteger(-250, 250);
               var operator = choice([">", "<"]);
               var answer =

@@ -36,6 +36,7 @@ var JsConfuser: IJsConfuser = async function (
     ["browser", "node"].includes(options.target),
     `'${options.target}' is not a valid target mode`
   );
+  assert.ok(typeof code === "string", "code must be type string");
 
   if (Object.keys(options).length == 1) {
     /**
@@ -54,7 +55,11 @@ var JsConfuser: IJsConfuser = async function (
 
   options = await correctOptions(options);
 
+  options.verbose && console.log("* Parsing source code");
+
   var tree = await parseJS(code);
+
+  options.verbose && console.log("* Obfuscating...");
 
   var obfuscator = new Obfuscator(options);
 
