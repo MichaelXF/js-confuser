@@ -139,6 +139,14 @@ JsConfuser.obfuscate(code, {
 
 JSConfuser tries to reuse names when possible, creating very potent code.
 
+### `nameRecycling`
+
+Attempts to reuse released names.
+
+- Potency Medium
+- Resilience High
+- Cost Low
+
 ### `controlFlowFlattening`
 
 [Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) obfuscates the program's control-flow by
