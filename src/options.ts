@@ -83,7 +83,7 @@ export interface ObfuscateOptions {
   /**
    * ### `renameGlobals`
    *
-   * Renames top-level variables, keep this off for web-related scripts. (`true/false`)
+   * Renames top-level variables, turn this off for web-related scripts. Enabled by default. (`true/false`)
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -644,6 +644,9 @@ export async function correctOptions(
 
   if (!options.hasOwnProperty("compact")) {
     options.compact = true; // Compact is on by default
+  }
+  if (!options.hasOwnProperty("renameGlobals")) {
+    options.renameGlobals = true; // RenameGlobals is on by default
   }
 
   if (options.globalVariables && !(options.globalVariables instanceof Set)) {

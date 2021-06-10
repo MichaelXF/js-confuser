@@ -12,12 +12,11 @@ it('Low preset should have "preset": "low"', async () => {
   expect(presets.low.preset).toStrictEqual("low");
 });
 
-it("No preset should have eval, lock, RGF, or renameGlobals enabled", async () => {
+it("No preset should have eval, lock, or RGF enabled", async () => {
   Object.keys(presets).forEach((key) => {
     expect(typeof presets[key]).toStrictEqual("object");
     expect(!!presets[key].eval).toEqual(false);
     expect(!!presets[key].lock).toEqual(false);
     expect(!!presets[key].rgf).toEqual(false);
-    expect(!!presets[key].renameGlobals).toEqual(false);
   });
 });
