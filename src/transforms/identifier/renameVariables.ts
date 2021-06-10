@@ -194,7 +194,7 @@ export default class RenameVariables extends Transform {
 
     defined.forEach((name) => {
       if (
-        (isGlobal
+        (isGlobal && !name.startsWith("__p_")
           ? ComputeProbabilityMap(this.options.renameGlobals, (x) => x, name)
           : true) &&
         ComputeProbabilityMap(
