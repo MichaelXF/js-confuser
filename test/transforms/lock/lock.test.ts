@@ -136,7 +136,7 @@ it("countermeasures function should still work even with renameVariables enabled
     {
       target: "node",
       renameVariables: true,
-      renameGlobals: true, // countermeasures it top-level variable in this case
+      renameGlobals: true, // <- `countermeasures` is top level name
       lock: {
         endDate: Date.now() - 1000 * 60 * 60 * 24, // always in the past, therefore countermeasures will always be called
         countermeasures: "countermeasures",

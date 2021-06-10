@@ -3,6 +3,7 @@ import JsConfuser from "../src/index";
 it("should accept percentages", async () => {
   var output = await JsConfuser(`var TEST_VARIABLE;`, {
     target: "node",
+    renameGlobals: true,
     renameVariables: true,
     stringConcealing: 0.5,
   });
