@@ -178,7 +178,7 @@ export default class ControlFlowFlattening extends Transform {
         var initStateValues = [...stateValues];
 
         const numberLiteral = (num, depth) => {
-          if (Math.random() > 0.9 / (depth * 4) || depth > 15) {
+          if (depth > 12 || Math.random() > 0.9 / (depth * 4)) {
             return Literal(num);
           } else {
             var opposing = getRandomInteger(0, stateVars.length);
