@@ -133,6 +133,19 @@ export interface ObfuscateOptions {
   >;
 
   /**
+   * ### `nameRecycling`
+   *
+   * Attempts to reuse released names.
+   *
+   * - Potency Medium
+   * - Resilience High
+   * - Cost Low
+   *
+   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   */
+  nameRecycling?: ProbabilityMap<boolean>;
+
+  /**
    * ### `controlFlowFlattening`
    *
    * [Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) obfuscates the program's control-flow by
@@ -585,6 +598,7 @@ var validProperties = new Set([
   "renameVariables",
   "renameGlobals",
   "identifierGenerator",
+  "nameRecycling",
   "controlFlowFlattening",
   "globalConcealing",
   "stringCompression",
