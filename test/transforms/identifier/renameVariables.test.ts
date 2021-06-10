@@ -27,6 +27,7 @@ it("should not rename global accessors", async () => {
   });
 
   expect(output).toContain("success");
+  expect(output).not.toContain("TEST_VARIABLE");
 
   var passed = false;
   function success() {
@@ -212,4 +213,80 @@ it("should not rename exported names", async () => {
   });
 
   expect(output).toContain("abc");
+});
+
+it("should call renameVariables callback properly (variables)", async () => {
+  var code = `
+    var myVariable = 1;
+  `;
+
+  var input = [];
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    renameGlobals: true,
+    renameVariables: (name, isTopLevel) => {
+      input = [name, isTopLevel];
+    },
+  });
+
+  expect(input).toEqual(["myVariable", true]);
+});
+
+it("should call renameVariables callback properly (variables, nested)", async () => {
+  var code = `
+    (function(){
+      var myVariable = 1;
+    })();
+  `;
+
+  var input = [];
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    renameGlobals: true,
+    renameVariables: (name, isTopLevel) => {
+      input = [name, isTopLevel];
+    },
+  });
+
+  expect(input).toEqual(["myVariable", false]);
+});
+
+it("should call renameVariables callback properly (function declaration)", async () => {
+  var code = `
+    function myFunction(){
+
+    }
+  `;
+
+  var input = [];
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    renameGlobals: true,
+    renameVariables: (name, isTopLevel) => {
+      input = [name, isTopLevel];
+    },
+  });
+
+  expect(input).toEqual(["myFunction", true]);
+});
+
+it("should allow excluding custom variables from being renamed", async () => {
+  var code = `
+    var myVariable1 = 1;
+    var myVariable2 = 1;
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    renameVariables: (name, isTopLevel) => {
+      return name !== "myVariable1";
+    },
+    renameGlobals: true,
+  });
+
+  expect(output).toContain("myVariable1");
+  expect(output).not.toContain("myVariable2");
 });
