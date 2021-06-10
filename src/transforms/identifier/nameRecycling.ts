@@ -29,21 +29,19 @@ import Transform from "../transform";
  *
  * ```js
  * // Input
- * function fn() {
- *   var x1 = 10;
- *   var y1 = 10;
- *   var output = x1 + y1;
- *   var result = output.toString();
- *   return result;
+ * function percentage(decimal) {
+ *   var multiplied = x * 100;
+ *   var floored = Math.floor(multiplied);
+ *   var output = floored + "%"
+ *   return output;
  * }
  *
  * // Output
- * function fn() {
- *   var x1 = 10;
- *   var y1 = 10;
- *   var output = x1 + y1;
- *   var x1 = output.toString();
- *   return x1;
+ * function percentage(decimal) {
+ *   var multiplied = x * 100;
+ *   var floored = Math.floor(multiplied);
+ *   multiplied = floored + "%";
+ *   return multiplied;
  * }
  * ```
  */
@@ -129,7 +127,7 @@ export default class NameRecycling extends Transform {
           }
         });
 
-        console.log(i, definedHere);
+        // console.log(i, definedHere);
 
         definedMap.set(i, definedHere);
         referencedMap.set(i, referencedHere);

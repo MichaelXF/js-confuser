@@ -147,13 +147,30 @@ Attempts to reuse released names.
 - Resilience High
 - Cost Low
 
+```js
+// Input
+function percentage(decimal) {
+  var multiplied = x * 100;
+  var floored = Math.floor(multiplied);
+  var output = floored + "%"
+  return output;
+}
+
+// Output
+function percentage(decimal) {
+  var multiplied = x * 100;
+  var floored = Math.floor(multiplied);
+  multiplied = floored + "%";
+  return multiplied;
+}
+```
+
 ### `controlFlowFlattening`
 
 [Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) obfuscates the program's control-flow by
 adding opaque predicates; flattening the control-flow; and adding irrelevant code clones. (`true/false/0-1`)
 
 Use a number to control the percentage from 0 to 1.
-
 
 - Potency High
 - Resilience High
