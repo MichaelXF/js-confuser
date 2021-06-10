@@ -30,7 +30,9 @@ eval(code);
 console.log(">");
 JsConfuser.obfuscate(code, {
   target: "node",
-  preset: "high",
+  controlFlowFlattening: true,
+  compact: false,
+  verbose: true,
 }).then((output) => {
   console.log("<");
   writeFileSync("./dev.error.js", output, { encoding: "utf-8" });
