@@ -41,6 +41,7 @@ const reduction_98_percent: ObfuscateOptions = {
   objectExtraction: true,
   opaquePredicates: 0.75,
   renameVariables: true,
+  renameGlobals: true,
   shuffle: { hash: 0.5, true: 0.5 },
   stringConcealing: true,
   stringCompression: true,
@@ -75,6 +76,7 @@ const reduction_52_percent: ObfuscateOptions = {
   objectExtraction: true,
   opaquePredicates: 0.5,
   renameVariables: true,
+  renameGlobals: true,
   shuffle: true,
   stringConcealing: true,
   stringSplitting: 0.25,
@@ -102,6 +104,7 @@ const reduction_30_percent: ObfuscateOptions = {
   objectExtraction: true,
   opaquePredicates: 0.1,
   renameVariables: true,
+  renameGlobals: true,
   stringConcealing: 0.25,
 };
 

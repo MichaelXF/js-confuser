@@ -34,10 +34,9 @@ import { getBlockBody, getVarContext, prepend } from "../../util/insert";
 import Template from "../../templates/template";
 import { ObfuscateOrder } from "../../order";
 import Integrity from "./integrity";
-import { isLoop } from "../preparation/preparation";
 import AntiDebug from "./antiDebug";
 import { getIdentifierInfo } from "../../util/identifiers";
-import { isValidIdentifier } from "../../util/compare";
+import { isLoop, isValidIdentifier } from "../../util/compare";
 
 /**
  * Strings are formulated to work only during the allowed time

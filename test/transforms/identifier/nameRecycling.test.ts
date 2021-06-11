@@ -106,12 +106,61 @@ it("should convert class declarations to assignment expressions", async () => {
     }
   );
 
-  expect(output).toContain("=class");
-
   var TEST_VAR_1, TEST_VAR_2;
 
   eval(output);
 
   expect(TEST_VAR_1).toStrictEqual("Hello World");
   expect(TEST_VAR_2).toStrictEqual("Name Recycling");
+});
+
+it("should convert variable declarations with multiple declarators properly", async () => {
+  var output = await JsConfuser(
+    `
+  var a = "Hello World", b;
+  TEST_VAR_1 = a;
+  var c = "Name Recycling", d = "JsConfuser";
+  TEST_VAR_2 = c;
+  TEST_VAR_3 = d;
+  `,
+    {
+      target: "node",
+      nameRecycling: true,
+      renameGlobals: true,
+    }
+  );
+
+  var TEST_VAR_1, TEST_VAR_2, TEST_VAR_3;
+
+  eval(output);
+
+  expect(TEST_VAR_1).toStrictEqual("Hello World");
+  expect(TEST_VAR_2).toStrictEqual("Name Recycling");
+  expect(TEST_VAR_3).toStrictEqual("JsConfuser");
+});
+
+it("should convert variable declarations in for loop initializers properly", async () => {
+  var output = await JsConfuser(
+    `
+  var a = "Hello World";
+  TEST_VAR_1 = a;
+  for ( var b = 0; b < 1; b++ ) {
+    TEST_VAR_2 = "Number: " + b;
+  }
+  `,
+    {
+      target: "node",
+      nameRecycling: true,
+      renameGlobals: true,
+    }
+  );
+
+  expect(output).toContain("for(a=0");
+
+  var TEST_VAR_1, TEST_VAR_2;
+
+  eval(output);
+
+  expect(TEST_VAR_1).toStrictEqual("Hello World");
+  expect(TEST_VAR_2).toStrictEqual("Number: 0");
 });

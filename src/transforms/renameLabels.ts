@@ -1,8 +1,8 @@
 import { ObfuscateOrder } from "../order";
 import { walk } from "../traverse";
+import { isLoop } from "../util/compare";
 import { Identifier } from "../util/gen";
 import { clone } from "../util/insert";
-import { isLoop } from "./preparation/preparation";
 import Transform from "./transform";
 
 export default class RenameLabels extends Transform {

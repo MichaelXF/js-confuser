@@ -21,6 +21,7 @@ import Label from "../label";
 import NameConflicts from "./nameConflicts";
 import AntiDestructuring from "../es5/antiDestructuring";
 import { OPERATOR_PRECEDENCE } from "../../precedence";
+import { isLoop } from "../../util/compare";
 
 /**
  * People use shortcuts and its harder to parse.
@@ -99,21 +100,6 @@ class ExplicitIdentifiers extends Transform {
       parents[0].shorthand = false;
     }
   }
-}
-
-/**
- * Statements that allowed `break;` and `continue;` statements
- * @param object
- */
-export function isLoop(object: Node) {
-  return [
-    "SwitchStatement",
-    "WhileStatement",
-    "DoWhileStatement",
-    "ForStatement",
-    "ForInStatement",
-    "ForOfStatement",
-  ].includes(object.type);
 }
 
 class ExplicitDeclarations extends Transform {

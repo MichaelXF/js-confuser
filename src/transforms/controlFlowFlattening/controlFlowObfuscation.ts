@@ -46,7 +46,7 @@ export default class ControlFlowObfuscation extends Transform {
 
       var illegal = false;
       walk(object, parents, (o, p) => {
-        if (o.type == "FunctionDeclaration") {
+        if (o.type == "FunctionDeclaration" || o.type == "BreakStatement") {
           illegal = true;
           return "EXIT";
         }
@@ -83,10 +83,10 @@ export default class ControlFlowObfuscation extends Transform {
 
       if (object.type === "ForStatement") {
         if (object.init) {
-          init.push({ ...object.init });
+          init.push(object.init);
         }
         if (object.update) {
-          update.push(ExpressionStatement(clone(object.update)));
+          update.push(ExpressionStatement(object.update));
         }
         if (object.test) {
           test = object.test || Literal(true);
@@ -170,7 +170,7 @@ export default class ControlFlowObfuscation extends Transform {
         ]),
         SwitchCase(Literal(testState), [
           IfStatement(
-            clone(test),
+            test,
             [goto(testState, bodyState)],
             [goto(testState, endState)]
           ),

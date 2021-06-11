@@ -1,6 +1,6 @@
 # JS Confuser
 
-JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://hungry-shannon-c1ce6b.netlify.app/).
+JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://jsconfuser.com).
 
 ## Key features
 
@@ -101,7 +101,7 @@ Determines if variables should be renamed. (`true/false`)
 
 ### `renameGlobals`
 
-Renames top-level variables, keep this off for web-related scripts. (`true/false`)
+Renames top-level variables, turn this off for web-related scripts. Enabled by default. (`true/false`)
 
 ### `identifierGenerator`
 
@@ -473,6 +473,7 @@ function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+Ax
   objectExtraction: true,
   opaquePredicates: 0.75,
   renameVariables: true,
+  renameGlobals: true,
   shuffle: { hash: 0.5, true: 0.5 },
   stringConcealing: true,
   stringCompression: true,
@@ -506,6 +507,7 @@ function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+Ax
   objectExtraction: true,
   opaquePredicates: 0.5,
   renameVariables: true,
+  renameGlobals: true,
   shuffle: true,
   stringConcealing: true,
   stringSplitting: 0.25
@@ -533,6 +535,7 @@ function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+Ax
   objectExtraction: true,
   opaquePredicates: 0.1,
   renameVariables: true,
+  renameGlobals: true,
   stringConcealing: 0.25
 }
 ```
@@ -571,9 +574,8 @@ These features are experimental or a security concern.
   eval: true, // (security concern)
   rgf: true, // (security concern)
 
-  // can break web-related scripts,
-  // OK for NodeJS scripts
-  renameGlobals: true,
+  // set to false for web-related scripts
+  renameGlobals: false,
 
   // experimental
   identifierGenerator: function(){
