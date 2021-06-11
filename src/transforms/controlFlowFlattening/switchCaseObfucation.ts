@@ -52,12 +52,19 @@ export default class SwitchCaseObfuscation extends Transform {
     }
 
     var body = parents[0];
+    var element = object;
 
     if (parents[0].type == "LabeledStatement") {
       body = parents[1];
+      element = parents[0];
     }
 
     if (!Array.isArray(body)) {
+      return;
+    }
+
+    var index = body.indexOf(element);
+    if (index === -1) {
       return;
     }
 
@@ -91,7 +98,9 @@ export default class SwitchCaseObfuscation extends Transform {
     }
 
     // State variable declaration
-    body.unshift(
+    body.splice(
+      index,
+      0,
       VariableDeclaration(
         VariableDeclarator(
           newVar,
