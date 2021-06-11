@@ -16,7 +16,12 @@ import {
   RestElement,
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
-import { isForInitialize, isFunction, prepend } from "../util/insert";
+import {
+  getVarContext,
+  isForInitialize,
+  isFunction,
+  prepend,
+} from "../util/insert";
 import Transform from "./transform";
 
 export default class Stack extends Transform {
@@ -72,7 +77,8 @@ export default class Stack extends Transform {
           if (
             info.isClauseParameter ||
             info.isFunctionParameter ||
-            isForInitialize(o, p)
+            isForInitialize(o, p) ||
+            getVarContext(o, p) !== object
           ) {
             illegal.add(o.name);
           }
