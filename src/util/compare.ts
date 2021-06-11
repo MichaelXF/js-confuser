@@ -30,6 +30,20 @@ export function isEquivalent(first: Node, second: Node) {
     JSON.stringify(removeExtra(first)) == JSON.stringify(removeExtra(second))
   );
 }
+/**
+ * Statements that allowed `break;` and `continue;` statements
+ * @param object
+ */
+export function isLoop(object: Node) {
+  return [
+    "SwitchStatement",
+    "WhileStatement",
+    "DoWhileStatement",
+    "ForStatement",
+    "ForInStatement",
+    "ForOfStatement",
+  ].includes(object.type);
+}
 
 export function isValidIdentifier(name: string): boolean {
   if (typeof name !== "string") {
