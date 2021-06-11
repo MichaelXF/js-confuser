@@ -1,8 +1,8 @@
 import Transform from "./transform";
 import { Identifier, LabeledStatement } from "../util/gen";
 import { walk } from "../traverse";
-import { isLoop } from "./preparation/preparation";
 import { clone } from "../util/insert";
+import { isLoop } from "../util/compare";
 
 /**
  * Ensures every break; statement has a label to point to.
@@ -28,9 +28,9 @@ export default class Label extends Transform {
       var label = currentLabel || this.getPlaceholder();
 
       walk(object, parents, (o, p) => {
-        var loop = p.find((x) => isLoop(x));
-        if (object == loop) {
-          if (o.type == "BreakStatement") {
+        if (o.type == "BreakStatement" || o.type == "ContinueStatement") {
+          var loop = p.find((x) => isLoop(x));
+          if (object == loop) {
             if (!o.label) {
               o.label = Identifier(label);
             }
@@ -40,7 +40,7 @@ export default class Label extends Transform {
 
       // Append label statement as this loop has none
       if (!currentLabel) {
-        this.replace(object, LabeledStatement(label, clone(object)));
+        this.replace(object, LabeledStatement(label, { ...object }));
       }
     };
   }
