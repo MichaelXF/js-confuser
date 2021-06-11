@@ -264,6 +264,7 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
        */
       isExported:
         (isVariableDeclaration &&
+          parents[3] &&
           parents[3].type == "ExportNamedDeclaration") ||
         (isFunctionDeclaration &&
           parents[1] &&
