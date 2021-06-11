@@ -1,3 +1,13 @@
+# `1.1.7`
+Website is Live
+
+- [JsConfuser.com](https://jsconfuser.com) is live!
+- Check out the [js-confuser-website](https://github.com/MichaelXF/js-confuser-website) repo for more info
+
+- **⚠️ Breaking change**: `Rename Globals` is now enabled by default
+- **Bug fix**: `Dead Code` no longers adds async code when `es5` option is enabled
+- Improved `Control Flow Flattening`
+
 # `1.1.6`
 New feature: Name Recycling
 
