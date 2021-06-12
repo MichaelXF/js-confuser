@@ -17,9 +17,12 @@ import {
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
 import {
+  getDefiningContext,
+  getReferencingContexts,
   getVarContext,
   isForInitialize,
   isFunction,
+  isVarContext,
   prepend,
 } from "../util/insert";
 import Transform from "./transform";
@@ -44,6 +47,8 @@ export default class Stack extends Transform {
 
   transform(object: Node, parents: Node[]) {
     return () => {
+      // Uncaught SyntaxError: Getter must not have any formal parameters.
+      // Uncaught SyntaxError: Setter must have exactly one formal parameter
       var propIndex = parents.findIndex((x) => x.type == "Property");
       if (propIndex !== -1) {
         if (parents[propIndex].value === (parents[propIndex - 1] || object)) {
@@ -73,13 +78,26 @@ export default class Stack extends Transform {
       walk(object.body, [object, ...parents], (o, p) => {
         if (o.type == "Identifier") {
           var info = getIdentifierInfo(o, p);
+          if (!info.spec.isReferenced) {
+            return;
+          }
+          var c = info.spec.isDefined
+            ? getDefiningContext(o, p)
+            : getReferencingContexts(o, p).find((x) => isVarContext(x));
+
+          if (c !== object) {
+            this.log(o.name + " is illegal due to different context");
+            illegal.add(o.name);
+          }
 
           if (
             info.isClauseParameter ||
             info.isFunctionParameter ||
-            isForInitialize(o, p) ||
-            getVarContext(o, p) !== object
+            isForInitialize(o, p)
           ) {
+            this.log(
+              o.name + " is illegal due to clause parameter/function parameter"
+            );
             illegal.add(o.name);
           }
 
