@@ -23,7 +23,12 @@ import {
   containsLexicallyBoundVariables,
   getIdentifierInfo,
 } from "../../util/identifiers";
-import { clone, getBlockBody } from "../../util/insert";
+import {
+  clone,
+  getBlockBody,
+  getVarContext,
+  isVarContext,
+} from "../../util/insert";
 import { choice, getRandomInteger, shuffle } from "../../util/random";
 import Transform from "../transform";
 import ControlFlowObfuscation from "./controlFlowObfuscation";
@@ -269,7 +274,7 @@ export default class ControlFlowFlattening extends Transform {
               o.type == "Literal" &&
               typeof o.value === "number" &&
               Math.random() > 0.5 &&
-              !getBlock(o, p)
+              !p.find((x) => isVarContext(x))
             ) {
               return () => {
                 this.replace(o, numberLiteral(o.value, 0));
