@@ -14,7 +14,7 @@ it("should move variable declarations to the top of the lexical block", async ()
   );
 
   expect(output).toContain("var a,b;");
-  expect(output).toContain(";a=1;b=2;");
+  expect(output).toContain("a=1,b=2");
 });
 
 it("should still execute properly", async () => {

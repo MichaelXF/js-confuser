@@ -71,7 +71,25 @@ class AntiSpread extends Transform {
                 Identifier("concat"),
                 false
               ),
-              groups
+              groups.map((group) => {
+                // [].concat(arguments) -> [].concat(Array.prototype.slice.call(arguments))
+                return CallExpression(
+                  MemberExpression(
+                    MemberExpression(
+                      MemberExpression(
+                        Identifier("Array"),
+                        Identifier("prototype"),
+                        false
+                      ),
+                      Identifier("slice"),
+                      false
+                    ),
+                    Identifier("call"),
+                    false
+                  ),
+                  [group]
+                );
+              })
             )
           );
         }

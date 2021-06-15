@@ -432,7 +432,7 @@ export function containsLexicallyBoundVariables(object: Node, parents: Node[]) {
   var contains = false;
   walk(object, parents, (o, p) => {
     if (o.type == "VariableDeclaration") {
-      if (o.kind === "let") {
+      if (o.kind === "let" || o.kind === "const") {
         // Control Flow Flattening changes the lexical block, therefore this is not possible
         // Maybe a transformation to remove let
         contains = true;

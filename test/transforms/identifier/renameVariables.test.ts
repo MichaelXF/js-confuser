@@ -167,8 +167,8 @@ it("should handle variable defined with let (3)", async () => {
   expect(output).not.toContain("TEST_OBJECT");
   expect(output).toContain("TEST_PROPERTY");
   expect(output).toContain("input");
-  expect(output).toContain("let A");
-  expect(typeof output.split("let A")[1]).toStrictEqual("string");
+  expect(output).toContain("let a");
+  expect(typeof output.split("let a")[1]).toStrictEqual("string");
 
   var value = false;
   function input(valueIn) {

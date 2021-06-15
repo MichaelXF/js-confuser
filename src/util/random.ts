@@ -103,9 +103,11 @@ export function getRandomTrueExpression() {
 export function alphabeticalGenerator(index: number) {
   let name = "";
   while (index > 0) {
-    var t = (index - 1) % 26;
-    name = String.fromCharCode(65 + t) + name;
-    index = ((index - t) / 26) | 0;
+    var t = (index - 1) % 52;
+    var thisChar =
+      t >= 26 ? String.fromCharCode(65 + t - 26) : String.fromCharCode(97 + t);
+    name = thisChar + name;
+    index = ((index - t) / 52) | 0;
   }
   if (!name) {
     name = "_";

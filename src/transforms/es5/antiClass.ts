@@ -73,6 +73,9 @@ export default class AntiClass extends Transform {
       );
 
       body.body.forEach((methodDefinition) => {
+        if (!methodDefinition.key) {
+          return;
+        }
         var isStatic = methodDefinition.static;
 
         var key = MemberExpression(

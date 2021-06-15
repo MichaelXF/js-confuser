@@ -55,3 +55,21 @@ es6Object = {
 };
 
 expect(es6Object.myGetter).toStrictEqual(9);
+
+// Variant #10 Make sure constructor method works
+var value;
+class MyClass {
+  constructor(x) {
+    value = x;
+  }
+}
+
+var myInstance = new MyClass(10);
+expect(value).toStrictEqual(10);
+
+// Variant #11 Make sure for-loop initializers work
+var sum = 0;
+for (var x of [3, 3, 5]) {
+  sum += x;
+}
+expect(sum).toStrictEqual(11);
