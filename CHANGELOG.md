@@ -1,3 +1,103 @@
+# `1.1.8`
+Bug Fixes and Improvements
+
+- **Bug fix**: Stack no longer replaces identifiers that are in nested contexts
+
+- `es5` converts
+- - `fn(...args)` -> `fn.apply(this, args)`
+- - `fn(...arguments)` -> `fn.apply(this, [].concat(Array.prototype.slice.call(arguments)))`
+
+- Changes to `identifierGenerator`
+- - `mangled` Now uses both lowercase and uppercase alphabets
+
+- Added `antiTooling` to stop [JSNice.org](https://JSNice.org) from expanding sequence expressions
+
+```js
+// Input
+(console.log(1), console.log(2), console.log(3))
+
+// Output
++(console.log(1), console.log(2), console.log(3))
+
+// JSNice on Input
+console.log(1)
+console.log(2)
+console.log(3)
+
+// JSNice on Output
++(console.log(1), console.log(2), console.log(3))
+```
+
+- Improved `controlFlowFlattening`
+- - No longer changes blocks with `const` variables
+- - Now obscures order of expressions
+```js
+// Input
+console.log(1)
+console.log(2)
+console.log(3)
+console.log(4)
+var five = 5;
+console.log(five);
+
+// Output
+var oI8J9w6 = (console['log'](1), console['log'](2), console['log'](3), console['log'](4), 5);
+console['log'](oI8J9w6);
+```
+
+- - Now entangles number literals with the state variables ex:
+
+```js
+// Input
+console.log(1);
+console.log(2);
+console.log(3);
+console.log(4);
+console.log(5);
+console.log(6);
+console.log(7);
+console.log(8);
+console.log(9);
+console.log(10);
+
+// Output
+var xYPTGP = -164, NYvTJV = -40, eB6EbU = 55, cD8ztD = -73, AnCfc3A = 237, n6wikC = 52;
+while (xYPTGP + NYvTJV + eB6EbU + cD8ztD + AnCfc3A + n6wikC != 33) {
+    var ruVzem = (xYPTGP + NYvTJV + eB6EbU + cD8ztD + AnCfc3A + n6wikC) * -184 - 38;
+    switch (ruVzem) {
+    case -3350:
+        console.log(4), (NYvTJV *= -66 > AnCfc3A ? n6wikC + (134 > xYPTGP ? -190 : 194) : 2, NYvTJV -= 77 < xYPTGP ? 28 : 66), xYPTGP += AnCfc3A - 201, (AnCfc3A *= n6wikC + 109, AnCfc3A -= 16 < NYvTJV ? 661 : -169);
+        break;
+    case -26902:
+        console.log(31 > AnCfc3A ? 39 : -2 > AnCfc3A ? -137 : 3), (NYvTJV *= -174 > n6wikC ? AnCfc3A - 292 : 2, NYvTJV -= n6wikC - 91), (eB6EbU *= 155 > cD8ztD ? 2 : 42, eB6EbU -= 155 > AnCfc3A ? 1 : -227), (cD8ztD *= 183 < eB6EbU ? 222 : 2, cD8ztD -= 214 < AnCfc3A ? 270 : 70);
+        break;
+    case -12366:
+        console.log(196 < eB6EbU ? -5 : 1), eB6EbU += -47 > cD8ztD ? -225 : 57, (xYPTGP *= AnCfc3A - 235, xYPTGP -= -126 < eB6EbU ? 46 : -434);
+        break;
+    case -20646:
+        console.log(2), (n6wikC *= cD8ztD + 75, n6wikC -= ((107 > xYPTGP ? -244 : -80) > cD8ztD ? 65 : 149) > cD8ztD ? -138 > eB6EbU ? cD8ztD + 284 : 159 : 73 < AnCfc3A ? -14 : 83), AnCfc3A += xYPTGP - 95 < n6wikC ? 199 : 147, xYPTGP += 227 < xYPTGP ? -238 : 46;
+        break;
+    case -10526:
+        console.log(10), xYPTGP += n6wikC + 524, n6wikC += cD8ztD + 263, (AnCfc3A *= 67 > xYPTGP ? n6wikC + (xYPTGP - 433 > n6wikC ? -21 : -111) : 2, AnCfc3A -= AnCfc3A + 247);
+        break;
+    case -2614:
+        console.log(5), (n6wikC *= xYPTGP - 333, n6wikC -= (-41 > cD8ztD ? -38 > AnCfc3A ? 96 : -97 : 49) < NYvTJV ? 131 : 112), (cD8ztD *= eB6EbU + 115, cD8ztD -= -216 < AnCfc3A ? -631 : 23), (AnCfc3A *= (NYvTJV + 1 > xYPTGP ? 235 : 206) < n6wikC ? n6wikC + 310 : 2, AnCfc3A -= NYvTJV - 236), (xYPTGP *= 185 > eB6EbU ? -169 < xYPTGP ? 2 : 236 : -19, xYPTGP -= -59 < n6wikC ? 100 : n6wikC + 779);
+        break;
+    case -5006:
+        console.log(6), (cD8ztD *= cD8ztD + (-100 < n6wikC ? -66 : 203), cD8ztD -= -87 < eB6EbU ? -101 : -261);
+        break;
+    case -16046:
+        console.log(240 > AnCfc3A ? -70 : 7), (NYvTJV *= AnCfc3A - 240, NYvTJV -= 240 > AnCfc3A ? -66 : 304), AnCfc3A += eB6EbU - 76, (eB6EbU *= 154 > NYvTJV ? xYPTGP - 234 : 103 > xYPTGP ? -138 : 2, eB6EbU -= AnCfc3A - 409);
+        break;
+    case -9974:
+        console.log(NYvTJV + (-225 > AnCfc3A ? -98 : -103)), xYPTGP += n6wikC + 260, eB6EbU += NYvTJV - 67, (AnCfc3A *= eB6EbU - 173, AnCfc3A -= eB6EbU - 132 < NYvTJV ? 19 : -107 > NYvTJV ? 145 : -44);
+        break;
+    case -8318:
+        console.log(AnCfc3A - 45), (n6wikC *= -126 < xYPTGP ? 2 : 53, n6wikC -= n6wikC + 336);
+    }
+}
+```
+
 # `1.1.7`
 Website is Live
 
