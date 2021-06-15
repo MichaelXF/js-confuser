@@ -51,4 +51,6 @@ export enum ObfuscateOrder {
   ES5 = 31,
 
   StringEncoding = 32,
+
+  AntiTooling = 34,
 }
