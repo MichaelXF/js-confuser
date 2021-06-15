@@ -31,7 +31,9 @@ import {
 } from "../../util/insert";
 import { choice, getRandomInteger, shuffle } from "../../util/random";
 import Transform from "../transform";
+import ChoiceFlowObfuscation from "./choiceFlowObfuscation";
 import ControlFlowObfuscation from "./controlFlowObfuscation";
+import ExpressionObfuscation from "./expressionObfuscation";
 import SwitchCaseObfuscation from "./switchCaseObfucation";
 
 /**
@@ -51,8 +53,12 @@ export default class ControlFlowFlattening extends Transform {
   constructor(o) {
     super(o, ObfuscateOrder.ControlFlowFlattening);
 
+    this.before.push(new ExpressionObfuscation(o));
+
     this.before.push(new ControlFlowObfuscation(o));
     this.after.push(new SwitchCaseObfuscation(o));
+
+    // this.after.push(new ChoiceFlowObfuscation(o));
   }
 
   match(object, parents) {
