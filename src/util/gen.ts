@@ -595,3 +595,22 @@ export function RestElement(argument: Node) {
     argument,
   };
 }
+
+export function CatchClause(param: Node = null, body) {
+  return {
+    type: "CatchClause",
+    param: param,
+    body: BlockStatement(body),
+  };
+}
+
+export function TryStatement(body: Node[], handler: Node, finallyBody: Node[]) {
+  ok(handler);
+  ok(handler.type == "CatchClause");
+  return {
+    type: "TryStatement",
+    block: BlockStatement(body),
+    handler: handler,
+    finalizer: finallyBody ? BlockStatement(finallyBody) : null,
+  };
+}
