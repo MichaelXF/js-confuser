@@ -22,6 +22,7 @@ import AntiDestructuring from "./antiDestructuring";
 import AntiTemplate from "./antiTemplate";
 import AntiClass from "./antiClass";
 import AntiES6Object from "./antiES6Object";
+import AntiSpreadOperator from "./antiSpreadOperator";
 
 /**
  * `Const` and `Let` are not allowed in ES5.
@@ -139,6 +140,7 @@ export default class ES5 extends Transform {
 
     this.before.push(new AntiClass(o));
     this.before.push(new AntiTemplate(o));
+    this.before.push(new AntiSpreadOperator(o));
     this.before.push(new AntiES6Object(o));
     this.before.push(new AntiArrowFunction(o));
     this.before.push(new AntiDestructuring(o));
