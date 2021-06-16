@@ -99,3 +99,28 @@ it("should not convert lower functions to arrow functions", async () => {
 
   expect(value).toStrictEqual(1);
 });
+
+it("should work when shortening nested if-statements", async () => {
+  var code = `
+  var a = false;
+  var b = true;
+  if( a ) {
+    if ( b ) {
+
+    }
+  } else {
+    input(10)
+  }
+  `;
+
+  var output = await JsConfuser(code, { target: "browser", minify: true });
+
+  expect(output).not.toContain("=>");
+
+  var value = "never_called",
+    input = (x) => (value = x);
+
+  eval(output);
+
+  expect(value).toStrictEqual(10);
+});

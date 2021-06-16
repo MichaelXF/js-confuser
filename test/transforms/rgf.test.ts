@@ -98,6 +98,33 @@ describe("RGF", () => {
 
     expect(output).not.toContain("new Function");
   });
+
+  it("should work with High Preset", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+    function log2(){
+      var inputFn = input;
+      var inputString = "Hello World";
+      inputFn(inputString)
+    }
+    log2()
+    `,
+      {
+        target: "node",
+        preset: "high",
+        globalConcealing: false,
+      }
+    );
+
+    var value = "never_called";
+    function input(valueIn) {
+      value = valueIn;
+    }
+
+    eval(output);
+
+    expect(value).toStrictEqual("Hello World");
+  });
 });
 
 describe("RGF with the 'all' mode", () => {
