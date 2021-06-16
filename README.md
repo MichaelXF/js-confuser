@@ -149,7 +149,7 @@ Attempts to reuse released names.
 
 ```js
 // Input
-function percentage(decimal) {
+function percentage(x) {
   var multiplied = x * 100;
   var floored = Math.floor(multiplied);
   var output = floored + "%"
@@ -157,7 +157,7 @@ function percentage(decimal) {
 }
 
 // Output
-function percentage(decimal) {
+function percentage(x) {
   var multiplied = x * 100;
   var floored = Math.floor(multiplied);
   multiplied = floored + "%";
@@ -377,10 +377,32 @@ Array of regex strings that the `window.location.href` must follow. (`Regex[]` o
 - Resilience Medium
 - Cost Medium
 
+### `lock.osLock`
+
+Array of operating-systems where the script is allowed to run. (`string[]`)
+
+- Potency Low
+- Resilience Medium
+- Cost Medium
+
+Allowed values: `"linux"`, `"windows"`, `"osx"`, `"android"`, `"ios"`
+Example: `["linux", "windows"]`
+
+### `lock.browserLock`
+
+Array of browsers where the script is allowed to run. (`string[]`)
+
+- Potency Low
+- Resilience Medium
+- Cost Medium
+
+Allowed values: `"firefox"`, `"chrome"`, `"iexplorer"`, `"edge"`, `"safari"`, `"opera"`
+Example: `["firefox", "chrome"]`
+
 ### `lock.nativeFunctions`
 
 Set of global functions that are native. Such as `require`, `fetch`. If these variables are modified the program crashes.
-Set to `true` to use the default native functions. (`string[]/true/false`)
+Set to `true` to use the default set of native functions. (`string[]/true/false`)
 
 - Potency Low
 - Resilience Medium
@@ -389,6 +411,7 @@ Set to `true` to use the default native functions. (`string[]/true/false`)
 ### `lock.integrity`
 
 Integrity ensures the source code is unchanged. (`true/false/0-1`)
+
 [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
 
 - Potency Medium
@@ -550,6 +573,8 @@ You must enable locks yourself, and configure them to your needs.
   lock: {
     integrity: true,
     domainLock: ["mywebsite.com"],
+    osLock: ["windows", "linux"],
+    browserLock: ["firefox"],
     startDate: new Date("Feb 1 2021"),
     endDate: new Date("Mar 1 2021"),
     antiDebug: true,
@@ -651,7 +676,7 @@ Mix modes using an object with key-value pairs to represent each mode's percenta
 
 ## Potential Issues
 
-1.  String Encoding can corrupt files. Disable `stringEncoding` manually if this happens.
+1.  String Encoding can corrupt files. Disable `stringEncoding` if this happens.
 2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
 
 ## File size and Performance

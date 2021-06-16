@@ -141,6 +141,24 @@ export interface ObfuscateOptions {
    * - Resilience High
    * - Cost Low
    *
+   * ```js
+   * // Input
+   * function percentage(x) {
+   *   var multiplied = x * 100;
+   *   var floored = Math.floor(multiplied);
+   *   var output = floored + "%"
+   *   return output;
+   * }
+   *
+   * // Output
+   * function percentage(x) {
+   *   var multiplied = x * 100;
+   *   var floored = Math.floor(multiplied);
+   *   multiplied = floored + "%";
+   *   return multiplied;
+   * }
+   * ```
+   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   nameRecycling?: ProbabilityMap<boolean>;
@@ -432,7 +450,7 @@ export interface ObfuscateOptions {
      * ### `lock.nativeFunctions`
      *
      * Set of global functions that are native. Such as `require`, `fetch`. If these variables are modified the program crashes.
-     * Set to `true` to use the default native functions. (`string[]/true/false`)
+     * Set to `true` to use the default set of native functions. (`string[]/true/false`)
      *
      * - Potency Low
      * - Resilience Medium
@@ -485,9 +503,47 @@ export interface ObfuscateOptions {
     domainLock?: RegExp[] | string[] | false;
 
     /**
+     * ### `lock.osLock`
+     * Array of operating-systems where the script is allowed to run. (`string[]`)
+     *
+     * - Potency Low
+     * - Resilience Medium
+     * - Cost Medium
+     *
+     * Allowed values: `"linux"`, `"windows"`, `"osx"`, `"android"`, `"ios"`
+     * Example: `["linux", "windows"]`
+     *
+     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     */
+    osLock?: ("linux" | "windows" | "osx" | "android" | "ios")[];
+
+    /**
+     * ### `lock.browserLock`
+     * Array of browsers where the script is allowed to run. (`string[]`)
+     *
+     * - Potency Low
+     * - Resilience Medium
+     * - Cost Medium
+     *
+     * Allowed values: `"firefox"`, `"chrome"`, `"iexplorer"`, `"edge"`, `"safari"`, `"opera"`
+     * Example: `["firefox", "chrome"]`
+     *
+     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     */
+    browserLock?: (
+      | "firefox"
+      | "chrome"
+      | "iexplorer"
+      | "edge"
+      | "safari"
+      | "opera"
+    )[];
+
+    /**
      * ### `lock.integrity`
      *
      * Integrity ensures the source code is unchanged. (`true/false/0-1`)
+     *
      * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
      *
      * - Potency Medium
@@ -588,7 +644,7 @@ export interface ObfuscateOptions {
   debugComments?: boolean;
 }
 
-var validProperties = new Set([
+const validProperties = new Set([
   "preset",
   "target",
   "indent",
@@ -622,6 +678,21 @@ var validProperties = new Set([
   "debugComments",
 ]);
 
+const validOses = new Set(["windows", "linux", "osx", "ios", "android"]);
+const validBrowsers = new Set([
+  "firefox",
+  "chrome",
+  "iexplorer",
+  "edge",
+  "safari",
+  "opera",
+]);
+
+/**
+ * Corrects the user's options. Sets the default values and validates the configuration.
+ * @param options
+ * @returns
+ */
 export async function correctOptions(
   options: ObfuscateOptions
 ): Promise<ObfuscateOptions> {
@@ -630,6 +701,66 @@ export async function correctOptions(
       throw new TypeError("Invalid option: '" + key + "'");
     }
   });
+
+  if (
+    options.target === "node" &&
+    options.lock &&
+    options.lock.browserLock &&
+    options.lock.browserLock.length
+  ) {
+    throw new TypeError('browserLock can only be used when target="browser"');
+  }
+
+  if (options.lock) {
+    // Validate browser-lock option
+    if (typeof options.lock.browserLock !== "undefined") {
+      ok(
+        Array.isArray(options.lock.browserLock),
+        "browserLock must be an array"
+      );
+      ok(
+        !options.lock.browserLock.find(
+          (browserName) => !validBrowsers.has(browserName)
+        ),
+        'Invalid browser name. Allowed: "firefox", "chrome", "iexplorer", "edge", "safari", "opera"'
+      );
+    }
+    // Validate os-lock option
+    if (typeof options.lock.osLock !== "undefined") {
+      ok(Array.isArray(options.lock.osLock), "osLock must be an array");
+      ok(
+        !options.lock.osLock.find((osName) => !validOses.has(osName)),
+        'Invalid OS name. Allowed: "windows", "linux", "osx", "ios", "android"'
+      );
+    }
+    // Validate domain-lock option
+    if (typeof options.lock.domainLock !== "undefined") {
+      ok(Array.isArray(options.lock.domainLock), "domainLock must be an array");
+    }
+
+    // Validate context option
+    if (typeof options.lock.context !== "undefined") {
+      ok(Array.isArray(options.lock.context), "context must be an array");
+    }
+
+    // Validate start-date option
+    if (typeof options.lock.startDate !== "undefined") {
+      ok(
+        typeof options.lock.startDate === "number" ||
+          options.lock.startDate instanceof Date,
+        "startDate must be Date object or number"
+      );
+    }
+
+    // Validate end-date option
+    if (typeof options.lock.endDate !== "undefined") {
+      ok(
+        typeof options.lock.endDate === "number" ||
+          options.lock.endDate instanceof Date,
+        "endDate must be Date object or number"
+      );
+    }
+  }
 
   if (options.preset) {
     ok(presets[options.preset], "Unknown preset of '" + options.preset + "'");
