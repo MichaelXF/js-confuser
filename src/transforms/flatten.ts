@@ -116,6 +116,10 @@ export default class Flatten extends Transform {
             return;
           }
 
+          if (o.hidden) {
+            illegal.add(o.name);
+          }
+
           if (info.spec.isDefined) {
             defined.add(o.name);
           } else if (info.spec.isModified) {

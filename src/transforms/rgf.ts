@@ -245,7 +245,7 @@ export default class RGF extends Transform {
         // Since `new Function` is completely isolated, create an entire new obfuscator and run remaining transformations.
         // RGF runs early and needs completed code before converting to a string.
         // (^ the variables haven't been renamed yet)
-        var o = new Obfuscator({
+        var obfuscator = new Obfuscator({
           ...this.options,
           rgf: false,
           globalVariables: new Set([
@@ -257,7 +257,7 @@ export default class RGF extends Transform {
           },
           eval: false,
         });
-        var t = Object.values(o.transforms).filter(
+        var transforms = Object.values(obfuscator.transforms).filter(
           (x) => x.priority > this.priority
         );
 
@@ -295,9 +295,10 @@ export default class RGF extends Transform {
           VariableDeclarator(referenceArray)
         );
         (tree as any).__hiddenDeclarations.hidden = true;
+        (tree as any).__hiddenDeclarations.declarations[0].id.hidden = true;
 
-        t.forEach((x) => {
-          x.apply(tree);
+        transforms.forEach((transform) => {
+          transform.apply(tree);
         });
 
         // Find eval callbacks

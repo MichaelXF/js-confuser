@@ -57,6 +57,9 @@ export default class AntiTooling extends Transform {
       };
 
       body.forEach((stmt, i) => {
+        if (stmt.hidden) {
+          return;
+        }
         if (stmt.type == "ExpressionStatement") {
           exprs.push(stmt);
         } else {

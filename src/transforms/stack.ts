@@ -100,6 +100,9 @@ export default class Stack extends Transform {
             );
             illegal.add(o.name);
           }
+          if (o.hidden) {
+            illegal.add(o.name);
+          }
 
           if (info.spec.isDefined) {
             if (defined.has(o.name)) {
