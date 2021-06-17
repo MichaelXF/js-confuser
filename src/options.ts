@@ -744,7 +744,10 @@ export async function correctOptions(
     }
 
     // Validate start-date option
-    if (typeof options.lock.startDate !== "undefined") {
+    if (
+      typeof options.lock.startDate !== "undefined" &&
+      options.lock.startDate
+    ) {
       ok(
         typeof options.lock.startDate === "number" ||
           options.lock.startDate instanceof Date,
@@ -753,7 +756,7 @@ export async function correctOptions(
     }
 
     // Validate end-date option
-    if (typeof options.lock.endDate !== "undefined") {
+    if (typeof options.lock.endDate !== "undefined" && options.lock.endDate) {
       ok(
         typeof options.lock.endDate === "number" ||
           options.lock.endDate instanceof Date,
