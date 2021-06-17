@@ -38,3 +38,39 @@ it("should accept probability maps", async () => {
 
   expect(output).not.toContain("TEST_VARIABLE");
 });
+
+it("should work with compact false", async () => {
+  var output = await JsConfuser(`var TEST_VARIABLE;`, {
+    target: "node",
+    renameGlobals: true,
+    renameVariables: true,
+    compact: false,
+  });
+
+  expect(output).not.toContain("TEST_VARIABLE");
+});
+
+it("should work with indent set to 2 spaces", async () => {
+  var output = await JsConfuser(`var TEST_VARIABLE;`, {
+    target: "node",
+    renameGlobals: true,
+    renameVariables: true,
+    compact: false,
+    indent: 2,
+  });
+
+  expect(output).not.toContain("TEST_VARIABLE");
+});
+
+it("should work with debugComments enabled", async () => {
+  var output = await JsConfuser(`var TEST_VARIABLE;`, {
+    target: "node",
+    renameGlobals: true,
+    renameVariables: true,
+    compact: false,
+    indent: 2,
+    debugComments: true,
+  });
+
+  expect(output).not.toContain("TEST_VARIABLE");
+});
