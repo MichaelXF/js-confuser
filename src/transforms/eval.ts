@@ -1,6 +1,7 @@
 import { compileJsSync } from "../compiler";
 import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
+import { isBlock } from "../traverse";
 import {
   CallExpression,
   Identifier,
@@ -9,7 +10,7 @@ import {
   VariableDeclaration,
   VariableDeclarator,
 } from "../util/gen";
-import { isFunction } from "../util/insert";
+import { isFunction, prepend } from "../util/insert";
 import Transform from "./transform";
 
 export default class Eval extends Transform {
@@ -36,12 +37,14 @@ export default class Eval extends Transform {
       return;
     }
 
-    object.$eval = () => {
+    object.$eval = (o, p) => {
       var name;
+      var requiresMove = false;
       if (object.type == "FunctionDeclaration") {
         name = object.id.name;
         object.type = "FunctionExpression";
         object.id = null;
+        requiresMove = Array.isArray(p[0]) && isBlock(p[1]);
       }
 
       var code = compileJsSync(object, this.options);
@@ -56,7 +59,12 @@ export default class Eval extends Transform {
         expr = VariableDeclaration(VariableDeclarator(name, expr));
       }
 
-      this.replace(object, expr);
+      if (requiresMove) {
+        prepend(p[1], expr);
+        p[0].splice(p[0].indexOf(object), 1);
+      } else {
+        this.replace(object, expr);
+      }
     };
   }
 }

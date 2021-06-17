@@ -305,7 +305,7 @@ export default class RGF extends Transform {
         traverse(tree, (o, p) => {
           if (o.$eval) {
             return () => {
-              o.$eval();
+              o.$eval(o, p);
             };
           }
         });
