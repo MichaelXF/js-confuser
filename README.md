@@ -735,9 +735,9 @@ Please [open an issue](https://github.com/MichaelXF/js-confuser/issues) and be d
 
 ## JsConfuser vs. Javascript-obfuscator
 
-Javascript-obfuscator ([https://obfuscator.io](obfuscator.io)) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser provides unique features and is lesser-known.
+Javascript-obfuscator ([https://obfuscator.io](https://obfuscator.io)) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser provides unique features and is lesser-known.
 
-Automated deobfuscators are aware of [https://obfuscator.io](obfuscator.io)'s techniques:
+Automated deobfuscators are aware of [https://obfuscator.io](https://obfuscator.io)'s techniques:
 
 https://www.youtube.com/watch?v=_UIqhaYyCMI
 
