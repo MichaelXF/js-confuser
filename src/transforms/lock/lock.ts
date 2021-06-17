@@ -139,7 +139,7 @@ export default class Lock extends Transform {
       ];
     }
 
-    var type = choice(["crash", "exit", "stutter"]);
+    var type = choice(["crash", "exit"]);
 
     switch (type) {
       case "crash":
@@ -156,11 +156,6 @@ export default class Lock extends Transform {
         }
 
         return Template("process.exit()").compile();
-
-      case "stutter":
-        return Template(
-          "for ( var i=0; i < 1000; i++ ) { var x = Math.cos(i) }"
-        ).compile();
     }
   }
 
