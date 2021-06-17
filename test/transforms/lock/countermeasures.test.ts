@@ -1,20 +1,27 @@
 import JsConfuser from "../../../src/index";
 
 test("Variant #1: Error when countermeasures function can't be found", async () => {
-  expect(async () => {
+  var err;
+  try {
     await JsConfuser.obfuscate(`5+5`, {
       target: "node",
       lock: {
         countermeasures: "myMissingFunction",
       },
     });
-  }).rejects.toThrow(
-    "Countermeasures function named 'myMissingfunction' was not found"
+  } catch (_err) {
+    err = _err;
+  }
+
+  expect(err).toBeTruthy();
+  expect(err instanceof Error).toStrictEqual(true);
+  expect(err.message).toContain(
+    "Countermeasures function named 'myMissingFunction' was not found"
   );
 });
 
 test("Variant #2: Error when countermeasures function isn't top-level", async () => {
-  expect(async () => {
+  await expect(async () => {
     await JsConfuser.obfuscate(
       `
     (function(){
@@ -36,7 +43,7 @@ test("Variant #2: Error when countermeasures function isn't top-level", async ()
 });
 
 test("Variant #3: Error when countermeasures function is redefined", async () => {
-  expect(async () => {
+  await expect(async () => {
     await JsConfuser.obfuscate(
       `
     function myFunction(){
