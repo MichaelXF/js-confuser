@@ -515,7 +515,7 @@ export interface ObfuscateOptions {
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
-    osLock?: ("linux" | "windows" | "osx" | "android" | "ios")[];
+    osLock?: ("linux" | "windows" | "osx" | "android" | "ios")[] | false;
 
     /**
      * ### `lock.browserLock`
@@ -530,14 +530,9 @@ export interface ObfuscateOptions {
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
-    browserLock?: (
-      | "firefox"
-      | "chrome"
-      | "iexplorer"
-      | "edge"
-      | "safari"
-      | "opera"
-    )[];
+    browserLock?:
+      | ("firefox" | "chrome" | "iexplorer" | "edge" | "safari" | "opera")[]
+      | false;
 
     /**
      * ### `lock.integrity`
