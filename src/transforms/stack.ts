@@ -7,13 +7,17 @@ import Template from "../templates/template";
 import { walk } from "../traverse";
 import {
   AssignmentExpression,
+  BinaryExpression,
   ExpressionStatement,
   Identifier,
+  IfStatement,
   Literal,
   Location,
   MemberExpression,
   Node,
   RestElement,
+  ReturnStatement,
+  SequenceExpression,
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
 import {
@@ -25,6 +29,7 @@ import {
   isVarContext,
   prepend,
 } from "../util/insert";
+import { choice, getRandomInteger, getRandomString } from "../util/random";
 import Transform from "./transform";
 
 export default class Stack extends Transform {
@@ -62,15 +67,18 @@ export default class Stack extends Transform {
       var referenced = new Set<string>();
       var illegal = new Set<string>();
 
-      var map = new Map<string, Set<Location>>();
+      var subscripts = new Map<string, string>();
+      var deadValues = Object.create(null);
 
-      var subscripts = new Map<string, number>();
+      function setSubscript(string, index) {
+        subscripts.set(string, index + "");
+      }
 
       object.params.forEach((param) => {
         ok(param.name);
         defined.add(param.name);
 
-        subscripts.set(param.name, subscripts.size);
+        setSubscript(param.name, subscripts.size);
       });
 
       var startingSize = subscripts.size;
@@ -109,7 +117,13 @@ export default class Stack extends Transform {
               illegal.add(o.name);
             }
 
-            subscripts.set(o.name, subscripts.size);
+            if (info.isFunctionDeclaration) {
+              if (p[0] !== object.body.body[0]) {
+                illegal.add(o.name);
+              }
+            }
+
+            setSubscript(o.name, subscripts.size);
             defined.add(o.name);
 
             var varIndex = p.findIndex((x) => x.type == "VariableDeclaration");
@@ -122,32 +136,17 @@ export default class Stack extends Transform {
           } else if (info.spec.isReferenced) {
             referenced.add(o.name);
           }
-
-          if (
-            info.spec.isReferenced ||
-            info.spec.isDefined ||
-            info.spec.isModified
-          ) {
-            var set = map.get(o.name);
-            if (!set) {
-              map.set(o.name, new Set([[o, p]]));
-            } else {
-              set.add([o, p]);
-            }
-          }
         }
       });
 
       illegal.forEach((name) => {
         defined.delete(name);
         referenced.delete(name);
-        map.delete(name);
         subscripts.delete(name);
       });
 
       referenced.forEach((name) => {
         if (!defined.has(name)) {
-          map.delete(name);
           subscripts.delete(name);
         }
       });
@@ -160,19 +159,62 @@ export default class Stack extends Transform {
         return;
       }
 
+      function numberLiteral(number, depth = 0) {
+        ok(number === number);
+        if (
+          typeof number !== "number" ||
+          !Object.keys(deadValues).length ||
+          depth > 6 ||
+          Math.random() > (depth == 0 ? 0.9 : 0.9 / (depth * 4))
+        ) {
+          return Literal(number);
+        }
+
+        var opposingIndex = choice(Object.keys(deadValues));
+        if (typeof opposingIndex === "undefined") {
+          return Literal(number);
+        }
+        var actualValue = deadValues[opposingIndex];
+
+        ok(typeof actualValue === "number");
+
+        return BinaryExpression(
+          "-",
+          MemberExpression(
+            Identifier(stackName),
+            numberLiteral(
+              isNaN(parseFloat(opposingIndex))
+                ? opposingIndex
+                : parseFloat(opposingIndex),
+              depth + 1
+            ),
+            true
+          ),
+          numberLiteral(actualValue - number, depth + 1)
+        );
+      }
+
+      function getMemberExpression(index) {
+        ok(typeof index === "string", typeof index);
+        return MemberExpression(
+          Identifier(stackName),
+          numberLiteral(isNaN(parseFloat(index)) ? index : parseFloat(index)),
+          true
+        );
+      }
+
       var stackName = this.getPlaceholder();
 
       const scan = (o, p) => {
         if (o.type == "Identifier") {
           var index = subscripts.get(o.name);
-          if (typeof index === "number") {
+          if (typeof index !== "undefined") {
             var info = getIdentifierInfo(o, p);
+            if (!info.spec.isReferenced) {
+              return;
+            }
 
-            var member = MemberExpression(
-              Identifier(stackName),
-              Literal(index),
-              true
-            );
+            var member = getMemberExpression(index);
 
             if (info.spec.isDefined) {
               if (info.isVariableDeclaration) {
@@ -237,14 +279,133 @@ export default class Stack extends Transform {
             }
           }
         }
+
+        if (
+          o.type == "Literal" &&
+          typeof o.value === "number" &&
+          Math.random() > 0.25 &&
+          p.find((x) => isVarContext(x)) === object
+        ) {
+          return () => {
+            this.replace(o, numberLiteral(o.value, 0));
+          };
+        }
       };
 
-      walk(object.body, [object, ...parents], (o, p) => {
-        scan(o, p);
+      var rotateNodes: { [index: number]: Node } = Object.create(null);
+
+      object.body.body.forEach((stmt, index) => {
+        var isFirst = index == 0;
+
+        if (Math.random() > (isFirst ? 0.95 : 0.9 / index)) {
+          var exprs = [];
+
+          var changes = getRandomInteger(isFirst ? 2 : 1, isFirst ? 5 : 2);
+
+          for (var i = 0; i < changes; i++) {
+            var expr;
+            var type = choice(["set", "deadValue"]);
+
+            var valueSet = new Set([
+              ...Array.from(subscripts.values()),
+              ...Object.keys(deadValues),
+            ]);
+            var newIndex;
+            var i = 0;
+            do {
+              newIndex =
+                getRandomInteger(0, 250 + subscripts.size + i * 1000) + "";
+              i++;
+            } while (valueSet.has(newIndex));
+
+            switch (type) {
+              case "set":
+                var randomName = choice(Array.from(subscripts.keys()));
+                var currentIndex = subscripts.get(randomName);
+
+                expr = AssignmentExpression(
+                  "=",
+                  getMemberExpression(newIndex),
+                  getMemberExpression(currentIndex)
+                );
+
+                ok(
+                  typeof deadValues[newIndex] === "undefined",
+                  deadValues[newIndex]
+                );
+                setSubscript(randomName, newIndex);
+                break;
+
+              case "deadValue":
+                var rand = getRandomInteger(-250, 250);
+
+                // modify an already existing dead value index
+                if (Math.random() > 0.5) {
+                  var alreadyExisting = choice(Object.keys(deadValues));
+
+                  if (typeof alreadyExisting === "string") {
+                    newIndex = alreadyExisting;
+                  }
+                }
+
+                expr = AssignmentExpression(
+                  "=",
+                  getMemberExpression(newIndex),
+                  numberLiteral(rand)
+                );
+
+                ok(!subscripts.has(newIndex));
+                deadValues[newIndex] = rand;
+                break;
+            }
+
+            exprs.push(expr);
+          }
+          rotateNodes[index] = ExpressionStatement(SequenceExpression(exprs));
+        }
+
+        walk(
+          stmt,
+          [object.body.body, object.body, object, ...parents],
+          (o, p) => {
+            scan(o, p);
+          }
+        );
+
+        if (stmt.type == "ReturnStatement") {
+          var opposing = choice(Object.keys(deadValues));
+          if (typeof opposing === "string") {
+            this.replace(
+              stmt,
+              IfStatement(
+                BinaryExpression(
+                  ">",
+                  getMemberExpression(opposing),
+                  numberLiteral(
+                    deadValues[opposing] + getRandomInteger(40, 140)
+                  )
+                ),
+                [
+                  ReturnStatement(
+                    getMemberExpression(getRandomInteger(-250, 250) + "")
+                  ),
+                ],
+                [ReturnStatement(stmt.argument)]
+              )
+            );
+          }
+        }
       });
 
+      // Add in the rotation nodes
+      Object.keys(rotateNodes).forEach((index, i) => {
+        object.body.body.splice(parseInt(index) + i, 0, rotateNodes[index]);
+      });
+
+      // Set the params for this function to be the stack array
       object.params = [RestElement(Identifier(stackName))];
 
+      // Ensure the array is correct length
       prepend(
         object.body,
         Template(`${stackName}.length = ${startingSize}`).single()
