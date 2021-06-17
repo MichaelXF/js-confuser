@@ -50,6 +50,10 @@ export default class MovedDeclarations extends Transform {
             illegal.add(o.name);
             this.log(o.name, "is illegal due to detected being redefined");
           }
+          if (info.spec.isDefined && p.find((x) => x.type == "SwitchCase")) {
+            illegal.add(o.name);
+            this.log(o.name, "is illegal due being in switch case");
+          }
 
           if (o.hidden) {
             illegal.add(o.name);
