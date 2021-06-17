@@ -79,6 +79,17 @@ The execution context for your output. _Required_.
 
 [JS-Confuser comes with three presets built into the obfuscator](https://github.com/MichaelXF/js-confuser#presets). _Optional_. (`"high"/"medium"/"low"`)
 
+```js
+var JsConfuser = require('js-confuser');
+
+JsConfuser.obfuscate(`<source code>`, {
+  target: "node",
+  preset: "high" // | "medium" | "low"
+}).then(obfuscated=>{
+  console.log(obfuscated) // obfuscated is a string
+})
+```
+
 ### `compact`
 
 Remove's whitespace from the final output. Enabled by default. (`true/false`)
@@ -90,6 +101,8 @@ Minifies redundant code. (`true/false`)
 ### `es5`
 
 Converts output to ES5-compatible code. (`true/false`)
+
+Does not cover all cases such as Promises or Generator functions. Use [Babel](https://babel.dev/).
 
 ### `renameVariables`
 
@@ -167,8 +180,9 @@ function percentage(x) {
 
 ### `controlFlowFlattening`
 
-[Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) obfuscates the program's control-flow by
-adding opaque predicates; flattening the control-flow; and adding irrelevant code clones. (`true/false/0-1`)
+⚠️ Significantly impacts performance, use sparingly!
+
+[Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) hinders program comprehension by creating convoluted switch statements. (`true/false/0-1`)
 
 Use a number to control the percentage from 0 to 1.
 
@@ -185,7 +199,7 @@ Global Concealing hides global variables being accessed. (`true/false`)
 - Cost Low
 
 ### `stringCompression`
-String Compression uses LZW's compression algorithm to reduce file size. (`true/false/0-1`)
+String Compression uses LZW's compression algorithm to compress strings. (`true/false/0-1`)
 
 `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
 - Potency High
@@ -236,7 +250,7 @@ Use a number to control the percentage of strings.
 
 ### `dispatcher`
 
-Creates a dispatcher function to process function calls. This can conceal the flow of your program. (`true/false`)
+Creates a middleman function to process function calls. (`true/false/0-1`)
 
 - Potency Medium
 - Resilience Medium
@@ -293,8 +307,8 @@ var C6z0jyO=[new Function('a2Fjjl',"function OqNW8x(OqNW8x){console['log'](OqNW8
 
 Extracts object properties into separate variables. (`true/false`)
 
-- Potency Low
-- Resilience Low
+- Potency Medium
+- Resilience Medium
 - Cost Low
 
 ```js
@@ -386,6 +400,7 @@ Array of operating-systems where the script is allowed to run. (`string[]`)
 - Cost Medium
 
 Allowed values: `"linux"`, `"windows"`, `"osx"`, `"android"`, `"ios"`
+
 Example: `["linux", "windows"]`
 
 ### `lock.browserLock`
@@ -397,6 +412,7 @@ Array of browsers where the script is allowed to run. (`string[]`)
 - Cost Medium
 
 Allowed values: `"firefox"`, `"chrome"`, `"iexplorer"`, `"edge"`, `"safari"`, `"opera"`
+
 Example: `["firefox", "chrome"]`
 
 ### `lock.nativeFunctions`
@@ -676,8 +692,18 @@ Mix modes using an object with key-value pairs to represent each mode's percenta
 
 ## Potential Issues
 
-1.  String Encoding can corrupt files. Disable `stringEncoding` if this happens.
-2.  Dead Code can bloat file size. Reduce or disable `deadCode`.
+1. String Encoding can corrupt files. Disable `stringEncoding` if this happens.
+2. Dead Code can bloat file size. Reduce or disable `deadCode`.
+3. Rename Globals can break web-scripts.
+   i. Disable `renameGlobals` or
+   ii. Refractor your code
+   ```js
+   // Avoid doing this
+   var myGlobalFunction = ()=>console.log("Called");
+
+   // Do this instead
+   window.myGlobalFunction = ()=>console.log("Called");
+   ```
 
 ## File size and Performance
 

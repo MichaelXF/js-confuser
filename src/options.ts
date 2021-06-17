@@ -64,6 +64,8 @@ export interface ObfuscateOptions {
    *
    * Converts output to ES5-compatible code. (`true/false`)
    *
+   * Does not cover all cases such as Promises or Generator functions. Use [Babel](https://babel.dev/).
+   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   es5?: boolean;
@@ -166,8 +168,9 @@ export interface ObfuscateOptions {
   /**
    * ### `controlFlowFlattening`
    *
-   * [Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) obfuscates the program's control-flow by
-   * adding opaque predicates; flattening the control-flow; and adding irrelevant code clones. (`true/false`)
+   * ⚠️ Significantly impacts performance, use sparingly!
+   *
+   * [Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) hinders program comprehension by creating convoluted switch statements. (`true/false/0-1`)
    *
    * Use a number to control the percentage from 0 to 1.
    *
@@ -195,7 +198,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringCompression`
    *
-   * String Compression uses LZW's compression algorithm to reduce file size. (`true/false/0-1`)
+   * String Compression uses LZW's compression algorithm to compress strings. (`true/false/0-1`)
    *
    * `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
    *
@@ -264,7 +267,7 @@ export interface ObfuscateOptions {
   /**
    * ### `dispatcher`
    *
-   * Creates a dispatcher function to process function calls. This can conceal the flow of your program. (`true/false`)
+   * Creates a middleman function to process function calls. (`true/false/0-1`)
    *
    * - Potency Medium
    * - Resilience Medium
@@ -360,8 +363,8 @@ export interface ObfuscateOptions {
    *
    * Extracts object properties into separate variables. (`true/false`)
    *
-   * - Potency Low
-   * - Resilience Low
+   * - Potency Medium
+   * - Resilience Medium
    * - Cost Low
    *
    * ```js
@@ -511,6 +514,7 @@ export interface ObfuscateOptions {
      * - Cost Medium
      *
      * Allowed values: `"linux"`, `"windows"`, `"osx"`, `"android"`, `"ios"`
+     *
      * Example: `["linux", "windows"]`
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
@@ -526,6 +530,7 @@ export interface ObfuscateOptions {
      * - Cost Medium
      *
      * Allowed values: `"firefox"`, `"chrome"`, `"iexplorer"`, `"edge"`, `"safari"`, `"opera"`
+     *
      * Example: `["firefox", "chrome"]`
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
