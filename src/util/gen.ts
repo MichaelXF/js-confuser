@@ -45,11 +45,10 @@ export type Location = [Node, Node[]];
 /**
  * Eval Callbacks are called once all transformations are done.
  *
- * - Called with object, parents, and scope.
- * - Return value becomes the {$eval} object (Object assign)
+ * - Called with object, and parents.
  */
 export type EvalCallback = {
-  $eval: (object: Node, parents: Node[], scope: Node) => any;
+  $eval: (object: Node, parents: Node[]) => void;
   [key: string]: any;
 };
 
