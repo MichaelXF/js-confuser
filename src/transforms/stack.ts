@@ -164,8 +164,8 @@ export default class Stack extends Transform {
         if (
           typeof number !== "number" ||
           !Object.keys(deadValues).length ||
-          depth > 6 ||
-          Math.random() > (depth == 0 ? 0.9 : 0.9 / (depth * 4))
+          depth > 5 ||
+          Math.random() > (depth == 0 ? 0.8 : 0.8 / (depth * 4))
         ) {
           return Literal(number);
         }
@@ -297,10 +297,10 @@ export default class Stack extends Transform {
       object.body.body.forEach((stmt, index) => {
         var isFirst = index == 0;
 
-        if (Math.random() > (isFirst ? 0.95 : 0.9 / index)) {
+        if (isFirst || Math.random() < 0.9 / index) {
           var exprs = [];
 
-          var changes = getRandomInteger(isFirst ? 2 : 1, isFirst ? 5 : 2);
+          var changes = getRandomInteger(isFirst ? 2 : 1, isFirst ? 3 : 2);
 
           for (var i = 0; i < changes; i++) {
             var expr;
