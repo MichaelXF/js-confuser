@@ -5,6 +5,9 @@ import { Identifier } from "../util/gen";
 import { clone } from "../util/insert";
 import Transform from "./transform";
 
+/**
+ * Renames the labels to shorter names.
+ */
 export default class RenameLabels extends Transform {
   gen: any;
 

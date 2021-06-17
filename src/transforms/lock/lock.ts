@@ -37,205 +37,8 @@ import Integrity from "./integrity";
 import AntiDebug from "./antiDebug";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { isLoop, isValidIdentifier } from "../../util/compare";
-
-/**
- * Strings are formulated to work only during the allowed time
- */
-class LockStrings extends Transform {
-  strings: { [key: string]: string };
-  gen: any;
-  fnName: string;
-  objectExpression: Node;
-  shift: number;
-
-  constructor(o) {
-    super(o);
-
-    this.strings = Object.create(null);
-    this.gen = this.getGenerator();
-
-    this.fnName = null;
-    this.objectExpression = null;
-
-    this.shift = getRandomInteger(1, 5);
-  }
-
-  match(object) {
-    return (
-      object.type == "Program" ||
-      (object.type == "Literal" && typeof object.value === "string")
-    );
-  }
-
-  getKey() {
-    function ensureNumber(y: Date | number | false) {
-      if (!y) {
-        return 0;
-      }
-      if (y instanceof Date) {
-        return y.getTime();
-      }
-
-      // @ts-ignore
-      return parseInt(y);
-    }
-
-    var start = ensureNumber(this.options.lock.startDate);
-    var end = ensureNumber(this.options.lock.endDate);
-
-    var diff = end - start;
-
-    var now = Date.now();
-
-    return {
-      key: Math.floor(now / diff),
-      diff: diff,
-    };
-  }
-
-  transform(object: Node, parents: Node[]) {
-    if (!this.fnName) {
-      this.fnName = this.getPlaceholder();
-
-      this.objectExpression = ObjectExpression([]);
-    }
-
-    if (object.type == "Program") {
-      var keyArg = this.getPlaceholder();
-      var mapName = this.getPlaceholder();
-
-      return () => {
-        if (this.objectExpression.properties.length) {
-          var keyVar = this.getPlaceholder();
-
-          var { diff } = this.getKey();
-          prepend(
-            object,
-            VariableDeclaration([
-              VariableDeclarator(
-                Identifier(keyVar),
-                Template(`Math.floor(Date.now()/${diff})`).single().expression
-              ),
-            ])
-          );
-
-          var currentVar = this.getPlaceholder();
-          var outputVar = this.getPlaceholder();
-          var xVar = this.getPlaceholder();
-
-          prepend(
-            object,
-            FunctionDeclaration(
-              this.fnName,
-              [Identifier(keyArg)],
-              [
-                VariableDeclaration(
-                  VariableDeclarator(mapName, this.objectExpression)
-                ),
-                VariableDeclaration(
-                  VariableDeclarator(
-                    currentVar,
-                    MemberExpression(
-                      Identifier(mapName),
-                      Identifier(keyArg),
-                      true
-                    )
-                  )
-                ),
-                VariableDeclaration(VariableDeclarator(outputVar, Literal(""))),
-                ExpressionStatement(
-                  CallExpression(
-                    MemberExpression(
-                      Identifier(currentVar),
-                      Identifier("forEach"),
-                      false
-                    ),
-                    [
-                      FunctionExpression(
-                        [Identifier(xVar)],
-                        [
-                          ExpressionStatement(
-                            AssignmentExpression(
-                              "+=",
-                              Identifier(outputVar),
-                              CallExpression(
-                                MemberExpression(
-                                  Identifier("String"),
-                                  Identifier("fromCharCode"),
-                                  false
-                                ),
-                                [
-                                  BinaryExpression(
-                                    "^",
-                                    BinaryExpression(
-                                      ">>",
-                                      Identifier(xVar),
-                                      Literal(this.shift)
-                                    ),
-                                    Identifier(keyVar)
-                                  ),
-                                ]
-                              )
-                            )
-                          ),
-                        ]
-                      ),
-                    ]
-                  )
-                ),
-                ReturnStatement(Identifier(outputVar)),
-              ]
-            )
-          );
-        }
-      };
-    }
-
-    if (!object.value) {
-      return;
-    }
-
-    if (
-      parents.find(
-        (x) => x.type == "CallExpression" && x.callee.name == this.fnName
-      )
-    ) {
-      return;
-    }
-
-    var key = this.strings[object.value];
-
-    if (!key) {
-      // New string found!
-      key = this.gen.generate();
-      this.strings[key] = object.value;
-
-      var xorKey = this.getKey().key;
-
-      var array = ArrayExpression(
-        object.value
-          .split("")
-          .map((x) => x.charCodeAt(0))
-          .map((x) => x ^ xorKey)
-          .map((x) => x << this.shift)
-          .map((x) => Literal(x))
-      );
-
-      this.objectExpression.properties.push(
-        Property(Identifier(key), array, false)
-      );
-    }
-
-    if (parents[0].type == "Property") {
-      parents[0].computed = true;
-    }
-
-    this.objectAssign(
-      object,
-      CallExpression(Identifier(this.fnName), [Literal(key)])
-    );
-  }
-}
+import LockStrings from "./lockStrings";
+import { ok } from "assert";
 
 /**
  * Applies browser & date locks.
@@ -243,13 +46,17 @@ class LockStrings extends Transform {
 export default class Lock extends Transform {
   globalVar: string;
   counterMeasuresNode: Location;
+  iosDetectFn: string;
+
+  made: number;
 
   constructor(o) {
     super(o, ObfuscateOrder.Lock);
 
-    if (this.options.lock.startDate && this.options.lock.endDate) {
-      this.before.push(new LockStrings(o));
-    }
+    // Removed feature
+    // if (this.options.lock.startDate && this.options.lock.endDate) {
+    //   this.before.push(new LockStrings(o));
+    // }
 
     if (this.options.lock.integrity) {
       this.before.push(new Integrity(o, this));
@@ -258,6 +65,8 @@ export default class Lock extends Transform {
     if (this.options.lock.antiDebug) {
       this.before.push(new AntiDebug(o));
     }
+
+    this.made = 0;
   }
 
   apply(tree) {
@@ -323,7 +132,11 @@ export default class Lock extends Transform {
     // Call function
     if (typeof opt === "string") {
       // Since Lock occurs before variable renaming, we are using the pre-obfuscated function name
-      return [CallExpression(Template(opt).single().expression, [])];
+      return [
+        ExpressionStatement(
+          CallExpression(Template(opt).single().expression, [])
+        ),
+      ];
     }
 
     var type = choice(["crash", "exit", "stutter"]);
@@ -399,14 +212,26 @@ export default class Lock extends Transform {
     if (this.options.lock.nativeFunctions) {
       choices.push("nativeFunction");
     }
-    if (this.options.lock.context) {
+    if (this.options.lock.context && this.options.lock.context.length) {
       choices.push("context");
     }
+    if (this.options.lock.browserLock && this.options.lock.browserLock.length) {
+      choices.push("browserLock");
+    }
+    if (this.options.lock.osLock && this.options.lock.osLock.length) {
+      choices.push("osLock");
+    }
+
     if (!choices.length) {
       return;
     }
 
     return () => {
+      this.made++;
+      if (this.made > 150) {
+        return;
+      }
+
       var type = choice(choices);
       var nodes = [];
 
@@ -535,6 +360,108 @@ export default class Lock extends Transform {
             IfStatement(test, this.getCounterMeasuresCode() || [], null)
           );
 
+          break;
+
+        case "osLock":
+          var navigatorUserAgent = Template(
+            `window.navigator.userAgent.toLowerCase()`
+          ).single().expression;
+
+          ok(this.options.lock.osLock);
+
+          this.options.lock.osLock.forEach((osName) => {
+            var agentMatcher = {
+              windows: "Win",
+              linux: "Linux",
+              osx: "Mac",
+              android: "Android",
+              ios: "---",
+            }[osName];
+            var thisTest: Node = CallExpression(
+              MemberExpression(navigatorUserAgent, Literal("match"), true),
+              [Literal(agentMatcher.toLowerCase())]
+            );
+            if (osName == "ios" && this.options.target === "browser") {
+              if (!this.iosDetectFn) {
+                this.iosDetectFn = this.getPlaceholder();
+                prepend(
+                  parents[parents.length - 1] || object,
+                  Template(`function ${this.iosDetectFn}() {
+                  return [
+                    'iPad Simulator',
+                    'iPhone Simulator',
+                    'iPod Simulator',
+                    'iPad',
+                    'iPhone',
+                    'iPod'
+                  ].includes(navigator.platform)
+                  // iPad on iOS 13 detection
+                  || (navigator.userAgent.includes("Mac") && "ontouchend" in document)
+                }`).single()
+                );
+              }
+
+              thisTest = CallExpression(Identifier(this.iosDetectFn), []);
+            }
+
+            if (this.options.target === "node") {
+              var platformName =
+                { windows: "win32", osx: "darwin", ios: "darwin" }[osName] ||
+                osName;
+              thisTest = Template(
+                `require('os').platform()==="${platformName}"`
+              ).single().expression;
+            }
+
+            if (!test) {
+              test = thisTest;
+            } else {
+              test = LogicalExpression("||", { ...test }, thisTest);
+            }
+          });
+
+          test = UnaryExpression("!", { ...test });
+          nodes.push(
+            IfStatement(test, this.getCounterMeasuresCode() || [], null)
+          );
+          break;
+
+        case "browserLock":
+          var navigatorUserAgent = Template(
+            `window.navigator.userAgent.toLowerCase()`
+          ).single().expression;
+
+          ok(this.options.lock.browserLock);
+
+          this.options.lock.browserLock.forEach((browserName) => {
+            var thisTest: Node = CallExpression(
+              MemberExpression(navigatorUserAgent, Literal("match"), true),
+              [
+                Literal(
+                  browserName == "iexplorer"
+                    ? "msie"
+                    : browserName.toLowerCase()
+                ),
+              ]
+            );
+
+            if (browserName === "safari") {
+              thisTest = Template(
+                `/^((?!chrome|android).)*safari/i.test(navigator.userAgent)`
+              ).single().expression;
+            }
+
+            if (!test) {
+              test = thisTest;
+            } else {
+              test = LogicalExpression("||", { ...test }, thisTest);
+            }
+          });
+
+          test = UnaryExpression("!", { ...test });
+          nodes.push(
+            IfStatement(test, this.getCounterMeasuresCode() || [], null)
+          );
           break;
 
         case "domainLock":

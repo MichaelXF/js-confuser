@@ -1,3 +1,52 @@
+# `1.1.9`
+Browser Lock and OS Lock
+
+- Added `Browser Lock` and `OS Lock`
+
+| Mode | Target | Method |
+| --- | --- | --- |
+| `Browser Lock` | `"browser"` | Checks `window.navigator.userAgent` |
+| `Browser Lock` | `"node"` | N/A |
+| `OS Lock` | `"browser"` | Checks `window.navigator.userAgent` |
+| `OS Lock` | `"node"` | Checks `require('os').platform()` |
+
+---
+
+- #### `Browser Lock`
+
+- Array of browsers where the script is allowed to run. (`string[]`)
+
+- - Potency Low
+- - Resilience Medium
+- - Cost Medium
+
+- Allowed values: `"firefox"`, `"chrome"`, `"iexplorer"`, `"edge"`, `"safari"`, `"opera"`
+
+- Example: `["firefox", "chrome"]`
+
+---
+
+- #### `OS Lock`
+
+- Array of operating-systems where the script is allowed to run. (`string[]`)
+
+- - Potency Low
+- - Resilience Medium
+- - Cost Medium
+
+- Allowed values: `"linux"`, `"windows"`, `"osx"`, `"android"`, `"ios"`
+
+- Example: `["linux", "windows"]`
+
+---
+
+- **Bug fix**: `Moved Declarations` no longer applies to loops
+- - Previously broke Switch statements
+
+- `String Splitting` use larger chunk sizes to avoid creating too many strings
+
+Available now on NPM: https://www.npmjs.com/package/js-confuser
+
 # `1.1.8`
 Bug Fixes and Improvements
 
@@ -97,6 +146,8 @@ while (xYPTGP + NYvTJV + eB6EbU + cD8ztD + AnCfc3A + n6wikC != 33) {
     }
 }
 ```
+
+Available now on NPM: https://www.npmjs.com/package/js-confuser
 
 # `1.1.7`
 Website is Live

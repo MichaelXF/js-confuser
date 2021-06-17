@@ -61,3 +61,68 @@ it("should error when invalid options are passed in", async () => {
     return await JsConfuser("5+5", invalid);
   }).rejects.toThrow();
 });
+
+it("should error when browserLock is used on target 'node'", async () => {
+  var invalid: any = {
+    target: "node",
+    lock: {
+      browserLock: ["firefox"],
+    },
+  };
+
+  await expect(async () => {
+    return await JsConfuser("5+5", invalid);
+  }).rejects.toThrow();
+});
+
+it("should error when invalid browser names are passed in", async () => {
+  var invalid: any = {
+    target: "browser",
+    lock: {
+      browserLock: ["__invalid__browser__"],
+    },
+  };
+
+  await expect(async () => {
+    return await JsConfuser("5+5", invalid);
+  }).rejects.toThrow();
+});
+
+it("should error when invalid os names are passed in", async () => {
+  var invalid: any = {
+    target: "browser",
+    lock: {
+      osLock: ["__invalid__browser__"],
+    },
+  };
+
+  await expect(async () => {
+    return await JsConfuser("5+5", invalid);
+  }).rejects.toThrow();
+});
+
+it("should error when invalid startDate is passed in", async () => {
+  var invalid: any = {
+    target: "browser",
+    lock: {
+      startDate: "__invalid__date__object__",
+    },
+  };
+
+  await expect(async () => {
+    return await JsConfuser("5+5", invalid);
+  }).rejects.toThrow();
+});
+
+it("should error when invalid endDate is passed in", async () => {
+  var invalid: any = {
+    target: "browser",
+    lock: {
+      endDate: "__invalid__date__object__",
+    },
+  };
+
+  await expect(async () => {
+    return await JsConfuser("5+5", invalid);
+  }).rejects.toThrow();
+});

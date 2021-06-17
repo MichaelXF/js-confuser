@@ -14,6 +14,7 @@ import { clone, isForInitialize, isFunction, prepend } from "../../util/insert";
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import { getIdentifierInfo } from "../../util/identifiers";
+import { isLoop } from "../../util/compare";
 
 /**
  * Defines all the names at the top of every lexical block.
@@ -24,7 +25,7 @@ export default class MovedDeclarations extends Transform {
   }
 
   match(object, parents) {
-    return isBlock(object);
+    return isBlock(object) && (!parents[0] || !isLoop(parents[0]));
   }
 
   transform(object: Node, parents: Node[]) {
@@ -49,6 +50,10 @@ export default class MovedDeclarations extends Transform {
             illegal.add(o.name);
             this.log(o.name, "is illegal due to detected being redefined");
           }
+
+          if (o.hidden) {
+            illegal.add(o.name);
+          }
         }
 
         var s = getBlock(o, p);
@@ -63,7 +68,7 @@ export default class MovedDeclarations extends Transform {
               )
             ) {
               var index = block.body.indexOf(o);
-              if (index === 0) {
+              if (index === 0 || o.hidden) {
                 o.declarations.forEach((x) => {
                   illegal.add(x.id.name);
                 });

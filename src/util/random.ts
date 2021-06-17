@@ -1,3 +1,4 @@
+import { ok } from "assert";
 import {
   Literal,
   ObjectExpression,
@@ -43,8 +44,19 @@ export function getRandomInteger(min, max) {
   return Math.floor(getRandom(min, max));
 }
 
-export function splitIntoChunks(string: string): any[] {
-  return string.match(/.{1,8}/g);
+export function splitIntoChunks(str: string, size: number) {
+  ok(typeof str === "string", "str must be typeof string");
+  ok(typeof size === "number", "size must be typeof number");
+  ok(Math.floor(size) === size, "size must be integer");
+
+  const numChunks = Math.ceil(str.length / size);
+  const chunks = new Array(numChunks);
+
+  for (let i = 0, o = 0; i < numChunks; ++i, o += size) {
+    chunks[i] = str.substr(o, size);
+  }
+
+  return chunks;
 }
 
 /**

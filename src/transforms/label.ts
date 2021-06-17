@@ -9,7 +9,6 @@ import { isLoop } from "../util/compare";
  *
  * This is because Control Flow Flattening adds For Loops which label-less break statements point to the nearest,
  * when they actually need to point to the original statement.
- *
  */
 export default class Label extends Transform {
   constructor(o) {

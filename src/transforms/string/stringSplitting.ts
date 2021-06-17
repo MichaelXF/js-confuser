@@ -1,7 +1,7 @@
 import Transform from "../transform";
 import { Node, Literal, BinaryExpression } from "../../util/gen";
 import { clone } from "../../util/insert";
-import { shuffle, splitIntoChunks } from "../../util/random";
+import { getRandomInteger, shuffle, splitIntoChunks } from "../../util/random";
 import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "./stringConcealing";
 import { isDirective } from "../../util/compare";
@@ -64,7 +64,14 @@ export default class StringSplitting extends Transform {
         parents[propIndex].computed = true;
       }
 
-      var chunks = splitIntoChunks(object.value);
+      var size = Math.round(
+        Math.max(6, object.value.length / getRandomInteger(3, 8))
+      );
+      if (object.value.length <= size) {
+        return;
+      }
+
+      var chunks = splitIntoChunks(object.value, size);
       if (!chunks || chunks.length <= 1) {
         return;
       }

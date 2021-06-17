@@ -229,6 +229,37 @@ it("should not extract properties on objects when the object is referenced indep
   eval(output);
 });
 
+it("should not extract properties on objects when the variable gets redefined", async () => {
+  var code = `
+    
+    var TEST_OBJECT = {
+      key: "value"
+    };
+    var TEST_OBJECT = {x: 1};
+
+
+    var check = false;
+    eval(\`
+      try {TEST_OBJECT} catch(e) {
+        check = true;
+      }
+    \`);
+    
+    input(check);
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    objectExtraction: true,
+  });
+
+  function input(x) {
+    expect(x).toStrictEqual(false);
+  }
+
+  eval(output);
+});
+
 it("should not extract properties on objects when the variable gets reassigned", async () => {
   var code = `
     
@@ -237,6 +268,39 @@ it("should not extract properties on objects when the variable gets reassigned",
     };
 
     TEST_OBJECT = {key: "value_2"}
+
+
+    var check = false;
+    eval(\`
+      try {TEST_OBJECT} catch(e) {
+        check = true;
+      }
+    \`);
+    
+    input(check);
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    objectExtraction: true,
+  });
+
+  function input(x) {
+    expect(x).toStrictEqual(false);
+  }
+
+  eval(output);
+});
+
+it("should not extract properties on objects with methods referencing 'this'", async () => {
+  var code = `
+    
+    var TEST_OBJECT = {
+      key: "value",
+      getKey: function(){
+        return this.key;
+      }
+    };
 
 
     var check = false;
@@ -316,6 +380,42 @@ it("should not extract properties on objects with computed accessors", async () 
     target: "browser",
     objectExtraction: true,
   });
+
+  function input(x) {
+    expect(x).toStrictEqual(false);
+  }
+
+  eval(output);
+});
+
+it("should properly use custom callback to exclude certain names from being changed", async () => {
+  var code = `
+    
+    var TEST_OBJECT = {
+      key: "value",
+    };
+
+    var check = false;
+    eval(\`
+      try {TEST_OBJECT} catch(e) {
+        check = true;
+      }
+    \`);
+    
+    input(check);
+  `;
+
+  var seen = new Set();
+  var output = await JsConfuser(code, {
+    target: "browser",
+    objectExtraction: (name) => {
+      seen.add(name);
+
+      return name !== "TEST_OBJECT";
+    },
+  });
+
+  expect(seen.has("TEST_OBJECT")).toStrictEqual(true);
 
   function input(x) {
     expect(x).toStrictEqual(false);
