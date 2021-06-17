@@ -38,6 +38,7 @@ import AntiDebug from "./antiDebug";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { isLoop, isValidIdentifier } from "../../util/compare";
 import LockStrings from "./lockStrings";
+import { ok } from "assert";
 
 /**
  * Applies browser & date locks.
@@ -211,13 +212,13 @@ export default class Lock extends Transform {
     if (this.options.lock.nativeFunctions) {
       choices.push("nativeFunction");
     }
-    if (this.options.lock.context) {
+    if (this.options.lock.context && this.options.lock.context.length) {
       choices.push("context");
     }
-    if (this.options.lock.browserLock) {
+    if (this.options.lock.browserLock && this.options.lock.browserLock.length) {
       choices.push("browserLock");
     }
-    if (this.options.lock.osLock) {
+    if (this.options.lock.osLock && this.options.lock.osLock.length) {
       choices.push("osLock");
     }
 
@@ -366,6 +367,8 @@ export default class Lock extends Transform {
             `window.navigator.userAgent.toLowerCase()`
           ).single().expression;
 
+          ok(this.options.lock.osLock);
+
           this.options.lock.osLock.forEach((osName) => {
             var agentMatcher = {
               windows: "Win",
@@ -427,6 +430,8 @@ export default class Lock extends Transform {
           var navigatorUserAgent = Template(
             `window.navigator.userAgent.toLowerCase()`
           ).single().expression;
+
+          ok(this.options.lock.browserLock);
 
           this.options.lock.browserLock.forEach((browserName) => {
             var thisTest: Node = CallExpression(
