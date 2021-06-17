@@ -65,6 +65,8 @@ export function Literal(value: string | number | boolean) {
   if (typeof value == "number" && value < 0) {
     return UnaryExpression("-", Literal(Math.abs(value)));
   }
+  ok(value === value, "NaN value is disallowed");
+
   return {
     type: "Literal",
     value: value,
