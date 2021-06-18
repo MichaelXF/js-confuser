@@ -1,6 +1,6 @@
 var a = (function (cbRunner) {
   var num1;
-  var num2 = 30;
+  var num2 = get30();
   var num3 = 8;
 
   num1 = 1700;
@@ -12,6 +12,10 @@ var a = (function (cbRunner) {
     return num1 + num2 + num3;
   });
   var _num7 = 1003;
+
+  function get30() {
+    return 30;
+  }
 })(function (cb) {
   input(cb());
 });
