@@ -44,7 +44,7 @@ export default class MovedDeclarations extends Transform {
       var definingIdentifiers = new Map<string, Node>();
 
       walk(object, parents, (o: Node, p: Node[]) => {
-        if (o.type == "Identifier") {
+        if (o.type == "Identifier" && !illegal.has(o.name)) {
           var info = getIdentifierInfo(o, p);
           if (info.spec.isDefined && definingIdentifiers.has(o.name)) {
             illegal.add(o.name);
