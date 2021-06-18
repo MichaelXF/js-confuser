@@ -153,9 +153,18 @@ export default class ControlFlowFlattening extends Transform {
         return;
       }
 
+      // Add empty chunks
+      Array(getRandomInteger(1, 10))
+        .fill(0)
+        .forEach(() => {
+          chunks.splice(getRandomInteger(0, chunks.length), 0, []);
+        });
+
       var caseSelection: Set<number> = new Set();
 
-      for (var i = 0; i < chunks.length + 1; i++) {
+      var uniqueStatesNeeded = chunks.length + 1;
+
+      for (var i = 0; i < uniqueStatesNeeded; i++) {
         var newState;
         do {
           newState = getRandomInteger(1, chunks.length * 15);
@@ -164,7 +173,7 @@ export default class ControlFlowFlattening extends Transform {
         caseSelection.add(newState);
       }
 
-      ok(caseSelection.size == chunks.length + 1);
+      ok(caseSelection.size == uniqueStatesNeeded);
 
       var caseStates = Array.from(caseSelection);
 
@@ -279,7 +288,7 @@ export default class ControlFlowFlattening extends Transform {
             if (
               o.type == "Literal" &&
               typeof o.value === "number" &&
-              Math.random() > 0.5 &&
+              Math.random() > 0.25 &&
               !p.find((x) => isVarContext(x))
             ) {
               return () => {
