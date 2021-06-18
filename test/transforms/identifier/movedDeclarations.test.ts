@@ -81,3 +81,25 @@ it("should not move redefined names", async () => {
 
   expect(output).toContain("var a;var output;");
 });
+
+it("should not move declarations in switch cases", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var b = 0;
+    switch(b){
+      case 0:
+        var a = 0;
+        break;
+      case 1:
+        a = 1;
+        break;
+    }
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    }
+  );
+
+  expect(output).toContain("var a=0;");
+});

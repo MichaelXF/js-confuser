@@ -12,8 +12,6 @@ export enum ObfuscateOrder {
 
   Lock = 4, // Includes Integrity & Anti Debug
 
-  Stack = 5,
-
   Dispatcher = 6,
 
   DeadCode = 8,
@@ -33,6 +31,8 @@ export enum ObfuscateOrder {
   StringConcealing = 17,
 
   StringCompression = 18,
+
+  Stack = 19,
 
   DuplicateLiteralsRemoval = 22,
 

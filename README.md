@@ -483,13 +483,16 @@ Local variables are consolidated into a rotating array. (`true/false/0-1`)
 - Cost Low
 
 ```js
-// input
+// Input
 function add3(x, y, z){
   return x + y + z;
 }
 
-// output
-function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+AxaSQr.shift()}
+// Output
+function iVQoGQD(...iVQoGQD){
+  ~(iVQoGQD.length = 3, iVQoGQD[215] = iVQoGQD[2], iVQoGQD[75] = 227, iVQoGQD[iVQoGQD[75] - (iVQoGQD[75] - 75)] = iVQoGQD[75] - (iVQoGQD[75] - 239), iVQoGQD[iVQoGQD[iVQoGQD[75] - 164] - 127] = iVQoGQD[iVQoGQD[75] - 238], iVQoGQD[iVQoGQD[75] - 104] = iVQoGQD[75] - 482, iVQoGQD[iVQoGQD[135] + 378] = iVQoGQD[iVQoGQD[135] + 318] - 335, iVQoGQD[21] = iVQoGQD[iVQoGQD[135] + 96], iVQoGQD[iVQoGQD[iVQoGQD[75] - 104] - (iVQoGQD[75] - 502)] = iVQoGQD[iVQoGQD[75] - 164] - 440);
+  return iVQoGQD[75] > iVQoGQD[75] + 90 ? iVQoGQD[iVQoGQD[135] - (iVQoGQD[135] + 54)] : iVQoGQD[iVQoGQD[135] + 117] + iVQoGQD[iVQoGQD[iVQoGQD[75] - (iVQoGQD[75] - (iVQoGQD[75] - 104))] - (iVQoGQD[135] - 112)] + iVQoGQD[215];
+};
 ```
 
 ## High preset
@@ -735,9 +738,9 @@ Please [open an issue](https://github.com/MichaelXF/js-confuser/issues) and be d
 
 ## JsConfuser vs. Javascript-obfuscator
 
-Javascript-obfuscator ([https://obfuscator.io](obfuscator.io)) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser provides unique features and is lesser-known.
+Javascript-obfuscator ([https://obfuscator.io](https://obfuscator.io)) is the popular choice for JS obfuscation. This means more attackers are aware of their strategies. JSConfuser provides unique features and is lesser-known.
 
-Automated deobfuscators are aware of [https://obfuscator.io](obfuscator.io)'s techniques:
+Automated deobfuscators are aware of [https://obfuscator.io](https://obfuscator.io)'s techniques:
 
 https://www.youtube.com/watch?v=_UIqhaYyCMI
 

@@ -154,7 +154,7 @@ export default class Obfuscator extends EventEmitter {
     traverse(tree, (o, p) => {
       if (o.$eval) {
         return () => {
-          o.$eval();
+          o.$eval(o, p);
         };
       }
     });

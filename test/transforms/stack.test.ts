@@ -110,11 +110,11 @@ it("should replace all variables with array indexes (nested function)", async ()
     `
       function TEST_FUNCTION(){
 
+        var answer = TEST_NESTED_FUNCTION();
+        input(answer)
         function TEST_NESTED_FUNCTION(){
           return 65;
         }
-
-        input(TEST_NESTED_FUNCTION())
       }
 
       TEST_FUNCTION()
@@ -125,7 +125,7 @@ it("should replace all variables with array indexes (nested function)", async ()
     }
   );
 
-  expect(output).not.toContain("TEST_NESTED_FUNCTION");
+  expect(output).toContain("TEST_NESTED_FUNCTION");
   expect(output).toContain("...");
 
   var value = "never_called",

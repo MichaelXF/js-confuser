@@ -44,11 +44,15 @@ export default class MovedDeclarations extends Transform {
       var definingIdentifiers = new Map<string, Node>();
 
       walk(object, parents, (o: Node, p: Node[]) => {
-        if (o.type == "Identifier") {
+        if (o.type == "Identifier" && !illegal.has(o.name)) {
           var info = getIdentifierInfo(o, p);
           if (info.spec.isDefined && definingIdentifiers.has(o.name)) {
             illegal.add(o.name);
             this.log(o.name, "is illegal due to detected being redefined");
+          }
+          if (info.spec.isDefined && p.find((x) => x.type == "SwitchCase")) {
+            illegal.add(o.name);
+            this.log(o.name, "is illegal due being in switch case");
           }
 
           if (o.hidden) {

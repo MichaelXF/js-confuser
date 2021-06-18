@@ -347,13 +347,16 @@ export interface ObfuscateOptions {
    * - Cost Low
    *
    * ```js
-   * // input
+   * // Input
    * function add3(x, y, z){
    *   return x + y + z;
    * }
    *
-   * // output
-   * function add3(...AxaSQr){AxaSQr.length=3;return AxaSQr.shift()+AxaSQr.shift()+AxaSQr.shift()}
+   * // Output
+   * function iVQoGQD(...iVQoGQD){
+   *   ~(iVQoGQD.length = 3, iVQoGQD[215] = iVQoGQD[2], iVQoGQD[75] = 227, iVQoGQD[iVQoGQD[75] - (iVQoGQD[75] - 75)] = iVQoGQD[75] - (iVQoGQD[75] - 239), iVQoGQD[iVQoGQD[iVQoGQD[75] - 164] - 127] = iVQoGQD[iVQoGQD[75] - 238], iVQoGQD[iVQoGQD[75] - 104] = iVQoGQD[75] - 482, iVQoGQD[iVQoGQD[135] + 378] = iVQoGQD[iVQoGQD[135] + 318] - 335, iVQoGQD[21] = iVQoGQD[iVQoGQD[135] + 96], iVQoGQD[iVQoGQD[iVQoGQD[75] - 104] - (iVQoGQD[75] - 502)] = iVQoGQD[iVQoGQD[75] - 164] - 440);
+   *   return iVQoGQD[75] > iVQoGQD[75] + 90 ? iVQoGQD[iVQoGQD[135] - (iVQoGQD[135] + 54)] : iVQoGQD[iVQoGQD[135] + 117] + iVQoGQD[iVQoGQD[iVQoGQD[75] - (iVQoGQD[75] - (iVQoGQD[75] - 104))] - (iVQoGQD[135] - 112)] + iVQoGQD[215];
+   * };
    * ```
    */
   stack?: ProbabilityMap<boolean>;
@@ -744,7 +747,10 @@ export async function correctOptions(
     }
 
     // Validate start-date option
-    if (typeof options.lock.startDate !== "undefined") {
+    if (
+      typeof options.lock.startDate !== "undefined" &&
+      options.lock.startDate
+    ) {
       ok(
         typeof options.lock.startDate === "number" ||
           options.lock.startDate instanceof Date,
@@ -753,7 +759,7 @@ export async function correctOptions(
     }
 
     // Validate end-date option
-    if (typeof options.lock.endDate !== "undefined") {
+    if (typeof options.lock.endDate !== "undefined" && options.lock.endDate) {
       ok(
         typeof options.lock.endDate === "number" ||
           options.lock.endDate instanceof Date,

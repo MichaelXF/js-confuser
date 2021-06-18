@@ -1,3 +1,37 @@
+# `1.2.0`
+Bug fixes
+
+- **Bug fix**: `Eval` moves function declarations to the top of the lexical block
+- **Bug fix**: `Stack` no longers changes function declarations
+- Improvements to `Stack` rotations
+
+```js
+// Input
+function add3(x,y,z){
+  ok(typeof x === "number");
+  ok(typeof y === "number");
+  ok(typeof z === "number");
+
+  return x + y + z;
+}
+
+console.log(add3(1,2,3))
+
+// Output on 1.1.9
+function _WFZLw(..._WFZLw) {
+    void (_WFZLw.length = 3, ok(typeof _WFZLw[0] === 'number'), ok(typeof _WFZLw[1] === 'number'), ok(typeof _WFZLw[2] === 'number'));
+    return _WFZLw[0] + _WFZLw[1] + _WFZLw[2];
+}
+console['log'](_WFZLw(1, 2, 3));
+
+// Output on 1.2.0
+var KZ6LyAL = (...KZ6LyAL) => {
+    ~(KZ6LyAL.length = 3, ok(typeof KZ6LyAL[0] === 'number'), KZ6LyAL[186] = KZ6LyAL[0], ok(typeof KZ6LyAL[1] === 'number'), KZ6LyAL[227] = -22, ok(typeof KZ6LyAL[KZ6LyAL[KZ6LyAL[227] + 249] + 24] === 'number'));
+    return KZ6LyAL[KZ6LyAL[227] - (KZ6LyAL[227] - 186)] + KZ6LyAL[KZ6LyAL[227] + 23] + KZ6LyAL[KZ6LyAL[KZ6LyAL[227] + 249] - (KZ6LyAL[227] - (KZ6LyAL[227] + 24))];
+};
+console.log(KZ6LyAL(1, 2, 3));
+```
+
 # `1.1.9`
 Browser Lock and OS Lock
 
