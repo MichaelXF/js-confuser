@@ -1,8 +1,10 @@
 # `1.2.1`
 Bug fixes
 
-- **Bug fix**: `Stack` and `Control Flow Flattening` no longer modifies floats.
+- **Bug fix**: `Control Flow Flattening` on classes no longer creates syntax errors
 - **Bug fix**: `String Concealing` will check for duplicate strings
+- **Bug fix**: `String Concealing` now handles class properties
+- **Bug fix**: `Stack` and `Control Flow Flattening` no longer modifies floats
 
 - **New API:**
 
