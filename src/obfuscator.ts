@@ -33,6 +33,7 @@ import Stack from "./transforms/stack";
 import StringCompression from "./transforms/string/stringCompression";
 import NameRecycling from "./transforms/identifier/nameRecycling";
 import AntiTooling from "./transforms/antiTooling";
+import HideInitializingCode from "./transforms/hideInitializingCode";
 
 /**
  * The parent transformation holding the `state`.
@@ -94,6 +95,7 @@ export default class Obfuscator extends EventEmitter {
     test(options.rgf, RGF);
     test(options.stack, Stack);
     test(true, AntiTooling);
+    test(options.hideInitializingCode, HideInitializingCode);
 
     if (
       options.lock &&
@@ -136,11 +138,13 @@ export default class Obfuscator extends EventEmitter {
 
     this.resetState();
 
+    var completed = 0;
     for (var transform of this.array) {
       await transform.apply(tree);
+      completed++;
 
       if (debugMode) {
-        this.emit("debug", transform.className, tree);
+        this.emit("debug", transform.className, tree, completed);
       }
     }
 

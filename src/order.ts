@@ -32,7 +32,9 @@ export enum ObfuscateOrder {
 
   StringCompression = 18,
 
-  Stack = 19,
+  HideInitializingCode = 19,
+
+  Stack = 20,
 
   DuplicateLiteralsRemoval = 22,
 

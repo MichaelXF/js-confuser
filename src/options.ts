@@ -183,6 +183,19 @@ export interface ObfuscateOptions {
   controlFlowFlattening?: ProbabilityMap<boolean>;
 
   /**
+   * ### `hideInitializingCode`
+   *
+   * Hides initializing code with complex ternary expressions. (`true/false`)
+   *
+   * - Potency High
+   * - Resilience High
+   * - Cost High
+   *
+   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   */
+  hideInitializingCode?: ProbabilityMap<boolean>;
+
+  /**
    * ### `globalConcealing`
    *
    * Global Concealing hides global variables being accessed. (`true/false`)
@@ -659,6 +672,7 @@ const validProperties = new Set([
   "identifierGenerator",
   "nameRecycling",
   "controlFlowFlattening",
+  "hideInitializingCode",
   "globalConcealing",
   "stringCompression",
   "stringConcealing",
@@ -691,14 +705,34 @@ const validBrowsers = new Set([
   "opera",
 ]);
 
-/**
- * Corrects the user's options. Sets the default values and validates the configuration.
- * @param options
- * @returns
- */
-export async function correctOptions(
-  options: ObfuscateOptions
-): Promise<ObfuscateOptions> {
+export function validateOptions(options: ObfuscateOptions) {
+  if (Object.keys(options).length <= 1) {
+    /**
+     * Give a welcoming introduction to those who skipped the documentation.
+     */
+    var line = `You provided zero obfuscation options. By default everything is disabled.\nYou can use a preset with:\n\n> {target: '${
+      options.target || "node"
+    }', preset: 'high' | 'medium' | 'low'}.\n\n\nView all settings here:\nhttps://github.com/MichaelXF/js-confuser#options`;
+    throw new Error(
+      `\n\n` +
+        line
+          .split("\n")
+          .map((x) => `\t${x}`)
+          .join("\n") +
+        `\n\n`
+    );
+  }
+
+  ok(options, "options cannot be null");
+  ok(
+    options.target,
+    "Missing options.target option (required, must one the following: 'browser' or 'node')"
+  );
+  ok(
+    ["browser", "node"].includes(options.target),
+    `'${options.target}' is not a valid target mode`
+  );
+
   Object.keys(options).forEach((key) => {
     if (!validProperties.has(key)) {
       throw new TypeError("Invalid option: '" + key + "'");
@@ -769,8 +803,21 @@ export async function correctOptions(
   }
 
   if (options.preset) {
-    ok(presets[options.preset], "Unknown preset of '" + options.preset + "'");
+    if (!presets[options.preset]) {
+      throw new TypeError("Unknown preset of '" + options.preset + "'");
+    }
+  }
+}
 
+/**
+ * Corrects the user's options. Sets the default values and validates the configuration.
+ * @param options
+ * @returns
+ */
+export async function correctOptions(
+  options: ObfuscateOptions
+): Promise<ObfuscateOptions> {
+  if (options.preset) {
     // Clone and allow overriding
     options = Object.assign({}, presets[options.preset], options);
   }
