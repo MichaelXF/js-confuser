@@ -288,6 +288,8 @@ export default class ControlFlowFlattening extends Transform {
             if (
               o.type == "Literal" &&
               typeof o.value === "number" &&
+              Math.floor(o.value) === o.value &&
+              Math.abs(o.value) < 100_000 &&
               Math.random() > 0.25 &&
               !p.find((x) => isVarContext(x))
             ) {
