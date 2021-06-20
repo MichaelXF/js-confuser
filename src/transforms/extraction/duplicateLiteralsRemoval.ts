@@ -185,7 +185,9 @@ export default class DuplicateLiteralsRemoval extends Transform {
       CallExpression(Identifier(getterName), [Literal(index - theShift)])
     );
 
-    var propertyIndex = parents.findIndex((x) => x.type == "Property");
+    var propertyIndex = parents.findIndex(
+      (x) => x.type == "Property" || x.type == "MethodDefinition"
+    );
     if (propertyIndex != -1) {
       if (
         !parents[propertyIndex].computed &&
