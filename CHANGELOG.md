@@ -1,3 +1,22 @@
+# `1.2.1`
+Bug fixes
+
+- **Bug fix**: `Stack` and `Control Flow Flattening` no longer modifies floats.
+- **Bug fix**: `String Concealing` will check for duplicate strings
+
+- **New API:**
+
+## `obfuscateAST(AST, options)`
+
+Obfuscates an [ESTree](https://github.com/estree/estree) compliant AST. Returns a [`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise).
+
+**Note:** Mutates the object.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `AST` | `object` | The [ESTree](https://github.com/estree/estree) compliant AST. This object will be mutated. |
+| `options` | `object` | The obfuscator settings. |
+
 # `1.2.0`
 Bug fixes
 
