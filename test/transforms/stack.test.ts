@@ -334,3 +334,118 @@ it("should not entangle floats or NaN", async () => {
   eval(output);
   expect(value).toStrictEqual(25.02);
 });
+
+it("should correctly entangle property keys", async () => {
+  var output = await JsConfuser(
+    `
+      function TEST_FUNCTION(){
+
+        // filler expressions
+        var var1 = 0;
+        var var2 = 0;
+        var var3 = 0;
+        var var4 = 0;
+        var var5 = 0;
+
+        var obj = {
+          10: 10,
+          9: 9,
+          8: 8,
+          7: 7,
+          6: 6,
+          5: 5,
+          4: 4,
+          3: 3,
+          2: 2,
+          1: 1,
+        }
+
+        var ten = obj["5"] + obj["3"] + obj["2"];
+
+        input(ten);
+      }
+      
+      TEST_FUNCTION()
+    `,
+    {
+      target: "node",
+      stack: true,
+    }
+  );
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual(10);
+});
+
+it("should correctly entangle method definition keys", async () => {
+  var output = await JsConfuser(
+    `
+      function TEST_FUNCTION(){
+
+        // filler expressions
+        var var1 = 0;
+        var var2 = 0;
+        var var3 = 0;
+        var var4 = 0;
+        var var5 = 0;
+          
+        class TEST_CLASS {
+          10(){
+            return 10;
+          }
+          9(){
+            return 9;
+          }
+          8(){
+            return 8;
+          }
+          7(){
+            return 7;
+          }
+          6(){
+            return 6;
+          }
+          5(){
+            return 5;
+          }
+          4(){
+            return 4;
+          }
+          3(){
+            return 3;
+          }
+          2(){
+            return 2;
+          }
+          1(){
+            return 2;
+          }
+        }
+        
+        var obj = new TEST_CLASS();
+        var ten = obj["5"]() + obj["3"]() + obj["2"]();
+
+        input(ten)
+      }
+      
+      TEST_FUNCTION()
+    `,
+    {
+      target: "node",
+      stack: true,
+    }
+  );
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual(10);
+});

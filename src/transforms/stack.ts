@@ -165,7 +165,7 @@ export default class Stack extends Transform {
           typeof number !== "number" ||
           !Object.keys(deadValues).length ||
           depth > 5 ||
-          Math.random() > (depth == 0 ? 0.8 : 0.8 / (depth * 4))
+          Math.random() > (depth == 0 ? 0.9 : 0.8 / (depth * 2))
         ) {
           return Literal(number);
         }
@@ -220,7 +220,7 @@ export default class Stack extends Transform {
               if (info.isVariableDeclaration) {
                 walk(p[2], p.slice(3), (oo, pp) => {
                   if (oo != o) {
-                    scan(oo, pp);
+                    return scan(oo, pp);
                   }
                 });
 
@@ -238,7 +238,7 @@ export default class Stack extends Transform {
               } else if (info.isFunctionDeclaration) {
                 walk(p[0], p.slice(1), (oo, pp) => {
                   if (oo != o) {
-                    scan(oo, pp);
+                    return scan(oo, pp);
                   }
                 });
 
@@ -257,7 +257,7 @@ export default class Stack extends Transform {
               } else if (info.isClassDeclaration) {
                 walk(p[0], p.slice(1), (oo, pp) => {
                   if (oo != o) {
-                    scan(oo, pp);
+                    return scan(oo, pp);
                   }
                 });
 
@@ -285,10 +285,15 @@ export default class Stack extends Transform {
           typeof o.value === "number" &&
           Math.floor(o.value) === o.value &&
           Math.abs(o.value) < 100_000 &&
-          Math.random() > 0.25 &&
-          p.find((x) => isVarContext(x)) === object
+          Math.random() > 0.5 &&
+          p.find((x) => isFunction(x)) === object
         ) {
           return () => {
+            if (p[0].type == "Property" || p[0].type == "MethodDefinition") {
+              if (!p[0].computed) {
+                p[0].computed = true;
+              }
+            }
             this.replace(o, numberLiteral(o.value, 0));
           };
         }
@@ -370,7 +375,7 @@ export default class Stack extends Transform {
           stmt,
           [object.body.body, object.body, object, ...parents],
           (o, p) => {
-            scan(o, p);
+            return scan(o, p);
           }
         );
 

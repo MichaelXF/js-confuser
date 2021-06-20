@@ -721,7 +721,7 @@ Mix modes using an object with key-value pairs to represent each mode's percenta
 2. Dead Code can bloat file size. Reduce or disable `deadCode`.
 3. Rename Globals can break web-scripts.
    i. Disable `renameGlobals` or
-   ii. Refractor your code
+   ii. Refactor your code
    ```js
    // Avoid doing this
    var myGlobalFunction = ()=>console.log("Called");

@@ -103,3 +103,32 @@ it("should not move declarations in switch cases", async () => {
 
   expect(output).toContain("var a=0;");
 });
+
+it("should not move declarations in nested switch cases", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var i = 1;
+    while(i > 0){
+      var b = 0;
+      switch(b){
+        case 0:
+          var a = 0;
+          break;
+        case 1:
+          a = 1;
+          break;
+      }
+
+      i--;
+    }
+
+    
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    }
+  );
+
+  expect(output).toContain("var a=0;");
+});

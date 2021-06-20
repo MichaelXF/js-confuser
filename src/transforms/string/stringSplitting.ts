@@ -59,7 +59,9 @@ export default class StringSplitting extends Transform {
 
   transform(object: Node, parents: Node[]) {
     return () => {
-      var propIndex = parents.findIndex((x) => x.type == "Property");
+      var propIndex = parents.findIndex(
+        (x) => x.type == "Property" || x.type == "MethodDefinition"
+      );
       if (propIndex !== -1 && parents[propIndex].key == object) {
         parents[propIndex].computed = true;
       }

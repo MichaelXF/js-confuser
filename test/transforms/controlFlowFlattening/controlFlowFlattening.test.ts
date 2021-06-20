@@ -250,3 +250,43 @@ it("should not entangle floats or NaN", async () => {
   eval(output);
   expect(value).toStrictEqual(25.02);
 });
+
+it("should correctly entangle property keys", async () => {
+  var output = await JsConfuser(
+    `
+      function TEST_FUNCTION(){
+        
+        var obj = {
+          10: 10,
+          9: 9,
+          8: 8,
+          7: 7,
+          6: 6,
+          5: 5,
+          4: 4,
+          3: 3,
+          2: 2,
+          1: 1,
+        }
+
+        var ten = obj["5"] + obj["3"] + obj["2"];
+
+        input(ten)
+      }
+      
+      TEST_FUNCTION()
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual(10);
+});

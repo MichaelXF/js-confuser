@@ -436,7 +436,13 @@ export function containsLexicallyBoundVariables(object: Node, parents: Node[]) {
         // Control Flow Flattening changes the lexical block, therefore this is not possible
         // Maybe a transformation to remove let
         contains = true;
+        return "EXIT";
       }
+    }
+
+    if (o.type == "ClassDeclaration") {
+      contains = true;
+      return "EXIT";
     }
   });
 
