@@ -4,11 +4,13 @@ import {
   IJsConfuser as JsConfuser,
   IJsConfuserDebugTransformations,
   IJsConfuserObfuscate,
+  IJsConfuserObfuscateAST,
   IJsConfuserPresets,
 } from "./src/types";
 
 export default JsConfuser;
 export const obfuscate: IJsConfuserObfuscate;
+export const obfuscateAST: IJsConfuserObfuscateAST;
 export const presets: IJsConfuserPresets;
 export const debugTransformations: IJsConfuserDebugTransformations;
 export const Obfuscator: typeof ObfuscatorClass;

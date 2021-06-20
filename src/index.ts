@@ -6,8 +6,12 @@ import { remove$Properties } from "./util/object";
 import presets from "./presets";
 
 import * as assert from "assert";
-import { correctOptions, ObfuscateOptions } from "./options";
-import { IJsConfuser, IJsConfuserDebugTransformations } from "./types";
+import { correctOptions, ObfuscateOptions, validateOptions } from "./options";
+import {
+  IJsConfuser,
+  IJsConfuserDebugObfuscation,
+  IJsConfuserDebugTransformations,
+} from "./types";
 
 /**
  * **JsConfuser**: Obfuscates JavaScript.
@@ -19,6 +23,32 @@ export async function obfuscate(code: string, options: ObfuscateOptions) {
 }
 
 /**
+ * Obfuscates an [ESTree](https://github.com/estree/estree) compliant AST.
+ *
+ * **Note:** Mutates the object.
+ *
+ * @param AST - The [ESTree](https://github.com/estree/estree) compliant AST. This object will be mutated.
+ * @param options - The obfuscation options.
+ *
+ * [See all settings here](https://github.com/MichaelXF/js-confuser#options)
+ */
+export async function obfuscateAST(AST, options: ObfuscateOptions) {
+  assert.ok(typeof AST === "object", "AST must be type object");
+  assert.ok(AST.type == "Program", "AST.type must be equal to 'Program'");
+  validateOptions(options);
+
+  options = await correctOptions(options);
+
+  var obfuscator = new Obfuscator(options);
+
+  await obfuscator.apply(AST);
+
+  options.verbose && console.log("* Removing $ properties");
+
+  remove$Properties(AST);
+}
+
+/**
  * **JsConfuser**: Obfuscates JavaScript.
  * @param code - The code to be obfuscated.
  * @param options - An object of obfuscation options: `{preset: "medium", target: "browser"}`.
@@ -27,31 +57,10 @@ var JsConfuser: IJsConfuser = async function (
   code: string,
   options: ObfuscateOptions
 ): Promise<string> {
-  assert.ok(options, "options cannot be null");
-  assert.ok(
-    options.target,
-    "Missing options.target option (required, must one the following: 'browser' or 'node')"
-  );
-  assert.ok(
-    ["browser", "node"].includes(options.target),
-    `'${options.target}' is not a valid target mode`
-  );
-  assert.ok(typeof code === "string", "code must be type string");
-
-  if (Object.keys(options).length == 1) {
-    /**
-     * Give a welcoming introduction to those who skipped the documentation.
-     */
-    var line = `You provided zero obfuscation options. By default everything is disabled.\nYou can use a preset with:\n\n> {target: '${options.target}', preset: 'high' | 'medium' | 'low'}.\n\n\nView all settings here:\nhttps://github.com/MichaelXF/js-confuser#options`;
-    throw new Error(
-      `\n\n` +
-        line
-          .split("\n")
-          .map((x) => `\t${x}`)
-          .join("\n") +
-        `\n\n`
-    );
+  if (typeof code !== "string") {
+    throw new TypeError("code must be type string");
   }
+  validateOptions(options);
 
   options = await correctOptions(options);
 
@@ -81,6 +90,7 @@ export var debugTransformations: IJsConfuserDebugTransformations =
     code: string,
     options: ObfuscateOptions
   ): Promise<{ name: string; code: string; ms: number }[]> {
+    validateOptions(options);
     options = await correctOptions(options);
 
     var frames = [];
@@ -105,9 +115,34 @@ export var debugTransformations: IJsConfuserDebugTransformations =
     return frames;
   };
 
+export var debugObfuscation: IJsConfuserDebugObfuscation =
+  async function debugTransformations(
+    code: string,
+    options: ObfuscateOptions,
+    callback: (name: string, complete: number, totalTransforms: number) => void
+  ): Promise<string> {
+    validateOptions(options);
+    options = await correctOptions(options);
+
+    var tree = parseSync(code);
+    var obfuscator = new Obfuscator(options);
+    var totalTransforms = obfuscator.array.length;
+
+    obfuscator.on("debug", (name: string, tree: Node, i: number) => {
+      callback(name, i, totalTransforms);
+    });
+
+    await obfuscator.apply(tree, true);
+
+    var output = compileJs(tree, options);
+    return output;
+  };
+
 JsConfuser.obfuscate = obfuscate;
+JsConfuser.obfuscateAST = obfuscateAST;
 JsConfuser.presets = presets;
 JsConfuser.debugTransformations = debugTransformations;
+JsConfuser.debugObfuscation = debugObfuscation;
 JsConfuser.Obfuscator = Obfuscator;
 JsConfuser.Transform = Transform;
 

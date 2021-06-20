@@ -66,6 +66,26 @@ var AF59rI,ZgbbeaU,WDgj3I,gpR2qG,Ox61sk,pTNPNpX;AF59rI=[60,17,25,416,22,23,83,26
 <coming soon>
 ```
 
+## `obfuscate(sourceCode, options)`
+
+Obfuscates the `sourceCode`. Returns a [`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) that resolves to a string of the obfuscated code.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `sourceCode` | `string` | The JavaScript code to be obfuscated. |
+| `options` | `object` | The obfuscator settings. |
+
+## `obfuscateAST(AST, options)`
+
+Obfuscates an [ESTree](https://github.com/estree/estree) compliant AST. Returns a [`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise).
+
+**Note:** Mutates the object.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `AST` | `object` | The [ESTree](https://github.com/estree/estree) compliant AST. This object will be mutated. |
+| `options` | `object` | The obfuscator settings. |
+
 ## Options
 
 ### `target`
@@ -153,6 +173,8 @@ JsConfuser.obfuscate(code, {
 JSConfuser tries to reuse names when possible, creating very potent code.
 
 ### `nameRecycling`
+
+⚠️ Experimental feature, may break your code!
 
 Attempts to reuse released names.
 
