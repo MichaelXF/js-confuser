@@ -11,7 +11,7 @@ import Transform from "./transforms/transform";
  */
 export interface IJsConfuser {
   obfuscate: IJsConfuserObfuscate;
-  obfuscateAST?: IJsConfuserObfuscateAST;
+  obfuscateAST: IJsConfuserObfuscateAST;
 
   presets: IJsConfuserPresets;
   debugTransformations: IJsConfuserDebugTransformations;
@@ -84,12 +84,35 @@ export type IJsConfuserDebugTransformations = (
  *
  * `callback(name: string, complete: number, totalTransforms: number)`
  *
- * `(name, i, total)=> console.log(name + " is finished: " + i + "/" + total) `
+ * ```js
+ * var callback = (name, complete, totalTransforms) => {
+ *   console.log(name, complete, totalTransforms)
+ * };
+ * ```
  *
  * ```js
- * // Preparation is finished: 1/19
- * // ...
- * // StringEncoding is finished: 19/19
+ * // Preparation 1 22
+ * // ObjectExtraction 2 22
+ * // Flatten 3 22
+ * // Dispatcher 4 22
+ * // DeadCode 5 22
+ * // Calculator 6 22
+ * // ControlFlowFlattening 7 22
+ * // GlobalConcealing 8 22
+ * // OpaquePredicates 9 22
+ * // StringSplitting 10 22
+ * // StringConcealing 11 22
+ * // StringCompression 12 22
+ * // HideInitializingCode 13 22
+ * // Stack 14 22
+ * // DuplicateLiteralsRemoval 15 22
+ * // Shuffle 16 22
+ * // MovedDeclarations 17 22
+ * // RenameVariables 18 22
+ * // RenameLabels 19 22
+ * // Minify 20 22
+ * // StringEncoding 21 22
+ * // AntiTooling 22 22
  * ```
  */
 export type IJsConfuserDebugObfuscation = (
