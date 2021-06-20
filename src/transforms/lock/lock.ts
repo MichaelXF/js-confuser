@@ -37,7 +37,6 @@ import Integrity from "./integrity";
 import AntiDebug from "./antiDebug";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { isLoop, isValidIdentifier } from "../../util/compare";
-import LockStrings from "./lockStrings";
 import { ok } from "assert";
 
 /**
