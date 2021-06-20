@@ -290,10 +290,18 @@ export default class ControlFlowFlattening extends Transform {
               typeof o.value === "number" &&
               Math.floor(o.value) === o.value &&
               Math.abs(o.value) < 100_000 &&
-              Math.random() > 0.25 &&
+              Math.random() > 0.5 &&
               !p.find((x) => isVarContext(x))
             ) {
               return () => {
+                if (
+                  p[0].type == "Property" ||
+                  p[0].type == "MethodDefinition"
+                ) {
+                  if (!p[0].computed) {
+                    p[0].computed = true;
+                  }
+                }
                 this.replace(o, numberLiteral(o.value, 0));
               };
             }
