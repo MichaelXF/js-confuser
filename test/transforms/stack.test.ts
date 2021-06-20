@@ -304,3 +304,33 @@ it("should guess execution order correctly (AssignmentExpression, right side exe
   eval(output);
   expect(value).toStrictEqual(25);
 });
+
+it("should not entangle floats or NaN", async () => {
+  var output = await JsConfuser(
+    `
+      function TEST_FUNCTION(){
+        
+        var a = NaN;
+        input(10.01 + 15.01)
+      }
+      
+      TEST_FUNCTION()
+    `,
+    {
+      target: "node",
+      stack: true,
+    }
+  );
+
+  expect(output).toContain("10.01");
+  expect(output).toContain("15.01");
+  expect(output).toContain("NaN");
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual(25.02);
+});

@@ -19,7 +19,7 @@ it("works on High Preset", async () => {
 
   eval(output);
 
-  expect(value).toStrictEqual(1738);
+  expect(value).toStrictEqual(1738.1738);
 });
 
 it("work when doubly obfuscated with High Preset", async () => {
@@ -43,5 +43,5 @@ it("work when doubly obfuscated with High Preset", async () => {
 
   eval(doublyObfuscated);
 
-  expect(value).toStrictEqual(1738);
+  expect(value).toStrictEqual(1738.1738);
 });

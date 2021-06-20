@@ -216,3 +216,37 @@ it("should work when obfuscated multiple times", async () => {
 
   eval(doublyObfuscated);
 });
+
+it("should not entangle floats or NaN", async () => {
+  var output = await JsConfuser(
+    `
+      function TEST_FUNCTION(){
+        
+        var a = NaN;
+        var b = 10.01;
+        var c = 15.01;
+        var d = "MyString";
+        input(b + c)
+      }
+      
+      TEST_FUNCTION()
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  expect(output).toContain("10.01");
+  expect(output).toContain("15.01");
+  expect(output).toContain("NaN");
+  expect(output).toContain("MyString");
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+  expect(value).toStrictEqual(25.02);
+});

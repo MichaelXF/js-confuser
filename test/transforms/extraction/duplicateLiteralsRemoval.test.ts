@@ -79,3 +79,21 @@ it("should not remove empty strings", async () => {
 
   expect(TEST_ARRAY).toEqual(["", "", "", ""]);
 });
+
+it("should work with NaN values", async () => {
+  var code = `
+  
+  TEST_ARRAY = [NaN];
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    duplicateLiteralsRemoval: true,
+  });
+
+  var TEST_ARRAY;
+
+  eval(output);
+
+  expect(TEST_ARRAY[0] === TEST_ARRAY[0]).toStrictEqual(false);
+});
