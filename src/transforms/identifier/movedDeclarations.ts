@@ -30,11 +30,6 @@ export default class MovedDeclarations extends Transform {
 
   transform(object: Node, parents: Node[]) {
     return () => {
-      var switchCaseIndex = parents.findIndex((x) => x.type == "SwitchCase");
-      if (switchCaseIndex != -1) {
-        this.log("(Switch Edge Case)", varNames);
-      }
-
       var block = getBlock(object, parents);
 
       var varDecs: Location[] = [];
