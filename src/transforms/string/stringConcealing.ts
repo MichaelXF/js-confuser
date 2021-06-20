@@ -96,14 +96,14 @@ function decode_ascii85(a) {
 }
 
 var Ascii85Template = Template(`
-function {name}(a) {
+function {name}(a, LL = ["fromCharCode", "apply"]) {
   var c, d, e, f, g, h = String, l = "length", w = 255, x = "charCodeAt", y = "slice", z = "replace";
   for ("<~" === a[y](0, 2) && "~>" === a[y](-2), a = a[y](2, -2)[z](/\s/g, "")[z]("z", "!!!!!"), 
   c = "uuuuu"[y](a[l] % 5 || 5), a += c, e = [], f = 0, g = a[l]; g > f; f += 5) d = 52200625 * (a[x](f) - 33) + 614125 * (a[x](f + 1) - 33) + 7225 * (a[x](f + 2) - 33) + 85 * (a[x](f + 3) - 33) + (a[x](f + 4) - 33), 
   e.push(w & d >> 24, w & d >> 16, w & d >> 8, w & d);
   return function(a, b) {
     for (var c = b; c > 0; c--) a.pop();
-  }(e, c[l]), h.fromCharCode.apply(h, e);
+  }(e, c[l]), h[LL[0]][LL[1]](h, e);
 }
 `);
 
@@ -177,8 +177,11 @@ export default class StringConcealing extends Transform {
           object,
           Template(`
           
-          function ${this.getterName}(x){
-            return ${cacheName}[x] || (${cacheName}[x] = ${this.decodeFn}(${this.arrayName}[x]), ${cacheName}[x])
+          function ${this.getterName}(x, y, z){
+            if ( z ) {
+              return y[${cacheName}[z]] = x;
+            }
+            return y ? x[${cacheName}[y]] : ${cacheName}[x] || (${cacheName}[x] = ${this.decodeFn}(${this.arrayName}[x]))
           }
 
           `).single()
@@ -227,9 +230,11 @@ export default class StringConcealing extends Transform {
           );
           index = this.arrayExpression.elements.length - 1;
           this.index[object.value] = index;
+
+          this.set.add(object.value);
         } else {
           index = this.index[object.value];
-          ok(index);
+          ok(typeof index === "number");
         }
 
         ok(index != -1, "index == -1");

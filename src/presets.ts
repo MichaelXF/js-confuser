@@ -23,7 +23,7 @@ import { ObfuscateOptions } from "./options";
  * 1. *String Encoding* can corrupt files. Disable `stringEncoding` manually if this happens.
  * 2. *Dead Code* can bloat file size. Reduce or disable `deadCode`.
  */
-const reduction_98_percent: ObfuscateOptions = {
+const highPreset: ObfuscateOptions = {
   target: "node",
   preset: "high",
 
@@ -58,7 +58,7 @@ const reduction_98_percent: ObfuscateOptions = {
  * - Medium Obfuscation preset.
  * - Average 50% performance reduction.
  */
-const reduction_52_percent: ObfuscateOptions = {
+const mediumPreset: ObfuscateOptions = {
   target: "node",
   preset: "medium",
 
@@ -86,7 +86,7 @@ const reduction_52_percent: ObfuscateOptions = {
  * - Low Obfuscation preset.
  * - Average 30% performance reduction.
  */
-const reduction_30_percent: ObfuscateOptions = {
+const lowPreset: ObfuscateOptions = {
   target: "node",
   preset: "low",
 
@@ -96,8 +96,6 @@ const reduction_30_percent: ObfuscateOptions = {
   deadCode: 0.01,
   dispatcher: 0.5,
   duplicateLiteralsRemoval: true,
-  flatten: true,
-  globalConcealing: true,
   identifierGenerator: "randomized",
   minify: true,
   movedDeclarations: true,
@@ -105,16 +103,16 @@ const reduction_30_percent: ObfuscateOptions = {
   opaquePredicates: 0.1,
   renameVariables: true,
   renameGlobals: true,
-  stringConcealing: 0.25,
+  stringConcealing: true,
 };
 
 /**
  * Built-in obfuscator presets.
  */
 const presets = {
-  high: reduction_98_percent,
-  medium: reduction_52_percent,
-  low: reduction_30_percent,
+  high: highPreset,
+  medium: mediumPreset,
+  low: lowPreset,
 };
 
 export default presets;

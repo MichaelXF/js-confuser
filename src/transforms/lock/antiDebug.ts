@@ -12,7 +12,7 @@ var DevToolsDetection = Template(
     var startTime = new Date();
     debugger;
     var endTime = new Date();
-    var isDev = endTime-startTime > 400;
+    var isDev = endTime-startTime > 600;
   
     while (isDev) {
       debugger;
@@ -20,11 +20,16 @@ var DevToolsDetection = Template(
     }
   
   }
-  if ( this.setInterval ) {
-    this.setInterval(()=>{
-      $jsc_debug();
-    }, 10000);
+  try {
+    if ( setInterval ) {
+      setInterval(()=>{
+        $jsc_debug();
+      }, 4000);
+    }
+  } catch ( e ) {
+
   }
+ 
 `
 );
 

@@ -290,7 +290,20 @@ export function clone<T>(object: T): T {
   return object as any;
 }
 
-export function isForInitialize(o, p) {
+/**
+ * | Return Value | Description |
+ * | --- | --- |
+ * | `"initializer"` | For-statement initializer (`.init`) |
+ * | `"left-hand"` | For-In/Of-statement left-hand (`.left`) |
+ * | `false` | None of the above |
+ *
+ * Determines if given node is a for-loop initializer.
+ *
+ * @param o
+ * @param p
+ * @returns
+ */
+export function isForInitialize(o, p): "initializer" | "left-hand" | false {
   validateChain(o, p);
 
   var forIndex = p.findIndex(
@@ -302,11 +315,11 @@ export function isForInitialize(o, p) {
   if (forIndex !== -1) {
     if (p[forIndex].type == "ForStatement") {
       if (p[forIndex].init == p[forIndex - 1] || o) {
-        return true;
+        return "initializer";
       }
     } else {
       if (p[forIndex].left == p[forIndex - 1] || o) {
-        return true;
+        return "left-hand";
       }
     }
   }
