@@ -35,7 +35,9 @@ export function getBlock(object: any, parents: any[]) {
  * @param object
  */
 export function isBlock(object: any) {
-  return object && !!object.body && Array.isArray(object.body);
+  return (
+    object && (object.type == "BlockStatement" || object.type == "Program")
+  );
 }
 
 /**
