@@ -22,7 +22,7 @@
   "author": "MichaelXF",
   "license": "MIT",
   "dependencies": {
-    "acorn": "^8.0.4",
+    "acorn": "^8.4.0",
     "escodegen": "^2.0.0"
   },
   "devDependencies": {
