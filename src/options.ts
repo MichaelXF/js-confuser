@@ -448,6 +448,17 @@ export interface ObfuscateOptions {
 
   lock?: {
     /**
+     * ### `lock.selfDefending`
+     *
+     * Prevents the use of code beautifiers or formatters against your code.
+     *
+     * [Identical to Obfuscator.io's Self Defending](https://github.com/javascript-obfuscator/javascript-obfuscator#selfdefending)
+     *
+     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     */
+    selfDefending?: boolean;
+
+    /**
      * ### `lock.antiDebug`
      *
      * Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false/0-1`)
@@ -835,6 +846,10 @@ export async function correctOptions(
 
   if (options.globalVariables && !(options.globalVariables instanceof Set)) {
     options.globalVariables = new Set(Object.keys(options.globalVariables));
+  }
+
+  if (options.lock && options.lock.selfDefending) {
+    options.compact = true; // self defending forcibly enables this
   }
 
   // options.globalVariables was never used.

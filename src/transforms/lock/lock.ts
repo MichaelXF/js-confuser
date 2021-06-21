@@ -215,6 +215,9 @@ export default class Lock extends Transform {
     if (this.options.lock.osLock && this.options.lock.osLock.length) {
       choices.push("osLock");
     }
+    if (this.options.lock.selfDefending) {
+      choices.push("selfDefending");
+    }
 
     if (!choices.length) {
       return;
@@ -261,6 +264,38 @@ export default class Lock extends Transform {
       var offset = 0;
 
       switch (type) {
+        case "selfDefending":
+          // A very simple mechanism inspired from https://github.com/javascript-obfuscator/javascript-obfuscator/blob/master/src/custom-code-helpers/self-defending/templates/SelfDefendingNoEvalTemplate.ts
+          // regExp checks for a newline, formatters add these
+          var callExpression = Template(
+            `
+            (
+              function(){
+
+                var namedFunction = function(){
+                  const test= function(){
+                    const regExp=new RegExp('\\n');
+                    return regExp['test'](namedFunction)
+                  };
+                  return test()
+                }
+
+                return namedFunction();
+              }
+            )()
+            `
+          ).single().expression;
+
+          nodes.push(
+            IfStatement(
+              callExpression,
+              this.getCounterMeasuresCode() || [],
+              null
+            )
+          );
+
+          break;
+
         case "nativeFunction":
           var set = this.options.lock.nativeFunctions;
           if (set === true) {
