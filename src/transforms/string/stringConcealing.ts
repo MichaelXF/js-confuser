@@ -15,97 +15,9 @@ import {
   VariableDeclarator,
 } from "../../util/gen";
 import { append, prepend } from "../../util/insert";
+import { choice, getRandomInteger, getRandomString } from "../../util/random";
 import Transform from "../transform";
-
-/* eslint-disable @typescript-eslint/no-unused-expressions */
-function encode_ascii85(a) {
-  var b, c, d, e, f, g, h, i, j, k;
-  // @ts-ignore
-  for (
-    // @ts-ignore
-    !/[^\x00-\xFF]/.test(a),
-      b = "\x00\x00\x00\x00".slice(a.length % 4 || 4),
-      a += b,
-      c = [],
-      d = 0,
-      e = a.length;
-    e > d;
-    d += 4
-  )
-    (f =
-      (a.charCodeAt(d) << 24) +
-      (a.charCodeAt(d + 1) << 16) +
-      (a.charCodeAt(d + 2) << 8) +
-      a.charCodeAt(d + 3)),
-      0 !== f
-        ? ((k = f % 85),
-          (f = (f - k) / 85),
-          (j = f % 85),
-          (f = (f - j) / 85),
-          (i = f % 85),
-          (f = (f - i) / 85),
-          (h = f % 85),
-          (f = (f - h) / 85),
-          (g = f % 85),
-          c.push(g + 33, h + 33, i + 33, j + 33, k + 33))
-        : c.push(122);
-  return (
-    (function (a, b) {
-      for (var c = b; c > 0; c--) a.pop();
-    })(c, b.length),
-    "<~" + String.fromCharCode.apply(String, c) + "~>"
-  );
-}
-
-function decode_ascii85(a) {
-  var c,
-    d,
-    e,
-    f,
-    g,
-    h = String,
-    l = "length",
-    w = 255,
-    x = "charCodeAt",
-    y = "slice",
-    z = "replace";
-  for (
-    "<~" === a[y](0, 2) && "~>" === a[y](-2),
-      a = a[y](2, -2)[z](/s/g, "")[z]("z", "!!!!!"),
-      c = "uuuuu"[y](a[l] % 5 || 5),
-      a += c,
-      e = [],
-      f = 0,
-      g = a[l];
-    g > f;
-    f += 5
-  )
-    (d =
-      52200625 * (a[x](f) - 33) +
-      614125 * (a[x](f + 1) - 33) +
-      7225 * (a[x](f + 2) - 33) +
-      85 * (a[x](f + 3) - 33) +
-      (a[x](f + 4) - 33)),
-      e.push(w & (d >> 24), w & (d >> 16), w & (d >> 8), w & d);
-  return (
-    (function (a, b) {
-      for (var c = b; c > 0; c--) a.pop();
-    })(e, c[l]),
-    h.fromCharCode.apply(h, e)
-  );
-}
-
-var Ascii85Template = Template(`
-function {name}(a, LL = ["fromCharCode", "apply"]) {
-  var c, d, e, f, g, h = String, l = "length", w = 255, x = "charCodeAt", y = "slice", z = "replace";
-  for ("<~" === a[y](0, 2) && "~>" === a[y](-2), a = a[y](2, -2)[z](/\s/g, "")[z]("z", "!!!!!"), 
-  c = "uuuuu"[y](a[l] % 5 || 5), a += c, e = [], f = 0, g = a[l]; g > f; f += 5) d = 52200625 * (a[x](f) - 33) + 614125 * (a[x](f + 1) - 33) + 7225 * (a[x](f + 2) - 33) + 85 * (a[x](f + 3) - 33) + (a[x](f + 4) - 33), 
-  e.push(w & d >> 24, w & d >> 16, w & d >> 8, w & d);
-  return function(a, b) {
-    for (var c = b; c > 0; c--) a.pop();
-  }(e, c[l]), h[LL[0]][LL[1]](h, e);
-}
-`);
+import Encoding from "./encoding";
 
 export function isModuleSource(object: Node, parents: Node[]) {
   if (!parents[0]) {
@@ -140,83 +52,112 @@ export function isModuleSource(object: Node, parents: Node[]) {
 export default class StringConcealing extends Transform {
   arrayExpression: Node;
   set: Set<string>;
-  index: { [str: string]: number };
+  index: { [str: string]: [number, string] };
 
-  getterName = this.getPlaceholder();
   arrayName = this.getPlaceholder();
-  decodeFn = this.getPlaceholder();
+  encoding: { [type: string]: string } = Object.create(null);
 
-  decodeNode: Node;
+  hasAllEncodings: boolean;
 
   constructor(o) {
     super(o, ObfuscateOrder.StringConcealing);
 
     this.set = new Set();
     this.index = Object.create(null);
+    this.arrayExpression = ArrayExpression([]);
+    this.hasAllEncodings = false;
+
+    // Pad array with useless strings
+    var dead = getRandomInteger(4, 10);
+    for (var i = 0; i < dead; i++) {
+      var str = getRandomString(getRandomInteger(4, 20));
+      var fn = this.transform(Literal(str), []);
+      if (fn) {
+        fn();
+      }
+    }
+  }
+
+  apply(tree) {
+    super.apply(tree);
+
+    var cacheName = this.getPlaceholder();
+
+    Object.keys(this.encoding).forEach((type) => {
+      var { template } = Encoding[type];
+      var decodeFn = this.getPlaceholder();
+      var getterFn = this.encoding[type];
+      var interchangeFn = this.getPlaceholder();
+
+      append(tree, template.single({ name: decodeFn }));
+
+      append(
+        tree,
+        Template(`
+            
+            function ${getterFn}(x, y, z){
+              if ( z ) {
+                return y[${cacheName}[z]] = ${getterFn}(x, y);
+              }
+            
+              return y ? x[${cacheName}[y]] : ${cacheName}[x] || (z=${decodeFn}, ${cacheName}[x] = z(${this.arrayName}[x]))
+            }
+  
+            `).single()
+      );
+    });
+
+    prepend(
+      tree,
+      VariableDeclaration([
+        VariableDeclarator(cacheName, ArrayExpression([])),
+        VariableDeclarator(this.arrayName, this.arrayExpression),
+      ])
+    );
   }
 
   match(object, parents) {
     return (
-      object.type == "Program" ||
-      (object.type == "Literal" &&
-        typeof object.value === "string" &&
-        !isModuleSource(object, parents) &&
-        !isDirective(object, parents)) //&&
+      object.type == "Literal" &&
+      typeof object.value === "string" &&
+      object.value.length >= 3 &&
+      !isModuleSource(object, parents) &&
+      !isDirective(object, parents) //&&
       /*!parents.find((x) => x.$dispatcherSkip)*/
     );
   }
 
   transform(object, parents) {
-    if (object.type == "Program") {
-      this.arrayExpression = ArrayExpression([]);
-
-      return () => {
-        var cacheName = this.getPlaceholder();
-
-        append(
-          object,
-          Template(`
-          
-          function ${this.getterName}(x, y, z){
-            if ( z ) {
-              return y[${cacheName}[z]] = x;
-            }
-            return y ? x[${cacheName}[y]] : ${cacheName}[x] || (${cacheName}[x] = ${this.decodeFn}(${this.arrayName}[x]))
-          }
-
-          `).single()
-        );
-
-        prepend(
-          object,
-          VariableDeclaration([
-            VariableDeclarator(cacheName, ArrayExpression([])),
-            VariableDeclarator(this.arrayName, this.arrayExpression),
-          ])
-        );
-
-        append(
-          object,
-          (this.decodeNode = Ascii85Template.single({
-            name: this.decodeFn,
-          }))
-        );
-      };
-    }
-
     return () => {
-      // No string concealing in the decoder function
-      if (parents.find((x) => x == this.decodeNode)) {
-        return;
-      }
-
       // Empty strings are discarded
       if (!object.value) {
         return;
       }
 
+      var types = Object.keys(this.encoding);
+
+      var type = choice(types);
+      if (!type || (!this.hasAllEncodings && Math.random() > 0.9)) {
+        var allowed = Object.keys(Encoding).filter(
+          (type) => !this.encoding[type]
+        );
+
+        if (!allowed.length) {
+          this.hasAllEncodings = true;
+        } else {
+          var random = choice(allowed);
+          type = random;
+
+          this.encoding[random] = this.getPlaceholder();
+        }
+      }
+
+      var fnName = this.encoding[type];
+      var encoder = Encoding[type];
+
       // The decode function must return correct result
-      if (decode_ascii85(encode_ascii85(object.value)) != object.value) {
+      var encoded = encoder.encode(object.value);
+      if (encoder.decode(encoded) != object.value) {
         this.warn(object.value.slice(0, 100));
         return;
       }
@@ -225,22 +166,20 @@ export default class StringConcealing extends Transform {
       if (object.value && object.value.length > 0) {
         var index = -1;
         if (!this.set.has(object.value)) {
-          this.arrayExpression.elements.push(
-            Literal(encode_ascii85(object.value))
-          );
+          this.arrayExpression.elements.push(Literal(encoded));
           index = this.arrayExpression.elements.length - 1;
-          this.index[object.value] = index;
+          this.index[object.value] = [index, fnName];
 
           this.set.add(object.value);
         } else {
-          index = this.index[object.value];
+          [index, fnName] = this.index[object.value];
           ok(typeof index === "number");
         }
 
         ok(index != -1, "index == -1");
         this.replace(
           object,
-          CallExpression(Identifier(this.getterName), [Literal(index)])
+          CallExpression(Identifier(fnName), [Literal(index)])
         );
 
         // Fix 2. Make parent property key computed

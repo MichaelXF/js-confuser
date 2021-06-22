@@ -74,7 +74,7 @@ const DecodeTemplate = Template(
       (e[o] = f + c),
       o++,
       (f = a);
-  return g.join("");
+  return g.join("").split("{delimiter}");
   }`
 );
 
@@ -111,14 +111,9 @@ export default class StringCompression extends Transform {
       this.error(new Error("String failed to be decoded"));
     }
 
-    var callExpression = CallExpression(
-      MemberExpression(
-        CallExpression(Identifier(decoder), [Literal(encoded)]),
-        Identifier("split"),
-        false
-      ),
-      [Literal(this.delimiter)]
-    );
+    var callExpression = CallExpression(Identifier(decoder), [
+      Literal(encoded),
+    ]);
 
     prepend(
       tree,
@@ -138,7 +133,10 @@ export default class StringCompression extends Transform {
       )
     );
 
-    append(tree, DecodeTemplate.single({ name: decoder }));
+    append(
+      tree,
+      DecodeTemplate.single({ name: decoder, delimiter: this.delimiter })
+    );
   }
 
   match(object, parents) {

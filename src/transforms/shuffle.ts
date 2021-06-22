@@ -5,10 +5,12 @@ import Template from "../templates/template";
 import {
   BinaryExpression,
   CallExpression,
+  ExpressionStatement,
   ForStatement,
   FunctionExpression,
   Identifier,
   Literal,
+  MemberExpression,
   ReturnStatement,
   UpdateExpression,
   VariableDeclaration,
@@ -91,22 +93,20 @@ export default class Shuffle extends Transform {
         return;
       }
 
-      var mode = ComputeProbabilityMap(
-        this.options.shuffle,
-        (x) => x,
-        object.elements.map((x) => x.value)
-      );
+      var mapped = object.elements.map((x) => x.value);
+
+      var mode = ComputeProbabilityMap(this.options.shuffle, (x) => x, mapped);
       if (mode) {
         var shift = getRandomInteger(
           1,
-          Math.min(100, object.elements.length * 6)
+          Math.min(60, object.elements.length * 6)
         );
 
         var expr = Literal(shift);
         var name = this.getPlaceholder();
 
         if (mode == "hash") {
-          var str = object.elements.map((x) => x.value + "").join("");
+          var str = mapped.join("");
           shift = Hash(str);
 
           if (!this.hashName) {
@@ -145,7 +145,28 @@ export default class Shuffle extends Transform {
             VariableDeclaration(VariableDeclarator(iName, expr)),
             Identifier(iName),
             UpdateExpression("--", Identifier(iName), false),
-            [Template(`${name}.unshift(${name}.pop())`).single()]
+            [
+              // ${name}.unshift(${name}.pop());
+              ExpressionStatement(
+                CallExpression(
+                  MemberExpression(
+                    Identifier(name),
+                    Identifier("unshift"),
+                    false
+                  ),
+                  [
+                    CallExpression(
+                      MemberExpression(
+                        Identifier(name),
+                        Identifier("pop"),
+                        false
+                      ),
+                      []
+                    ),
+                  ]
+                )
+              ),
+            ]
           )
         );
 

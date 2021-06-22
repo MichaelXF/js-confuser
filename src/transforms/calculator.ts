@@ -88,20 +88,18 @@ export default class Calculator extends Transform {
       var myPrecedence =
         OPERATOR_PRECEDENCE[operator] +
         Object.keys(OPERATOR_PRECEDENCE).indexOf(operator) / 100;
-      var maxParentPrecedence = parents
-        .map(
-          (x) =>
-            x.type == "BinaryExpression" &&
-            OPERATOR_PRECEDENCE[x.operator] +
-              Object.keys(OPERATOR_PRECEDENCE).indexOf(x.operator) / 100
-        )
-        .sort()
-        .pop();
+      var precedences = parents.map(
+        (x) =>
+          x.type == "BinaryExpression" &&
+          OPERATOR_PRECEDENCE[x.operator] +
+            Object.keys(OPERATOR_PRECEDENCE).indexOf(x.operator) / 100
+      );
 
       // corrupt AST
-      if (maxParentPrecedence && maxParentPrecedence > myPrecedence) {
+      if (precedences.find((x) => x > myPrecedence)) {
         return;
       }
+
       return () => {
         if (parents.find((x) => x.$dispatcherSkip)) {
           return;
