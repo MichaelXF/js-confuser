@@ -316,6 +316,25 @@ export default class HideInitializingCode extends Transform {
       var check = getRandomInteger(-250, 250);
 
       var initName = "init" + this.getPlaceholder();
+
+      // Entangle number literals
+      var made = 1; // Limit frequency
+      walk(stmts, [], (o, p) => {
+        if (
+          o.type == "Literal" &&
+          typeof o.value === "number" &&
+          Math.floor(o.value) === o.value &&
+          Math.abs(o.value) < 100_000 &&
+          Math.random() > 0.8 / made
+        ) {
+          made++;
+          return () => {
+            this.replaceIdentifierOrLiteral(o, numberLiteral(o.value), p);
+          };
+        }
+      });
+
+      // Create the new function
       addNodes.push(FunctionDeclaration(initName, [], [...stmts]));
 
       function truePredicate() {
