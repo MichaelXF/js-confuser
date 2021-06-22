@@ -177,21 +177,11 @@ export default class StringConcealing extends Transform {
         }
 
         ok(index != -1, "index == -1");
-        this.replace(
+        this.replaceIdentifierOrLiteral(
           object,
-          CallExpression(Identifier(fnName), [Literal(index)])
+          CallExpression(Identifier(fnName), [Literal(index)]),
+          parents
         );
-
-        // Fix 2. Make parent property key computed
-        if (
-          parents[0] &&
-          (parents[0].type == "Property" ||
-            parents[0].type == "MethodDefinition") &&
-          parents[0].key == object
-        ) {
-          parents[0].computed = true;
-          parents[0].shorthand = false;
-        }
       }
     };
   }

@@ -289,12 +289,7 @@ export default class Stack extends Transform {
           p.find((x) => isFunction(x)) === object
         ) {
           return () => {
-            if (p[0].type == "Property" || p[0].type == "MethodDefinition") {
-              if (!p[0].computed) {
-                p[0].computed = true;
-              }
-            }
-            this.replace(o, numberLiteral(o.value, 0));
+            this.replaceIdentifierOrLiteral(o, numberLiteral(o.value, 0), p);
           };
         }
       };
