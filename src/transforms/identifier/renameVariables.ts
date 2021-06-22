@@ -15,91 +15,7 @@ import { isValidIdentifier } from "../../util/compare";
 import Transform from "../transform";
 import { reservedIdentifiers } from "../../constants";
 import { ComputeProbabilityMap } from "../../probability";
-
-/**
- * Keeps track of what identifiers are defined and referenced in each context.
- */
-export class VariableAnalysis extends Transform {
-  /**
-   * Node being the context.
-   */
-  defined: Map<Node, Set<string>>;
-  references: Map<Node, Set<string>>;
-
-  constructor(o) {
-    super(o);
-
-    this.defined = new Map();
-    this.references = new Map();
-  }
-
-  match(object, parents) {
-    return isContext(object);
-  }
-
-  transform(object, parents) {
-    walk(object, parents, (o, p) => {
-      if (o.type == "Identifier") {
-        var name = o.name;
-        ok(typeof name === "string");
-        if (!isValidIdentifier(name)) {
-          return;
-        }
-
-        if (reservedIdentifiers.has(name)) {
-          return;
-        }
-        if (this.options.globalVariables.has(name)) {
-          return;
-        }
-
-        var info = getIdentifierInfo(o, p);
-        if (!info.spec.isReferenced) {
-          return;
-        }
-
-        if (info.spec.isExported) {
-          return;
-        }
-
-        var definingContexts = info.spec.isDefined
-          ? [getDefiningContext(o, p)]
-          : [getVarContext(o, p), getLexContext(o, p)];
-
-        ok(definingContexts.length);
-
-        var isDefined = info.spec.isDefined;
-        definingContexts.forEach((definingContext) => {
-          ok(
-            isContext(definingContext),
-            `${definingContext.type} is not a context`
-          );
-
-          if (isDefined) {
-            // Add to defined Map
-            if (!this.defined.has(definingContext)) {
-              this.defined.set(definingContext, new Set());
-            }
-            this.defined.get(definingContext).add(name);
-            this.references.has(definingContext) &&
-              this.references.get(definingContext).delete(name);
-          } else {
-            // Add to references Map
-            if (
-              !this.defined.has(definingContext) ||
-              !this.defined.get(definingContext).has(name)
-            ) {
-              if (!this.references.has(definingContext)) {
-                this.references.set(definingContext, new Set());
-              }
-              this.references.get(definingContext).add(name);
-            }
-          }
-        });
-      }
-    });
-  }
-}
+import VariableAnalysis from "./variableAnalysis";
 
 /**
  * Rename variables to randomly generated names.
@@ -123,7 +39,9 @@ export default class RenameVariables extends Transform {
     super(o, ObfuscateOrder.RenameVariables);
 
     this.changed = new Map();
-    this.before.push((this.variableAnalysis = new VariableAnalysis(o)));
+
+    this.variableAnalysis = new VariableAnalysis(o);
+    this.before.push(this.variableAnalysis);
     this.gen = this.getGenerator();
     this.generated = [];
   }
@@ -204,16 +122,23 @@ export default class RenameVariables extends Transform {
           isGlobal
         )
       ) {
-        if (possible.size) {
-          var first = possible.values().next().value;
-          possible.delete(first);
-          newNames[name] = first;
-        } else {
-          // Fix 1. Use `generateIdentifier` over `gen.generate()` so Integrity can get unique variable names
-          var g = this.generateIdentifier();
-          newNames[name] = g;
-          this.generated.push(g);
-        }
+        // Fix 2. Ensure global names aren't overridden
+        var newName;
+        do {
+          if (possible.size) {
+            var first = possible.values().next().value;
+            possible.delete(first);
+            newName = first;
+          } else {
+            // Fix 1. Use `generateIdentifier` over `gen.generate()` so Integrity can get unique variable names
+            var g = this.generateIdentifier();
+
+            newName = g;
+            this.generated.push(g);
+          }
+        } while (this.variableAnalysis.globals.has(newName));
+
+        newNames[name] = newName;
       } else {
         newNames[name] = name;
       }

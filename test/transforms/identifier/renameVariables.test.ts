@@ -290,3 +290,40 @@ it("should allow excluding custom variables from being renamed", async () => {
   expect(output).toContain("myVariable1");
   expect(output).not.toContain("myVariable2");
 });
+
+it("should not break global variable references", async () => {
+  /**
+   * In this case `b` is a global variable,
+   *
+   * "mangled" names are a,b,c,d...
+   *
+   * therefore make sure `b` is NOT used as it breaks program
+   */
+  var code = `
+  var a = "";
+
+  function myFunction(param1, param2){
+      b(param1);
+  }
+
+  myFunction("Hello World");
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    renameVariables: true,
+    renameGlobals: true,
+    identifierGenerator: "mangled",
+  });
+
+  expect(output).not.toContain("b(b)");
+
+  var value;
+  function b(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+
+  expect(value).toStrictEqual("Hello World");
+});
