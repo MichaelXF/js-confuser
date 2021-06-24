@@ -113,9 +113,6 @@ export default class Dispatcher extends Transform {
             // Fix 1
             return;
           }
-          if (isWithinClass(o, p)) {
-            return;
-          }
 
           var c = getVarContext(o, p);
           if (o.type == "FunctionDeclaration") {
@@ -125,7 +122,9 @@ export default class Dispatcher extends Transform {
           if (context === c) {
             if (o.type == "FunctionDeclaration" && o.id.name) {
               if (
-                p.find((x) => x.$dispatcherSkip) ||
+                p.find(
+                  (x) => x.$dispatcherSkip || x.type == "MethodDefinition"
+                ) ||
                 o.body.type != "BlockStatement"
               ) {
                 illegalFnNames.add(name);
@@ -156,6 +155,9 @@ export default class Dispatcher extends Transform {
               return;
             }
             var info = getIdentifierInfo(o, p);
+            if (!info.spec.isReferenced) {
+              return;
+            }
             if (info.spec.isDefined) {
               if (info.isFunctionDeclaration) {
                 if (
@@ -170,7 +172,7 @@ export default class Dispatcher extends Transform {
               }
             } else if (info.spec.isModified) {
               illegalFnNames.add(o.name);
-            } else if (info.spec.isReferenced) {
+            } else {
               identifiers.push([o, p]);
             }
           }
@@ -226,11 +228,10 @@ export default class Dispatcher extends Transform {
                     type: "FunctionExpression",
                     id: null,
                   };
+                  this.addComment(functionExpression, name);
 
                   if (def.params.length > 0) {
                     const fixParam = (param: Node) => {
-                      this.addComment(param, "Unloader(param): " + param.name);
-
                       return param;
                     };
 
@@ -467,7 +468,11 @@ export default class Dispatcher extends Transform {
             }
 
             var info = getIdentifierInfo(o, p);
-            if (info.isFunctionCall && p[0].type == "CallExpression") {
+            if (
+              info.isFunctionCall &&
+              p[0].type == "CallExpression" &&
+              p[0].callee === o
+            ) {
               // Invoking call expression: `a();`
 
               if (o.name == dispatcherFnName) {
