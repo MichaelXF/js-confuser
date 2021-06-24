@@ -325,7 +325,7 @@ export default class HideInitializingCode extends Transform {
           typeof o.value === "number" &&
           Math.floor(o.value) === o.value &&
           Math.abs(o.value) < 100_000 &&
-          Math.random() > 0.8 / made
+          Math.random() < 4 / made
         ) {
           made++;
           return () => {

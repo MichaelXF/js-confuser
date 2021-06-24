@@ -283,6 +283,8 @@ export default class ControlFlowFlattening extends Transform {
 
       var order = Object.create(null);
       var cases: Case[] = chunks.map((body, i) => {
+        var made = 1;
+
         body.forEach((stmt) => {
           walk(stmt, [], (o, p) => {
             if (
@@ -290,9 +292,10 @@ export default class ControlFlowFlattening extends Transform {
               typeof o.value === "number" &&
               Math.floor(o.value) === o.value &&
               Math.abs(o.value) < 100_000 &&
-              Math.random() > 0.5 &&
+              Math.random() < 4 / made &&
               !p.find((x) => isVarContext(x))
             ) {
+              made++;
               return () => {
                 this.replaceIdentifierOrLiteral(
                   o,
