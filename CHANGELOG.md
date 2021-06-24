@@ -23,6 +23,19 @@ function b(b){
 
 - **Bug fix**: `Flatten` to not accidentally remove function parameters
 - **Bug fix**: `Dispatcher` on function calls within classes
+- **Bug fix**: `Minify` fixed syntax error
+
+```js
+// Input
+var o = {Infinity: 0};
+
+// Output on 1.2.1
+var o = {1/0: 0};
+
+// Output on 1.2.2
+var o = {[1/0]: 0};
+```
+
 - Added `base32` encoding to `String Concealing`
 - `Minify` improvements
 - - `true` -> `!0`
