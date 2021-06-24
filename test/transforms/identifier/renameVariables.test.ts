@@ -1,6 +1,6 @@
 import JsConfuser from "../../../src/index";
 
-it("should rename variables properly", async () => {
+test("Variant #1: Rename variables properly", async () => {
   var code = "var TEST_VARIABLE = 1;";
   var output = await JsConfuser(code, {
     target: "browser",
@@ -13,7 +13,7 @@ it("should rename variables properly", async () => {
   expect(output).not.toContain("TEST_VARIABLE");
 });
 
-it("should not rename global accessors", async () => {
+test("Variant #2: Don't rename global accessors", async () => {
   var code = `
   var TEST_VARIABLE = 1;
   success(TEST_VARIABLE); // success should not be renamed
@@ -38,7 +38,7 @@ it("should not rename global accessors", async () => {
   expect(passed).toStrictEqual(true);
 });
 
-it("should rename shadowed variables properly", async () => {
+test("Variant #3: Rename shadowed variables properly", async () => {
   var code = `
   var TEST_VARIABLE = 1;
   
@@ -66,7 +66,7 @@ it("should rename shadowed variables properly", async () => {
   expect(value).toStrictEqual(10);
 });
 
-it("should not rename member properties", async () => {
+test("Variant #4: Don't rename member properties", async () => {
   var code = `
 
     var TEST_OBJECT = { TEST_PROPERTY: 100 }
@@ -92,7 +92,7 @@ it("should not rename member properties", async () => {
   expect(value).toStrictEqual(100);
 });
 
-it("should handle variable defined with let (1)", async () => {
+test("Variant #5: Handle variable defined with let (1)", async () => {
   var code = `
 
     // lexically bound
@@ -117,7 +117,7 @@ it("should handle variable defined with let (1)", async () => {
   expect(value).toStrictEqual(100);
 });
 
-it("should handle variable defined with let (2)", async () => {
+test("Variant #6: Handle variable defined with let (2)", async () => {
   var code = `
 
     // lexically bound
@@ -145,7 +145,7 @@ it("should handle variable defined with let (2)", async () => {
   expect(value).toStrictEqual(100);
 });
 
-it("should handle variable defined with let (3)", async () => {
+test("Variant #7: Handle variable defined with let (3)", async () => {
   var code = `
 
     // lexically bound
@@ -179,7 +179,7 @@ it("should handle variable defined with let (3)", async () => {
   expect(value).toStrictEqual(100);
 });
 
-it("should not rename null (reservedIdentifiers)", async () => {
+test("Variant #8: Don't rename null (reservedIdentifiers)", async () => {
   var code = `
     input(null)
   `;
@@ -199,7 +199,7 @@ it("should not rename null (reservedIdentifiers)", async () => {
   expect(value).toStrictEqual(null);
 });
 
-it("should not rename exported names", async () => {
+test("Variant #9: Don't rename exported names", async () => {
   var code = `
     export function abc(){
 
@@ -215,7 +215,7 @@ it("should not rename exported names", async () => {
   expect(output).toContain("abc");
 });
 
-it("should call renameVariables callback properly (variables)", async () => {
+test("Variant #10: Call renameVariables callback properly (variables)", async () => {
   var code = `
     var myVariable = 1;
   `;
@@ -233,7 +233,7 @@ it("should call renameVariables callback properly (variables)", async () => {
   expect(input).toEqual(["myVariable", true]);
 });
 
-it("should call renameVariables callback properly (variables, nested)", async () => {
+test("Variant #11: Call renameVariables callback properly (variables, nested)", async () => {
   var code = `
     (function(){
       var myVariable = 1;
@@ -253,7 +253,7 @@ it("should call renameVariables callback properly (variables, nested)", async ()
   expect(input).toEqual(["myVariable", false]);
 });
 
-it("should call renameVariables callback properly (function declaration)", async () => {
+test("Variant #12: Call renameVariables callback properly (function declaration)", async () => {
   var code = `
     function myFunction(){
 
@@ -273,7 +273,7 @@ it("should call renameVariables callback properly (function declaration)", async
   expect(input).toEqual(["myFunction", true]);
 });
 
-it("should allow excluding custom variables from being renamed", async () => {
+test("Variant #13: Allow excluding custom variables from being renamed", async () => {
   var code = `
     var myVariable1 = 1;
     var myVariable2 = 1;
@@ -291,7 +291,7 @@ it("should allow excluding custom variables from being renamed", async () => {
   expect(output).not.toContain("myVariable2");
 });
 
-it("should not break global variable references", async () => {
+test("Variant #14: should not break global variable references", async () => {
   /**
    * In this case `b` is a global variable,
    *
@@ -320,6 +320,49 @@ it("should not break global variable references", async () => {
 
   var value;
   function b(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+
+  expect(value).toStrictEqual("Hello World");
+});
+
+test("Variant #15: Function parameter default value", async () => {
+  /**
+   * In this case `b` is a global variable,
+   *
+   * "mangled" names are a,b,c,d...
+   *
+   * therefore make sure `b` is NOT used as it breaks program
+   */
+  var code = `
+   var a = "Filler Variables";
+   var b = "Hello World";
+   var c = "Another incorrect string";
+ 
+   function myFunction(param1 = ()=>{
+     return b;
+   }){
+    var b = param1();
+    if(false){
+      a,c;
+    }
+    input(b);
+   }
+ 
+   myFunction();
+   `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    renameVariables: true,
+    renameGlobals: true,
+    identifierGenerator: "mangled",
+  });
+
+  var value;
+  function input(valueIn) {
     value = valueIn;
   }
 
