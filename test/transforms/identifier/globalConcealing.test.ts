@@ -28,6 +28,5 @@ it("should not rename global variables", async () => {
     globalConcealing: true,
   });
 
-  expect(output).not.toContain("['Math']");
-  expect(output).toContain("(Math)");
+  expect(output).toContain("log'](Math)");
 });
