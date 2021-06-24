@@ -125,7 +125,8 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
   var isUpdateExpression = parent.type == "UpdateExpression";
 
   var isClassDeclaration =
-    parent.type == "ClassDeclaration" && parent.id == object;
+    (parent.type == "ClassDeclaration" || parent.type == "ClassExpression") &&
+    parent.id == object;
   var isMethodDefinition =
     parent.type == "MethodDefinition" &&
     parent.key == object &&
