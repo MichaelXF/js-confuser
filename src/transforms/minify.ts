@@ -25,130 +25,7 @@ import {
 import { isValidIdentifier, isEquivalent } from "../util/compare";
 import { walk, isBlock } from "../traverse";
 import { ok } from "assert";
-
-class MinifyBlock extends Transform {
-  constructor(o) {
-    super(o);
-  }
-
-  match(object: Node, parents: Node[]) {
-    return isBlock(object) || object.type == "SwitchCase";
-  }
-
-  transform(object: Node, parents: Node[]) {
-    return () => {
-      var body =
-        object.type == "SwitchCase" ? object.consequent : getBlockBody(object);
-      var earlyReturn = body.length;
-      var fnDecs: [Node, number][] = [];
-
-      body.forEach((stmt, i) => {
-        if (
-          stmt.type == "ReturnStatement" ||
-          stmt.type == "BreakStatement" ||
-          stmt.type == "ContinueStatement"
-        ) {
-          if (earlyReturn > i + 1) {
-            earlyReturn = i + 1;
-          }
-        }
-
-        if (stmt.type == "FunctionDeclaration") {
-          fnDecs.push([stmt, i]);
-        }
-      });
-
-      if (earlyReturn < body.length) {
-        body.length = earlyReturn;
-        body.push(
-          ...fnDecs.filter((x) => x[1] >= earlyReturn).map((x) => x[0])
-        );
-      }
-
-      // Now combine ExpressionStatements
-
-      if (body.length > 1) {
-        var exprs = [];
-        var startIndex = -1;
-
-        var sequences: { index: number; exprs: Node[] }[] = [];
-
-        body.forEach((stmt, i) => {
-          if (stmt.type == "ExpressionStatement") {
-            exprs.push(stmt.expression);
-            if (startIndex == -1) {
-              startIndex = i;
-            }
-          } else {
-            if (exprs.length) {
-              sequences.push({ exprs: exprs, index: startIndex });
-            }
-            exprs = [];
-            startIndex = -1;
-          }
-        });
-
-        if (exprs.length) {
-          sequences.push({ exprs: exprs, index: startIndex });
-        }
-
-        sequences.reverse().forEach((seq) => {
-          ok(seq.index != -1);
-          body.splice(
-            seq.index,
-            seq.exprs.length,
-            ExpressionStatement(
-              seq.exprs.length == 1
-                ? seq.exprs[0]
-                : SequenceExpression(seq.exprs)
-            )
-          );
-        });
-      }
-
-      if (object.type != "SwitchCase") {
-        // Unnecessary return
-        if (body.length && body[body.length - 1]) {
-          var last = body[body.length - 1];
-          var isUndefined = last.argument == null;
-          if (last.type == "ReturnStatement" && isUndefined) {
-            body.pop();
-          }
-        }
-
-        // Variable declaration grouping
-        // var a = 1;
-        // var b = 1;
-        // var c = 1;
-        //
-        // var a=1,b=1,c=1;
-        var lastDec = null;
-
-        var remove = [];
-        body.forEach((x, i) => {
-          if (x.type === "VariableDeclaration") {
-            if (
-              !lastDec ||
-              lastDec.kind !== x.kind ||
-              !lastDec.declarations.length
-            ) {
-              lastDec = x;
-            } else {
-              lastDec.declarations.push(...x.declarations);
-              remove.unshift(i);
-            }
-          } else {
-            lastDec = null;
-          }
-        });
-
-        remove.forEach((x) => {
-          body.splice(x, 1);
-        });
-      }
-    };
-  }
-}
+import { isLexicalScope } from "../util/scope";
 
 /**
  * Basic transformations to reduce code size.
@@ -165,12 +42,6 @@ export default class Minify extends Transform {
     super(o, ObfuscateOrder.Minify);
 
     this.variables = new Map();
-
-    /**
-     * Minify runs at every Node, making Expression-based minification.
-     * MinifyBlock runs only on Blocks, making Statement-based minification.
-     */
-    this.after.push(new MinifyBlock(o));
   }
 
   match(object: Node, parents: Node[]) {
@@ -178,6 +49,122 @@ export default class Minify extends Transform {
   }
 
   transform(object: Node, parents: Node[]) {
+    if (isLexicalScope(object)) {
+      return () => {
+        var body =
+          object.type == "SwitchCase"
+            ? object.consequent
+            : getBlockBody(object);
+        var earlyReturn = body.length;
+        var fnDecs: [Node, number][] = [];
+
+        body.forEach((stmt, i) => {
+          if (
+            stmt.type == "ReturnStatement" ||
+            stmt.type == "BreakStatement" ||
+            stmt.type == "ContinueStatement"
+          ) {
+            if (earlyReturn > i + 1) {
+              earlyReturn = i + 1;
+            }
+          }
+
+          if (stmt.type == "FunctionDeclaration") {
+            fnDecs.push([stmt, i]);
+          }
+        });
+
+        if (earlyReturn < body.length) {
+          body.length = earlyReturn;
+          body.push(
+            ...fnDecs.filter((x) => x[1] >= earlyReturn).map((x) => x[0])
+          );
+        }
+
+        // Now combine ExpressionStatements
+
+        if (body.length > 1) {
+          var exprs = [];
+          var startIndex = -1;
+
+          var sequences: { index: number; exprs: Node[] }[] = [];
+
+          body.forEach((stmt, i) => {
+            if (stmt.type == "ExpressionStatement") {
+              exprs.push(stmt.expression);
+              if (startIndex == -1) {
+                startIndex = i;
+              }
+            } else {
+              if (exprs.length) {
+                sequences.push({ exprs: exprs, index: startIndex });
+              }
+              exprs = [];
+              startIndex = -1;
+            }
+          });
+
+          if (exprs.length) {
+            sequences.push({ exprs: exprs, index: startIndex });
+          }
+
+          sequences.reverse().forEach((seq) => {
+            ok(seq.index != -1);
+            body.splice(
+              seq.index,
+              seq.exprs.length,
+              ExpressionStatement(
+                seq.exprs.length == 1
+                  ? seq.exprs[0]
+                  : SequenceExpression(seq.exprs)
+              )
+            );
+          });
+        }
+
+        if (object.type != "SwitchCase") {
+          // Unnecessary return
+          if (body.length && body[body.length - 1]) {
+            var last = body[body.length - 1];
+            var isUndefined = last.argument == null;
+            if (last.type == "ReturnStatement" && isUndefined) {
+              body.pop();
+            }
+          }
+
+          // Variable declaration grouping
+          // var a = 1;
+          // var b = 1;
+          // var c = 1;
+          //
+          // var a=1,b=1,c=1;
+          var lastDec = null;
+
+          var remove = [];
+          body.forEach((x, i) => {
+            if (x.type === "VariableDeclaration") {
+              if (
+                !lastDec ||
+                lastDec.kind !== x.kind ||
+                !lastDec.declarations.length
+              ) {
+                lastDec = x;
+              } else {
+                lastDec.declarations.push(...x.declarations);
+                remove.unshift(i);
+              }
+            } else {
+              lastDec = null;
+            }
+          });
+
+          remove.forEach((x) => {
+            body.splice(x, 1);
+          });
+        }
+      };
+    }
+
     /**
      * ES6 and higher only
      * - `function(){}` -> `()=>{}`
@@ -574,6 +561,30 @@ export default class Minify extends Transform {
         }
       }
 
+      if (
+        object.id.type == "ObjectPattern" &&
+        object.init.type == "ObjectExpression"
+      ) {
+        if (
+          object.id.properties.length === 1 &&
+          object.init.properties.length === 1
+        ) {
+          var key1 = object.id.properties[0].computed
+            ? object.id.properties[0].key.value
+            : object.id.properties[0].key.name;
+          var key2 = object.init.properties[0].computed
+            ? object.init.properties[0].key.value
+            : object.init.properties[0].key.name;
+
+          // console.log(key1, key2);
+
+          if (key1 && key2 && key1 === key2) {
+            object.id = object.id.properties[0].value;
+            object.init = object.init.properties[0].value;
+          }
+        }
+      }
+
       // check for redundant patterns
       if (
         object.id.type == "ArrayPattern" &&
@@ -593,7 +604,11 @@ export default class Minify extends Transform {
       return () => {
         switch (typeof object.value) {
           case "boolean":
-            // this.replace(object, UnaryExpression("!", Literal(object.value ? 0 : 1)));
+            this.replaceIdentifierOrLiteral(
+              object,
+              UnaryExpression("!", Literal(object.value ? 0 : 1)),
+              parents
+            );
             break;
         }
       };
@@ -601,9 +616,17 @@ export default class Minify extends Transform {
     if (object.type == "Identifier") {
       return () => {
         if (object.name == "undefined" && !isForInitialize(object, parents)) {
-          this.replace(object, UnaryExpression("void", Literal(0)));
+          this.replaceIdentifierOrLiteral(
+            object,
+            UnaryExpression("void", Literal(0)),
+            parents
+          );
         } else if (object.name == "Infinity") {
-          this.replace(object, BinaryExpression("/", Literal(1), Literal(0)));
+          this.replaceIdentifierOrLiteral(
+            object,
+            BinaryExpression("/", Literal(1), Literal(0)),
+            parents
+          );
         }
       };
     }
