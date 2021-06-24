@@ -12,6 +12,7 @@ import {
   MemberExpression,
   SwitchStatement,
   SwitchCase,
+  LogicalExpression,
 } from "../../util/gen";
 import { prepend } from "../../util/insert";
 import { getIdentifierInfo } from "../../util/identifiers";
@@ -98,15 +99,12 @@ class GlobalAnalysis extends Transform {
  */
 export default class GlobalConcealing extends Transform {
   globalAnalysis: GlobalAnalysis;
-  globalVar: string;
 
   constructor(o) {
     super(o, ObfuscateOrder.GlobalConcealing);
 
     this.globalAnalysis = new GlobalAnalysis(o);
     this.before.push(this.globalAnalysis);
-
-    this.globalVar = null;
   }
 
   match(object: Node, parents: Node[]) {
@@ -119,6 +117,8 @@ export default class GlobalConcealing extends Transform {
       this.globalAnalysis.notGlobals.forEach((del) => {
         delete globals[del];
       });
+
+      delete globals["require"];
 
       reservedIdentifiers.forEach((x) => {
         delete globals[x];
@@ -141,28 +141,38 @@ export default class GlobalConcealing extends Transform {
 
         // 1. Make getter function
 
-        this.globalVar = this.getPlaceholder();
+        // holds "window" or "global"
+        var globalVar = this.getPlaceholder();
+
+        // holds outermost "this"
+        var thisVar = this.getPlaceholder();
+
         // "window" or "global" in node
         var global =
           this.options.globalVariables.values().next().value || "window";
-        var callee = this.getPlaceholder();
+        var getGlobalVariableFnName = this.getPlaceholder();
+        var getThisVariableFnName = this.getPlaceholder();
 
         // Returns global variable or fall backs to `this`
-        var functionDeclaration = Template(`
-        function ${callee}(){
+        var getGlobalVariableFn = Template(`
+        function ${getGlobalVariableFnName}(){
           try {
             return ${global};
           } catch (e){
+            return ${getThisVariableFnName}();
+          }
+        }`).single();
+
+        var getThisVariableFn = Template(`
+        function ${getThisVariableFnName}(){
+          try {
             return this;
+          } catch (e){
+            return null;
           }
         }`).single();
 
         // 2. Replace old accessors
-
-        var variableDeclaration = Template(`
-        var ${this.globalVar} = ${callee}.call(this);
-        `).single();
-
         var globalFn = this.getPlaceholder();
 
         var newNames = Object.create(null);
@@ -179,6 +189,20 @@ export default class GlobalConcealing extends Transform {
 
           locations.forEach(([node, parents]) => {
             if (!parents.find((x) => x.$dispatcherSkip)) {
+              // Do not replace
+              if (parents[0]) {
+                if (
+                  parents[0].type == "ClassDeclaration" ||
+                  parents[0].type == "ClassExpression" ||
+                  parents[0].type == "FunctionExpression" ||
+                  parents[0].type == "FunctionDeclaration"
+                ) {
+                  if (parents[0].id === node) {
+                    return;
+                  }
+                }
+              }
+
               this.replace(
                 node,
                 CallExpression(Identifier(globalFn), [Literal(state)])
@@ -188,20 +212,20 @@ export default class GlobalConcealing extends Transform {
         });
 
         // Adds all global variables to the switch statement
-        // this.options.globalVariables.forEach((name) => {
-        //   if (!newNames[name]) {
-        //     var state;
-        //     do {
-        //       state = getRandomInteger(
-        //         -1000,
-        //         1000 + used.size + this.options.globalVariables.size
-        //       );
-        //     } while (used.has(state));
-        //     used.add(state);
+        this.options.globalVariables.forEach((name) => {
+          if (!newNames[name]) {
+            var state;
+            do {
+              state = getRandomInteger(
+                -1000,
+                1000 + used.size + this.options.globalVariables.size * 100
+              );
+            } while (used.has(state));
+            used.add(state);
 
-        //     newNames[name] = state;
-        //   }
-        // });
+            newNames[name] = state;
+          }
+        });
 
         prepend(
           object,
@@ -216,10 +240,18 @@ export default class GlobalConcealing extends Transform {
 
                   return SwitchCase(Literal(code), [
                     ReturnStatement(
-                      MemberExpression(
-                        Identifier(this.globalVar),
-                        Literal(name),
-                        true
+                      LogicalExpression(
+                        "||",
+                        MemberExpression(
+                          Identifier(globalVar),
+                          Literal(name),
+                          true
+                        ),
+                        MemberExpression(
+                          Identifier(thisVar),
+                          Literal(name),
+                          true
+                        )
                       )
                     ),
                   ]);
@@ -229,8 +261,14 @@ export default class GlobalConcealing extends Transform {
           )
         );
 
-        prepend(object, variableDeclaration);
-        prepend(object, functionDeclaration);
+        prepend(
+          object,
+          Template(`
+          var ${globalVar} = ${getGlobalVariableFnName}.call(this), ${thisVar} = ${getGlobalVariableFnName}.call(this);
+          `).single()
+        );
+        prepend(object, getGlobalVariableFn);
+        prepend(object, getThisVariableFn);
       }
     };
   }
