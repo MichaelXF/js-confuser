@@ -124,3 +124,140 @@ it("should work when shortening nested if-statements", async () => {
 
   expect(value).toStrictEqual(10);
 });
+
+test("Variant #8: Shorten simple array destructuring", async () => {
+  // Valid
+  var output = await JsConfuser(`var [x] = [1]`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output).toContain("var x=1");
+
+  // Invalid
+  var output2 = await JsConfuser(`var [x, y] = [1]`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output2).toContain("var [x,y]");
+});
+
+test("Variant #9: Shorten simple object destructuring", async () => {
+  // Valid
+  var output = await JsConfuser(`var {x} = {x: 1}`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output).toContain("var x=1");
+
+  // Valid
+  var output2 = await JsConfuser(`var {['x']: y} = {x: 1}`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output2).toContain("var y=1");
+
+  // Invalid
+  var output3 = await JsConfuser(`var {x,y} = {x:1}`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output3).toContain("var {x:x,y:y}");
+
+  // Invalid
+  var output4 = await JsConfuser(`var {y} = {x:1}`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output4).toContain("var {y:y}");
+});
+
+test("Variant #10: Shorten booleans", async () => {
+  // Valid
+  var output = await JsConfuser(`var x = true;`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output).toContain("var x=!0");
+
+  // Valid
+  var output2 = await JsConfuser(`var x = false`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output2).toContain("var x=!1");
+});
+
+test("Variant #11: Shorten 'undefined' to 'void 0'", async () => {
+  // Valid
+  var output = await JsConfuser(`x = undefined;`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output).toContain("x=void 0");
+
+  // Valid
+  var output2 = await JsConfuser(`var x = {undefined: 1}`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output2).toContain("var x={[void 0]:1}");
+});
+
+test("Variant #11: Shorten 'Infinity' to 1/0", async () => {
+  // Valid
+  var output = await JsConfuser(`var x = Infinity;`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output).toContain("var x=1/0");
+
+  // Valid
+  var output2 = await JsConfuser(`var x = {Infinity: 1}`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output2).toContain("var x={[1/0]:1}");
+});
+
+test("Variant #12: Shorten '!false' to 'true'", async () => {
+  // Valid
+  var output = await JsConfuser(`var x = !false;`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output).toContain("var x=true");
+});
+
+test("Variant #13: Shorten 'false ? a : b' to 'b'", async () => {
+  // Valid
+  var output = await JsConfuser(`var x = false ? 10 : 15;`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output).toContain("var x=15");
+});
+
+test("Variant #14: Shorten 'var x = undefined' to 'var x'", async () => {
+  // Valid
+  var output = await JsConfuser(`var x = undefined`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output).toContain("var x");
+  expect(output).not.toContain("var x=");
+});
