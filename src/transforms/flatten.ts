@@ -75,15 +75,28 @@ export default class Flatten extends Transform {
 
   match(object: Node, parents: Node[]) {
     return (
-      isFunction(object) &&
+      object.type == "FunctionDeclaration" &&
       object.body.type == "BlockStatement" &&
-      !object.generator
+      !object.generator &&
+      !object.async &&
+      !object.params.find((x) => x.type !== "Identifier")
     );
   }
 
   transform(object: Node, parents: Node[]) {
     return () => {
       //
+
+      if (
+        parents.find(
+          (x) =>
+            x.type == "ClassExpression" ||
+            x.type == "ClassDeclaration" ||
+            x.type == "MethodDefinition"
+        )
+      ) {
+        return;
+      }
 
       var defined = new Set<string>();
       var references = new Set<string>();
