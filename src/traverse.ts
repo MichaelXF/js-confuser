@@ -23,7 +23,7 @@ export function getBlock(object: any, parents: any[]) {
   if (!Array.isArray(parents)) {
     throw new Error("parents must be an array");
   }
-  return getBlocks([object, ...parents])[0];
+  return [object, ...parents].find((node) => isBlock(node));
 }
 
 /**

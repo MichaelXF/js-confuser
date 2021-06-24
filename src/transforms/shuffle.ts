@@ -140,6 +140,54 @@ export default class Shuffle extends Transform {
         var code = [];
 
         var iName = this.getPlaceholder();
+
+        var inPlace = false;
+        var inPlaceName;
+        var inPlaceBody;
+        var inPlaceIndex;
+
+        var varDeclarator = parents[0];
+        if (varDeclarator.type == "VariableDeclarator") {
+          var varDec = parents[2];
+          if (varDec.type == "VariableDeclaration") {
+            var body = parents[3];
+            if (
+              varDec.declarations.length == 1 &&
+              Array.isArray(body) &&
+              varDeclarator.id.type === "Identifier" &&
+              varDeclarator.init === object
+            ) {
+              inPlaceIndex = body.indexOf(varDec);
+              inPlaceBody = body;
+              inPlace = inPlaceIndex !== -1;
+              inPlaceName = varDeclarator.id.name;
+            }
+          }
+        }
+
+        if (mode !== "hash") {
+          code.push(
+            Template(`
+            for ( var x = 16; x%4 === 0; x++) {
+              var z = 0;
+              ${
+                inPlace ? `${inPlaceName} = ${name}` : name
+              } = ${name}.concat((function(){
+                z++;
+                if(z === 1){
+                  return [];
+                }
+
+                for( var i = ${getRandomInteger(5, 105)}; i; i-- ){
+                  ${name}.unshift(${name}.pop());
+                }
+                return [];
+              })());
+            }
+            `).single()
+          );
+        }
+
         code.push(
           ForStatement(
             VariableDeclaration(VariableDeclarator(iName, expr)),
@@ -170,29 +218,18 @@ export default class Shuffle extends Transform {
           )
         );
 
-        var inPlace = false;
+        if (inPlace) {
+          var varDeclarator = parents[0];
+          ok(i != -1);
 
-        var varDeclarator = parents[0];
-        if (varDeclarator.type == "VariableDeclarator") {
-          var varDec = parents[2];
-          if (varDec.type == "VariableDeclaration") {
-            var body = parents[3];
-            if (varDec.declarations.length == 1 && Array.isArray(body)) {
-              inPlace = true;
-
-              var i = body.indexOf(varDec);
-              ok(i != -1);
-
-              body.splice(
-                i + 1,
-                0,
-                VariableDeclaration(
-                  VariableDeclarator(name, Identifier(varDeclarator.id.name))
-                ),
-                ...code
-              );
-            }
-          }
+          inPlaceBody.splice(
+            inPlaceIndex + 1,
+            0,
+            VariableDeclaration(
+              VariableDeclarator(name, Identifier(varDeclarator.id.name))
+            ),
+            ...code
+          );
         }
 
         if (!inPlace) {

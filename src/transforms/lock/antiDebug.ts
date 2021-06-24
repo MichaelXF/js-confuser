@@ -9,14 +9,21 @@ import Transform from "../transform";
 var DevToolsDetection = Template(
   `
   function $jsc_debug(){
+
+    var isDev1 = !("" + function() {/* Hello world */}).includes("/*");
+    var s = "s";
+    while (isDev1) {
+      s = s + s;
+    }
+
     var startTime = new Date();
     debugger;
     var endTime = new Date();
-    var isDev = endTime-startTime > 600;
+    var isDev2 = endTime-startTime > 600;
   
-    while (isDev) {
-      debugger;
-      (function () {}). constructor ("debugger") ()
+    var a = "a";
+    while (isDev2) {
+      a = a + a;
     }
   
   }

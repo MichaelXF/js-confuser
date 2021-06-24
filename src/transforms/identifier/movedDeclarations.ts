@@ -7,8 +7,8 @@ import {
   AssignmentExpression,
   Identifier,
   Node,
-  VariableDeclaration,
   VariableDeclarator,
+  VariableDeclaration,
 } from "../../util/gen";
 import { clone, isForInitialize, isFunction, prepend } from "../../util/insert";
 import { ok } from "assert";
@@ -16,6 +16,7 @@ import { ObfuscateOrder } from "../../order";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { isLoop } from "../../util/compare";
 import { reservedIdentifiers } from "../../constants";
+import { isLexicalScope, getLexicalScope } from "../../util/scope";
 
 /**
  * Defines all the names at the top of every lexical block.
@@ -26,136 +27,114 @@ export default class MovedDeclarations extends Transform {
   }
 
   match(object, parents) {
-    return isBlock(object) && (!parents[0] || !isLoop(parents[0]));
+    return isLexicalScope(object);
   }
 
   transform(object: Node, parents: Node[]) {
     return () => {
-      var block = getBlock(object, parents);
+      var body = isBlock(object) ? object.body : object.consequent;
+      ok(Array.isArray(body));
 
-      var varDecs: Location[] = [];
-      var varNames = new Set<string>();
       var illegal = new Set<string>();
-      var toReplace: [string[], Node, Node][] = [];
-      var definingIdentifiers = new Map<string, Node>();
+      var defined = new Set<string>();
+      var variableDeclarations: {
+        [name: string]: {
+          location: Location;
+          replace: Node;
+        };
+      } = Object.create(null);
 
-      walk(object, parents, (o: Node, p: Node[]) => {
-        if (
-          o.type == "Identifier" &&
-          !reservedIdentifiers.has(o.name) &&
-          !this.options.globalVariables.has(o.name) &&
-          !illegal.has(o.name)
-        ) {
-          var info = getIdentifierInfo(o, p);
-          if (!info.spec.isReferenced) {
-            return;
-          }
-
-          if (o.hidden) {
+      walk(object, parents, (o, p) => {
+        if (o.type == "Identifier") {
+          if (getLexicalScope(o, p) !== object) {
             illegal.add(o.name);
-          } else if (info.spec.isDefined) {
-            if (
-              definingIdentifiers.has(o.name) ||
-              p.find((x) => x.type == "SwitchCase")
-            ) {
-              illegal.add(o.name);
+          } else {
+            var info = getIdentifierInfo(o, p);
+            if (!info.spec.isReferenced) {
+              return;
+            }
+
+            if (info.spec.isDefined) {
+              if (info.isFunctionDeclaration || info.isClassDeclaration) {
+                illegal.add(o.name);
+              } else {
+                if (defined.has(o.name)) {
+                  illegal.add(o.name);
+                } else {
+                  defined.add(o.name);
+                }
+              }
             }
           }
         }
 
-        if (
-          o.type == "VariableDeclaration" &&
-          o.declarations.length &&
-          o.kind === "var" &&
-          !o.declarations.find(
-            (x) => x.id.type !== "Identifier" || illegal.has(x.id.name)
-          )
-        ) {
-          var s = getBlock(o, p);
-          if (s != block) {
-            return;
-          }
+        if (o.type == "VariableDeclaration") {
           return () => {
-            var index = block.body.indexOf(o);
-            if (index === 0 || o.hidden) {
-              o.declarations.forEach((x) => {
-                illegal.add(x.id.name);
-              });
-              return;
-            }
+            if (
+              o.declarations.length === 1 &&
+              o.declarations[0].id.type === "Identifier"
+            ) {
+              var name = o.declarations[0].id.name;
 
-            if (isForInitialize(o, p)) {
-              return;
-            }
-
-            var isIllegal = false;
-            o.declarations.forEach((x) => {
-              if (varNames.has(x.id.name)) {
-                illegal.add(x.id.name);
-                isIllegal = true;
-
-                this.log(x.id.name, "is illegal due to already being defined");
+              // Check if duplicate
+              if (variableDeclarations[name] || o.kind !== "var") {
+                illegal.add(name);
+                return;
               }
-            });
 
-            if (!isIllegal) {
-              varDecs.push([o, p]);
+              // Check if already at top
+              if (body[0] === o) {
+                illegal.add(name);
+                return;
+              }
 
-              var names = [];
-
-              o.declarations.forEach((x) => {
-                ok(x.id.name);
-                varNames.add(x.id.name);
-
-                names.push(x.id.name);
-
-                definingIdentifiers.set(x.id.name, x.id);
-              });
-
-              // Change this line to assignment expressions
-
-              var assignmentExpressions = o.declarations.map((x) =>
-                AssignmentExpression(
-                  "=",
-                  Identifier(x.id.name),
-                  clone(x.init) || Identifier("undefined")
-                )
+              var replace: Node = AssignmentExpression(
+                "=",
+                Identifier(name),
+                o.declarations[0].init || Identifier("undefined")
               );
 
-              ok(assignmentExpressions.length, "Should be at least 1");
-
-              var value: Node = SequenceExpression(assignmentExpressions);
-
-              value = ExpressionStatement(value);
-
-              toReplace.push([names, o, value]);
+              var forType = isForInitialize(o, p);
+              if (forType === "left-hand") {
+                replace = Identifier(name);
+              } else if (!forType) {
+                replace = ExpressionStatement(replace);
+              }
+              variableDeclarations[name] = {
+                location: [o, p],
+                replace: replace,
+              };
             }
           };
         }
       });
 
       illegal.forEach((name) => {
-        varNames.delete(name);
+        delete variableDeclarations[name];
       });
 
-      toReplace.forEach(([names, node1, node2]) => {
-        if (!names.find((name) => illegal.has(name))) {
-          this.replace(node1, node2);
-        }
-      });
+      var movingNames = Object.keys(variableDeclarations);
 
-      // Define the names in this block as 1 variable declaration
-      if (varNames.size > 0) {
-        this.log("Moved", varNames);
-
-        var variableDeclaration = VariableDeclaration(
-          Array.from(varNames).map((name) => {
-            return VariableDeclarator(name);
-          })
-        );
-
-        prepend(block, variableDeclaration);
+      if (movingNames.length === 0) {
+        return;
       }
+
+      var variableDeclaration = VariableDeclaration(
+        movingNames.map((name) => {
+          return VariableDeclarator(name);
+        })
+      );
+
+      if (object.type == "Program") {
+        prepend(object, variableDeclaration);
+      } else {
+        body.unshift(variableDeclaration);
+      }
+
+      movingNames.forEach((name) => {
+        var { location, replace } = variableDeclarations[name];
+        this.replace(location[0], replace);
+      });
     };
   }
 }

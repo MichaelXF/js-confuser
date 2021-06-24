@@ -204,6 +204,7 @@ export default class Stack extends Transform {
       }
 
       var stackName = this.getPlaceholder();
+      var made = 1;
 
       const scan = (o, p) => {
         if (o.type == "Identifier") {
@@ -285,16 +286,12 @@ export default class Stack extends Transform {
           typeof o.value === "number" &&
           Math.floor(o.value) === o.value &&
           Math.abs(o.value) < 100_000 &&
-          Math.random() > 0.5 &&
+          Math.random() < 4 / made &&
           p.find((x) => isFunction(x)) === object
         ) {
+          made++;
           return () => {
-            if (p[0].type == "Property" || p[0].type == "MethodDefinition") {
-              if (!p[0].computed) {
-                p[0].computed = true;
-              }
-            }
-            this.replace(o, numberLiteral(o.value, 0));
+            this.replaceIdentifierOrLiteral(o, numberLiteral(o.value, 0), p);
           };
         }
       };

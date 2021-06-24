@@ -34,102 +34,100 @@ export default class Calculator extends Transform {
     this.gen = this.getGenerator();
   }
 
+  apply(tree) {
+    super.apply(tree);
+
+    if (Object.keys(this.ops).length == 0) {
+      return;
+    }
+
+    var opArg = this.getPlaceholder();
+    var leftArg = this.getPlaceholder();
+    var rightArg = this.getPlaceholder();
+    var switchCases = [];
+
+    Object.keys(this.ops).forEach((operator) => {
+      var code = this.ops[operator];
+
+      var factory =
+        operator == "&&" || operator == "||"
+          ? LogicalExpression
+          : BinaryExpression;
+
+      var body = [
+        ReturnStatement(
+          factory(operator, Identifier(leftArg), Identifier(rightArg))
+        ),
+      ];
+
+      switchCases.push(SwitchCase(Literal(code), body));
+    });
+
+    var func = FunctionDeclaration(
+      this.calculatorFn,
+      [opArg, leftArg, rightArg].map((x) => Identifier(x)),
+      [SwitchStatement(Identifier(opArg), switchCases)]
+    );
+
+    prepend(tree, func);
+  }
+
   match(object: Node, parents: Node[]) {
-    return object.type == "Program" || object.type == "BinaryExpression";
+    return object.type == "BinaryExpression";
   }
 
   transform(object: Node, parents: Node[]) {
-    if (object.type == "Program") {
-      return () => {
-        var block = getBlock(object, parents);
-
-        if (Object.keys(this.ops).length == 0) {
-          return;
-        }
-
-        var opArg = this.getPlaceholder();
-        var leftArg = this.getPlaceholder();
-        var rightArg = this.getPlaceholder();
-        var switchCases = [];
-
-        Object.keys(this.ops).forEach((operator) => {
-          var code = this.ops[operator];
-
-          var factory =
-            operator == "&&" || operator == "||"
-              ? LogicalExpression
-              : BinaryExpression;
-
-          var body = [
-            ReturnStatement(
-              factory(operator, Identifier(leftArg), Identifier(rightArg))
-            ),
-          ];
-
-          switchCases.push(SwitchCase(Literal(code), body));
-        });
-
-        var func = FunctionDeclaration(
-          this.calculatorFn,
-          [opArg, leftArg, rightArg].map((x) => Identifier(x)),
-          [SwitchStatement(Identifier(opArg), switchCases)]
-        );
-
-        prepend(block, func);
-      };
+    var operator = object.operator;
+    var allowedOperators = new Set(["+", "-", "*", "/"]);
+    if (!allowedOperators.has(operator)) {
+      return;
     }
 
-    if (object.type == "BinaryExpression") {
-      var operator = object.operator;
-      if (!{ "+": 1, "-": 1, "*": 1, "/": 1 }[object.operator]) {
-        return;
+    var myPrecedence =
+      OPERATOR_PRECEDENCE[operator] +
+      Object.keys(OPERATOR_PRECEDENCE).indexOf(operator) / 100;
+    var precedences = parents.map(
+      (x) =>
+        x.type == "BinaryExpression" &&
+        OPERATOR_PRECEDENCE[x.operator] +
+          Object.keys(OPERATOR_PRECEDENCE).indexOf(x.operator) / 100
+    );
+
+    // corrupt AST
+    if (precedences.find((x) => x >= myPrecedence)) {
+      return;
+    }
+    if (
+      parents.find((x) => x.$dispatcherSkip || x.type == "BinaryExpression")
+    ) {
+      return;
+    }
+
+    return () => {
+      if (typeof this.ops[operator] !== "number") {
+        var newState;
+        do {
+          newState = getRandomInteger(
+            -1000,
+            1000 + Object.keys(this.ops).length * 5
+          );
+        } while (this.statesUsed.has(newState));
+
+        ok(!isNaN(newState));
+
+        this.statesUsed.add(newState);
+        this.ops[operator] = newState;
+        this.log(operator, `calc(${newState}, left, right)`);
       }
 
-      var myPrecedence =
-        OPERATOR_PRECEDENCE[operator] +
-        Object.keys(OPERATOR_PRECEDENCE).indexOf(operator) / 100;
-      var precedences = parents.map(
-        (x) =>
-          x.type == "BinaryExpression" &&
-          OPERATOR_PRECEDENCE[x.operator] +
-            Object.keys(OPERATOR_PRECEDENCE).indexOf(x.operator) / 100
+      this.replace(
+        object,
+        CallExpression(Identifier(this.calculatorFn), [
+          Literal(this.ops[operator]),
+          object.left,
+          object.right,
+        ])
       );
-
-      // corrupt AST
-      if (precedences.find((x) => x > myPrecedence)) {
-        return;
-      }
-
-      return () => {
-        if (parents.find((x) => x.$dispatcherSkip)) {
-          return;
-        }
-
-        if (typeof this.ops[operator] !== "number") {
-          var newState;
-          do {
-            newState = getRandomInteger(
-              -1000,
-              1000 + Object.keys(this.ops).length * 5
-            );
-          } while (this.statesUsed.has(newState));
-
-          ok(!isNaN(newState));
-
-          this.statesUsed.add(newState);
-          this.ops[operator] = newState;
-          this.log(operator, `calc(${newState}, left, right)`);
-        }
-
-        this.replace(
-          object,
-          CallExpression(Identifier(this.calculatorFn), [
-            Literal(this.ops[operator]),
-            { ...object.left },
-            { ...object.right },
-          ])
-        );
-      };
-    }
+    };
   }
 }

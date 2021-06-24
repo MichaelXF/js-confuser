@@ -314,11 +314,11 @@ export function isForInitialize(o, p): "initializer" | "left-hand" | false {
   );
   if (forIndex !== -1) {
     if (p[forIndex].type == "ForStatement") {
-      if (p[forIndex].init == p[forIndex - 1] || o) {
+      if (p[forIndex].init == (p[forIndex - 1] || o)) {
         return "initializer";
       }
     } else {
-      if (p[forIndex].left == p[forIndex - 1] || o) {
+      if (p[forIndex].left == (p[forIndex - 1] || o)) {
         return "left-hand";
       }
     }

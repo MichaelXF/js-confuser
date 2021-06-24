@@ -120,7 +120,7 @@ test("Variant #5: Should bring up variable declarations", async () => {
   expect(output).toContain("__p_");
   expect(output).toContain("function ");
   expect(output).toContain("var myNumber;");
-  expect(output).toContain("myNumber=10");
+  expect(output).toContain("myNumber=");
 
   var value = "never_called";
   function input(valueIn) {
@@ -152,7 +152,7 @@ test("Variant #6: Should not bring up variable declarations in nested contexts",
 
   expect(output).toContain("__p_");
   expect(output).toContain("function ");
-  expect(output).toContain("var myNumber=10");
+  expect(output).toContain("var myNumber=");
 
   var value = "never_called";
   function input(valueIn) {
@@ -321,9 +321,9 @@ test("Variant #11: Should bring up variable declaration but not default values f
   expect(output).toContain("function ");
   expect(output).toContain("var myNumber1;");
   expect(output).toContain("[myNumber1");
-  expect(output).toContain("=[10]");
+  expect(output).toContain("=[");
 
-  expect(output).toContain("var myNumber=2");
+  expect(output).toContain("var myNumber=");
 
   var value = "never_called";
   function input(valueIn) {

@@ -59,13 +59,6 @@ export default class StringSplitting extends Transform {
 
   transform(object: Node, parents: Node[]) {
     return () => {
-      var propIndex = parents.findIndex(
-        (x) => x.type == "Property" || x.type == "MethodDefinition"
-      );
-      if (propIndex !== -1 && parents[propIndex].key == object) {
-        parents[propIndex].computed = true;
-      }
-
       var size = Math.round(
         Math.max(6, object.value.length / getRandomInteger(3, 8))
       );
@@ -101,7 +94,7 @@ export default class StringSplitting extends Transform {
 
       parent.right = Literal(last);
 
-      this.replace(object, parent);
+      this.replaceIdentifierOrLiteral(object, parent, parents);
     };
   }
 }

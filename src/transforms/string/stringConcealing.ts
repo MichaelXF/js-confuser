@@ -1,20 +1,27 @@
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import Template from "../../templates/template";
+import { isBlock } from "../../traverse";
 import { isDirective } from "../../util/compare";
 import {
   ArrayExpression,
   CallExpression,
+  ConditionalExpression,
   FunctionDeclaration,
+  FunctionExpression,
   Identifier,
+  IfStatement,
   Literal,
   MemberExpression,
   Node,
   ReturnStatement,
+  SequenceExpression,
+  ThisExpression,
+  UpdateExpression,
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
-import { append, prepend } from "../../util/insert";
+import { append, isLexContext, isVarContext, prepend } from "../../util/insert";
 import { choice, getRandomInteger, getRandomString } from "../../util/random";
 import Transform from "../transform";
 import Encoding from "./encoding";
@@ -55,6 +62,8 @@ export default class StringConcealing extends Transform {
   index: { [str: string]: [number, string] };
 
   arrayName = this.getPlaceholder();
+  ignore = new Set<string>();
+  variablesMade = 1;
   encoding: { [type: string]: string } = Object.create(null);
 
   hasAllEncodings: boolean;
@@ -87,7 +96,6 @@ export default class StringConcealing extends Transform {
       var { template } = Encoding[type];
       var decodeFn = this.getPlaceholder();
       var getterFn = this.encoding[type];
-      var interchangeFn = this.getPlaceholder();
 
       append(tree, template.single({ name: decodeFn }));
 
@@ -95,23 +103,42 @@ export default class StringConcealing extends Transform {
         tree,
         Template(`
             
-            function ${getterFn}(x, y, z){
+            function ${getterFn}(x, y, z, a = ${decodeFn}, b = ${cacheName}){
               if ( z ) {
                 return y[${cacheName}[z]] = ${getterFn}(x, y);
               }
             
-              return y ? x[${cacheName}[y]] : ${cacheName}[x] || (z=${decodeFn}, ${cacheName}[x] = z(${this.arrayName}[x]))
+              return y ? x[b[y]] : ${cacheName}[x] || (z=(b[x], a), ${cacheName}[x] = z(${this.arrayName}[x]))
             }
   
             `).single()
       );
     });
 
+    var flowIntegrity = this.getPlaceholder();
+
     prepend(
       tree,
       VariableDeclaration([
         VariableDeclarator(cacheName, ArrayExpression([])),
-        VariableDeclarator(this.arrayName, this.arrayExpression),
+        VariableDeclarator(flowIntegrity, Literal(0)),
+        VariableDeclarator(
+          this.arrayName,
+          CallExpression(
+            FunctionExpression(
+              [],
+              [
+                VariableDeclaration(
+                  VariableDeclarator("a", this.arrayExpression)
+                ),
+                Template(
+                  `return (${flowIntegrity} ? a.pop() : ${flowIntegrity}++, a)`
+                ).single(),
+              ]
+            ),
+            []
+          )
+        ),
       ])
     );
   }
@@ -127,10 +154,10 @@ export default class StringConcealing extends Transform {
     );
   }
 
-  transform(object, parents) {
+  transform(object: Node, parents: Node[]) {
     return () => {
       // Empty strings are discarded
-      if (!object.value) {
+      if (!object.value || this.ignore.has(object.value)) {
         return;
       }
 
@@ -158,6 +185,7 @@ export default class StringConcealing extends Transform {
       // The decode function must return correct result
       var encoded = encoder.encode(object.value);
       if (encoder.decode(encoded) != object.value) {
+        this.ignore.add(object.value);
         this.warn(object.value.slice(0, 100));
         return;
       }
@@ -177,20 +205,48 @@ export default class StringConcealing extends Transform {
         }
 
         ok(index != -1, "index == -1");
-        this.replace(
-          object,
-          CallExpression(Identifier(fnName), [Literal(index)])
-        );
 
-        // Fix 2. Make parent property key computed
-        if (
-          parents[0] &&
-          (parents[0].type == "Property" ||
-            parents[0].type == "MethodDefinition") &&
-          parents[0].key == object
-        ) {
-          parents[0].computed = true;
-          parents[0].shorthand = false;
+        var callExpr = CallExpression(Identifier(fnName), [Literal(index)]);
+
+        // use `.apply` to fool automated de-obfuscators
+        if (Math.random() > 0.5) {
+          callExpr = CallExpression(
+            MemberExpression(Identifier(fnName), Identifier("apply"), false),
+            [ThisExpression(), ArrayExpression([Literal(index)])]
+          );
+        }
+
+        // use `.call`
+        else if (Math.random() > 0.5) {
+          callExpr = CallExpression(
+            MemberExpression(Identifier(fnName), Identifier("call"), false),
+            [ThisExpression(), Literal(index)]
+          );
+        }
+
+        var constantReference =
+          parents.length && Math.random() > 0.5 / this.variablesMade;
+
+        if (constantReference) {
+          // Define the string earlier, reference the name here
+
+          var name = this.getPlaceholder();
+
+          var place = choice(parents.filter((node) => isBlock(node)));
+          if (!place) {
+            this.error(Error("No lexical block to insert code"));
+          }
+
+          place.body.unshift(
+            VariableDeclaration(VariableDeclarator(name, callExpr))
+          );
+
+          this.replaceIdentifierOrLiteral(object, Identifier(name), parents);
+
+          this.variablesMade++;
+        } else {
+          // Direct call to the getter function
+          this.replaceIdentifierOrLiteral(object, callExpr, parents);
         }
       }
     };

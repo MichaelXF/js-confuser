@@ -180,22 +180,11 @@ export default class DuplicateLiteralsRemoval extends Transform {
 
     var theShift = this.fnShifts.get(getterName);
 
-    this.replace(
+    this.replaceIdentifierOrLiteral(
       object,
-      CallExpression(Identifier(getterName), [Literal(index - theShift)])
+      CallExpression(Identifier(getterName), [Literal(index - theShift)]),
+      parents
     );
-
-    var propertyIndex = parents.findIndex(
-      (x) => x.type == "Property" || x.type == "MethodDefinition"
-    );
-    if (propertyIndex != -1) {
-      if (
-        !parents[propertyIndex].computed &&
-        parents[propertyIndex].key == (parents[propertyIndex - 1] || object)
-      ) {
-        parents[propertyIndex].computed = true;
-      }
-    }
   }
 
   transform(object: Node, parents: Node[]) {

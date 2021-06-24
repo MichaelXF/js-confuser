@@ -197,20 +197,10 @@ export default class StringCompression extends Transform {
     }
     ok(typeof index === "number");
 
-    this.replace(
+    this.replaceIdentifierOrLiteral(
       object,
-      CallExpression(Identifier(this.fnName), [Literal(index)])
+      CallExpression(Identifier(this.fnName), [Literal(index)]),
+      parents
     );
-
-    // Fix 2. Make parent property key computed
-    if (
-      parents[0] &&
-      (parents[0].type == "Property" ||
-        parents[0].type == "MethodDefinition") &&
-      parents[0].key == object
-    ) {
-      parents[0].computed = true;
-      parents[0].shorthand = false;
-    }
   }
 }

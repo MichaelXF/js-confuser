@@ -353,6 +353,20 @@ export default class Transform {
     this.objectAssign(node1, node2);
   }
 
+  replaceIdentifierOrLiteral(node1: Node, node2: Node, parents: Node[]) {
+    // Fix 2. Make parent property key computed
+    if (
+      parents[0] &&
+      (parents[0].type == "Property" ||
+        parents[0].type == "MethodDefinition") &&
+      parents[0].key == node1
+    ) {
+      parents[0].computed = true;
+      parents[0].shorthand = false;
+    }
+    this.replace(node1, node2);
+  }
+
   /**
    * Smartly merges two Nodes.
    * - Null checking

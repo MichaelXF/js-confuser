@@ -703,6 +703,7 @@ const validProperties = new Set([
   "shuffle",
   "stack",
   "verbose",
+  "globalVariables",
   "debugComments",
 ]);
 

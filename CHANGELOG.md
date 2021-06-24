@@ -1,3 +1,48 @@
+# `1.2.2`
+Global name fix
+
+- **Bug fix**: `Rename Variables` breaking access to global variables
+
+```js
+// Say `a` is a global library
+// Input
+function myFunction(param1){
+  a(param1);
+}
+
+// Output on 1.2.1
+function a(a){
+  a(a);
+}
+
+// Output on 1.2.2
+function b(b){
+  a(b);
+}
+```
+
+- **Bug fix**: `Flatten` to not accidentally remove function parameters
+- **Bug fix**: `Dispatcher` on function calls within classes
+- **Bug fix**: `Minify` fixed syntax error
+
+```js
+// Input
+var o = {Infinity: 0};
+
+// Output on 1.2.1
+var o = {1/0: 0};
+
+// Output on 1.2.2
+var o = {[1/0]: 0};
+```
+
+- Added `base32` encoding to `String Concealing`
+- `Minify` improvements
+- - `true` -> `!0`
+- - `false` -> `!1`
+- Subtle changes to `String Compression`
+- Updated presets
+
 # `1.2.1`
 Bug fixes
 
