@@ -496,7 +496,7 @@ export function AssignmentPattern(left: Node, right: Node) {
   ok(left);
   ok(right);
   return {
-    type: "AssignmentExpression",
+    type: "AssignmentPattern",
     left: left,
     right: right,
   };
