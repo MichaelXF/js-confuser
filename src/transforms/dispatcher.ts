@@ -141,8 +141,10 @@ export default class Dispatcher extends Transform {
               walk(o, p, (oo, pp) => {
                 if (oo.type == "Identifier" && oo.name == "arguments") {
                   illegalFnNames.add(name);
-                } else if (oo.type == "ThisExpression") {
+                  return "EXIT";
+                } else if (oo.type == "ThisExpression" || oo.type == "Super") {
                   illegalFnNames.add(name);
+                  return "EXIT";
                 }
               });
 
