@@ -125,11 +125,17 @@ export function getDefiningContext(o: Node, p: Node[]): Node {
   return getVarContext(o, p);
 }
 
-export function getReferencingContexts(o: Node, p: Node[]): Node[] {
+export function getReferencingContexts(
+  o: Node,
+  p: Node[],
+  info?: ReturnType<typeof getIdentifierInfo>
+): Node[] {
   validateChain(o, p);
   ok(o.type == "Identifier");
 
-  var info = getIdentifierInfo(o, p);
+  if (!info) {
+    info = getIdentifierInfo(o, p);
+  }
   ok(info.spec.isReferenced);
 
   var assignmentPatternIndex = p.findIndex(

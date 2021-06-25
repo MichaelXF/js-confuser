@@ -87,7 +87,7 @@ export default class VariableAnalysis extends Transform {
 
         var definingContexts = info.spec.isDefined
           ? [getDefiningContext(o, p)]
-          : getReferencingContexts(o, p);
+          : getReferencingContexts(o, p, info);
 
         ok(definingContexts.length);
 
