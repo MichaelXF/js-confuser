@@ -62,7 +62,7 @@ export default class Lock extends Transform {
     }
 
     if (this.options.lock.antiDebug) {
-      this.before.push(new AntiDebug(o));
+      this.before.push(new AntiDebug(o, this));
     }
 
     this.made = 0;
@@ -112,8 +112,7 @@ export default class Lock extends Transform {
         throw new Error(
           "Countermeasures function named '" +
             this.options.lock.countermeasures +
-            "' was not found. Names found: " +
-            Array.from(defined).slice(0, 100).join(", ")
+            "' was not found."
         );
       }
     }
