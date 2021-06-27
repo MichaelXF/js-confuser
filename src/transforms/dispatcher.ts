@@ -26,7 +26,7 @@ import {
   VariableDeclarator,
   RestElement,
 } from "../util/gen";
-import { getIdentifierInfo, isWithinClass } from "../util/identifiers";
+import { getIdentifierInfo } from "../util/identifiers";
 import {
   deleteDirect,
   getBlockBody,
@@ -122,6 +122,8 @@ export default class Dispatcher extends Transform {
           if (context === c) {
             if (o.type == "FunctionDeclaration" && o.id.name) {
               if (
+                o.async ||
+                o.generator ||
                 p.find(
                   (x) => x.$dispatcherSkip || x.type == "MethodDefinition"
                 ) ||
