@@ -1,6 +1,6 @@
 import { ok } from "assert";
-import { getBlock, isBlock, getBlocks } from "../traverse";
-import { Node, Location } from "./gen";
+import { getBlock, isBlock } from "../traverse";
+import { Node } from "./gen";
 import { getIdentifierInfo, validateChain } from "./identifiers";
 
 /**
@@ -331,53 +331,4 @@ export function isForInitialize(o, p): "initializer" | "left-hand" | false {
   }
 
   return false;
-}
-
-export function isInBranch(object: Node, parents: Node[], context: Node) {
-  ok(object);
-  ok(parents);
-  ok(context);
-
-  ok(parents.includes(context));
-
-  var definingContext =
-    parents[0].type == "FunctionDeclaration" && parents[0].id == object
-      ? getVarContext(parents[0], parents.slice(1))
-      : getVarContext(object, parents);
-
-  var contextIndex = parents.findIndex((x) => x === context);
-  var slicedParents = parents.slice(0, contextIndex);
-
-  ok(!slicedParents.includes(object), "slicedParents includes object");
-
-  var slicedTypes = new Set(slicedParents.map((x) => x.type));
-
-  var isBranch = definingContext !== context;
-  if (!isBranch) {
-    if (
-      [
-        "IfStatement",
-        "ForStatement",
-        "ForInStatement",
-        "ForOfStatement",
-        "WhileStatement",
-        "DoWhileStatement",
-        "SwitchStatement",
-        "ConditionalExpression",
-        "LogicalExpression",
-        "TryStatement",
-        "ChainExpression",
-        "BinaryExpression",
-        "FunctionExpression",
-        "FunctionDeclaration",
-        "ArrowFunctionExpression",
-        "ClassExpression",
-        "ClassDeclaration",
-      ].find((x) => slicedTypes.has(x))
-    ) {
-      isBranch = true;
-    }
-  }
-
-  return isBranch;
 }
