@@ -78,4 +78,43 @@ describe("getFunctionParameters", () => {
 
     expect(names).toStrictEqual(["A", "B", "C", "D"]);
   });
+
+  test("Variant #2: Work with spread element", async () => {
+    var code = `function a(...A){}`;
+    var tree = await parseJS(code);
+
+    var object = tree.body[0];
+    var parents: any = [tree.body, tree];
+
+    var locations = getFunctionParameters(object, parents);
+    var names = locations.map((x) => x[0].name);
+
+    expect(names).toStrictEqual(["A"]);
+  });
+
+  test("Variant #3: Normal parameters", async () => {
+    var code = `function a(A,B,C,D){}`;
+    var tree = await parseJS(code);
+
+    var object = tree.body[0];
+    var parents: any = [tree.body, tree];
+
+    var locations = getFunctionParameters(object, parents);
+    var names = locations.map((x) => x[0].name);
+
+    expect(names).toStrictEqual(["A", "B", "C", "D"]);
+  });
+
+  test("Variant #4: Default values as functions", async () => {
+    var code = `function a(A = function(_a){ return _a; },B = function(_a, _b = function(){return this;}){return _a + _b();},C,D){}`;
+    var tree = await parseJS(code);
+
+    var object = tree.body[0];
+    var parents: any = [tree.body, tree];
+
+    var locations = getFunctionParameters(object, parents);
+    var names = locations.map((x) => x[0].name);
+
+    expect(names).toStrictEqual(["A", "B", "C", "D"]);
+  });
 });

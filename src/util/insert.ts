@@ -145,17 +145,14 @@ export function getReferencingContexts(
     if (
       p[assignmentPatternIndex].right == (p[assignmentPatternIndex - 1] || o)
     ) {
-      var sliced = p.slice(assignmentPatternIndex);
-      var fnIndex = sliced.findIndex((x) => isFunction(x));
-      var associatedFn = sliced[fnIndex];
-      if (
-        fnIndex !== -1 &&
-        sliced[fnIndex].params == (sliced[fnIndex - 1] || o)
-      ) {
+      var fnIndex = p.findIndex((x) => isFunction(x));
+      var associatedFn = p[fnIndex];
+      if (fnIndex !== -1 && p[fnIndex].params === p[fnIndex - 1]) {
         if (associatedFn == getVarContext(o, p)) {
-          return isLexContext(associatedFn.body)
-            ? [associatedFn, associatedFn.body]
-            : [associatedFn];
+          var varContext = getVarContext(p[fnIndex + 1], p.slice(fnIndex + 2));
+          var lexContext = getLexContext(p[fnIndex + 1], p.slice(fnIndex + 2));
+
+          return [varContext, lexContext];
         }
       }
     }

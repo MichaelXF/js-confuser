@@ -342,7 +342,7 @@ export function getDefiningIdentifier(object: Node, parents: Node[]): Location {
   }
 }
 
-export function isFunctionParameter(o: Node, p: Node[]) {
+export function isFunctionParameter(o: Node, p: Node[], c?: Node) {
   ok(o);
   ok(p);
   validateChain(o, p);
@@ -355,7 +355,7 @@ export function isFunctionParameter(o: Node, p: Node[]) {
     return false;
   }
 
-  var c = getVarContext(o, p);
+  c = c || getVarContext(o, p);
   if (c === object) {
     var pIndex = p.indexOf(object.params);
     if (pIndex == -1) {
@@ -413,7 +413,7 @@ export function getFunctionParameters(
 
   walk(object.params, [object, ...parents], (o, p) => {
     if (o.type == "Identifier") {
-      if (isFunctionParameter(o, p)) {
+      if (isFunctionParameter(o, p, object)) {
         locations.push([o, p]);
       }
     }
