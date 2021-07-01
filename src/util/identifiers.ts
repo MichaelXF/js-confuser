@@ -30,17 +30,6 @@ export function validateChain(object: Node, parents: Node[]) {
   }
 }
 
-export function isWithinClass(object: Node, parents: Node[]) {
-  return (
-    isWithin(object, parents, "ClassDeclaration") ||
-    isWithin(object, parents, "ClassExpression")
-  );
-}
-
-export function isWithin(object: Node, parents: Node[], type: string): boolean {
-  return [object, ...parents].some((x) => x.type == type);
-}
-
 /**
  * Returns detailed information about the given Identifier node.
  * @param object
@@ -353,7 +342,7 @@ export function getDefiningIdentifier(object: Node, parents: Node[]): Location {
   }
 }
 
-export function isFunctionParameter(o: Node, p: Node[]) {
+export function isFunctionParameter(o: Node, p: Node[], c?: Node) {
   ok(o);
   ok(p);
   validateChain(o, p);
@@ -366,7 +355,7 @@ export function isFunctionParameter(o: Node, p: Node[]) {
     return false;
   }
 
-  var c = getVarContext(o, p);
+  c = c || getVarContext(o, p);
   if (c === object) {
     var pIndex = p.indexOf(object.params);
     if (pIndex == -1) {
@@ -377,8 +366,7 @@ export function isFunctionParameter(o: Node, p: Node[]) {
     var paramIndex = object.params.indexOf(param);
     ok(paramIndex !== -1);
 
-    var sliced = p.slice(p.indexOf(paramIndex));
-    ok(!sliced.includes(o));
+    var sliced = p.slice(0, pIndex);
 
     var isReferenced = true;
     var i = 0;
@@ -392,7 +380,12 @@ export function isFunctionParameter(o: Node, p: Node[]) {
           break;
         }
 
-        if (node.type == "ObjectPattern" && node.key === down) {
+        if (
+          node.type == "Property" &&
+          node.key === down &&
+          sliced[i + 2] &&
+          sliced[i + 2].type == "ObjectPattern"
+        ) {
           isReferenced = false;
           break;
         }
@@ -420,7 +413,7 @@ export function getFunctionParameters(
 
   walk(object.params, [object, ...parents], (o, p) => {
     if (o.type == "Identifier") {
-      if (isFunctionParameter(o, p)) {
+      if (isFunctionParameter(o, p, object)) {
         locations.push([o, p]);
       }
     }

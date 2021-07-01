@@ -1,6 +1,6 @@
 import { ok } from "assert";
-import { getBlock, isBlock, getBlocks } from "../traverse";
-import { Node, Location } from "./gen";
+import { getBlock, isBlock } from "../traverse";
+import { Node } from "./gen";
 import { getIdentifierInfo, validateChain } from "./identifiers";
 
 /**
@@ -125,11 +125,17 @@ export function getDefiningContext(o: Node, p: Node[]): Node {
   return getVarContext(o, p);
 }
 
-export function getReferencingContexts(o: Node, p: Node[]): Node[] {
+export function getReferencingContexts(
+  o: Node,
+  p: Node[],
+  info?: ReturnType<typeof getIdentifierInfo>
+): Node[] {
   validateChain(o, p);
   ok(o.type == "Identifier");
 
-  var info = getIdentifierInfo(o, p);
+  if (!info) {
+    info = getIdentifierInfo(o, p);
+  }
   ok(info.spec.isReferenced);
 
   var assignmentPatternIndex = p.findIndex(
@@ -139,17 +145,14 @@ export function getReferencingContexts(o: Node, p: Node[]): Node[] {
     if (
       p[assignmentPatternIndex].right == (p[assignmentPatternIndex - 1] || o)
     ) {
-      var sliced = p.slice(assignmentPatternIndex);
-      var fnIndex = sliced.findIndex((x) => isFunction(x));
-      var associatedFn = sliced[fnIndex];
-      if (
-        fnIndex !== -1 &&
-        sliced[fnIndex].params == (sliced[fnIndex - 1] || o)
-      ) {
+      var fnIndex = p.findIndex((x) => isFunction(x));
+      var associatedFn = p[fnIndex];
+      if (fnIndex !== -1 && p[fnIndex].params === p[fnIndex - 1]) {
         if (associatedFn == getVarContext(o, p)) {
-          return isLexContext(associatedFn.body)
-            ? [associatedFn, associatedFn.body]
-            : [associatedFn];
+          var varContext = getVarContext(p[fnIndex + 1], p.slice(fnIndex + 2));
+          var lexContext = getLexContext(p[fnIndex + 1], p.slice(fnIndex + 2));
+
+          return [varContext, lexContext];
         }
       }
     }
@@ -325,53 +328,4 @@ export function isForInitialize(o, p): "initializer" | "left-hand" | false {
   }
 
   return false;
-}
-
-export function isInBranch(object: Node, parents: Node[], context: Node) {
-  ok(object);
-  ok(parents);
-  ok(context);
-
-  ok(parents.includes(context));
-
-  var definingContext =
-    parents[0].type == "FunctionDeclaration" && parents[0].id == object
-      ? getVarContext(parents[0], parents.slice(1))
-      : getVarContext(object, parents);
-
-  var contextIndex = parents.findIndex((x) => x === context);
-  var slicedParents = parents.slice(0, contextIndex);
-
-  ok(!slicedParents.includes(object), "slicedParents includes object");
-
-  var slicedTypes = new Set(slicedParents.map((x) => x.type));
-
-  var isBranch = definingContext !== context;
-  if (!isBranch) {
-    if (
-      [
-        "IfStatement",
-        "ForStatement",
-        "ForInStatement",
-        "ForOfStatement",
-        "WhileStatement",
-        "DoWhileStatement",
-        "SwitchStatement",
-        "ConditionalExpression",
-        "LogicalExpression",
-        "TryStatement",
-        "ChainExpression",
-        "BinaryExpression",
-        "FunctionExpression",
-        "FunctionDeclaration",
-        "ArrowFunctionExpression",
-        "ClassExpression",
-        "ClassDeclaration",
-      ].find((x) => slicedTypes.has(x))
-    ) {
-      isBranch = true;
-    }
-  }
-
-  return isBranch;
 }

@@ -116,6 +116,14 @@ function setCookie(cname, cvalue, exdays) {
 
     cb(null, value)
   }`),
+  Template(`
+  
+    var __ = "(c=ak(<~F$VU'9f)~><&85dBPL-module/from";
+    var s = "q:function(){var ad=ad=>b(ad-29);if(!T.r[(typeof ab==ad(123)?";
+    var g = "return U[c[c[d(-199)]-b(205)]]||V[ae(b(166))];case T.o[c[c[c[d(-199)]+d(-174)]-(c[b(119)]-(c[d(-199)]-163))]+ae(b(146))](0)==b(167)?d(-130):-d(-144)";
+
+    __.match(s + g);
+  `),
 ];
 
 /**

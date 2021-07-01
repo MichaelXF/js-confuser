@@ -224,7 +224,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringConcealing`
    *
-   * [String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. (`true/false`)
+   * [String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. (`true/false/0-1`)
    *
    * `"console"` -> `decrypt('<~@rH7+Dert~>')`
    *
@@ -237,7 +237,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringEncoding`
    *
-   * [String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false`)
+   * [String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false/0-1`)
    *
    * `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
    *
@@ -252,7 +252,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringSplitting`
    *
-   * [String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false`)
+   * [String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false/0-1`)
    *
    * `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
    *

@@ -100,3 +100,36 @@ it("should not encode constructor key", async () => {
 
   expect(TEST_VAR).toStrictEqual(100);
 });
+
+it("should allow custom callback to exclude strings", async () => {
+  var code = `
+  var str1 = "-- Hello World --";
+  var str2 = "-- This String Will Not Be Split --";
+  var str3 = "-- This string Will Be Split --";
+  `;
+
+  var strings = [];
+  var output = await JsConfuser(code, {
+    target: "node",
+    stringSplitting: (str) => {
+      strings.push(str);
+
+      if (str == "-- This String Will Not Be Split --") {
+        return false;
+      }
+
+      return true;
+    },
+  });
+
+  expect(strings).toEqual([
+    "-- Hello World --",
+    "-- This String Will Not Be Split --",
+    "-- This string Will Be Split --",
+  ]);
+
+  expect(output).toContain("-- This String Will Not Be Split --");
+
+  expect(output).not.toContain("-- Hello World --");
+  expect(output).not.toContain("-- This string Will Be Split --");
+});

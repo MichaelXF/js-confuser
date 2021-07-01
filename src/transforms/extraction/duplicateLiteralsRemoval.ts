@@ -12,8 +12,10 @@ import {
   CallExpression,
   BinaryExpression,
   FunctionDeclaration,
+  ThisExpression,
 } from "../../util/gen";
 import {
+  append,
   clone,
   getContexts,
   getLexContext,
@@ -78,10 +80,30 @@ export default class DuplicateLiteralsRemoval extends Transform {
     super.apply(tree);
 
     if (this.arrayName && this.arrayExpression.elements.length) {
+      var getArrayFn = this.getPlaceholder();
+      append(
+        tree,
+        FunctionDeclaration(
+          getArrayFn,
+          [],
+          [ReturnStatement(this.arrayExpression)]
+        )
+      );
+
       prepend(
         tree,
         VariableDeclaration(
-          VariableDeclarator(this.arrayName, this.arrayExpression)
+          VariableDeclarator(
+            this.arrayName,
+            CallExpression(
+              MemberExpression(
+                Identifier(getArrayFn),
+                Identifier("call"),
+                false
+              ),
+              [ThisExpression()]
+            )
+          )
         )
       );
     }

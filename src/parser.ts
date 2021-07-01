@@ -18,8 +18,7 @@ export default async function parseJS(code: string): Promise<{
     var parsed = parseSync(code);
     return parsed as any;
   } catch (e) {
-    console.error(e);
-    throw new Error("Failed to parse code.");
+    throw e;
   }
 }
 

@@ -1,10 +1,10 @@
-import { isIndependent } from "../../src/util/compare";
+import { isIndependent } from "../src/util/compare";
 import {
   ArrayExpression,
   FunctionExpression,
   Identifier,
   Literal,
-} from "../../src/util/gen";
+} from "../src/util/gen";
 
 describe("isIndependent", () => {
   it("should return true for literals", () => {

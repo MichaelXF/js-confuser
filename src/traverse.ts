@@ -2,16 +2,6 @@ import { Node } from "./util/gen";
 import { validateChain } from "./util/identifiers";
 
 /**
- * Returns all the scopes given parents array.
- * - `[object, ...parents]` is recommended.
- *
- * @param parents
- */
-export function getBlocks(parents: any[]): any[] {
-  return parents.filter((x) => isBlock(x));
-}
-
-/**
  * A block refers to any object that has a **`.body`** property where code is nested.
  *
  * Types: `BlockStatement`, `Program`
@@ -38,26 +28,6 @@ export function isBlock(object: any) {
   return (
     object && (object.type == "BlockStatement" || object.type == "Program")
   );
-}
-
-/**
- * Returns a numerical representation of the depth.
- * - Depth is how many blocks nested.
- * - Program = 1 depth
- * -    First Fn = 2 depth
- * -        Nested Fn = 3 depth
- * -    Second Fn = 2 depth
- * -        etc...
- * @param object
- * @param parents
- */
-export function getDepth(object: any, parents: any[]) {
-  if (!Array.isArray(parents)) {
-    throw new Error("parents should be an array");
-  }
-  var scopes = getBlocks([object, ...parents].filter((x) => x));
-
-  return scopes.length;
 }
 
 export type EnterCallback = (

@@ -104,6 +104,12 @@ export default class ExpressionObfuscation extends Transform {
                 { ...stmt.argument },
               ]);
               deleteExprs.push(...exprs);
+            } else if (stmt.type == "ReturnStatement") {
+              stmt.argument = SequenceExpression([
+                ...exprs,
+                { ...(stmt.argument || Identifier("undefined")) },
+              ]);
+              deleteExprs.push(...exprs);
             }
           }
 

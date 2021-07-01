@@ -6,6 +6,7 @@ import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "./stringConcealing";
 import { isDirective } from "../../util/compare";
 import { ok } from "assert";
+import { ComputeProbabilityMap } from "../../probability";
 
 export default class StringSplitting extends Transform {
   joinPrototype: string;
@@ -68,6 +69,16 @@ export default class StringSplitting extends Transform {
 
       var chunks = splitIntoChunks(object.value, size);
       if (!chunks || chunks.length <= 1) {
+        return;
+      }
+
+      if (
+        !ComputeProbabilityMap(
+          this.options.stringSplitting,
+          (x) => x,
+          object.value
+        )
+      ) {
         return;
       }
 

@@ -1,4 +1,4 @@
-import traverse, { getDepth, getBlock, ExitCallback } from "../traverse";
+import traverse, { ExitCallback } from "../traverse";
 import { AddComment, Node } from "../util/gen";
 import {
   alphabeticalGenerator,
@@ -6,7 +6,6 @@ import {
   getRandomInteger,
 } from "../util/random";
 import { ok } from "assert";
-import { isValidIdentifier } from "../util/compare";
 import Obfuscator from "../obfuscator";
 import { ObfuscateOptions } from "../options";
 import { ComputeProbabilityMap } from "../probability";

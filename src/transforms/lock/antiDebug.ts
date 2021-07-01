@@ -1,58 +1,83 @@
 import { ObfuscateOrder } from "../../order";
 import Template from "../../templates/template";
 import { isBlock } from "../../traverse";
-import { DebuggerStatement } from "../../util/gen";
+import {
+  AssignmentExpression,
+  DebuggerStatement,
+  FunctionDeclaration,
+  Identifier,
+  IfStatement,
+  Literal,
+  WhileStatement,
+} from "../../util/gen";
 import { getBlockBody, prepend } from "../../util/insert";
 import { getRandomInteger } from "../../util/random";
 import Transform from "../transform";
+import Lock from "./lock";
 
 var DevToolsDetection = Template(
   `
-  function $jsc_debug(){
-
-    var isDev1 = !("" + function() {/* Hello world */}).includes("/*");
-    var s = "s";
-    while (isDev1) {
-      s = s + s;
-    }
-
-    var startTime = new Date();
-    debugger;
-    var endTime = new Date();
-    var isDev2 = endTime-startTime > 600;
-  
-    var a = "a";
-    while (isDev2) {
-      a = a + a;
-    }
-  
-  }
   try {
     if ( setInterval ) {
       setInterval(()=>{
-        $jsc_debug();
+        {functionName}();
       }, 4000);
     }
   } catch ( e ) {
 
   }
- 
 `
 );
 
 export default class AntiDebug extends Transform {
   made: number;
+  lock: Lock;
 
-  constructor(o) {
+  constructor(o, lock) {
     super(o, ObfuscateOrder.Lock);
 
+    this.lock = lock;
     this.made = 0;
   }
 
   apply(tree) {
     super.apply(tree);
 
-    tree.body.unshift(...DevToolsDetection.compile());
+    var fnName = this.getPlaceholder();
+    var startTimeName = this.getPlaceholder();
+    var endTimeName = this.getPlaceholder();
+    var isDevName = this.getPlaceholder();
+    var functionDeclaration = FunctionDeclaration(
+      fnName,
+      [],
+      [
+        ...Template(`
+      var ${startTimeName} = new Date();
+      debugger;
+      var ${endTimeName} = new Date();
+      var ${isDevName} = ${endTimeName}-${startTimeName} > 1000;
+      `).compile(),
+
+        IfStatement(
+          Identifier(isDevName),
+          this.options.lock.countermeasures
+            ? this.lock.getCounterMeasuresCode()
+            : [
+                WhileStatement(Identifier(isDevName), [
+                  AssignmentExpression(
+                    "=",
+                    Identifier(startTimeName),
+                    Identifier(endTimeName)
+                  ),
+                ]),
+              ],
+          null
+        ),
+      ]
+    );
+
+    tree.body.unshift(...DevToolsDetection.compile({ functionName: fnName }));
+    tree.body.push(functionDeclaration);
   }
 
   match(object, parents) {
@@ -60,17 +85,25 @@ export default class AntiDebug extends Transform {
   }
 
   transform(object, parents) {
-    var body = getBlockBody(object.body);
+    return () => {
+      var body = getBlockBody(object.body);
 
-    [...body].forEach((stmt) => {
-      if (Math.random() < 0.1 / (this.made || 1)) {
-        var index = getRandomInteger(0, body.length);
-        if (body[index].type != "DebuggerStatement") {
-          body.splice(index, 0, DebuggerStatement());
+      [...body].forEach((stmt, i) => {
+        var addDebugger = Math.random() < 0.1 / (this.made || 1);
 
-          this.made++;
+        if (object.type == "Program" && i == 0) {
+          addDebugger = true;
         }
-      }
-    });
+
+        if (addDebugger) {
+          var index = getRandomInteger(0, body.length);
+          if (body[index].type != "DebuggerStatement") {
+            body.splice(index, 0, DebuggerStatement());
+
+            this.made++;
+          }
+        }
+      });
+    };
   }
 }
