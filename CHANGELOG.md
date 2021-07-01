@@ -1,3 +1,24 @@
+# `1.3.0`
+String Splitting Improvement
+
+- `String Splitting` now supports percentages and a custom callback.
+
+```js
+{
+  // percentage
+  stringSplitting: 0.75, // = 75%
+
+  // exclude certain strings
+  stringSplitting: (str)=>{
+    if ( str == "dont-split-string" ) {
+      return false;
+    }
+
+    return true;
+  },
+}
+```
+
 # `1.2.2`
 Global name fix
 
