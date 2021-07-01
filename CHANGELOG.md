@@ -1,7 +1,7 @@
 # `1.3.0`
 String Splitting Improvement
 
-- `String Splitting` now supports percentages and a custom callback.
+- `String Splitting` now supports percentages and a custom callback. (#22)
 
 ```js
 {
