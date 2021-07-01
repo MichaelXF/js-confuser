@@ -254,7 +254,9 @@ Use a number to control the percentage of strings.
 
 ### `stringSplitting`
 
-[String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false`)
+[String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false/0-1`)
+
+Use a number to control the percentage of strings.
 
 `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
 
