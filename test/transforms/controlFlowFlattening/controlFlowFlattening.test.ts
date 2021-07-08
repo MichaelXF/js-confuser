@@ -1,6 +1,6 @@
 import JsConfuser from "../../../src/index";
 
-it("should execute in the correct order (ControlFlowFlattening)", async () => {
+test("Variant #1: Execute in the correct order (ControlFlowFlattening)", async () => {
   var code = `
     var array = [];
 
@@ -30,7 +30,7 @@ it("should execute in the correct order (ControlFlowFlattening)", async () => {
   eval(output);
 });
 
-it("should obfuscate for loops (ControlFlowObfuscation)", async () => {
+test("Variant #2: Obfuscate for loops (ControlFlowObfuscation)", async () => {
   var code = `
     var array = [];
 
@@ -55,7 +55,7 @@ it("should obfuscate for loops (ControlFlowObfuscation)", async () => {
   eval(output);
 });
 
-it("should obfuscate while loops (ControlFlowObfuscation)", async () => {
+test("Variant #3: Obfuscate while loops (ControlFlowObfuscation)", async () => {
   var code = `
     var array = [];
     var i = 1;
@@ -82,7 +82,7 @@ it("should obfuscate while loops (ControlFlowObfuscation)", async () => {
   eval(output);
 });
 
-it("should work with break statements", async () => {
+test("Variant #4: Work with break statements", async () => {
   var code = `
 
     var TEST_ARRAY = [];
@@ -112,7 +112,7 @@ it("should work with break statements", async () => {
   eval(output);
 });
 
-it("should not obfuscate code with `let` (Lexically bound variables, ControlFlowFlattening)", async () => {
+test("Variant #5: Don't obfuscate code with `let` (Lexically bound variables, ControlFlowFlattening)", async () => {
   var code = `
   let array = [];
 
@@ -138,7 +138,7 @@ it("should not obfuscate code with `let` (Lexically bound variables, ControlFlow
   expect(output).not.toContain("switch");
 });
 
-it("should not obfuscate code with `let` (Lexically bound variables, ControlFlowObfuscation)", async () => {
+test("Variant #6: Don't obfuscate code with `let` (Lexically bound variables, ControlFlowObfuscation)", async () => {
   var code = `
   var array=[];
   for ( let i =1; i <= 10; i++ ) {
@@ -156,7 +156,7 @@ it("should not obfuscate code with `let` (Lexically bound variables, ControlFlow
   expect(output).not.toContain("switch");
 });
 
-it("should accept percentages", async () => {
+test("Variant #7: Accept percentages", async () => {
   var code = `
     var array = [];
     var i = 1;
@@ -184,7 +184,7 @@ it("should accept percentages", async () => {
   eval(output);
 });
 
-it("should work when obfuscated multiple times", async () => {
+it("Variant #8: Work when obfuscated multiple times", async () => {
   var code = `
     var array = [];
     var i = 1;
@@ -217,7 +217,7 @@ it("should work when obfuscated multiple times", async () => {
   eval(doublyObfuscated);
 });
 
-it("should not entangle floats or NaN", async () => {
+test("Variant #9: Don't entangle floats or NaN", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -251,7 +251,7 @@ it("should not entangle floats or NaN", async () => {
   expect(value).toStrictEqual(25.02);
 });
 
-it("should correctly entangle property keys", async () => {
+test("Variant #10: Correctly entangle property keys", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -289,4 +289,252 @@ it("should correctly entangle property keys", async () => {
 
   eval(output);
   expect(value).toStrictEqual(10);
+});
+
+test("Variant #11: Flatten nested if statements", async () => {
+  var output = await JsConfuser(
+    `
+    TEST_ARRAY = [];
+
+    if(true){
+      TEST_ARRAY.push(1);
+    } else {
+      TEST_ARRAY.push(-1);
+    }
+
+    if(true){
+      TEST_ARRAY.push(2);
+    }
+
+    if(false){
+      TEST_ARRAY.push(-1);
+    }
+
+    if(true){
+      TEST_ARRAY.push(3);
+      if(true){
+        TEST_ARRAY.push(4);
+      } else {
+      TEST_ARRAY.push(-1);
+      }
+      TEST_ARRAY.push(5);
+    }
+    var fillerExpr1;
+    var fillerExpr2;
+    var fillerExpr3;
+    var fillerExpr4;
+    var fillerExpr5;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  var TEST_ARRAY;
+
+  eval(output);
+  expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
+});
+
+test("Variant #12: Flatten nested for loops", async () => {
+  var output = await JsConfuser(
+    `
+    TEST_ARRAY = [];
+
+    for ( var i = -5; i < 0; i++ ) {
+      var o = 0;
+      for ( var j = 1; j < 4; j++ ) {
+        o += j;
+      }
+
+      // o is 6
+      TEST_ARRAY.push(i + o);
+    }
+    var fillerExpr1;
+    var fillerExpr2;
+    var fillerExpr3;
+    var fillerExpr4;
+    var fillerExpr5;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  expect(output).not.toContain("for(var i)");
+  expect(output).not.toContain("for(var j)");
+
+  var TEST_ARRAY;
+
+  eval(output);
+  expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
+});
+
+test("Variant #13: Flatten nested while loops", async () => {
+  var output = await JsConfuser(
+    `
+    TEST_ARRAY = [];
+
+    var i = -5
+    while ( i < 0 ) {
+      var o = 0;
+      var j = 1;
+
+      while( j < 4 ){
+        o += j;
+
+        j++;
+      }
+
+      // o is 6
+      TEST_ARRAY.push(i + o);
+      i++;
+    }
+    var fillerExpr1;
+    var fillerExpr2;
+    var fillerExpr3;
+    var fillerExpr4;
+    var fillerExpr5;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  var TEST_ARRAY;
+
+  expect(output).not.toContain("while(i<0)");
+  expect(output).not.toContain("while(j<4)");
+
+  eval(output);
+  expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
+});
+
+test("Variant #14: Flatten nested switch statements", async () => {
+  var output = await JsConfuser(
+    `
+    TEST_ARRAY = [];
+    
+    var i = 0;
+    switch(i){
+      case 1: TEST_ARRAY.push(-1); break;
+      case 2: TEST_ARRAY.push(-1); break;
+      case 0:
+        TEST_ARRAY.push(1);
+
+        var j = 0;
+        var i = 0;
+        switch(j){
+          case 1: TEST_ARRAY.push(-1); break;
+          case 2: TEST_ARRAY.push(-1); break;
+          case 0:
+            TEST_ARRAY.push(2);
+          break;
+          case 4: TEST_ARRAY.push(-1); break;
+          case 8: TEST_ARRAY.push(-1); break;
+        } 
+
+        TEST_ARRAY.push(3);
+
+      break;
+      case 4: TEST_ARRAY.push(-1); break;
+      case 8: TEST_ARRAY.push(-1); break;
+    } 
+
+    TEST_ARRAY.push(4);
+    TEST_ARRAY.push(5);
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  expect(output).not.toContain("switch(i");
+  expect(output).not.toContain("switch(j");
+
+  var TEST_ARRAY;
+
+  eval(output);
+  expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
+});
+
+test("Variant #16: Flatten with nested break and continue statements", async () => {
+  var output = await JsConfuser(
+    `
+    TEST_ARRAY = [];
+
+    for ( var i =1; i < 10; i++ ) {
+      if(i%2==0){
+        continue;
+      }
+      if(i==7){
+        break;
+      }
+      TEST_ARRAY.push(i);
+    }
+
+    var j;
+
+    a: for ( var i = 0; i < 5; i++ ) {
+      if ( i == 3 ) {
+        for ( j = 0; j < 5; j++ ) {
+          if ( j == 1 ) {break a;}
+          if ( j % 2 == 0 ) { continue a;}
+        }
+        TEST_ARRAY.push(-1);
+      }
+    }
+
+    var fillerExpr1;
+    var fillerExpr2;
+    var fillerExpr3;
+    var fillerExpr4;
+    var fillerExpr5;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  var TEST_ARRAY;
+
+  eval(output);
+  expect(TEST_ARRAY).toStrictEqual([1, 3, 5]);
+});
+
+test("Variant #17: Flatten with infinite for loop and break", async () => {
+  var output = await JsConfuser(
+    `
+    TEST_ARRAY = [];
+    var i = 1;
+
+    for ( ;; ) {
+      if (i == 6){break;}
+
+      TEST_ARRAY.push(i), i++;
+    }
+
+    var fillerExpr1;
+    var fillerExpr2;
+    var fillerExpr3;
+    var fillerExpr4;
+    var fillerExpr5;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  expect(output).not.toContain("for(;");
+
+  var TEST_ARRAY;
+
+  eval(output);
+  expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
 });
