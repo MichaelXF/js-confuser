@@ -15,6 +15,7 @@ import {
   VariableDeclarator,
   ConditionalExpression,
   UnaryExpression,
+  ReturnStatement,
 } from "../util/gen";
 import {
   choice,
@@ -93,10 +94,27 @@ export default class OpaquePredicates extends Transform {
       if (!this.predicate) {
         this.predicateName = this.getPlaceholder();
         this.predicate = ObjectExpression([]);
+
+        var tempName = this.getPlaceholder();
+
         prepend(
           parents[parents.length - 1] || object,
           VariableDeclaration(
-            VariableDeclarator(this.predicateName, this.predicate)
+            VariableDeclarator(
+              this.predicateName,
+              CallExpression(
+                FunctionExpression(
+                  [],
+                  [
+                    VariableDeclaration(
+                      VariableDeclarator(tempName, this.predicate)
+                    ),
+                    ReturnStatement(Identifier(tempName)),
+                  ]
+                ),
+                []
+              )
+            )
           )
         );
       }
