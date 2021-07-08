@@ -24,13 +24,35 @@ export default class RenameLabels extends Transform {
   transform(object, parents) {
     return () => {
       var newName = null;
+      var isRemovable = object.body.type !== "BlockStatement";
+      var labelNeverUsed = true;
 
       walk(object, parents, (o, p) => {
         if (o.type == "BreakStatement" || o.type == "ContinueStatement") {
-          var labelStatement = p.find((x) => isLoop(x));
+          function isContinuableStatement(x, stmtParents) {
+            return isLoop(x) && x.type !== "SwitchStatement";
+          }
+          function isBreakableStatement(x, stmtParents) {
+            return (
+              isLoop(x) ||
+              (x.type == "BlockStatement" &&
+                o.label &&
+                stmtParents[0] &&
+                stmtParents[0].type == "LabeledStatement")
+            );
+          }
+
+          var fn =
+            o.type == "ContinueStatement"
+              ? isContinuableStatement
+              : isBreakableStatement;
+
+          var labelStatement = p.find((node, i) => {
+            return fn(node, p.slice(i + 1));
+          });
 
           if (o.label && o.label.name == object.label.name) {
-            if (object.body == labelStatement) {
+            if (object.body == labelStatement && isRemovable) {
               // In same loop
 
               o.label = null;
@@ -39,6 +61,7 @@ export default class RenameLabels extends Transform {
                 newName = this.gen.generate();
               }
               o.label = Identifier(newName);
+              labelNeverUsed = false;
             }
           }
         }
@@ -46,7 +69,7 @@ export default class RenameLabels extends Transform {
 
       if (newName) {
         object.label = Identifier(newName);
-      } else {
+      } else if (isRemovable || labelNeverUsed) {
         this.replace(object, clone(object.body));
       }
     };

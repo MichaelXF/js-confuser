@@ -16,7 +16,13 @@ export default class Label extends Transform {
   }
 
   match(object, parents) {
-    return isLoop(object);
+    return (
+      isLoop(object) ||
+      (object.type == "BlockStatement" &&
+        parents[0] &&
+        parents[0].type == "LabeledStatement" &&
+        parents[0].body === object)
+    );
   }
 
   transform(object, parents) {
@@ -28,7 +34,19 @@ export default class Label extends Transform {
 
       walk(object, parents, (o, p) => {
         if (o.type == "BreakStatement" || o.type == "ContinueStatement") {
-          var loop = p.find((x) => isLoop(x));
+          function isContinuableStatement(x) {
+            return isLoop(x) && x.type !== "SwitchStatement";
+          }
+          function isBreakableStatement(x) {
+            return isLoop(x) || (o.label && x.type == "BlockStatement");
+          }
+
+          var fn =
+            o.type == "ContinueStatement"
+              ? isContinuableStatement
+              : isBreakableStatement;
+
+          var loop = p.find(fn);
           if (object == loop) {
             if (!o.label) {
               o.label = Identifier(label);
