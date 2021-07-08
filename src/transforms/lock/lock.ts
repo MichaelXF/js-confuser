@@ -270,20 +270,6 @@ export default class Lock extends Transform {
             `
             (
               function(){
-
-                try {
-                  // prepack breaker
-                  function prepackBreaker(x) {
-                    /**abc*/
-                    while(!prepackBreaker.toString().includes("/*")){
-                      
-                    }
-                  }
-                  if(typeof global !== "undefined"){
-                    global.x = prepackBreaker();
-                  }
-                } catch ( e ) {}
-               
                 // Breaks JSNice.org, beautifier.io
                 var namedFunction = function(){
                   const test = function(){
