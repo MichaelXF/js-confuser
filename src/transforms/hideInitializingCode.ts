@@ -171,10 +171,17 @@ export default class HideInitializingCode extends Transform {
       var map = new Map<string, { [input: number]: number }>();
       var fnsToMake = getRandomInteger(1, 5);
 
+      var numberLiteralsMade = 1;
       function numberLiteral(num: number, depth = 1) {
-        if (depth > 6 || Math.random() > 0.8 / depth) {
+        if (
+          depth > 6 ||
+          Math.random() > 0.8 / depth ||
+          Math.random() > 100 / numberLiteralsMade
+        ) {
           return Literal(num);
         }
+
+        numberLiteralsMade++;
 
         function ternaryCall(
           name: string,
