@@ -13,15 +13,13 @@ import {
   BinaryExpression,
   FunctionDeclaration,
   ThisExpression,
+  FunctionExpression,
 } from "../../util/gen";
 import {
   append,
   clone,
-  getContexts,
   getLexContext,
-  getVarContext,
   isLexContext,
-  isVarContext,
   prepend,
 } from "../../util/insert";
 import { isDirective, isPrimitive } from "../../util/compare";
@@ -196,7 +194,22 @@ export default class DuplicateLiteralsRemoval extends Transform {
 
       prepend(
         lexContext,
-        FunctionDeclaration(getterName, [Identifier("index")], body)
+        VariableDeclaration(
+          VariableDeclarator(
+            getterName,
+            CallExpression(
+              FunctionExpression(
+                [],
+                [
+                  ReturnStatement(
+                    FunctionExpression([Identifier("index")], body)
+                  ),
+                ]
+              ),
+              []
+            )
+          )
+        )
       );
     }
 
