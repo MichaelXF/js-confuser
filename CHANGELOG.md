@@ -1,3 +1,19 @@
+# `1.4.0`
+Confusing Control Flow
+
+- `Control Flow Flattening` overhaul, now flattens embedded control structures
+
+- - `If statements`
+- - `For statements`
+- - `While statements`
+- - `Switch statements`
+
+- 💩 Very potent code!!! **[Input](https://hastebin.com/weyozotase.js) vs [Output](https://hastebin.com/yerekofeyu.js)**
+- ⚠️ Can break your code, you may want to delay updating
+
+- Improvements to renaming labels
+
+
 # `1.3.0`
 String Splitting Improvement
 

@@ -5,16 +5,21 @@ import { ComputeProbabilityMap } from "../../probability";
 import Template from "../../templates/template";
 import { getBlock, isBlock, walk } from "../../traverse";
 import {
+  ArrayExpression,
+  ArrayPattern,
   AssignmentExpression,
   BinaryExpression,
   BreakStatement,
+  CallExpression,
   ConditionalExpression,
   ExpressionStatement,
+  FunctionDeclaration,
   Identifier,
   IfStatement,
   LabeledStatement,
   Literal,
   Node,
+  ReturnStatement,
   SequenceExpression,
   SwitchCase,
   SwitchStatement,
@@ -29,6 +34,7 @@ import {
 import {
   clone,
   getBlockBody,
+  getFunction,
   getVarContext,
   isVarContext,
 } from "../../util/insert";
@@ -43,6 +49,7 @@ var flattenStructures = new Set([
   "IfStatement",
   "ForStatement",
   "WhileStatement",
+  "DoWhileStatement",
 ]);
 
 /**
@@ -59,13 +66,19 @@ var flattenStructures = new Set([
  * - 3. The while loop continues until the the state variable is the end state.
  */
 export default class ControlFlowFlattening extends Transform {
+  isDebug = false;
+
   constructor(o) {
     super(o, ObfuscateOrder.ControlFlowFlattening);
 
-    this.before.push(new ExpressionObfuscation(o));
+    if (!this.isDebug) {
+      this.before.push(new ExpressionObfuscation(o));
 
-    this.after.push(new ControlFlowObfuscation(o));
-    this.after.push(new SwitchCaseObfuscation(o));
+      this.after.push(new ControlFlowObfuscation(o));
+      this.after.push(new SwitchCaseObfuscation(o));
+    } else {
+      console.warn("Debug mode enabled");
+    }
 
     // this.after.push(new ChoiceFlowObfuscation(o));
   }
@@ -79,7 +92,6 @@ export default class ControlFlowFlattening extends Transform {
   }
 
   transform(object, parents) {
-    object;
     return () => {
       if (object.body.length < 3) {
         return;
@@ -103,17 +115,41 @@ export default class ControlFlowFlattening extends Transform {
 
       var functionDeclarations: Set<Node> = new Set();
       var fnNames: Set<string> = new Set();
+      var illegalFnNames = new Set<string>();
+
+      /**
+       * The variable names
+       *
+       * index -> var name
+       */
+      var stateVars = Array(this.isDebug ? 1 : getRandomInteger(2, 5))
+        .fill(0)
+        .map(() => this.getPlaceholder());
 
       body.forEach((stmt, i) => {
         if (stmt.type == "FunctionDeclaration") {
           functionDeclarations.add(stmt);
           var name = stmt.id && stmt.id.name;
           fnNames.add(name);
+          if (stmt.body.type !== "BlockStatement") {
+            illegalFnNames.add(name);
+          } else {
+            walk(stmt, [body, object, ...parents], (o, p) => {
+              if (
+                o.type == "ThisExpression" ||
+                o.type == "SuperExpression" ||
+                (o.type == "Identifier" && o.name == "arguments")
+              ) {
+                illegalFnNames.add(name);
+                return "EXIT";
+              }
+            });
+          }
         }
       });
 
       walk(object, parents, (o, p) => {
-        if (o.type == "Identifier") {
+        if (o.type == "Identifier" && fnNames.has(o.name)) {
           var info = getIdentifierInfo(o, p);
           if (!info.spec.isReferenced) {
             return;
@@ -130,6 +166,50 @@ export default class ControlFlowFlattening extends Transform {
               fnNames.delete(o.name);
             }
           }
+
+          if (!info.spec.isDefined) {
+            var b = getBlock(o, p);
+            if (b !== object || !p[0] || p[0].type !== "CallExpression") {
+              illegalFnNames.add(o.name);
+            } else {
+              var isExtractable = false;
+              if (p[1]) {
+                if (
+                  p[1].type == "ExpressionStatement" &&
+                  p[1].expression == p[0] &&
+                  p[2] == object.body
+                ) {
+                  isExtractable = true;
+                  p[1].$callExpression = "ExpressionStatement";
+                  p[1].$fnName = o.name;
+                } else if (
+                  p[1].type == "VariableDeclarator" &&
+                  p[1].init == p[0] &&
+                  p[2].length === 1 &&
+                  p[4] == object.body
+                ) {
+                  isExtractable = true;
+                  p[3].$callExpression = "VariableDeclarator";
+                  p[3].$fnName = o.name;
+                } else if (
+                  p[1].type == "AssignmentExpression" &&
+                  p[1].operator == "=" &&
+                  p[1].right === p[0] &&
+                  p[2] &&
+                  p[2].type == "ExpressionStatement" &&
+                  p[3] == object.body
+                ) {
+                  isExtractable = true;
+                  p[2].$callExpression = "AssignmentExpression";
+                  p[2].$fnName = o.name;
+                }
+              }
+
+              if (!isExtractable) {
+                illegalFnNames.add(o.name);
+              }
+            }
+          }
         }
       });
 
@@ -137,6 +217,10 @@ export default class ControlFlowFlattening extends Transform {
       if (functionDeclarations.size !== fnNames.size) {
         return;
       }
+
+      illegalFnNames.forEach((illegal) => {
+        fnNames.delete(illegal);
+      });
 
       var fraction = 0.9;
       if (body.length > 20) {
@@ -147,6 +231,15 @@ export default class ControlFlowFlattening extends Transform {
         fraction = 0.5;
       }
 
+      var resultVar = this.getPlaceholder();
+      var argVar = this.getPlaceholder();
+      var needsResultAndArgVar = false;
+      var fnToLabel: { [fnName: string]: string } = Object.create(null);
+
+      fnNames.forEach((fnName) => {
+        fnToLabel[fnName] = this.getPlaceholder();
+      });
+
       const flattenBody = (
         body: Node[],
         startingLabel = this.getPlaceholder()
@@ -156,7 +249,8 @@ export default class ControlFlowFlattening extends Transform {
         var currentLabel = startingLabel;
         const finishCurrentChunk = (
           pointingLabel?: string,
-          newLabel?: string
+          newLabel?: string,
+          addGotoStatement = true
         ) => {
           if (!newLabel) {
             newLabel = this.getPlaceholder();
@@ -165,7 +259,9 @@ export default class ControlFlowFlattening extends Transform {
             pointingLabel = newLabel;
           }
 
-          currentBody.push({ type: "GotoStatement", label: pointingLabel });
+          if (addGotoStatement) {
+            currentBody.push({ type: "GotoStatement", label: pointingLabel });
+          }
 
           chunks.push({
             label: currentLabel,
@@ -179,6 +275,57 @@ export default class ControlFlowFlattening extends Transform {
         body.forEach((stmt, i) => {
           if (functionDeclarations.has(stmt)) {
             return;
+          }
+
+          if (stmt.$exit) {
+            currentBody.push(stmt);
+            currentBody.push(BreakStatement(switchLabel));
+            finishCurrentChunk(null, null, false);
+            return;
+          }
+
+          if (stmt.$callExpression && fnToLabel[stmt.$fnName]) {
+            var afterPath = this.getPlaceholder();
+            var args = [];
+
+            switch (stmt.$callExpression) {
+              // var a = fn();
+              case "VariableDeclarator":
+                args = stmt.declarations[0].init.arguments;
+                stmt.declarations[0].init = Identifier(resultVar);
+                break;
+
+              // fn();
+              case "ExpressionStatement":
+                args = stmt.expression.arguments;
+                stmt.expression = Identifier("undefined");
+                break;
+
+              // a = fn();
+              case "AssignmentExpression":
+                args = stmt.expression.right.arguments;
+                stmt.expression.right = Identifier(resultVar);
+                break;
+            }
+
+            needsResultAndArgVar = true;
+
+            currentBody.push(
+              ExpressionStatement(
+                AssignmentExpression(
+                  "=",
+                  Identifier(argVar),
+                  ArrayExpression([
+                    {
+                      type: "StateIdentifier",
+                      label: afterPath,
+                    },
+                    ArrayExpression(args),
+                  ])
+                )
+              )
+            );
+            finishCurrentChunk(fnToLabel[stmt.$fnName], afterPath);
           }
 
           if (stmt.type == "GotoStatement" && i !== body.length - 1) {
@@ -195,7 +342,8 @@ export default class ControlFlowFlattening extends Transform {
             if (
               isSwitchStatement ||
               ((control.type == "ForStatement" ||
-                control.type == "WhileStatement") &&
+                control.type == "WhileStatement" ||
+                control.type == "DoWhileStatement") &&
                 control.body.type == "BlockStatement")
             ) {
               if (isSwitchStatement) {
@@ -326,7 +474,7 @@ export default class ControlFlowFlattening extends Transform {
                 }
 
                 // create new label called `testPath` and have current chunk point to it (goto testPath)
-                finishCurrentChunk(testPath, testPath);
+                finishCurrentChunk(isPostTest ? bodyPath : testPath, testPath);
 
                 currentBody.push(
                   IfStatement(control.test || Literal(true), [
@@ -439,7 +587,92 @@ export default class ControlFlowFlattening extends Transform {
         return chunks;
       };
 
-      var chunks = flattenBody(body);
+      var chunks = [];
+
+      /**
+       * label: switch(a+b+c){...break label...}
+       */
+      var switchLabel = this.getPlaceholder();
+
+      functionDeclarations.forEach((node) => {
+        if (node.id && fnNames.has(node.id.name)) {
+          var exitStateName = this.getPlaceholder();
+          var argumentsName = this.getPlaceholder();
+
+          needsResultAndArgVar = true;
+
+          node.body.body.push(ReturnStatement());
+
+          walk(node.body, [], (o, p) => {
+            if (o.type == "ReturnStatement") {
+              if (!getFunction(o, p)) {
+                return () => {
+                  var exitExpr = SequenceExpression([
+                    AssignmentExpression(
+                      "=",
+                      ArrayPattern(stateVars.map(Identifier)),
+                      Identifier(exitStateName)
+                    ),
+                    AssignmentExpression(
+                      "=",
+                      Identifier(resultVar),
+                      o.argument || Identifier("undefined")
+                    ),
+                  ]);
+
+                  this.replace(o, ReturnStatement(exitExpr));
+                };
+              }
+            }
+          });
+
+          var declarations = [
+            VariableDeclarator(
+              ArrayPattern([
+                Identifier(exitStateName),
+                Identifier(argumentsName),
+              ]),
+              Identifier(argVar)
+            ),
+          ];
+
+          if (node.params.length) {
+            declarations.push(
+              VariableDeclarator(
+                ArrayPattern(node.params),
+                Identifier(argumentsName)
+              )
+            );
+          }
+
+          var innerName = this.getPlaceholder();
+
+          chunks.push(
+            ...flattenBody(
+              [
+                FunctionDeclaration(
+                  innerName,
+                  [],
+                  [VariableDeclaration(declarations), ...node.body.body]
+                ),
+                this.objectAssign(
+                  ExpressionStatement(
+                    CallExpression(Identifier(innerName), [])
+                  ),
+                  {
+                    $exit: true,
+                  } as any
+                ),
+              ],
+              fnToLabel[node.id.name]
+            )
+          );
+        }
+      });
+
+      var startLabel = this.getPlaceholder();
+
+      chunks.push(...flattenBody(body, startLabel));
       chunks[chunks.length - 1].body.push({
         type: "GotoStatement",
         label: "END_LABEL",
@@ -449,18 +682,16 @@ export default class ControlFlowFlattening extends Transform {
         body: [],
       });
 
-      if (Object.keys(chunks).length < 3) {
-        return;
-      }
-
       var caseSelection: Set<number> = new Set();
 
       var uniqueStatesNeeded = chunks.length;
-      var startLabel = chunks[0].label;
       var endLabel = chunks[Object.keys(chunks).length - 1].label;
 
       do {
         var newState = getRandomInteger(1, chunks.length * 15);
+        if (this.isDebug) {
+          newState = caseSelection.size;
+        }
         caseSelection.add(newState);
       } while (caseSelection.size !== uniqueStatesNeeded);
 
@@ -474,15 +705,6 @@ export default class ControlFlowFlattening extends Transform {
       var caseStates = Array.from(caseSelection);
 
       /**
-       * The variable names
-       *
-       * index -> var name
-       */
-      var stateVars = Array(getRandomInteger(2, 5))
-        .fill(0)
-        .map(() => this.getPlaceholder());
-
-      /**
        * The individual state values for each label
        *
        * labels right now are just chunk indexes (numbers)
@@ -490,11 +712,6 @@ export default class ControlFlowFlattening extends Transform {
        * but will expand to if statements and functions when `goto statement` obfuscation is added
        */
       var labelToStates: { [label: string]: number[] } = Object.create(null);
-
-      /**
-       * label: switch(a+b+c){...break label...}
-       */
-      var switchLabel = this.getPlaceholder();
 
       Object.values(chunks).forEach((chunk, i) => {
         var state = caseStates[i];
@@ -568,7 +785,13 @@ export default class ControlFlowFlattening extends Transform {
 
         var expr = null;
 
-        if (Math.random() > 0.5) {
+        if (this.isDebug) {
+          expr = AssignmentExpression(
+            "=",
+            Identifier(stateVars[index]),
+            Literal(newValue)
+          );
+        } else if (Math.random() > 0.5) {
           expr = AssignmentExpression(
             "+=",
             Identifier(stateVars[index]),
@@ -626,6 +849,7 @@ export default class ControlFlowFlattening extends Transform {
           var addBreak = false;
           walk(stmt, [], (o, p) => {
             if (
+              !this.isDebug &&
               o.type == "Literal" &&
               typeof o.value === "number" &&
               Math.floor(o.value) === o.value &&
@@ -639,6 +863,16 @@ export default class ControlFlowFlattening extends Transform {
                   o,
                   numberLiteral(o.value, 0, staticStateValues),
                   p
+                );
+              };
+            }
+
+            if (o.type == "StateIdentifier") {
+              return () => {
+                ok(labelToStates[o.label]);
+                this.replace(
+                  o,
+                  ArrayExpression(labelToStates[o.label].map(Literal))
                 );
               };
             }
@@ -709,7 +943,9 @@ export default class ControlFlowFlattening extends Transform {
         cases.push(caseObject);
       });
 
-      shuffle(cases);
+      if (!this.isDebug) {
+        shuffle(cases);
+      }
 
       var discriminant = Template(`${stateVars.join("+")}`).single().expression;
 
@@ -717,7 +953,9 @@ export default class ControlFlowFlattening extends Transform {
 
       if (functionDeclarations.size) {
         functionDeclarations.forEach((x) => {
-          body.unshift(clone(x));
+          if (!x.id || illegalFnNames.has(x.id.name)) {
+            body.unshift(clone(x));
+          }
         });
       }
 
@@ -734,12 +972,21 @@ export default class ControlFlowFlattening extends Transform {
         })
       );
 
+      var declarations = [];
+
+      if (needsResultAndArgVar) {
+        declarations.push(VariableDeclarator(resultVar));
+        declarations.push(VariableDeclarator(argVar));
+      }
+
+      declarations.push(
+        ...stateVars.map((stateVar, i) => {
+          return VariableDeclarator(stateVar, Literal(initStateValues[i]));
+        })
+      );
+
       body.push(
-        VariableDeclaration(
-          stateVars.map((stateVar, i) => {
-            return VariableDeclarator(stateVar, Literal(initStateValues[i]));
-          })
-        ),
+        VariableDeclaration(declarations),
 
         WhileStatement(
           BinaryExpression("!=", clone(discriminant), Literal(endState)),
