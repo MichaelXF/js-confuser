@@ -16,6 +16,7 @@ import {
   ConditionalExpression,
   UnaryExpression,
   ReturnStatement,
+  AssignmentPattern,
 } from "../util/gen";
 import {
   choice,
@@ -137,11 +138,14 @@ export default class OpaquePredicates extends Transform {
             this.predicate.properties.push(
               Property(Identifier(arrayProp), ArrayExpression([]))
             );
+
+            var paramName = this.getPlaceholder();
+
             this.predicate.properties.push(
               Property(
                 Identifier(prop),
                 FunctionExpression(
-                  [],
+                  [AssignmentPattern(Identifier(paramName), Literal("length"))],
                   Template(`
                   if ( !${this.predicateName}.${arrayProp}[0] ) {
                     ${this.predicateName}.${arrayProp}.push(${getRandomInteger(
@@ -149,7 +153,7 @@ export default class OpaquePredicates extends Transform {
                     100
                   )});
                   }
-                  return ${this.predicateName}.${arrayProp}.length;
+                  return ${this.predicateName}.${arrayProp}[${paramName}];
                 `).compile()
                 )
               )
