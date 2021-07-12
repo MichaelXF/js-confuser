@@ -138,7 +138,8 @@ export default class ControlFlowFlattening extends Transform {
               if (
                 o.type == "ThisExpression" ||
                 o.type == "SuperExpression" ||
-                (o.type == "Identifier" && o.name == "arguments")
+                (o.type == "Identifier" &&
+                  (o.name == "arguments" || o.name == "eval"))
               ) {
                 illegalFnNames.add(name);
                 return "EXIT";
@@ -995,7 +996,7 @@ export default class ControlFlowFlattening extends Transform {
       );
 
       // mark this object for switch case obfuscation
-      object.$controlFlowFlattening = true;
+      switchStatement.$controlFlowFlattening = true;
     };
   }
 }

@@ -538,3 +538,137 @@ test("Variant #17: Flatten with infinite for loop and break", async () => {
   eval(output);
   expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
 });
+
+test("Variant #18: Flatten certain functions", async () => {
+  var output = await JsConfuser(
+    `
+
+    var x = -1;
+    function increment(){
+      x++;
+      return x;
+    }
+
+    increment();
+
+    function breakSequencingAttempt1(){
+
+    }
+
+    var element1 = increment();
+    var element2 = increment();
+    var element3;
+    
+    element3 = increment();
+
+    function breakSequencingAttempt2(){
+
+    }
+
+    TEST_ARRAY = [
+      element1,
+      element2,
+      element3,
+    ]
+
+    var fillerExpr1;
+    var fillerExpr2;
+    var fillerExpr3;
+    var fillerExpr4;
+    var fillerExpr5;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  expect(output).not.toContain("function increment");
+  expect(output).not.toContain("increment");
+
+  var TEST_ARRAY;
+
+  eval(output);
+  expect(TEST_ARRAY).toStrictEqual([1, 2, 3]);
+});
+
+test("Variant #19: Don't flatten non-extractable functions", async () => {
+  var output = await JsConfuser(
+    `
+
+    var x = -1;
+    function increment(){
+      x++;
+      return x;
+    }
+
+    increment();
+
+    TEST_ARRAY = [
+      increment(),
+      increment(),
+      increment()
+    ]
+
+    var fillerExpr1;
+    var fillerExpr2;
+    var fillerExpr3;
+    var fillerExpr4;
+    var fillerExpr5;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  expect(output).toContain("function increment");
+
+  var TEST_ARRAY;
+
+  eval(output);
+  expect(TEST_ARRAY).toStrictEqual([1, 2, 3]);
+});
+
+test("Variant #20: Don't apply when functions are redefined", async () => {
+  var output = await JsConfuser(
+    `
+
+    var x = -1;
+    function increment(){
+      x++;
+      return x;
+    }
+
+    // redefined function declaration
+    increment = function(){
+      return 0;
+    }
+
+    increment();
+
+    TEST_ARRAY = [
+      increment(),
+      increment(),
+      increment()
+    ]
+
+    var fillerExpr1;
+    var fillerExpr2;
+    var fillerExpr3;
+    var fillerExpr4;
+    var fillerExpr5;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  expect(output).not.toContain("switch");
+
+  var TEST_ARRAY;
+
+  eval(output);
+  expect(TEST_ARRAY).toStrictEqual([0, 0, 0]);
+});
