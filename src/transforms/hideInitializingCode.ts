@@ -176,7 +176,7 @@ export default class HideInitializingCode extends Transform {
         if (
           depth > 6 ||
           Math.random() > 0.8 / depth ||
-          Math.random() > 100 / numberLiteralsMade
+          Math.random() > 80 / numberLiteralsMade
         ) {
           return Literal(num);
         }
