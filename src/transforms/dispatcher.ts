@@ -122,6 +122,7 @@ export default class Dispatcher extends Transform {
           if (context === c) {
             if (o.type == "FunctionDeclaration" && o.id.name) {
               if (
+                o.$requiresEval ||
                 o.async ||
                 o.generator ||
                 p.find(
