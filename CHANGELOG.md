@@ -7,8 +7,11 @@ Confusing Control Flow
 - - `For statements`
 - - `While statements`
 - - `Switch statements`
+- - `Do While statements`
 
-- 💩 Very potent code!!! **[Input](https://hastebin.com/weyozotase.js) vs [Output](https://hastebin.com/yerekofeyu.js)**
+- - Certain functions
+
+- 💩 Very potent code!!! **[Input](https://hastebin.com/aqobucunub.js) vs [Output](https://hastebin.com/yifetofeyu.js)**
 - ⚠️ Can break your code, you may want to delay updating
 
 - Improvements to renaming labels
