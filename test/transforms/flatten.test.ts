@@ -235,3 +235,31 @@ it("should not change functions with const", async () => {
   eval(output);
   expect(value).toStrictEqual(35);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/25
+it("should work when pattern-based assignment expressions are involved", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var i = 0;
+
+    function change() {
+      [([i] = [1])];
+    }
+    
+    change();
+    input(i);
+    `,
+    {
+      target: "node",
+      flatten: true,
+    }
+  );
+
+  expect(output).toContain("this");
+
+  var value = "never_called",
+    input = (x) => (value = x);
+
+  eval(output);
+  expect(value).toStrictEqual(1);
+});

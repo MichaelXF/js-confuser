@@ -106,10 +106,16 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
 
   var isFunctionCall = parent.callee == object; // NewExpression and CallExpression
 
+  var assignmentIndex = parents.findIndex(
+    (p) => p.type === "AssignmentExpression"
+  );
+
   var isAssignmentLeft =
-    parent.type == "AssignmentExpression" && parent.left == object;
+    assignmentIndex !== -1 &&
+    parents[assignmentIndex].left === (parents[assignmentIndex - 1] || object);
   var isAssignmentValue =
-    parent.type == "AssignmentExpression" && parent.right == object;
+    assignmentIndex !== -1 &&
+    parents[assignmentIndex].right === (parents[assignmentIndex - 1] || object);
 
   var isUpdateExpression = parent.type == "UpdateExpression";
 
