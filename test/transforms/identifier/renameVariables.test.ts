@@ -370,3 +370,34 @@ test("Variant #15: Function parameter default value", async () => {
 
   expect(value).toStrictEqual("Hello World");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/24
+test("Variant #16: Function with multiple parameters and a default value", async () => {
+  var code = `
+  function FuncA(param1, param2 = FuncB){
+    param2()
+  }
+  
+  function FuncB(){
+    input("Success!");
+  }
+  
+  FuncA();
+   `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    renameVariables: true,
+    renameGlobals: true,
+    identifierGenerator: "mangled",
+  });
+
+  var value;
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+
+  expect(value).toStrictEqual("Success!");
+});
