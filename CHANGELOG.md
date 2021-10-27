@@ -11,11 +11,91 @@ Confusing Control Flow
 
 - - Certain functions
 
-- 💩 Very potent code!!! **[Input](https://hastebin.com/aqobucunub.js) vs [Output](https://hastebin.com/yifetofeyu.js)**
-- ⚠️ Can break your code, you may want to delay updating
+```js
+// Input
+console.log(1);
+console.log(2);
+console.log(Number("3"));
+
+for (var i = 4; i < 6; i++) {
+  console.log(i);
+}
+
+var i = 0;
+do {
+  console.log(i + 6);
+} while (i++ < 4);
+
+// Output
+var a = -123, b = 414, c = -191;
+while (a + b + c != 104) {
+    var d = (a + b + c) * -28 + 172;
+    switch (d) {
+    case -276:
+        !(a *= 138 > b ? 2 : 158, a -= -5 < c ? -90 : -152, b *= b + 206, b -= a + -539, c += b + -372);
+        break;
+    case -2628:
+        var e = (console['log'](-106 > c ? 1 : 182), console['log'](a + 125), console['log'](Number('3')), -87 < a ? -189 < a ? -133 : 93 : 107 < c ? 227 : 4);
+        ~(a *= (-114 > c ? -164 : -107) < c ? -164 : 2, a -= 188 > b ? b + -211 : -369, b += -62 > c ? 168 > c ? -539 : 56 : 26, c += (c + 362 > a ? 73 : -157) < b ? 207 : 341);
+        break;
+    case -4420:
+        +(a *= a + (a + 18), a -= 190 > a ? -344 : 71, b *= -206 < b ? c + -173 : -221, b -= b + 94, c += 89 > b ? -311 : 170);
+        break;
+    case -3972:
+        if (e < c + -144) {
+            !(a *= b + 127, a -= b + (b + 671), b += c + 82, c *= 61 < a ? -139 : 2, c -= b + -35);
+            break;
+        }
+        typeof (a *= c + -148, a -= c + 271, b += c + 184, c += -89 < c ? -42 : -114);
+        break;
+    case -3244:
+        +(a += a + 220, b += b + 317, c += b + -218);
+        break;
+    case -4308:
+        !(a += 134 < b ? -233 : 89, b += -79 < b ? -69 : -241, c *= -107 > a ? -97 : 2, c -= (56 < a ? -27 : -184) > c ? -163 : 231);
+        break;
+    case -3664:
+        ~(a += b + -362, b += -87 < b ? -666 : -172, c += c + 710);
+        break;
+    case -5344:
+        +(a *= c + (-165 < a ? -266 : 182) > c ? 124 : 2, a -= -154 > b ? c + 92 : -388, b += c + -193, c *= c + (c + -30), c -= a + -11);
+        break;
+    case -2572:
+        if (e++ < ((-125 < a ? -62 : 87) < c ? -112 : 4)) {
+            ~(a += c + -268, b += 215 < b ? 136 : 18 < b ? -233 : 536, c += b + -535);
+            break;
+        }
+        ~(a *= (123 > a ? -105 : 238) < b ? 216 : 2, a -= a + 57, b *= a + 59, b -= a + -369, c *= b + -236, c -= 200 > c ? -288 : -11);
+        break;
+    case -4784:
+        +(console['log'](e), a *= c + -223, a -= 7 > c ? -227 > b ? -4 : 192 : -157, b *= a + (-186 > b ? 211 : 17), b -= -127 > c ? 76 : 280, c *= -63 > c ? a + 264 : 2, c -= (119 < c ? -206 : 85) < a ? 215 : 179);
+        break;
+    case -724:
+        void (console['log'](e + (c + -246)), a *= -177 < c ? 2 : 207, a -= 152 > a ? 122 : -190, b *= c + -250, b -= b + 160, c += -141 < a ? a + 258 : 21);
+        break;
+    case -3804:
+        var e = -143 > a ? 0 : 24;
+        typeof (a += c + -9, b += c + 125, c += a + -261);
+        break;
+    case -1648:
+        ~(e++, a += a + 3, b *= c + 68, b -= 89 < b ? -173 > b ? -147 : 267 : -228 > c ? -80 : -216 > b ? 93 : 68, c += 65 > a ? b + 156 : 216);
+        break;
+    }
+}
+```
+
+- New encoding type `Hex Table`
+
+```js
+"{0x7E494534,0x688,0x7E6D53,0x401,0x7E584D4B,0x688,0x7E775853,0x688,0x7E5333,0x81}" 
+
+// => "Hello World"
+```
 
 - Improvements to renaming labels
-
+- Fixed [#24](https://github.com/MichaelXF/js-confuser/issues/24)
+- Fixed [#25](https://github.com/MichaelXF/js-confuser/issues/25)
+- Fixed [#26](https://github.com/MichaelXF/js-confuser/issues/26)
 
 # `1.3.0`
 String Splitting Improvement
