@@ -6,6 +6,7 @@ import { isDirective } from "../../util/compare";
 import {
   CallExpression,
   FunctionDeclaration,
+  FunctionExpression,
   Identifier,
   Literal,
   MemberExpression,
@@ -105,19 +106,43 @@ export default class StringCompression extends Transform {
 
     var split = this.getPlaceholder();
     var decoder = this.getPlaceholder();
+    var getStringName = this.getPlaceholder();
 
     var encoded = LZ_encode(this.string);
     if (LZ_decode(encoded) !== this.string) {
       this.error(new Error("String failed to be decoded"));
     }
 
-    var callExpression = CallExpression(Identifier(decoder), [
-      Literal(encoded),
+    var getStringParamName = this.getPlaceholder();
+    var decoderParamName = this.getPlaceholder();
+
+    var callExpression = CallExpression(Identifier(decoderParamName), [
+      CallExpression(Identifier(getStringParamName), []),
     ]);
 
     prepend(
       tree,
-      VariableDeclaration(VariableDeclarator(split, callExpression))
+      VariableDeclaration(
+        VariableDeclarator(
+          split,
+          CallExpression(
+            FunctionExpression(
+              [Identifier(getStringParamName), Identifier(decoderParamName)],
+              [ReturnStatement(callExpression)]
+            ),
+            [Identifier(getStringName), Identifier(decoder)]
+          )
+        )
+      )
+    );
+
+    append(
+      tree,
+      FunctionDeclaration(
+        getStringName,
+        [],
+        [ReturnStatement(Literal(encoded))]
+      )
     );
 
     append(

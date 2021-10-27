@@ -365,6 +365,7 @@ export default class Minify extends Transform {
       if (last) {
         var lastStatement = last.consequent[last.consequent.length - 1];
         if (
+          lastStatement &&
           lastStatement.type == "BreakStatement" &&
           lastStatement.label == null
         ) {
@@ -525,7 +526,7 @@ export default class Minify extends Transform {
         if (key == "toString" && object.arguments.length == 0) {
           this.replace(
             object,
-            BinaryExpression("+", clone(object.callee.object), Literal(""))
+            BinaryExpression("+", Literal(""), clone(object.callee.object))
           );
         }
       }

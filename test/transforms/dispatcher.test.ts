@@ -1,3 +1,4 @@
+import { isObject } from "util";
 import JsConfuser from "../../src/index";
 
 it("should middleman function calls", async () => {
@@ -299,4 +300,33 @@ it("should work with Control Flow Flattening", async () => {
   eval(output);
 
   expect(value).toStrictEqual(10);
+});
+
+// https://github.com/MichaelXF/js-confuser/issues/26
+it("should apply to every level of the code", async () => {
+  var code = `
+  function OUTER(){
+    function INNER(){
+      return 100;
+    }
+
+    return INNER();
+  }
+
+  input(OUTER());
+  `;
+
+  var output = await JsConfuser(code, { target: "node", dispatcher: true });
+
+  expect(output).not.toContain("OUTER");
+  expect(output).not.toContain("INNER");
+
+  var value = "never_called";
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+
+  expect(value).toStrictEqual(100);
 });

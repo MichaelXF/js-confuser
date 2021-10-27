@@ -60,3 +60,36 @@ it("should not rename nested labels", async () => {
   expect(output).not.toContain("TEST_LABEL");
   expect(output).toContain(":for");
 });
+
+it("should not remove labels on block statements", async () => {
+  var code = `
+    TEST_LABEL: {
+      break TEST_LABEL;
+    }
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    objectExtraction: true,
+  });
+
+  expect(output).not.toContain("TEST_LABEL");
+  expect(output).toContain(":{");
+});
+
+it("should remove labels on block statements when the label was never used", async () => {
+  var code = `
+    TEST_LABEL: {
+      "";
+    }
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    objectExtraction: true,
+  });
+
+  expect(output).not.toContain("TEST_LABEL");
+  expect(output).not.toContain(":{");
+  expect(output).toContain("{");
+});

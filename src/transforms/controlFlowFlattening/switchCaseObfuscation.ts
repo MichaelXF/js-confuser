@@ -39,7 +39,11 @@ export default class SwitchCaseObfuscation extends Transform {
     var types = new Set();
     walk(object.discriminant, [object, ...parents], (o, p) => {
       if (o.type) {
-        if (o.type == "BinaryExpression" && o.operator === "+") {
+        if (
+          object.$controlFlowFlattening &&
+          o.type == "BinaryExpression" &&
+          o.operator === "+"
+        ) {
         } else {
           types.add(o.type);
         }
@@ -68,7 +72,7 @@ export default class SwitchCaseObfuscation extends Transform {
       return;
     }
 
-    var factor = getRandomInteger(-250, 250);
+    var factor = getRandomInteger(-150, 150);
     if (factor == 0) {
       factor = 2;
     }

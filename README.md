@@ -14,6 +14,7 @@ JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ 
 ## Presets
 
 JS-Confuser comes with three presets built into the obfuscator.
+
 | Preset | Transforms | Performance Reduction | Sample |
 | --- | --- | --- | --- |
 | High | 21/22 | 98% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/high.js) |

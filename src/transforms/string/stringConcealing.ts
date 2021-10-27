@@ -106,6 +106,8 @@ export default class StringConcealing extends Transform {
             function ${getterFn}(x, y, z, a = ${decodeFn}, b = ${cacheName}){
               if ( z ) {
                 return y[${cacheName}[z]] = ${getterFn}(x, y);
+              } else if ( y ) {
+                [b, y] = [a(b), x || z]
               }
             
               return y ? x[b[y]] : ${cacheName}[x] || (z=(b[x], a), ${cacheName}[x] = z(${this.arrayName}[x]))

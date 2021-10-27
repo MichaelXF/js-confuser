@@ -15,6 +15,8 @@ import {
   VariableDeclarator,
   ConditionalExpression,
   UnaryExpression,
+  ReturnStatement,
+  AssignmentPattern,
 } from "../util/gen";
 import {
   choice,
@@ -93,10 +95,27 @@ export default class OpaquePredicates extends Transform {
       if (!this.predicate) {
         this.predicateName = this.getPlaceholder();
         this.predicate = ObjectExpression([]);
+
+        var tempName = this.getPlaceholder();
+
         prepend(
           parents[parents.length - 1] || object,
           VariableDeclaration(
-            VariableDeclarator(this.predicateName, this.predicate)
+            VariableDeclarator(
+              this.predicateName,
+              CallExpression(
+                FunctionExpression(
+                  [],
+                  [
+                    VariableDeclaration(
+                      VariableDeclarator(tempName, this.predicate)
+                    ),
+                    ReturnStatement(Identifier(tempName)),
+                  ]
+                ),
+                []
+              )
+            )
           )
         );
       }
@@ -119,11 +138,14 @@ export default class OpaquePredicates extends Transform {
             this.predicate.properties.push(
               Property(Identifier(arrayProp), ArrayExpression([]))
             );
+
+            var paramName = this.getPlaceholder();
+
             this.predicate.properties.push(
               Property(
                 Identifier(prop),
                 FunctionExpression(
-                  [],
+                  [AssignmentPattern(Identifier(paramName), Literal("length"))],
                   Template(`
                   if ( !${this.predicateName}.${arrayProp}[0] ) {
                     ${this.predicateName}.${arrayProp}.push(${getRandomInteger(
@@ -131,7 +153,7 @@ export default class OpaquePredicates extends Transform {
                     100
                   )});
                   }
-                  return ${this.predicateName}.${arrayProp}.length;
+                  return ${this.predicateName}.${arrayProp}[${paramName}];
                 `).compile()
                 )
               )

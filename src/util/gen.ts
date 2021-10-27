@@ -134,7 +134,9 @@ export function ThisExpression() {
   return { type: "ThisExpression" };
 }
 
-export function SwitchCase(test: any, consequent: any[]) {
+export function SwitchCase(test: any, consequent: Node[]) {
+  ok(test === null || test);
+  ok(Array.isArray(consequent));
   return {
     type: "SwitchCase",
     test,
@@ -142,7 +144,7 @@ export function SwitchCase(test: any, consequent: any[]) {
   };
 }
 
-export function SwitchDefaultCase(consequent: any[]) {
+export function SwitchDefaultCase(consequent: Node[]) {
   return SwitchCase(null, consequent);
 }
 

@@ -1,6 +1,12 @@
 import Template from "../../templates/template";
 
-const Encoding = {
+const Encoding: {
+  [encoding_name: string]: {
+    encode: (s) => string;
+    decode: (s) => string;
+    template: ReturnType<typeof Template>;
+  };
+} = {
   ascii85: {
     encode(a) {
       var b, c, d, e, f, g, h, i, j, k;
@@ -89,6 +95,7 @@ const Encoding = {
     }
     `),
   },
+
   base32: {
     encode: function (s) {
       var a = "!\"#$%&'()*+,-./0123456789:;<=>?@";
@@ -197,6 +204,105 @@ const Encoding = {
       }
       return o;
     }
+    `),
+  },
+
+  hexTable: {
+    encode: function (str) {
+      var output = "";
+
+      for (var j = 0; j < str.length; j += 3) {
+        var chunk = str.substring(j, j + 3);
+        if (!chunk) {
+          continue;
+        }
+
+        chunk = chunk + "~";
+
+        var uniqueChars = new Set([]);
+        for (var char of chunk) {
+          uniqueChars.add(char);
+        }
+
+        var keys = Array.from(uniqueChars).sort();
+        var table = {},
+          i = 0;
+        for (var key of keys) {
+          table[key] = i++;
+        }
+
+        var idx = [];
+        for (var char of chunk) {
+          idx.push(table[char]);
+        }
+
+        var table64 = "0x";
+        for (var i = keys.length - 1; i >= 0; i--) {
+          table64 += keys[i].charCodeAt(0).toString(16).toUpperCase();
+        }
+
+        var idxInt = 0;
+        for (var i = idx.length - 1; i >= 0; i--) {
+          idxInt = (idxInt << 3) | idx[i];
+        }
+
+        var idx64 = "0x" + idxInt.toString(16).toUpperCase();
+
+        // console.log(chunk, table, idx, table64, idx64);
+
+        output += table64 + "," + idx64 + ",";
+      }
+
+      if (output.endsWith(",")) {
+        output = output.substring(0, output.length - 1);
+      }
+
+      return "{" + output + "}";
+    },
+
+    decode: function (str) {
+      var output = "";
+
+      str = str.substring(1, str.length - 1);
+      var chunks = str.split(",");
+
+      for (var i = 0; i < chunks.length; i += 2) {
+        var arr = [chunks[i], chunks[i + 1]];
+
+        var [table, idx] = arr.map(Number);
+
+        // console.log(table, idx);
+        while (idx) {
+          output += String.fromCharCode((table >> (8 * (idx & 7))) & 0xff);
+          idx >>= 3;
+        }
+      }
+
+      return output.replace(/~/g, "");
+    },
+
+    template: Template(`
+      function {name}(str){
+        var output = "";
+    
+        str = str.substring(1, str.length - 1);
+        var chunks = str.split(",");
+      
+        for (var i = 0; i < chunks.length; i += 2) {
+          var arr = [chunks[i], chunks[i + 1]];
+      
+          var [table, idx] = arr.map(Number);
+      
+          // console.log(table, idx);
+          while (idx) {
+            output += String.fromCharCode((table >> (8 * (idx & 7))) & 0xff);
+            idx >>= 3;
+          }
+        }
+      
+        return output.replace(/~/g, "");
+      }
+    
     `),
   },
 };

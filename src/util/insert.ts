@@ -138,26 +138,6 @@ export function getReferencingContexts(
   }
   ok(info.spec.isReferenced);
 
-  var assignmentPatternIndex = p.findIndex(
-    (x) => x.type == "AssignmentPattern"
-  );
-  if (assignmentPatternIndex != -1) {
-    if (
-      p[assignmentPatternIndex].right == (p[assignmentPatternIndex - 1] || o)
-    ) {
-      var fnIndex = p.findIndex((x) => isFunction(x));
-      var associatedFn = p[fnIndex];
-      if (fnIndex !== -1 && p[fnIndex].params === p[fnIndex - 1]) {
-        if (associatedFn == getVarContext(o, p)) {
-          var varContext = getVarContext(p[fnIndex + 1], p.slice(fnIndex + 2));
-          var lexContext = getLexContext(p[fnIndex + 1], p.slice(fnIndex + 2));
-
-          return [varContext, lexContext];
-        }
-      }
-    }
-  }
-
   return [getVarContext(o, p), getLexContext(o, p)];
 }
 

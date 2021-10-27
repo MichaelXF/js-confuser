@@ -106,7 +106,9 @@ export default class Dispatcher extends Transform {
         // New Names for Functions
         var newFnNames: { [name: string]: string } = {}; // [old name]: randomized name
 
-        var context = getVarContext(object, parents);
+        var context = isVarContext(object)
+          ? object
+          : getVarContext(object, parents);
 
         walk(object, parents, (o: Node, p: Node[]) => {
           if (object == o) {
@@ -122,6 +124,7 @@ export default class Dispatcher extends Transform {
           if (context === c) {
             if (o.type == "FunctionDeclaration" && o.id.name) {
               if (
+                o.$requiresEval ||
                 o.async ||
                 o.generator ||
                 p.find(
@@ -141,12 +144,15 @@ export default class Dispatcher extends Transform {
               }
 
               walk(o, p, (oo, pp) => {
-                if (oo.type == "Identifier" && oo.name == "arguments") {
-                  illegalFnNames.add(name);
-                  return "EXIT";
-                } else if (oo.type == "ThisExpression" || oo.type == "Super") {
-                  illegalFnNames.add(name);
-                  return "EXIT";
+                if (
+                  (oo.type == "Identifier" && oo.name == "arguments") ||
+                  oo.type == "ThisExpression" ||
+                  oo.type == "Super"
+                ) {
+                  if (getVarContext(oo, pp) === o) {
+                    illegalFnNames.add(name);
+                    return "EXIT";
+                  }
                 }
               });
 

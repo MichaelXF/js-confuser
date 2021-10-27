@@ -76,6 +76,7 @@ export default class RGF extends Transform {
         if (
           object !== contextObject &&
           isFunction(object) &&
+          !object.$requiresEval &&
           !object.async &&
           !object.generator &&
           getVarContext(parents[0], parents.slice(1)) === contextObject
@@ -92,9 +93,12 @@ export default class RGF extends Transform {
               !this.options.globalVariables.has(o.name)
             ) {
               var info = getIdentifierInfo(o, p);
+              if (!info.spec.isReferenced) {
+                return;
+              }
               if (info.spec.isDefined) {
                 defined.add(o.name);
-              } else if (info.spec.isReferenced || info.spec.isModified) {
+              } else {
                 referenced.add(o.name);
               }
             }

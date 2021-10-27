@@ -13,8 +13,15 @@ import {
   SwitchStatement,
   SwitchCase,
   LogicalExpression,
+  VariableDeclarator,
+  FunctionExpression,
+  ExpressionStatement,
+  SequenceExpression,
+  AssignmentExpression,
+  VariableDeclaration,
+  BreakStatement,
 } from "../../util/gen";
-import { prepend } from "../../util/insert";
+import { append, prepend } from "../../util/insert";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { getRandomInteger } from "../../util/random";
 import { reservedIdentifiers, reservedKeywords } from "../../constants";
@@ -155,16 +162,16 @@ export default class GlobalConcealing extends Transform {
 
         // Returns global variable or fall backs to `this`
         var getGlobalVariableFn = Template(`
-        function ${getGlobalVariableFnName}(){
+        var ${getGlobalVariableFnName} = function(){
           try {
             return ${global};
           } catch (e){
-            return ${getThisVariableFnName}();
+            return ${getThisVariableFnName}["call"](this);
           }
         }`).single();
 
         var getThisVariableFn = Template(`
-        function ${getThisVariableFnName}(){
+        var ${getThisVariableFnName} = function(){
           try {
             return this;
           } catch (e){
@@ -227,48 +234,105 @@ export default class GlobalConcealing extends Transform {
           }
         });
 
-        prepend(
-          object,
-          FunctionDeclaration(
-            globalFn,
-            [Identifier("index")],
-            [
-              SwitchStatement(
-                Identifier("index"),
-                Object.keys(newNames).map((name) => {
-                  var code = newNames[name];
+        var indexParamName = this.getPlaceholder();
+        var returnName = this.getPlaceholder();
 
-                  return SwitchCase(Literal(code), [
-                    ReturnStatement(
-                      LogicalExpression(
-                        "||",
-                        MemberExpression(
-                          Identifier(globalVar),
+        var functionDeclaration = FunctionDeclaration(
+          globalFn,
+          [Identifier(indexParamName)],
+          [
+            VariableDeclaration(VariableDeclarator(returnName)),
+            SwitchStatement(
+              Identifier(indexParamName),
+              Object.keys(newNames).map((name) => {
+                var code = newNames[name];
+                var body: Node[] = [
+                  ReturnStatement(
+                    LogicalExpression(
+                      "||",
+                      MemberExpression(
+                        Identifier(globalVar),
+                        Literal(name),
+                        true
+                      ),
+                      MemberExpression(Identifier(thisVar), Literal(name), true)
+                    )
+                  ),
+                ];
+                if (Math.random() > 0.5 && name) {
+                  body = [
+                    ExpressionStatement(
+                      AssignmentExpression(
+                        "=",
+                        Identifier(returnName),
+                        LogicalExpression(
+                          "||",
                           Literal(name),
-                          true
-                        ),
-                        MemberExpression(
-                          Identifier(thisVar),
-                          Literal(name),
-                          true
+                          MemberExpression(
+                            Identifier(thisVar),
+                            Literal(name),
+                            true
+                          )
                         )
                       )
                     ),
-                  ]);
-                })
+                    BreakStatement(),
+                  ];
+                }
+
+                return SwitchCase(Literal(code), body);
+              })
+            ),
+            ReturnStatement(
+              LogicalExpression(
+                "||",
+                MemberExpression(
+                  Identifier(globalVar),
+                  Identifier(returnName),
+                  true
+                ),
+                MemberExpression(
+                  Identifier(thisVar),
+                  Identifier(returnName),
+                  true
+                )
+              )
+            ),
+          ]
+        );
+
+        var tempVar = this.getPlaceholder();
+
+        var variableDeclaration = Template(`
+        var ${globalVar}, ${thisVar};
+        `).single();
+
+        variableDeclaration.declarations.push(
+          VariableDeclarator(
+            tempVar,
+            CallExpression(
+              MemberExpression(
+                FunctionExpression(
+                  [],
+                  [
+                    getGlobalVariableFn,
+                    getThisVariableFn,
+
+                    Template(
+                      `return ${thisVar} = ${getThisVariableFnName}["call"](this, ${globalFn}), ${globalVar} = ${getGlobalVariableFnName}["call"](this)`
+                    ).single(),
+                  ]
+                ),
+                Literal("call"),
+                true
               ),
-            ]
+              []
+            )
           )
         );
 
-        prepend(
-          object,
-          Template(`
-          var ${globalVar} = ${getGlobalVariableFnName}.call(this), ${thisVar} = ${getGlobalVariableFnName}.call(this);
-          `).single()
-        );
-        prepend(object, getGlobalVariableFn);
-        prepend(object, getThisVariableFn);
+        prepend(object, variableDeclaration);
+        append(object, functionDeclaration);
       }
     };
   }

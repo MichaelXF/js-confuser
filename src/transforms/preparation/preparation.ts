@@ -13,7 +13,7 @@ import {
   ReturnStatement,
 } from "../../util/gen";
 import { ObfuscateOrder } from "../../order";
-import { getIndexDirect, clone } from "../../util/insert";
+import { getIndexDirect, clone, getFunction } from "../../util/insert";
 import { ok } from "assert";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { walk } from "../../traverse";
@@ -79,6 +79,13 @@ class ExplicitIdentifiers extends Transform {
   }
 
   transform(object, parents) {
+    if (object.name === "eval") {
+      var fn = getFunction(object, parents);
+      if (fn) {
+        fn.$requiresEval = true;
+      }
+    }
+
     var info = getIdentifierInfo(object, parents);
     if (info.isPropertyKey || info.isAccessor) {
       var propIndex = parents.findIndex(
