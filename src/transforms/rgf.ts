@@ -260,6 +260,7 @@ export default class RGF extends Transform {
             integrity: false,
           },
           eval: false,
+          hideInitializingCode: false,
         });
         var transforms = Object.values(obfuscator.transforms).filter(
           (x) => x.priority > this.priority

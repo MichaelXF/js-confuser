@@ -1,3 +1,9 @@
+# `1.4.1`
+AntiDebug Fix
+
+- Fixed [#28](https://github.com/MichaelXF/js-confuser/issues/28)
+- - AntiDebug was causing syntax errors in some scenarios, fixed in this version.
+
 # `1.4.0`
 Confusing Control Flow
 

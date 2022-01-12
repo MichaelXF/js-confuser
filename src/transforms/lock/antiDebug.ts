@@ -4,6 +4,7 @@ import { isBlock } from "../../traverse";
 import {
   AssignmentExpression,
   DebuggerStatement,
+  ExpressionStatement,
   FunctionDeclaration,
   Identifier,
   IfStatement,
@@ -64,10 +65,12 @@ export default class AntiDebug extends Transform {
             ? this.lock.getCounterMeasuresCode()
             : [
                 WhileStatement(Identifier(isDevName), [
-                  AssignmentExpression(
-                    "=",
-                    Identifier(startTimeName),
-                    Identifier(endTimeName)
+                  ExpressionStatement(
+                    AssignmentExpression(
+                      "=",
+                      Identifier(startTimeName),
+                      Identifier(endTimeName)
+                    )
                   ),
                 ]),
               ],
