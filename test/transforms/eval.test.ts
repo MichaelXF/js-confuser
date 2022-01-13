@@ -48,3 +48,31 @@ it("should move function declarations to the top of the block", async () => {
 
   expect(value).toStrictEqual(100);
 });
+
+it("should work with Integrity also enabled", async () => {
+  var code = `
+    input("Hello World")
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    compact: false,
+    eval: true,
+    lock: {
+      integrity: true,
+    },
+  });
+
+  expect(output).toContain("eval(");
+
+  var value = "never_called",
+    input = (valueIn) => (value = valueIn);
+
+  try {
+    eval(output);
+  } catch (e) {
+    expect(e).toStrictEqual(undefined);
+  }
+
+  expect(value).toStrictEqual("Hello World");
+});

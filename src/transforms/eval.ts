@@ -22,7 +22,8 @@ export default class Eval extends Transform {
     return (
       isFunction(object) &&
       object.type != "ArrowFunctionExpression" &&
-      !object.$eval
+      !object.$eval &&
+      !object.$dispatcherSkip
     );
   }
 
