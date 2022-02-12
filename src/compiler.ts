@@ -10,7 +10,11 @@ export default async function compileJs(tree: any, options: ObfuscateOptions) {
 }
 
 export function compileJsSync(tree: any, options: ObfuscateOptions): string {
-  var api: any = { format: escodegen.FORMAT_MINIFY };
+  var api: any = {
+    format: {
+      ...escodegen.FORMAT_MINIFY,
+    },
+  };
 
   if (!options.compact) {
     api = {};

@@ -51,6 +51,13 @@ export interface ObfuscateOptions {
   compact?: boolean;
 
   /**
+   * ### `hexadecimalNumbers`
+   *
+   * Uses the hexadecimal representation (`50` -> `0x32`) for numbers. (`true/false`)
+   */
+  hexadecimalNumbers?: boolean;
+
+  /**
    * ### `minify`
    *
    * Minifies redundant code. (`true/false`)
@@ -676,6 +683,7 @@ const validProperties = new Set([
   "target",
   "indent",
   "compact",
+  "hexadecimalNumbers",
   "minify",
   "es5",
   "renameVariables",
