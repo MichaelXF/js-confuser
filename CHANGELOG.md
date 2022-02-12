@@ -1,3 +1,9 @@
+# `1.4.2`
+Eval Fix
+
+- Fixed [#31](https://github.com/MichaelXF/js-confuser/issues/31)
+- - Eval and Integrity didn't work together, fixed in this version.
+
 # `1.4.1`
 AntiDebug Fix
 
