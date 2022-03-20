@@ -55,4 +55,6 @@ export enum ObfuscateOrder {
   StringEncoding = 32,
 
   AntiTooling = 34,
+
+  HexadecimalNumbers = 35,
 }

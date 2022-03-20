@@ -234,6 +234,9 @@ export default class ControlFlowFlattening extends Transform {
 
       var resultVar = this.getPlaceholder();
       var argVar = this.getPlaceholder();
+      var testVar = this.getPlaceholder();
+
+      var needsTestVar = false;
       var needsResultAndArgVar = false;
       var fnToLabel: { [fnName: string]: string } = Object.create(null);
 
@@ -478,7 +481,21 @@ export default class ControlFlowFlattening extends Transform {
                 finishCurrentChunk(isPostTest ? bodyPath : testPath, testPath);
 
                 currentBody.push(
-                  IfStatement(control.test || Literal(true), [
+                  ExpressionStatement(
+                    AssignmentExpression(
+                      "=",
+                      Identifier(testVar),
+                      control.test || Literal(true)
+                    )
+                  )
+                );
+
+                needsTestVar = true;
+
+                finishCurrentChunk();
+
+                currentBody.push(
+                  IfStatement(Identifier(testVar), [
                     {
                       type: "GotoStatement",
                       label: bodyPath,
@@ -522,6 +539,16 @@ export default class ControlFlowFlattening extends Transform {
           ) {
             finishCurrentChunk();
 
+            currentBody.push(
+              ExpressionStatement(
+                AssignmentExpression("=", Identifier(testVar), stmt.test)
+              )
+            );
+
+            needsTestVar = true;
+
+            finishCurrentChunk();
+
             var hasAlternate = !!stmt.alternate;
             ok(!(hasAlternate && stmt.alternate.type !== "BlockStatement"));
 
@@ -530,7 +557,7 @@ export default class ControlFlowFlattening extends Transform {
             var afterPath = this.getPlaceholder();
 
             currentBody.push(
-              IfStatement(stmt.test, [
+              IfStatement(Identifier(testVar), [
                 {
                   type: "GotoStatement",
                   label: yesPath,
@@ -974,6 +1001,10 @@ export default class ControlFlowFlattening extends Transform {
       );
 
       var declarations = [];
+
+      if (needsTestVar) {
+        declarations.push(VariableDeclarator(testVar));
+      }
 
       if (needsResultAndArgVar) {
         declarations.push(VariableDeclarator(resultVar));
