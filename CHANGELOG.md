@@ -1,3 +1,9 @@
+# `1.4.3`
+Minify Fix
+
+- Fixed [#34](https://github.com/MichaelXF/js-confuser/issues/34)
+- - Minify was removing `return` statements too aggressively, fixed in this version.
+
 # `1.4.2`
 Eval Fix
 
