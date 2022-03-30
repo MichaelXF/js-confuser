@@ -21,6 +21,7 @@ import {
   clone,
   isForInitialize,
   isLexContext,
+  getFunction,
 } from "../util/insert";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
 import { walk, isBlock } from "../traverse";
@@ -126,9 +127,14 @@ export default class Minify extends Transform {
           // Unnecessary return
           if (body.length && body[body.length - 1]) {
             var last = body[body.length - 1];
-            var isUndefined = last.argument == null;
-            if (last.type == "ReturnStatement" && isUndefined) {
-              body.pop();
+            if (last.type == "ReturnStatement") {
+              var isUndefined = last.argument == null;
+
+              if (isUndefined) {
+                if (getFunction(object, parents).body == object) {
+                  body.pop();
+                }
+              }
             }
           }
 

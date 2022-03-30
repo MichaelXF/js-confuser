@@ -115,6 +115,10 @@ JsConfuser.obfuscate(`<source code>`, {
 
 Remove's whitespace from the final output. Enabled by default. (`true/false`)
 
+<!-- ### `hexadecimalNumbers`
+
+Uses the hexadecimal representation (`50` -> `0x32`) for numbers. (`true/false`) -->
+
 ### `minify`
 
 Minifies redundant code. (`true/false`)

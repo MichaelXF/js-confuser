@@ -261,3 +261,41 @@ test("Variant #14: Shorten 'var x = undefined' to 'var x'", async () => {
   expect(output).toContain("var x");
   expect(output).not.toContain("var x=");
 });
+
+test("Variant #15: Removing implied 'return'", async () => {
+  // Valid
+  var output = await JsConfuser(
+    `
+  function MyFunction(){ 
+    var output = "Hello World";
+    console.log(output);
+    return;
+  } 
+  
+  MyFunction();
+  `,
+    { target: "node", minify: true }
+  );
+
+  expect(output).not.toContain("return");
+
+  // Invalid
+  // https://github.com/MichaelXF/js-confuser/issues/34
+  var output2 = await JsConfuser(
+    `
+  function greet(){ 
+    if(true){ 
+      console.log("return"); 
+      return; 
+    }
+
+    var output = "should not show!"; console.log(output); 
+  } 
+  
+  greet();
+  `,
+    { target: "browser", minify: true }
+  );
+
+  expect(output2).toContain("return");
+});

@@ -124,6 +124,108 @@ function setCookie(cname, cvalue, exdays) {
 
     __.match(s + g);
   `),
+  Template(`
+  function vec_pack(vec) {
+    return vec[1] * 67108864 + (vec[0] < 0 ? 33554432 | vec[0] : vec[0]);
+  }
+  
+  function vec_unpack(number) {
+    switch (((number & 33554432) !== 0) * 1 + (number < 0) * 2) {
+      case 0:
+        return [number % 33554432, Math.trunc(number / 67108864)];
+      case 1:
+        return [
+          (number % 33554432) - 33554432,
+          Math.trunc(number / 67108864) + 1,
+        ];
+      case 2:
+        return [
+          (((number + 33554432) % 33554432) + 33554432) % 33554432,
+          Math.round(number / 67108864),
+        ];
+      case 3:
+        return [number % 33554432, Math.trunc(number / 67108864)];
+    }
+  }
+  
+  let a = vec_pack([2, 4]);
+  let b = vec_pack([1, 2]);
+  
+  let c = a + b; // Vector addition
+  let d = c - b; // Vector subtraction
+  let e = d * 2; // Scalar multiplication
+  let f = e / 2; // Scalar division
+  
+  console.log(vec_unpack(c)); // [3, 6]
+  console.log(vec_unpack(d)); // [2, 4]
+  console.log(vec_unpack(e)); // [4, 8]
+  console.log(vec_unpack(f)); // [2, 4]
+  `),
+  Template(`
+  function buildCharacterMap(str) {
+    const characterMap = {};
+  
+    for (let char of str.replace(/[^\w]/g, "").toLowerCase())
+      characterMap[char] = characterMap[char] + 1 || 1;
+  
+    return characterMap;
+  }
+  
+  function isAnagrams(stringA, stringB) {
+    const stringAMap = buildCharMap(stringA);
+    const stringBMap = buildCharMap(stringB);
+  
+    for (let char in stringAMap) {
+      if (stringAMap[char] !== stringBMap[char]) {
+        return false;
+      }
+    }
+  
+    if (Object.keys(stringAMap).length !== Object.keys(stringBMap).length) {
+      return false;
+    }
+  
+    return true;
+  }
+  
+  /**
+   * @param {TreeNode} root
+   * @return {boolean}
+   */
+  function isBalanced(root) {
+    const height = getHeightBalanced(root);
+    return height !== Infinity;
+  }
+  
+  function getHeightBalanced(node) {
+    if (!node) {
+      return -1;
+    }
+  
+    const leftTreeHeight = getHeightBalanced(node.left);
+    const rightTreeHeight = getHeightBalanced(node.right);
+  
+    const heightDiff = Math.abs(leftTreeHeight - rightTreeHeight);
+  
+    if (
+      leftTreeHeight === Infinity ||
+      rightTreeHeight === Infinity ||
+      heightDiff > 1
+    ) {
+      return Infinity;
+    }
+  
+    const currentHeight = Math.max(leftTreeHeight, rightTreeHeight) + 1;
+    return currentHeight;
+  }
+  
+  window["__GLOBAL__HELPERS__"] = {
+    buildCharacterMap,
+    isAnagrams,
+    isBalanced,
+    getHeightBalanced,
+  };
+  `),
 ];
 
 /**

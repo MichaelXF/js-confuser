@@ -34,6 +34,7 @@ import StringCompression from "./transforms/string/stringCompression";
 import NameRecycling from "./transforms/identifier/nameRecycling";
 import AntiTooling from "./transforms/antiTooling";
 import HideInitializingCode from "./transforms/hideInitializingCode";
+import HexadecimalNumbers from "./transforms/hexadecimalNumbers";
 
 /**
  * The parent transformation holding the `state`.
@@ -96,6 +97,7 @@ export default class Obfuscator extends EventEmitter {
     test(options.stack, Stack);
     test(true, AntiTooling);
     test(options.hideInitializingCode, HideInitializingCode);
+    test(options.hexadecimalNumbers, HexadecimalNumbers);
 
     if (
       options.lock &&
