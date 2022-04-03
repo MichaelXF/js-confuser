@@ -10,19 +10,27 @@ import {
   LogicalExpression,
   SwitchCase,
   SwitchStatement,
+  SequenceExpression,
+  AssignmentExpression,
+  VariableDeclaration,
+  VariableDeclarator,
+  ExpressionStatement,
 } from "../util/gen";
 import { prepend } from "../util/insert";
 import { getBlock } from "../traverse";
-import { getRandomInteger } from "../util/random";
+import { choice, getRandomInteger } from "../util/random";
 import { ObfuscateOrder } from "../order";
 import { ok } from "assert";
 import { OPERATOR_PRECEDENCE } from "../precedence";
+import Template from "../templates/template";
 
 export default class Calculator extends Transform {
   gen: any;
   ops: { [operator: string]: number };
   statesUsed: Set<string>;
   calculatorFn: string;
+  calculatorOpVar: string;
+  calculatorSetOpFn: string;
 
   constructor(o) {
     super(o, ObfuscateOrder.Calculator);
@@ -30,6 +38,8 @@ export default class Calculator extends Transform {
     this.ops = Object.create(null);
     this.statesUsed = new Set();
     this.calculatorFn = this.getPlaceholder();
+    this.calculatorOpVar = this.getPlaceholder();
+    this.calculatorSetOpFn = this.getPlaceholder();
 
     this.gen = this.getGenerator();
   }
@@ -41,7 +51,6 @@ export default class Calculator extends Transform {
       return;
     }
 
-    var opArg = this.getPlaceholder();
     var leftArg = this.getPlaceholder();
     var rightArg = this.getPlaceholder();
     var switchCases = [];
@@ -65,8 +74,21 @@ export default class Calculator extends Transform {
 
     var func = FunctionDeclaration(
       this.calculatorFn,
-      [opArg, leftArg, rightArg].map((x) => Identifier(x)),
-      [SwitchStatement(Identifier(opArg), switchCases)]
+      [leftArg, rightArg].map((x) => Identifier(x)),
+      [SwitchStatement(Identifier(this.calculatorOpVar), switchCases)]
+    );
+
+    prepend(
+      tree,
+      VariableDeclaration(VariableDeclarator(this.calculatorOpVar))
+    );
+
+    prepend(
+      tree,
+      Template(`function {name}(a){
+        a = {b} + ({b}=a, 0);
+        return a;
+      }`).single({ name: this.calculatorSetOpFn, b: this.calculatorOpVar })
     );
 
     prepend(tree, func);
@@ -123,9 +145,18 @@ export default class Calculator extends Transform {
       this.replace(
         object,
         CallExpression(Identifier(this.calculatorFn), [
-          Literal(this.ops[operator]),
           object.left,
           object.right,
+          choice([
+            AssignmentExpression(
+              "=",
+              Identifier(this.calculatorOpVar),
+              Literal(this.ops[operator])
+            ),
+            CallExpression(Identifier(this.calculatorSetOpFn), [
+              Literal(this.ops[operator]),
+            ]),
+          ]),
         ])
       );
     };
