@@ -1,4 +1,4 @@
-<!-- # `1.5.0`
+# `1.5.0`
 Hexadecimal Numbers
 
 - The hexadecimal representation can now be used. [#29](https://github.com/MichaelXF/js-confuser/issues/29)
@@ -7,6 +7,9 @@ Hexadecimal Numbers
 ### `hexadecimalNumbers`
 
 Uses the hexadecimal representation (`50` -> `0x32`) for numbers. (`true/false`) -->
+
+- Slight improvement to `Control Flow Flattening`
+- Slight improvement to `Calculator`
 
 # `1.4.3`
 Minify Fix
