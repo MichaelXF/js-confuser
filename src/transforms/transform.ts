@@ -196,10 +196,18 @@ export default class Transform {
    */
   getGenerator(offset = 0) {
     var count = offset;
+    var identifiers = new Set();
     return {
       generate: () => {
-        count++;
-        return this.generateIdentifier(-1, count);
+        var retValue;
+        do {
+          count++;
+          retValue = this.generateIdentifier(-1, count);
+        } while (identifiers.has(retValue));
+
+        identifiers.add(retValue);
+
+        return retValue;
       },
     };
   }
