@@ -18,7 +18,10 @@ import {
   IfStatement,
   LabeledStatement,
   Literal,
+  MemberExpression,
   Node,
+  ObjectExpression,
+  Property,
   ReturnStatement,
   SequenceExpression,
   SwitchCase,
@@ -235,9 +238,15 @@ export default class ControlFlowFlattening extends Transform {
       var resultVar = this.getPlaceholder();
       var argVar = this.getPlaceholder();
       var testVar = this.getPlaceholder();
+      var stringBankVar = this.getPlaceholder();
+      var stringBank: { [strValue: string]: string } = Object.create(null);
+      var stringBankByLabels: { [label: string]: Set<string> } =
+        Object.create(null);
+      let stringBankGen = this.getGenerator();
 
       var needsTestVar = false;
       var needsResultAndArgVar = false;
+      var needsStringBankVar = false;
       var fnToLabel: { [fnName: string]: string } = Object.create(null);
 
       fnNames.forEach((fnName) => {
@@ -270,6 +279,38 @@ export default class ControlFlowFlattening extends Transform {
           chunks.push({
             label: currentLabel,
             body: [...currentBody],
+          });
+
+          walk(currentBody, [], (o, p) => {
+            if (
+              o.type == "Literal" &&
+              typeof o.value == "string" &&
+              !o.regex &&
+              Math.random() / (Object.keys(stringBank).length / 2 + 1) > 0.5
+            ) {
+              needsStringBankVar = true;
+              if (!stringBankByLabels[currentLabel]) {
+                stringBankByLabels[currentLabel] = new Set();
+              }
+
+              stringBankByLabels[currentLabel].add(o.value);
+
+              if (typeof stringBank[o.value] === "undefined") {
+                stringBank[o.value] = stringBankGen.generate();
+              }
+
+              return () => {
+                this.replaceIdentifierOrLiteral(
+                  o,
+                  MemberExpression(
+                    Identifier(stringBankVar),
+                    Literal(stringBank[o.value]),
+                    true
+                  ),
+                  p
+                );
+              };
+            }
           });
 
           currentLabel = newLabel;
@@ -872,6 +913,7 @@ export default class ControlFlowFlattening extends Transform {
 
         var breaksInsertion = [];
         var staticStateValues = [...labelToStates[chunk.label]];
+        var potentialBranches = new Set<string>();
 
         chunk.body.forEach((stmt, stmtIndex) => {
           var addBreak = false;
@@ -921,6 +963,8 @@ export default class ControlFlowFlattening extends Transform {
                   );
                 }
 
+                potentialBranches.add(o.label);
+
                 var mutatingStateValues = [...labelToStates[chunk.label]];
                 var nextStateValues = labelToStates[o.label];
                 ok(nextStateValues, o.label);
@@ -956,6 +1000,29 @@ export default class ControlFlowFlattening extends Transform {
         breaksInsertion.forEach((index) => {
           chunk.body.splice(index + 1, 0, BreakStatement(switchLabel));
         });
+
+        for (var branch of Array.from(potentialBranches)) {
+          var strings = stringBankByLabels[branch];
+          if (strings) {
+            chunk.body.unshift(
+              ExpressionStatement(
+                SequenceExpression(
+                  Array.from(strings).map((strValue) => {
+                    return AssignmentExpression(
+                      "=",
+                      MemberExpression(
+                        Identifier(stringBankVar),
+                        Literal(stringBank[strValue]),
+                        true
+                      ),
+                      Literal(strValue)
+                    );
+                  })
+                )
+              )
+            );
+          }
+        }
 
         // var c = Identifier("undefined");
         // this.addComment(c, stateValues.join(", "));
@@ -1009,6 +1076,25 @@ export default class ControlFlowFlattening extends Transform {
       if (needsResultAndArgVar) {
         declarations.push(VariableDeclarator(resultVar));
         declarations.push(VariableDeclarator(argVar));
+      }
+
+      if (needsStringBankVar) {
+        declarations.push(
+          VariableDeclarator(
+            stringBankVar,
+            ObjectExpression(
+              stringBankByLabels[startLabel]
+                ? Array.from(stringBankByLabels[startLabel]).map((strValue) =>
+                    Property(
+                      Literal(stringBank[strValue]),
+                      Literal(strValue),
+                      false
+                    )
+                  )
+                : []
+            )
+          )
+        );
       }
 
       declarations.push(
