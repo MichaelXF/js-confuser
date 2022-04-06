@@ -19,6 +19,7 @@ import { getIdentifierInfo } from "../../util/identifiers";
 import { isValidIdentifier } from "../../util/compare";
 import { ComputeProbabilityMap } from "../../probability";
 import { ok } from "assert";
+import { isStringLiteral } from "../../util/guard";
 
 /**
  * Extracts keys out of an object if possible.
@@ -87,17 +88,22 @@ export default class ObjectExtraction extends Transform {
               }
 
               // check for computed properties
+              // Change String literals to non-computed
               object.properties.forEach((prop) => {
-                if (prop.computed && prop.key.type == "Literal") {
+                if (prop.computed && isStringLiteral(prop.key)) {
                   prop.computed = false;
                 }
               });
 
-              var computed = object.properties.find((x) => x.computed);
-              if (computed) {
+              var nonInitOrComputed = object.properties.find(
+                (x) => x.kind !== "init" || x.computed
+              );
+
+              if (nonInitOrComputed) {
                 this.log(
-                  name + " has computed property: " + computed.key.name ||
-                    computed.key.value
+                  name +
+                    " has non-init/computed property: " +
+                    nonInitOrComputed.key.name || nonInitOrComputed.key.value
                 );
                 illegal.add(name);
                 return;

@@ -58,7 +58,7 @@ export type EvalCallback = {
  */
 export type Chain = Node[];
 
-export function Literal(value: string | number | boolean) {
+export function Literal(value: string | number | boolean): Node {
   if (typeof value === "undefined") {
     throw new Error("value is undefined");
   }
