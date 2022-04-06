@@ -17,7 +17,7 @@ it("should bring independent to the global level", async () => {
     }
   );
 
-  expect(output.startsWith("function flatten_")).toStrictEqual(true);
+  expect(output).toContain("set");
 });
 
 it("should have correct return values", async () => {
@@ -227,7 +227,7 @@ it("should not change functions with const", async () => {
     }
   );
 
-  expect(output).not.toContain("this");
+  expect(output).not.toContain("set");
 
   var value = "never_called",
     input = (x) => (value = x);
@@ -255,7 +255,7 @@ it("should work when pattern-based assignment expressions are involved", async (
     }
   );
 
-  expect(output).toContain("this");
+  expect(output).toContain("set");
 
   var value = "never_called",
     input = (x) => (value = x);
