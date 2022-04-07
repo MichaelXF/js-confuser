@@ -1,3 +1,11 @@
+# `1.5.1`
+Object Extraction Fix
+
+- Fixed [#37](https://github.com/MichaelXF/js-confuser/issues/37)
+- - Object Extraction was applying to objects with get/set methods, fixed in this version.
+
+- Slight improvement to `Flatten`
+
 # `1.5.0`
 Hexadecimal Numbers
 
