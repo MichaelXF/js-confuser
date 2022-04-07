@@ -16,6 +16,14 @@ import {
   Node,
   BlockStatement,
   ArrayPattern,
+  FunctionExpression,
+  ObjectExpression,
+  Property,
+  SpreadElement,
+  Literal,
+  IfStatement,
+  ThrowStatement,
+  NewExpression,
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
 import {
@@ -25,6 +33,7 @@ import {
   prepend,
   clone,
 } from "../util/insert";
+import { shuffle } from "../util/random";
 import Transform from "./transform";
 
 /**
@@ -41,10 +50,17 @@ import Transform from "./transform";
 export default class Flatten extends Transform {
   definedNames: Map<Node, Set<string>>;
 
+  flatMapName: string;
+  flatNode: Node;
+  gen: any;
+
   constructor(o) {
     super(o, ObfuscateOrder.Flatten);
 
     this.definedNames = new Map();
+    this.flatMapName = null;
+    this.flatNode = null;
+    this.gen = this.getGenerator();
   }
 
   apply(tree) {
@@ -200,11 +216,10 @@ export default class Flatten extends Transform {
 
       var output = Array.from(modified);
 
-      var newName =
-        "flatten" +
-        this.getPlaceholder() +
-        "_" +
-        ((object.id && object.id.name) || "fn");
+      var newName = this.gen.generate();
+      var valName = this.getPlaceholder();
+      var resultName = this.getPlaceholder();
+      var propName = this.gen.generate();
 
       getBlockBody(object.body).push(ReturnStatement());
       walk(object.body, [object, ...parents], (o, p) => {
@@ -222,51 +237,100 @@ export default class Flatten extends Transform {
             }
 
             o.argument = ArrayExpression(elements);
+
+            o.argument = AssignmentExpression(
+              "=",
+              MemberExpression(
+                Identifier(resultName),
+                Identifier(propName),
+                false
+              ),
+              o.argument
+            );
           }
         };
       });
 
       var newBody = getBlockBody(object.body);
 
-      if (input.length) {
-        newBody.unshift(
+      newBody.unshift(
+        VariableDeclaration(
+          VariableDeclarator(
+            ArrayPattern([
+              ArrayPattern(input.map(Identifier)),
+              ArrayPattern(clone(object.params)),
+              Identifier(resultName),
+            ]),
+
+            Identifier(valName)
+          )
+        )
+      );
+
+      if (!this.flatMapName) {
+        this.flatMapName = this.getPlaceholder();
+        prepend(
+          parents[parents.length - 1],
           VariableDeclaration(
             VariableDeclarator(
-              ArrayPattern(input.map(Identifier)),
-              ThisExpression()
+              this.flatMapName,
+              (this.flatNode = ObjectExpression([]))
             )
           )
         );
       }
 
-      var newFunctionDeclaration = FunctionDeclaration(
-        newName,
-        clone(object.params),
+      var newFunctionExpression = FunctionExpression(
+        [Identifier(valName)],
         newBody
       );
-      newFunctionDeclaration.async = !!object.async;
-      newFunctionDeclaration.generator = !!object.generator;
 
-      prepend(parents[parents.length - 1], newFunctionDeclaration);
+      newFunctionExpression.async = !!object.async;
+      newFunctionExpression.generator = !!object.generator;
+
+      var property = Property(
+        Identifier(newName),
+        newFunctionExpression,
+        false
+      );
+      property.kind = "set";
+
+      this.flatNode.properties.push(property);
+
+      var identifier = MemberExpression(
+        Identifier(this.flatMapName),
+        Identifier(newName),
+        false
+      );
 
       var newParamNodes = object.params.map(() =>
         Identifier(this.getPlaceholder())
       );
 
       // var result = newFn.call([...refs], ...arguments)
-      var call = VariableDeclaration(
+      var call = VariableDeclaration([
+        VariableDeclarator(resultName, ArrayExpression([])),
         VariableDeclarator(
-          "result",
-          CallExpression(
-            MemberExpression(Identifier(newName), Identifier("call"), false),
-            [ArrayExpression(input.map(Identifier)), ...newParamNodes]
+          "_",
+          AssignmentExpression(
+            "=",
+            identifier,
+            ArrayExpression([
+              ArrayExpression(input.map(Identifier)),
+              ArrayExpression([...newParamNodes]),
+              Identifier(resultName),
+            ])
           )
-        )
-      );
+        ),
+      ]);
 
       // result.pop()
       var pop = CallExpression(
-        MemberExpression(Identifier("result"), Identifier("pop"), false),
+        MemberExpression(
+          MemberExpression(Identifier(resultName), Identifier(propName), false),
+          Identifier("pop"),
+          false
+        ),
         []
       );
 
@@ -277,16 +341,90 @@ export default class Flatten extends Transform {
       //
       // return result.pop()
 
-      object.body = BlockStatement([
-        call,
-        ...[...output].reverse().map((name) => {
+      var newObjectBody: Node[] = [call];
+      var outputReversed = [...output].reverse();
+
+      // DECOY STATEMENTS
+      var decoyKey = this.gen.generate();
+      var decoyNodes = [
+        IfStatement(
+          MemberExpression(
+            Identifier(resultName),
+            Identifier(this.gen.generate()),
+            false
+          ),
+          [
+            ThrowStatement(
+              NewExpression(Identifier("Error"), [
+                Literal(this.getPlaceholder()),
+              ])
+            ),
+          ]
+        ),
+        IfStatement(
+          MemberExpression(
+            Identifier(resultName),
+            Identifier(this.gen.generate()),
+            false
+          ),
+          [ReturnStatement(Identifier(resultName))]
+        ),
+        IfStatement(
+          MemberExpression(
+            Identifier(resultName),
+            Identifier(this.gen.generate()),
+            false
+          ),
+          [ReturnStatement(Identifier(resultName))]
+        ),
+        IfStatement(
+          MemberExpression(Identifier(resultName), Identifier(decoyKey), false),
+          [
+            ReturnStatement(
+              MemberExpression(
+                Identifier(resultName),
+                Identifier(decoyKey),
+                false
+              )
+            ),
+          ]
+        ),
+        IfStatement(
+          MemberExpression(
+            Identifier(resultName),
+            Identifier(this.gen.generate()),
+            false
+          ),
+          [
+            ReturnStatement(
+              MemberExpression(
+                Identifier(resultName),
+                Identifier(this.gen.generate()),
+                false
+              )
+            ),
+          ]
+        ),
+      ];
+
+      shuffle(decoyNodes);
+      decoyNodes.forEach((decoyNode) => {
+        if (Math.random() < 0.5) {
+          newObjectBody.push(decoyNode);
+        }
+      });
+
+      newObjectBody.push(
+        ...outputReversed.map((name) => {
           return ExpressionStatement(
             AssignmentExpression("=", Identifier(name), clone(pop))
           );
         }),
 
-        ReturnStatement(clone(pop)),
-      ]);
+        ReturnStatement(clone(pop))
+      );
+
+      object.body = BlockStatement(newObjectBody);
 
       object.params = newParamNodes;
     };

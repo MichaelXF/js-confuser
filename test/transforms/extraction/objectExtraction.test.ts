@@ -423,3 +423,26 @@ it("should properly use custom callback to exclude certain names from being chan
 
   eval(output);
 });
+
+it("should not apply to objects with non-init properties (method, set, get)", async () => {
+  var code = `
+    
+    var realValue = 0;
+    var TEST_OBJECT = {
+      set key(newValue){
+        realValue = newValue;
+      },
+      get key(){
+        return realValue;
+      }
+    };
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    objectExtraction: true,
+  });
+
+  expect(output).toContain("TEST_OBJECT");
+  expect(output).toContain("set ");
+});
