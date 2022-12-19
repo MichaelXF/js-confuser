@@ -89,3 +89,29 @@ it("should shuffle arrays based on hash and unshuffle incorrect if changed", asy
 
   expect(different).toStrictEqual(true);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/48
+it("Should properly apply to const variables", async () => {
+    var code = `
+      const TEST_ARRAY = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  
+      input(TEST_ARRAY);
+    `;
+
+    var output = await JsConfuser(code, {
+      target: "browser",
+      shuffle: true,
+    });
+
+    expect(output).toContain("TEST_ARRAY=function");
+    expect(output).not.toContain("1,2,3,4,5,6,7,8,9");
+  
+    var value;
+    function input(valueIn) {
+      value = valueIn;
+    }
+  
+    eval(output);
+  
+    expect(value).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });

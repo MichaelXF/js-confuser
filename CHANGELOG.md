@@ -1,3 +1,9 @@
+# `1.5.3`
+Shuffle fix
+
+- Fixed [#48](https://github.com/MichaelXF/js-confuser/issues/48)
+- - Shuffle was re-assigning `const` variables, fixed in this version.
+
 # `1.5.2`
 Mini fixes
 
