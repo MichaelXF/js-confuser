@@ -1,3 +1,12 @@
+# `1.5.2`
+Mini fixes
+
+- Fixed [#41](https://github.com/MichaelXF/js-confuser/issues/41)
+- - Obfuscator mishandled switch statements with a `default` case
+
+- Fixed [#43](https://github.com/MichaelXF/js-confuser/issues/43)
+- - Obfuscator mishandled variable destructuring in for-loops
+
 # `1.5.1`
 Object Extraction Fix
 
