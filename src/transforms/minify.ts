@@ -595,6 +595,8 @@ export default class Minify extends Transform {
       // check for redundant patterns
       if (
         object.id.type == "ArrayPattern" &&
+        object.init &&
+        typeof object.init === "object" &&
         object.init.type == "ArrayExpression"
       ) {
         if (
