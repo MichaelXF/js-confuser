@@ -149,7 +149,7 @@ export default class Shuffle extends Transform {
         var varDeclarator = parents[0];
         if (varDeclarator.type == "VariableDeclarator") {
           var varDec = parents[2];
-          if (varDec.type == "VariableDeclaration") {
+          if (varDec.type == "VariableDeclaration" && varDec.kind !== "const") {
             var body = parents[3];
             if (
               varDec.declarations.length == 1 &&
