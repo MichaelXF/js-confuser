@@ -27,6 +27,8 @@ export default class SwitchCaseObfuscation extends Transform {
       !object.cases.find(
         (x) =>
           !(
+            x.test &&
+            typeof x.test === "object" &&
             x.test.type == "Literal" &&
             typeof x.test.value === "number" &&
             Math.abs(x.test.value) < 100_000

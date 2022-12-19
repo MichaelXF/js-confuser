@@ -299,3 +299,25 @@ test("Variant #15: Removing implied 'return'", async () => {
 
   expect(output2).toContain("return");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/43
+test("Variant #16: Handle deconstructuring in for loop", async ()=>{
+// Valid
+var output = await JsConfuser(
+    `
+    for(const [a] of [[1]]) {
+        input(a);
+    }
+  `,
+    { target: "node", minify: true }
+  );
+
+  var value;
+  function input(valueIn){
+    value = valueIn;
+  }
+
+  eval(output);
+
+  expect(value).toStrictEqual(1);
+})
