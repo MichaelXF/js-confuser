@@ -199,8 +199,8 @@ export default class OpaquePredicates extends Transform {
       }
 
       var cloned = clone(expr);
-      if (object.type == "SwitchCase") {
-        var matching = Identifier(choice(["undefined", "null"]));
+      if (object.type == "SwitchCase" && object.test) {
+        var matching: Node = Identifier(choice(["undefined", "null"]));
 
         var test = object.test;
 
