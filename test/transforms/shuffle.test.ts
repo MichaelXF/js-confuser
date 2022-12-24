@@ -104,7 +104,6 @@ it("Should properly apply to const variables", async () => {
     });
 
     expect(output).toContain("TEST_ARRAY=function");
-    expect(output).not.toContain("1,2,3,4,5,6,7,8,9");
   
     var value;
     function input(valueIn) {
