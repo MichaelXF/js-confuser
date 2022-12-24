@@ -1,3 +1,10 @@
+# `1.5.4`
+Small fix
+
+- Fixed [#45](https://github.com/MichaelXF/js-confuser/issues/45)
+- - Opaque predicates fixed to not this cause error
+
+
 # `1.5.3`
 Shuffle fix
 
