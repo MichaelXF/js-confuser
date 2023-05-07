@@ -1,3 +1,15 @@
+# `1.5.5`
+Updates
+
+- Fixed [#53](https://github.com/MichaelXF/js-confuser/issues/53)
+- - Shuffle to not use common varialbe names like `x`
+
+- Fixed [#59](https://github.com/MichaelXF/js-confuser/issues/59)
+- - Rename Variables to properly handle function parameters
+
+- Fixed [#62](https://github.com/MichaelXF/js-confuser/issues/62)
+- - Rename Variables to properly handle catch-clause parameters
+
 # `1.5.4`
 Small fix
 
