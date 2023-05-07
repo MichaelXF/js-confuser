@@ -10,6 +10,7 @@ import {
   getLexContext,
   isContext,
   getReferencingContexts,
+  getAllDefiningContexts,
 } from "../../util/insert";
 import Transform from "../transform";
 
@@ -86,7 +87,7 @@ export default class VariableAnalysis extends Transform {
         }
 
         var definingContexts = info.spec.isDefined
-          ? [getDefiningContext(o, p)]
+          ? getAllDefiningContexts(o, p)
           : getReferencingContexts(o, p, info);
 
         ok(definingContexts.length);
