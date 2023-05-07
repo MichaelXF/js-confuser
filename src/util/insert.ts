@@ -125,6 +125,33 @@ export function getDefiningContext(o: Node, p: Node[]): Node {
   return getVarContext(o, p);
 }
 
+/**
+ * A more accurate context finding function.
+ * @param o Object
+ * @param p Parents
+ * @returns Contexts
+ */
+export function getAllDefiningContexts(o: Node, p: Node[]): Node[] {
+  var contexts = [getDefiningContext(o, p)];
+
+  var info = getIdentifierInfo(o, p);
+  if (info.isFunctionParameter) {
+    // Get Function
+    var fn = getFunction(o, p);
+
+    contexts.push(fn.body);
+  }
+
+  if (info.isClauseParameter) {
+    var catchClause = p.find((x) => x.type === "CatchClause");
+    if (catchClause) {
+      contexts.push(catchClause.body);
+    }
+  }
+
+  return contexts;
+}
+
 export function getReferencingContexts(
   o: Node,
   p: Node[],

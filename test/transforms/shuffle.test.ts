@@ -92,25 +92,44 @@ it("should shuffle arrays based on hash and unshuffle incorrect if changed", asy
 
 // https://github.com/MichaelXF/js-confuser/issues/48
 it("Should properly apply to const variables", async () => {
-    var code = `
+  var code = `
       const TEST_ARRAY = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   
       input(TEST_ARRAY);
     `;
 
-    var output = await JsConfuser(code, {
-      target: "browser",
-      shuffle: true,
-    });
-
-    expect(output).toContain("TEST_ARRAY=function");
-  
-    var value;
-    function input(valueIn) {
-      value = valueIn;
-    }
-  
-    eval(output);
-  
-    expect(value).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  var output = await JsConfuser(code, {
+    target: "browser",
+    shuffle: true,
   });
+
+  expect(output).toContain("TEST_ARRAY=function");
+
+  var value;
+  function input(valueIn) {
+    value = valueIn;
+  }
+
+  eval(output);
+
+  expect(value).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+});
+
+// https://github.com/MichaelXF/js-confuser/issues/53
+it("Should not use common variable names like x", async () => {
+  var code = `
+      let x = -999;
+      let a = [1, 2, 3, 4, 5, 6];
+
+      VALUE = a;
+    `;
+
+  var output = await JsConfuser(code, {
+    target: "browser",
+    shuffle: true,
+  });
+
+  var VALUE;
+  eval(output);
+  expect(VALUE).toEqual([1, 2, 3, 4, 5, 6]);
+});

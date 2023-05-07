@@ -401,3 +401,38 @@ test("Variant #16: Function with multiple parameters and a default value", async
 
   expect(value).toStrictEqual("Success!");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/60
+test("Variant #17: Function parameter and lexical variable clash", async () => {
+  var code = `
+  function fun1(a) {
+    let b;
+  }
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    renameVariables: true,
+    renameGlobals: true,
+  });
+
+  eval(output);
+});
+
+test("Variant #18: Catch parameter and lexical variable clash", async () => {
+  var code = `
+  try {
+
+  } catch (a){
+    let b;
+  } 
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    renameVariables: true,
+    renameGlobals: true,
+  });
+
+  eval(output);
+});
