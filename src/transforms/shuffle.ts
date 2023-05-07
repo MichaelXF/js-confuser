@@ -166,19 +166,23 @@ export default class Shuffle extends Transform {
         }
 
         if (mode !== "hash") {
+          var varPrefix = this.getPlaceholder();
           code.push(
             Template(`
-            for ( var x = 16; x%4 === 0; x++) {
-              var z = 0;
+            for ( var ${varPrefix}x = 16; ${varPrefix}x%4 === 0; ${varPrefix}x++) {
+              var ${varPrefix}z = 0;
               ${
                 inPlace ? `${inPlaceName} = ${name}` : name
               } = ${name}.concat((function(){
-                z++;
-                if(z === 1){
+                ${varPrefix}z++;
+                if(${varPrefix}z === 1){
                   return [];
                 }
 
-                for( var i = ${getRandomInteger(5, 105)}; i; i-- ){
+                for( var ${varPrefix}i = ${getRandomInteger(
+              5,
+              105
+            )}; ${varPrefix}i; ${varPrefix}i-- ){
                   ${name}.unshift(${name}.pop());
                 }
                 return [];
