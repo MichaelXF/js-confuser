@@ -4,7 +4,7 @@ Updates
 - Fixed [#53](https://github.com/MichaelXF/js-confuser/issues/53)
 - - Shuffle to not use common varialbe names like `x`
 
-- Fixed [#59](https://github.com/MichaelXF/js-confuser/issues/59)
+- Fixed [#60](https://github.com/MichaelXF/js-confuser/issues/60)
 - - Rename Variables to properly handle function parameters
 
 - Fixed [#62](https://github.com/MichaelXF/js-confuser/issues/62)
