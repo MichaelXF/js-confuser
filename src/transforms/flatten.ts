@@ -328,8 +328,8 @@ export default class Flatten extends Transform {
       var pop = CallExpression(
         MemberExpression(
           MemberExpression(Identifier(resultName), Identifier(propName), false),
-          Identifier("pop"),
-          false
+          Literal("pop"),
+          true
         ),
         []
       );
