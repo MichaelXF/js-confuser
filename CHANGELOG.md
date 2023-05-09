@@ -1,8 +1,26 @@
+# `1.5.6`
+Website changed and RGF fixes
+
+The website is back at a different domain now: [https://master--hungry-shannon-c1ce6b.netlify.app/](https://master--hungry-shannon-c1ce6b.netlify.app/)
+
+This update focuses on fixing RGF bugs
+
+- Fixed [#64](https://github.com/MichaelXF/js-confuser/issues/64)
+- - RGF to properly handle Arrow functions and function expressions
+
+- RGF will no longer change getter/setter methods
+
+- RGF will no longer change class methods
+
+- RGF now works when using `mangled` variable names
+
+- Minify will remove unreachable code following a Throw statement
+
 # `1.5.5`
 Updates
 
 - Fixed [#53](https://github.com/MichaelXF/js-confuser/issues/53)
-- - Shuffle to not use common varialbe names like `x`
+- - Shuffle to not use common variable names like `x`
 
 - Fixed [#60](https://github.com/MichaelXF/js-confuser/issues/60)
 - - Rename Variables to properly handle function parameters
@@ -447,7 +465,7 @@ Available now on NPM: https://www.npmjs.com/package/js-confuser
 # `1.1.7`
 Website is Live
 
-- [JsConfuser.com](https://jsconfuser.com) is live!
+- [https://master--hungry-shannon-c1ce6b.netlify.app/](https://master--hungry-shannon-c1ce6b.netlify.app/) is live!
 - Check out the [js-confuser-website](https://github.com/MichaelXF/js-confuser-website) repo for more info
 
 - **⚠️ Breaking change**: `Rename Globals` is now enabled by default

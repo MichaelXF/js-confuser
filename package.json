@@ -1,6 +1,6 @@
 {
   "name": "js-confuser",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "JavaScript Obfuscation Tool.",
   "main": "dist/index.js",
   "types": "index.d.ts",
@@ -45,7 +45,7 @@
   "bugs": {
     "url": "https://github.com/MichaelXF/js-confuser/issues"
   },
-  "homepage": "https://jsconfuser.com",
+  "homepage": "https://master--hungry-shannon-c1ce6b.netlify.app/",
   "jest": {
     "coverageReporters": [
       "html"

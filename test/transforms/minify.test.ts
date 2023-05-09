@@ -301,9 +301,9 @@ test("Variant #15: Removing implied 'return'", async () => {
 });
 
 // https://github.com/MichaelXF/js-confuser/issues/43
-test("Variant #16: Handle deconstructuring in for loop", async ()=>{
-// Valid
-var output = await JsConfuser(
+test("Variant #16: Handle deconstructuring in for loop", async () => {
+  // Valid
+  var output = await JsConfuser(
     `
     for(const [a] of [[1]]) {
         input(a);
@@ -313,11 +313,56 @@ var output = await JsConfuser(
   );
 
   var value;
-  function input(valueIn){
+  function input(valueIn) {
     value = valueIn;
   }
 
   eval(output);
 
   expect(value).toStrictEqual(1);
-})
+});
+
+test("Variant #17: Remove unreachable code following a return statement", async () => {
+  var output = await JsConfuser(
+    `
+    function myFunction(){
+      return;
+      unreachableStmt;
+    }
+  `,
+    { target: "node", minify: true }
+  );
+
+  expect(output).not.toContain("unreachableStmt");
+});
+
+test("Variant #18: Remove unreachable code following a continue or break statement", async () => {
+  var output = await JsConfuser(
+    `
+    for(var i =0; i < 10; i++){
+      continue;
+      unreachableStmt
+    }
+
+    while(true){
+      break;
+      unreachableStmt
+    }
+  `,
+    { target: "node", minify: true }
+  );
+
+  expect(output).not.toContain("unreachableStmt");
+});
+
+test("Variant #19: Remove unreachable code following a throw statement", async () => {
+  var output = await JsConfuser(
+    `
+    throw new Error("No more code to run");
+    unreachableStmt;
+  `,
+    { target: "node", minify: true }
+  );
+
+  expect(output).not.toContain("unreachableStmt");
+});

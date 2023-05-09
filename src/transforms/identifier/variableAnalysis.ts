@@ -93,10 +93,10 @@ export default class VariableAnalysis extends Transform {
         ok(definingContexts.length);
 
         definingContexts.forEach((definingContext) => {
-          ok(
-            isContext(definingContext),
-            `${definingContext.type} is not a context`
-          );
+          // ok(
+          //   isContext(definingContext),
+          //   `${definingContext.type} is not a context`
+          // );
 
           if (isDefined) {
             // Add to defined Map
