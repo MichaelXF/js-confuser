@@ -7,7 +7,10 @@ import Template from "../templates/template";
 import traverse, { walk } from "../traverse";
 import {
   ArrayExpression,
+  AssignmentExpression,
   CallExpression,
+  ConditionalExpression,
+  ExpressionStatement,
   FunctionExpression,
   Identifier,
   Literal,
@@ -28,6 +31,7 @@ import {
   isFunction,
   prepend,
 } from "../util/insert";
+import { getRandomString } from "../util/random";
 import Transform from "./transform";
 
 /**
@@ -70,6 +74,8 @@ export default class RGF extends Transform {
       }[] = [];
       var queue: Location[] = [];
       var names = new Map<string, number>();
+      var referenceSignatures: { [name: string]: string } = {};
+
       var definingNodes = new Map<string, Node>();
 
       walk(contextObject, contextParents, (object, parents) => {
@@ -81,6 +87,25 @@ export default class RGF extends Transform {
           !object.generator &&
           getVarContext(parents[0], parents.slice(1)) === contextObject
         ) {
+          // Discard getter/setter methods
+          if (parents[0].type === "Property" && parents[0].value === object) {
+            if (
+              parents[0].method ||
+              parents[0].kind === "get" ||
+              parents[0].kind === "set"
+            ) {
+              return;
+            }
+          }
+
+          // Discard class methods
+          if (
+            parents[0].type === "MethodDefinition" &&
+            parents[0].value === object
+          ) {
+            return;
+          }
+
           var defined = new Set<string>(),
             referenced = new Set<string>();
 
@@ -177,6 +202,8 @@ export default class RGF extends Transform {
             var index = names.size;
 
             names.set(object.id.name, index);
+            referenceSignatures[index] = getRandomString(10);
+
             definingNodes.set(object.id.name, object.id);
           }
         }
@@ -186,7 +213,8 @@ export default class RGF extends Transform {
         return;
       }
 
-      var referenceArray = this.generateIdentifier();
+      // An array containing all the function declarations
+      var referenceArray = "_" + getRandomString(10);
 
       walk(contextObject, contextParents, (o, p) => {
         if (o.type == "Identifier" && !reservedIdentifiers.has(o.name)) {
@@ -204,27 +232,50 @@ export default class RGF extends Transform {
                 if (pointingTo == shouldBe) {
                   this.log(o.name, "->", `${referenceArray}[${index}]`);
 
-                  this.replace(
-                    o,
-                    FunctionExpression(
-                      [],
-                      [
-                        ReturnStatement(
-                          CallExpression(
-                            MemberExpression(
-                              Identifier(referenceArray),
-                              Literal(index),
-                              true
-                            ),
-                            [
+                  var memberExpression = MemberExpression(
+                    Identifier(referenceArray),
+                    Literal(index),
+                    true
+                  );
+
+                  // Allow re-assignment to the RGF function
+                  if (
+                    p[0] &&
+                    p[0].type === "AssignmentExpression" &&
+                    p[0].left === o
+                  ) {
+                    // fn = ...
+
+                    this.replace(o, memberExpression);
+                  } else {
+                    // fn()
+                    // fn
+
+                    // In most cases the identifier is being used like this (call expression, or referenced to be called later)
+                    // Replace it with a simple wrapper function that will pass on the reference array
+
+                    var conditionalExpression = ConditionalExpression(
+                      Template(
+                        `typeof ${referenceArray}[${index}] === "function" && ${referenceArray}[${index}]["${
+                          referenceSignatures[index] || "_"
+                        }"]`
+                      ).single().expression,
+                      FunctionExpression(
+                        [],
+                        [
+                          ReturnStatement(
+                            CallExpression(memberExpression, [
                               Identifier(referenceArray),
                               SpreadElement(Identifier("arguments")),
-                            ]
-                          )
-                        ),
-                      ]
-                    )
-                  );
+                            ])
+                          ),
+                        ]
+                      ),
+                      memberExpression
+                    );
+
+                    this.replace(o, conditionalExpression);
+                  }
                 }
               }
             }
@@ -243,6 +294,7 @@ export default class RGF extends Transform {
         var name = object?.id?.name;
         var hasName = !!name;
         var params = object.params.map((x) => x.name) || [];
+        var signature = referenceSignatures[names.get(name)];
 
         var embeddedName = name || this.getPlaceholder();
 
@@ -280,11 +332,11 @@ export default class RGF extends Transform {
               CallExpression(
                 MemberExpression(
                   Identifier(embeddedName),
-                  Identifier("call"),
-                  false
+                  Literal("call"),
+                  true
                 ),
                 [
-                  ThisExpression(),
+                  Identifier("undefined"),
                   SpreadElement(
                     Template(
                       `Array.prototype.slice.call(arguments, 1)`
@@ -322,8 +374,38 @@ export default class RGF extends Transform {
           Literal(toString),
         ]);
 
-        if (hasName) {
-          arrayExpression.elements[names.get(name)] = newFunction;
+        function applySignature(fn) {
+          if (!signature) {
+            return fn;
+          }
+
+          // This code marks the function object with a unique property
+          return CallExpression(
+            FunctionExpression(
+              [],
+              [
+                VariableDeclaration(VariableDeclarator("fn", fn)),
+                ExpressionStatement(
+                  AssignmentExpression(
+                    "=",
+                    MemberExpression(
+                      Identifier("fn"),
+                      Literal(signature),
+                      true
+                    ),
+                    Literal(true)
+                  )
+                ),
+                ReturnStatement(Identifier("fn")),
+              ]
+            ),
+            []
+          );
+        }
+
+        if (object.type === "FunctionDeclaration") {
+          arrayExpression.elements[names.get(name)] =
+            applySignature(newFunction);
 
           if (Array.isArray(parents[0])) {
             parents[0].splice(parents[0].indexOf(object), 1);
@@ -336,7 +418,24 @@ export default class RGF extends Transform {
             );
           }
         } else {
-          this.replace(object, newFunction);
+          // The wrapper function passes the reference array around
+          var wrapperFunction = FunctionExpression(
+            [],
+            [
+              ReturnStatement(
+                CallExpression(
+                  MemberExpression(newFunction, Literal("call"), true),
+                  [
+                    Identifier("undefined"),
+                    Identifier(referenceArray),
+                    SpreadElement(Identifier("arguments")),
+                  ]
+                )
+              ),
+            ]
+          );
+
+          this.replace(object, applySignature(wrapperFunction));
         }
       });
     };

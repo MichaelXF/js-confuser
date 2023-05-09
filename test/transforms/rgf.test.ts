@@ -154,6 +154,103 @@ input(console.log, result)
     eval(output);
     expect(value).toStrictEqual(60);
   });
+
+  // https://github.com/MichaelXF/js-confuser/issues/64
+  it("should work on Arrow Functions", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+      var double = (num)=>num*2;
+      TEST_VALUE = double(10);
+      `,
+      {
+        target: "node",
+        rgf: true,
+      }
+    );
+
+    expect(output).toContain("new Function");
+
+    var TEST_VALUE;
+
+    eval(output);
+    expect(TEST_VALUE).toStrictEqual(20);
+  });
+
+  it("should work on Function Expressions", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+      var double = function(num){
+        return num * 2
+      };
+      TEST_VALUE = double(10);
+      `,
+      {
+        target: "node",
+        rgf: true,
+      }
+    );
+
+    expect(output).toContain("new Function");
+
+    var TEST_VALUE;
+
+    eval(output);
+    expect(TEST_VALUE).toStrictEqual(20);
+  });
+
+  it("should work on re-assigned functions", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+      var fn1 = ()=>{
+        return "FN1";
+      }
+      var fn2 = ()=>{
+        fn1 = ()=>{
+          return "FN1 - Modified"
+        }
+      }
+      fn2();
+      TEST_VALUE = fn1();
+      `,
+      {
+        target: "node",
+        rgf: true,
+      }
+    );
+
+    expect(output).toContain("new Function");
+
+    var TEST_VALUE;
+
+    eval(output);
+    expect(TEST_VALUE).toStrictEqual("FN1 - Modified");
+  });
+
+  it("should work on re-assigned functions to non-function values", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+      var fn1 = ()=>{
+        return "FN1";
+      }
+      var fn2 = ()=>{
+        fn1 = undefined;
+      }
+      fn2();
+      TEST_VALUE = typeof fn1;
+      `,
+      {
+        target: "node",
+        rgf: true,
+      }
+    );
+
+    expect(output).toContain("new Function");
+
+    var TEST_VALUE;
+
+    eval(output);
+    expect(TEST_VALUE).toStrictEqual("undefined");
+  });
 });
 
 describe("RGF with the 'all' mode", () => {
