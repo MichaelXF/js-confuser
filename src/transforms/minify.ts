@@ -61,9 +61,10 @@ export default class Minify extends Transform {
 
         body.forEach((stmt, i) => {
           if (
-            stmt.type == "ReturnStatement" ||
-            stmt.type == "BreakStatement" ||
-            stmt.type == "ContinueStatement"
+            stmt.type === "ReturnStatement" ||
+            stmt.type === "BreakStatement" ||
+            stmt.type === "ContinueStatement" ||
+            stmt.type === "ThrowStatement"
           ) {
             if (earlyReturn > i + 1) {
               earlyReturn = i + 1;
@@ -156,7 +157,7 @@ export default class Minify extends Transform {
               ) {
                 lastDec = x;
               } else {
-                lastDec.declarations.push(...x.declarations);
+                lastDec.declarations.push(...clone(x.declarations));
                 remove.unshift(i);
               }
             } else {
