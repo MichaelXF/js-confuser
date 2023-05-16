@@ -770,7 +770,10 @@ export function validateOptions(options: ObfuscateOptions) {
 
   if (options.lock) {
     // Validate browser-lock option
-    if (typeof options.lock.browserLock !== "undefined") {
+    if (
+      options.lock.browserLock &&
+      typeof options.lock.browserLock !== "undefined"
+    ) {
       ok(
         Array.isArray(options.lock.browserLock),
         "browserLock must be an array"
@@ -783,7 +786,7 @@ export function validateOptions(options: ObfuscateOptions) {
       );
     }
     // Validate os-lock option
-    if (typeof options.lock.osLock !== "undefined") {
+    if (options.lock.osLock && typeof options.lock.osLock !== "undefined") {
       ok(Array.isArray(options.lock.osLock), "osLock must be an array");
       ok(
         !options.lock.osLock.find((osName) => !validOses.has(osName)),
@@ -791,12 +794,15 @@ export function validateOptions(options: ObfuscateOptions) {
       );
     }
     // Validate domain-lock option
-    if (typeof options.lock.domainLock !== "undefined") {
+    if (
+      options.lock.domainLock &&
+      typeof options.lock.domainLock !== "undefined"
+    ) {
       ok(Array.isArray(options.lock.domainLock), "domainLock must be an array");
     }
 
     // Validate context option
-    if (typeof options.lock.context !== "undefined") {
+    if (options.lock.context && typeof options.lock.context !== "undefined") {
       ok(Array.isArray(options.lock.context), "context must be an array");
     }
 
