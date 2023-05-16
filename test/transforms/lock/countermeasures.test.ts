@@ -80,3 +80,21 @@ test("Variant #4: Should work when countermeasures is variable declaration", asy
     }
   );
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/66
+test("Variant #5: Should work with RGF enabled", async () => {
+  await JsConfuser.obfuscate(
+    `
+  function myCountermeasuresFunction(){
+
+  }
+  `,
+    {
+      target: "node",
+      lock: {
+        countermeasures: "myCountermeasuresFunction",
+      },
+      rgf: true,
+    }
+  );
+});

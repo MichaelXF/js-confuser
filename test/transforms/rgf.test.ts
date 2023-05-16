@@ -251,6 +251,43 @@ input(console.log, result)
     eval(output);
     expect(TEST_VALUE).toStrictEqual("undefined");
   });
+
+  it("should not apply to functions that reference their parent scope in the parameters", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+      var outsideVar = 0;
+      function myFunction(insideVar = outsideVar){
+      }
+      `,
+      {
+        target: "node",
+        rgf: true,
+      }
+    );
+
+    expect(output).not.toContain("new Function");
+  });
+
+  it("should not apply to functions that reference their parent scope in previously defined names", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+      var outsideVar = 0;
+      function myFunction(){
+        (function (){
+          var outsideVar;
+        })();
+
+        console.log(outsideVar);
+      }
+      `,
+      {
+        target: "node",
+        rgf: true,
+      }
+    );
+
+    expect(output).not.toContain("new Function");
+  });
 });
 
 describe("RGF with the 'all' mode", () => {

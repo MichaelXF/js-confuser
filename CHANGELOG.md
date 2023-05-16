@@ -1,3 +1,17 @@
+# `1.5.7`
+Countermeasures function fixes
+
+This update focuses on fixing Countermeasures bugs
+
+The `countermeasures` is custom callback function to invoke when a lock is triggered.
+
+- Fixed [#66](https://github.com/MichaelXF/js-confuser/issues/66)
+- - RGF to properly handle the countermeasures function
+
+- Added additional code to prevent an infinite loop from occurring
+
+- Slight improvements to RGF
+
 # `1.5.6`
 Website changed and RGF fixes
 

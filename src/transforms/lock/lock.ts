@@ -11,17 +11,12 @@ import {
   Literal,
   UnaryExpression,
   NewExpression,
-  FunctionDeclaration,
-  ReturnStatement,
   VariableDeclaration,
-  ObjectExpression,
-  Property,
-  ArrayExpression,
-  FunctionExpression,
   ThisExpression,
   VariableDeclarator,
   Location,
   LogicalExpression,
+  SequenceExpression,
 } from "../../util/gen";
 import traverse, { getBlock, isBlock } from "../../traverse";
 import { choice, getRandomInteger } from "../../util/random";
@@ -46,6 +41,12 @@ export default class Lock extends Transform {
   globalVar: string;
   counterMeasuresNode: Location;
   iosDetectFn: string;
+
+  /**
+   * This is a boolean variable injected into the source code determining wether the countermeasures function has been called.
+   * This is used to prevent infinite loops from happening
+   */
+  counterMeasuresActivated: string;
 
   made: number;
 
@@ -73,36 +74,32 @@ export default class Lock extends Transform {
       typeof this.options.lock.countermeasures === "string" &&
       isValidIdentifier(this.options.lock.countermeasures)
     ) {
-      var defined = new Set<string>();
       traverse(tree, (object, parents) => {
-        if (object.type == "Identifier") {
+        if (
+          object.type == "Identifier" &&
+          object.name === this.options.lock.countermeasures
+        ) {
           var info = getIdentifierInfo(object, parents);
           if (info.spec.isDefined) {
-            defined.add(object.name);
-            if (object.name === this.options.lock.countermeasures) {
-              if (this.counterMeasuresNode) {
+            if (this.counterMeasuresNode) {
+              throw new Error(
+                "Countermeasures function was already defined, it must have a unique name from the rest of your code"
+              );
+            } else {
+              var definingContext = getVarContext(parents[0], parents.slice(1));
+              if (definingContext != tree) {
                 throw new Error(
-                  "Countermeasures function was already defined, it must have a unique name from the rest of your code"
+                  "Countermeasures function must be defined at the global level"
                 );
-              } else {
-                var definingContext = getVarContext(
-                  parents[0],
-                  parents.slice(1)
-                );
-                if (definingContext != tree) {
-                  throw new Error(
-                    "Countermeasures function must be defined at the global level"
-                  );
-                }
-                var chain: Location = [object, parents];
-                if (info.isFunctionDeclaration) {
-                  chain = [parents[0], parents.slice(1)];
-                } else if (info.isVariableDeclaration) {
-                  chain = [parents[1], parents.slice(2)];
-                }
-
-                this.counterMeasuresNode = chain;
               }
+              var chain: Location = [object, parents];
+              if (info.isFunctionDeclaration) {
+                chain = [parents[0], parents.slice(1)];
+              } else if (info.isVariableDeclaration) {
+                chain = [parents[1], parents.slice(2)];
+              }
+
+              this.counterMeasuresNode = chain;
             }
           }
         }
@@ -120,7 +117,7 @@ export default class Lock extends Transform {
     super.apply(tree);
   }
 
-  getCounterMeasuresCode(): Node[] {
+  getCounterMeasuresCode(object: Node, parents: Node[]): Node[] {
     var opt = this.options.lock.countermeasures;
 
     if (opt === false) {
@@ -129,10 +126,30 @@ export default class Lock extends Transform {
 
     // Call function
     if (typeof opt === "string") {
+      if (!this.counterMeasuresActivated) {
+        this.counterMeasuresActivated = this.getPlaceholder();
+
+        prepend(
+          parents[parents.length - 1] || object,
+          VariableDeclaration(VariableDeclarator(this.counterMeasuresActivated))
+        );
+      }
+
       // Since Lock occurs before variable renaming, we are using the pre-obfuscated function name
       return [
         ExpressionStatement(
-          CallExpression(Template(opt).single().expression, [])
+          LogicalExpression(
+            "||",
+            Identifier(this.counterMeasuresActivated),
+            SequenceExpression([
+              AssignmentExpression(
+                "=",
+                Identifier(this.counterMeasuresActivated),
+                Literal(true)
+              ),
+              CallExpression(Template(opt).single().expression, []),
+            ])
+          )
         ),
       ];
     }
@@ -288,7 +305,7 @@ export default class Lock extends Transform {
           nodes.push(
             IfStatement(
               callExpression,
-              this.getCounterMeasuresCode() || [],
+              this.getCounterMeasuresCode(object, parents) || [],
               null
             )
           );
@@ -324,7 +341,11 @@ export default class Lock extends Transform {
             }
 
             nodes.push(
-              IfStatement(test, this.getCounterMeasuresCode() || [], null)
+              IfStatement(
+                test,
+                this.getCounterMeasuresCode(object, parents) || [],
+                null
+              )
             );
           }
 
@@ -338,7 +359,11 @@ export default class Lock extends Transform {
           );
 
           nodes.push(
-            IfStatement(test, this.getCounterMeasuresCode() || [], null)
+            IfStatement(
+              test,
+              this.getCounterMeasuresCode(object, parents) || [],
+              null
+            )
           );
 
           break;
@@ -351,13 +376,19 @@ export default class Lock extends Transform {
           );
 
           nodes.push(
-            IfStatement(test, this.getCounterMeasuresCode() || [], null)
+            IfStatement(
+              test,
+              this.getCounterMeasuresCode(object, parents) || [],
+              null
+            )
           );
 
           break;
 
         case "context":
           var prop = choice(this.options.lock.context);
+
+          var code = this.getCounterMeasuresCode(object, parents) || [];
 
           // Todo: Alternative to `this`
           if (!this.globalVar) {
@@ -384,9 +415,7 @@ export default class Lock extends Transform {
             "!",
             MemberExpression(Identifier(this.globalVar), Literal(prop), true)
           );
-          nodes.push(
-            IfStatement(test, this.getCounterMeasuresCode() || [], null)
-          );
+          nodes.push(IfStatement(test, code, null));
 
           break;
 
@@ -396,6 +425,8 @@ export default class Lock extends Transform {
           ).single().expression;
 
           ok(this.options.lock.osLock);
+
+          var code = this.getCounterMeasuresCode(object, parents) || [];
 
           this.options.lock.osLock.forEach((osName) => {
             var agentMatcher = {
@@ -449,9 +480,7 @@ export default class Lock extends Transform {
           });
 
           test = UnaryExpression("!", { ...test });
-          nodes.push(
-            IfStatement(test, this.getCounterMeasuresCode() || [], null)
-          );
+          nodes.push(IfStatement(test, code, null));
           break;
 
         case "browserLock":
@@ -488,7 +517,11 @@ export default class Lock extends Transform {
 
           test = UnaryExpression("!", { ...test });
           nodes.push(
-            IfStatement(test, this.getCounterMeasuresCode() || [], null)
+            IfStatement(
+              test,
+              this.getCounterMeasuresCode(object, parents) || [],
+              null
+            )
           );
           break;
 
@@ -540,7 +573,11 @@ export default class Lock extends Transform {
               );
             }
             nodes.push(
-              IfStatement(test, this.getCounterMeasuresCode() || [], null)
+              IfStatement(
+                test,
+                this.getCounterMeasuresCode(object, parents) || [],
+                null
+              )
             );
           }
 
