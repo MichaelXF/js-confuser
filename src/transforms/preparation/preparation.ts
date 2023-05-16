@@ -3,24 +3,11 @@
  */
 import Transform from "../transform";
 
-import {
-  BlockStatement,
-  Identifier,
-  LabeledStatement,
-  Literal,
-  Location,
-  Node,
-  ReturnStatement,
-} from "../../util/gen";
+import { BlockStatement, Literal, ReturnStatement } from "../../util/gen";
 import { ObfuscateOrder } from "../../order";
-import { getIndexDirect, clone, getFunction } from "../../util/insert";
-import { ok } from "assert";
+import { clone, getFunction } from "../../util/insert";
 import { getIdentifierInfo } from "../../util/identifiers";
-import { walk } from "../../traverse";
 import Label from "../label";
-import NameConflicts from "./nameConflicts";
-import AntiDestructuring from "../es5/antiDestructuring";
-import { OPERATOR_PRECEDENCE } from "../../precedence";
 import { isLoop } from "../../util/compare";
 
 /**
@@ -181,12 +168,6 @@ export default class Preparation extends Transform {
     this.before.push(new Label(o));
     this.before.push(new ExplicitIdentifiers(o));
     this.before.push(new ExplicitDeclarations(o));
-
-    if (this.options.es5) {
-      this.before.push(new AntiDestructuring(o));
-    }
-
-    // this.before.push(new NameConflicts(o));
   }
 
   match() {

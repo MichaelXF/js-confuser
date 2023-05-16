@@ -30,6 +30,7 @@ import {
   isVarContext,
   isFunction,
   prepend,
+  getDefiningContext,
 } from "../util/insert";
 import { getRandomString } from "../util/random";
 import Transform from "./transform";
@@ -106,12 +107,44 @@ export default class RGF extends Transform {
             return;
           }
 
+          // Avoid applying to the countermeasures function
+          if (typeof this.options.lock?.countermeasures === "string") {
+            // function countermeasures(){...}
+            if (
+              object.type === "FunctionDeclaration" &&
+              object.id.type === "Identifier" &&
+              object.id.name === this.options.lock.countermeasures
+            ) {
+              return;
+            }
+
+            // var countermeasures = function(){...}
+            if (
+              parents[0].type === "VariableDeclarator" &&
+              parents[0].init === object &&
+              parents[0].id.type === "Identifier" &&
+              parents[0].id.name === this.options.lock.countermeasures
+            ) {
+              return;
+            }
+          }
+
           var defined = new Set<string>(),
             referenced = new Set<string>();
 
           var isBound = false;
 
-          walk(object.body, [object, ...parents], (o, p) => {
+          /**
+           * The fnTraverses serves two important purposes
+           *
+           * - Identify all the variables referenced and defined here
+           * - Identify is the 'this' keyword is used anywhere
+           *
+           * @param o
+           * @param p
+           * @returns
+           */
+          const fnTraverser = (o, p) => {
             if (
               o.type == "Identifier" &&
               !reservedIdentifiers.has(o.name) &&
@@ -121,7 +154,7 @@ export default class RGF extends Transform {
               if (!info.spec.isReferenced) {
                 return;
               }
-              if (info.spec.isDefined) {
+              if (info.spec.isDefined && getDefiningContext(o, p) === object) {
                 defined.add(o.name);
               } else {
                 referenced.add(o.name);
@@ -131,7 +164,10 @@ export default class RGF extends Transform {
             if (o.type == "ThisExpression" || o.type == "Super") {
               isBound = true;
             }
-          });
+          };
+
+          walk(object.params, [object, ...parents], fnTraverser);
+          walk(object.body, [object, ...parents], fnTraverser);
 
           if (!isBound) {
             defined.forEach((identifier) => {

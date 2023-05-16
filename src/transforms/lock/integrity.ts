@@ -195,7 +195,10 @@ export default class Integrity extends Transform {
     }
 
     return () => {
-      object.__hiddenCountermeasures = this.lock.getCounterMeasuresCode();
+      object.__hiddenCountermeasures = this.lock.getCounterMeasuresCode(
+        object,
+        parents
+      );
 
       object.$eval = () => {
         var functionName = this.generateIdentifier();
@@ -257,6 +260,15 @@ export default class Integrity extends Transform {
           ),
           ifStatement,
         ]);
+
+        // Make sure the countermeasures activation variable is present
+        if (this.lock.counterMeasuresActivated) {
+          object.body.body.unshift(
+            VariableDeclaration(
+              VariableDeclarator(this.lock.counterMeasuresActivated)
+            )
+          );
+        }
 
         if (object.type == "ArrowFunctionExpression") {
           object.type = "FunctionExpression";
