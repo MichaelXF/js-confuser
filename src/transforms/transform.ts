@@ -407,7 +407,7 @@ export default class Transform {
   }
 
   /**
-   * Verbose logging for warning/importing messages.
+   * Verbose logging for warning/important messages.
    * @param messages
    */
   warn(...messages: any[]) {

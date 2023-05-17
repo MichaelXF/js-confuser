@@ -47,6 +47,7 @@ import ChoiceFlowObfuscation from "./choiceFlowObfuscation";
 import ControlFlowObfuscation from "./controlFlowObfuscation";
 import ExpressionObfuscation from "./expressionObfuscation";
 import SwitchCaseObfuscation from "./switchCaseObfuscation";
+import { isModuleSource } from "../string/stringConcealing";
 
 var flattenStructures = new Set([
   "IfStatement",
@@ -226,6 +227,13 @@ export default class ControlFlowFlattening extends Transform {
         fnNames.delete(illegal);
       });
 
+      var importDeclarations = [];
+      for (var stmt of body) {
+        if (stmt.type === "ImportDeclaration") {
+          importDeclarations.push(stmt);
+        }
+      }
+
       var fraction = 0.9;
       if (body.length > 20) {
         fraction /= Math.max(1.2, body.length - 18);
@@ -285,6 +293,7 @@ export default class ControlFlowFlattening extends Transform {
             if (
               o.type == "Literal" &&
               typeof o.value == "string" &&
+              !isModuleSource(o, p) &&
               !o.regex &&
               Math.random() / (Object.keys(stringBank).length / 2 + 1) > 0.5
             ) {
@@ -318,7 +327,10 @@ export default class ControlFlowFlattening extends Transform {
         };
 
         body.forEach((stmt, i) => {
-          if (functionDeclarations.has(stmt)) {
+          if (
+            functionDeclarations.has(stmt) ||
+            stmt.type === "ImportDeclaration"
+          ) {
             return;
           }
 
@@ -1045,6 +1057,9 @@ export default class ControlFlowFlattening extends Transform {
       var discriminant = Template(`${stateVars.join("+")}`).single().expression;
 
       body.length = 0;
+      for (var importDeclaration of importDeclarations) {
+        body.push(importDeclaration);
+      }
 
       if (functionDeclarations.size) {
         functionDeclarations.forEach((x) => {

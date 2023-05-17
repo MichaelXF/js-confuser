@@ -6,22 +6,18 @@ import { isDirective } from "../../util/compare";
 import {
   ArrayExpression,
   CallExpression,
-  ConditionalExpression,
-  FunctionDeclaration,
   FunctionExpression,
   Identifier,
-  IfStatement,
   Literal,
   MemberExpression,
   Node,
-  ReturnStatement,
-  SequenceExpression,
+  ObjectExpression,
+  Property,
   ThisExpression,
-  UpdateExpression,
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
-import { append, isLexContext, isVarContext, prepend } from "../../util/insert";
+import { append, prepend } from "../../util/insert";
 import { choice, getRandomInteger, getRandomString } from "../../util/random";
 import Transform from "../transform";
 import Encoding from "./encoding";
@@ -65,6 +61,7 @@ export default class StringConcealing extends Transform {
   ignore = new Set<string>();
   variablesMade = 1;
   encoding: { [type: string]: string } = Object.create(null);
+  gen: ReturnType<Transform["getGenerator"]>;
 
   hasAllEncodings: boolean;
 
@@ -75,11 +72,12 @@ export default class StringConcealing extends Transform {
     this.index = Object.create(null);
     this.arrayExpression = ArrayExpression([]);
     this.hasAllEncodings = false;
+    this.gen = this.getGenerator();
 
     // Pad array with useless strings
-    var dead = getRandomInteger(4, 10);
+    var dead = getRandomInteger(5, 15);
     for (var i = 0; i < dead; i++) {
-      var str = getRandomString(getRandomInteger(4, 20));
+      var str = getRandomString(getRandomInteger(5, 40));
       var fn = this.transform(Literal(str), []);
       if (fn) {
         fn();
@@ -134,7 +132,7 @@ export default class StringConcealing extends Transform {
                   VariableDeclarator("a", this.arrayExpression)
                 ),
                 Template(
-                  `return (${flowIntegrity} ? a.pop() : ${flowIntegrity}++, a)`
+                  `return (${flowIntegrity} ? a["pop"]() : ${flowIntegrity}++, a)`
                 ).single(),
               ]
             ),
@@ -159,7 +157,11 @@ export default class StringConcealing extends Transform {
   transform(object: Node, parents: Node[]) {
     return () => {
       // Empty strings are discarded
-      if (!object.value || this.ignore.has(object.value)) {
+      if (
+        !object.value ||
+        this.ignore.has(object.value) ||
+        object.value.length == 0
+      ) {
         return;
       }
 
@@ -188,69 +190,131 @@ export default class StringConcealing extends Transform {
       var encoded = encoder.encode(object.value);
       if (encoder.decode(encoded) != object.value) {
         this.ignore.add(object.value);
-        this.warn(object.value.slice(0, 100));
+        this.warn(type, object.value.slice(0, 100));
         return;
       }
 
-      // Fix 1. weird undefined error
-      if (object.value && object.value.length > 0) {
-        var index = -1;
-        if (!this.set.has(object.value)) {
-          this.arrayExpression.elements.push(Literal(encoded));
-          index = this.arrayExpression.elements.length - 1;
-          this.index[object.value] = [index, fnName];
+      var index = -1;
+      if (!this.set.has(object.value)) {
+        this.arrayExpression.elements.push(Literal(encoded));
+        index = this.arrayExpression.elements.length - 1;
+        this.index[object.value] = [index, fnName];
 
-          this.set.add(object.value);
-        } else {
-          [index, fnName] = this.index[object.value];
-          ok(typeof index === "number");
+        this.set.add(object.value);
+      } else {
+        [index, fnName] = this.index[object.value];
+        ok(typeof index === "number");
+      }
+
+      ok(index != -1, "index == -1");
+
+      var callExpr = CallExpression(Identifier(fnName), [Literal(index)]);
+
+      // use `.apply` to fool automated de-obfuscators
+      if (Math.random() > 0.5) {
+        callExpr = CallExpression(
+          MemberExpression(Identifier(fnName), Identifier("apply"), false),
+          [ThisExpression(), ArrayExpression([Literal(index)])]
+        );
+      }
+
+      // use `.call`
+      else if (Math.random() > 0.5) {
+        callExpr = CallExpression(
+          MemberExpression(Identifier(fnName), Identifier("call"), false),
+          [ThisExpression(), Literal(index)]
+        );
+      }
+
+      var referenceType = "call";
+      if (parents.length && Math.random() < 0.5 / this.variablesMade) {
+        referenceType = "constantReference";
+      }
+
+      var newExpr: Node = callExpr;
+
+      if (referenceType === "constantReference") {
+        // Define the string earlier, reference the name here
+        this.variablesMade++;
+
+        var constantReferenceType = choice(["variable", "array", "object"]);
+
+        var place = choice(parents.filter((node) => isBlock(node)));
+        if (!place) {
+          this.error(new Error("No lexical block to insert code"));
         }
 
-        ok(index != -1, "index == -1");
+        switch (constantReferenceType) {
+          case "variable":
+            var name = this.getPlaceholder();
 
-        var callExpr = CallExpression(Identifier(fnName), [Literal(index)]);
+            prepend(
+              place,
+              VariableDeclaration(VariableDeclarator(name, callExpr))
+            );
 
-        // use `.apply` to fool automated de-obfuscators
-        if (Math.random() > 0.5) {
-          callExpr = CallExpression(
-            MemberExpression(Identifier(fnName), Identifier("apply"), false),
-            [ThisExpression(), ArrayExpression([Literal(index)])]
-          );
-        }
+            newExpr = Identifier(name);
+            break;
+          case "array":
+            if (!place.$stringConcealingArray) {
+              place.$stringConcealingArray = ArrayExpression([]);
+              place.$stringConcealingArrayName = this.getPlaceholder();
 
-        // use `.call`
-        else if (Math.random() > 0.5) {
-          callExpr = CallExpression(
-            MemberExpression(Identifier(fnName), Identifier("call"), false),
-            [ThisExpression(), Literal(index)]
-          );
-        }
+              prepend(
+                place,
+                VariableDeclaration(
+                  VariableDeclarator(
+                    place.$stringConcealingArrayName,
+                    place.$stringConcealingArray
+                  )
+                )
+              );
+            }
 
-        var constantReference =
-          parents.length && Math.random() > 0.5 / this.variablesMade;
+            var arrayIndex = place.$stringConcealingArray.elements.length;
 
-        if (constantReference) {
-          // Define the string earlier, reference the name here
+            place.$stringConcealingArray.elements.push(callExpr);
 
-          var name = this.getPlaceholder();
+            var memberExpression = MemberExpression(
+              Identifier(place.$stringConcealingArrayName),
+              Literal(arrayIndex),
+              true
+            );
 
-          var place = choice(parents.filter((node) => isBlock(node)));
-          if (!place) {
-            this.error(Error("No lexical block to insert code"));
-          }
+            newExpr = memberExpression;
+            break;
+          case "object":
+            if (!place.$stringConcealingObject) {
+              place.$stringConcealingObject = ObjectExpression([]);
+              place.$stringConcealingObjectName = this.getPlaceholder();
 
-          place.body.unshift(
-            VariableDeclaration(VariableDeclarator(name, callExpr))
-          );
+              prepend(
+                place,
+                VariableDeclaration(
+                  VariableDeclarator(
+                    place.$stringConcealingObjectName,
+                    place.$stringConcealingObject
+                  )
+                )
+              );
+            }
 
-          this.replaceIdentifierOrLiteral(object, Identifier(name), parents);
+            var propName = this.gen.generate();
+            var property = Property(Literal(propName), callExpr, true);
+            place.$stringConcealingObject.properties.push(property);
 
-          this.variablesMade++;
-        } else {
-          // Direct call to the getter function
-          this.replaceIdentifierOrLiteral(object, callExpr, parents);
+            var memberExpression = MemberExpression(
+              Identifier(place.$stringConcealingObjectName),
+              Literal(propName),
+              true
+            );
+
+            newExpr = memberExpression;
+            break;
         }
       }
+
+      this.replaceIdentifierOrLiteral(object, newExpr, parents);
     };
   }
 }

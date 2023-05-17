@@ -10,6 +10,7 @@ import {
   isContext,
   isLexContext,
   getDefiningContext,
+  clone,
 } from "../../util/insert";
 import { isValidIdentifier } from "../../util/compare";
 import Transform from "../transform";
@@ -183,6 +184,24 @@ export default class RenameVariables extends Transform {
         if (newName && typeof newName === "string") {
           if (o.$renamed) {
             return;
+          }
+
+          // Strange behavior where the `local` and `imported` objects are the same
+          if (info.isImportSpecifier) {
+            var importSpecifierIndex = p.findIndex(
+              (x) => x.type === "ImportSpecifier"
+            );
+            if (
+              importSpecifierIndex != -1 &&
+              p[importSpecifierIndex].imported ===
+                (p[importSpecifierIndex - 1] || o) &&
+              p[importSpecifierIndex].imported &&
+              p[importSpecifierIndex].imported.type === "Identifier"
+            ) {
+              p[importSpecifierIndex].imported = clone(
+                p[importSpecifierIndex - 1] || o
+              );
+            }
           }
 
           // console.log(o.name, "->", newName);

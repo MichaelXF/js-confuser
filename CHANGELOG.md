@@ -1,3 +1,17 @@
+# `1.5.8`
+Several fixes
+
+- Fixed [#46](https://github.com/MichaelXF/js-confuser/issues/46)
+- - Updated the validation on `lock` options
+
+- Fixed [#68](https://github.com/MichaelXF/js-confuser/issues/68)
+- - Name Recycling fixed to not break certain function declarations
+
+- Fixed [#69](https://github.com/MichaelXF/js-confuser/issues/69), [#70](https://github.com/MichaelXF/js-confuser/issues/70) and [#71](https://github.com/MichaelXF/js-confuser/issues/71)
+- - Import statements to be properly handled
+
+- Slight improvements to String Concealing
+
 # `1.5.7`
 Countermeasures function fixes
 
