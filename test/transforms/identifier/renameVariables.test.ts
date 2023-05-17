@@ -436,3 +436,41 @@ test("Variant #18: Catch parameter and lexical variable clash", async () => {
 
   eval(output);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/69
+test("Variant #19: Don't break Import Declarations", async () => {
+  var output = await JsConfuser(
+    `
+  import { createHash } from 'node:crypto'
+
+  function sha256(content) {  
+    return createHash('sha256').update(content).digest('hex')
+  }
+
+  TEST_OUTPUT = sha256("Hash this string");
+  `,
+    {
+      target: "node",
+      renameVariables: true,
+    }
+  );
+
+  // Ensure the createHash got renamed
+  expect(output).toContain("createHash as ");
+
+  // Convert to runnable code
+  // This smartly changes the `import` statement to a require call, keeping the new variable name intact
+  var newVarName = output.split("createHash as ")[1].split("}")[0];
+  output = output
+    .split(";")
+    .filter((s) => !s.startsWith("import"))
+    .join(";");
+  output = `var {createHash: ${newVarName}}=require('crypto');` + output;
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(
+    "1cac63f39fd68d8c531f27b807610fb3d50f0fc3f186995767fb6316e7200a3e"
+  );
+});
