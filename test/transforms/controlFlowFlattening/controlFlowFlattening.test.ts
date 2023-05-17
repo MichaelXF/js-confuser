@@ -672,3 +672,39 @@ test("Variant #20: Don't apply when functions are redefined", async () => {
   eval(output);
   expect(TEST_ARRAY).toStrictEqual([0, 0, 0]);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/70
+test("Variant #21: Don't move Import Declarations", async () => {
+  var output = await JsConfuser(
+    `
+    import {createHash} from "crypto";
+    var inputString = "Hash this string";
+    var hashed = createHash("sha256").update(inputString).digest("hex");
+    TEST_OUTPUT = hashed;
+  `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  // Ensure Control Flow FLattening was applied
+  expect(output).toContain("switch");
+
+  // Ensure the import declaration wasn't moved
+  expect(output.startsWith("import")).toStrictEqual(true);
+
+  // Convert to runnable code
+  output = output.replace(
+    `import{createHash}from'crypto';`,
+    "const {createHash}=require('crypto');"
+  );
+
+  var TEST_OUTPUT = "";
+
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(
+    "1cac63f39fd68d8c531f27b807610fb3d50f0fc3f186995767fb6316e7200a3e"
+  );
+});
