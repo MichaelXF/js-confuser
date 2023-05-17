@@ -62,7 +62,7 @@ export default class AntiDebug extends Transform {
         IfStatement(
           Identifier(isDevName),
           this.options.lock.countermeasures
-            ? this.lock.getCounterMeasuresCode()
+            ? this.lock.getCounterMeasuresCode(tree.body, [tree])
             : [
                 WhileStatement(Identifier(isDevName), [
                   ExpressionStatement(
