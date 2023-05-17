@@ -164,3 +164,23 @@ it("should convert variable declarations in for loop initializers properly", asy
   expect(TEST_VAR_1).toStrictEqual("Hello World");
   expect(TEST_VAR_2).toStrictEqual("Number: 0");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/68
+it("should work on Function Declarations that are defined later in the code", async () => {
+  var output = await JsConfuser(
+    `
+  var result = MyFunction();
+  TEST_VAR = result;
+  
+  function MyFunction(b) {
+    return "Hello World";
+  }
+  `,
+    { target: "node", nameRecycling: true }
+  );
+
+  var TEST_VAR;
+  eval(output);
+
+  expect(TEST_VAR).toStrictEqual("Hello World");
+});

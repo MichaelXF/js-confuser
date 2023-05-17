@@ -97,8 +97,6 @@ export default class NameRecycling extends Transform {
                 return;
               }
 
-              lastReferenceMap.set(o.name, i);
-
               var comparingContext = info.spec.isDefined
                 ? getDefiningContext(o, p)
                 : getReferencingContexts(o, p).find((x) => isVarContext(x));
@@ -114,6 +112,13 @@ export default class NameRecycling extends Transform {
                 }
 
                 if (info.spec.isDefined) {
+                  // Function Declarations can be used before they're defined, if so, don't change this
+                  if (
+                    info.isFunctionDeclaration &&
+                    lastReferenceMap.has(o.name)
+                  ) {
+                    illegal.add(o.name);
+                  }
                   if (defined.has(o.name) || getBlock(o, p) !== object) {
                     illegal.add(o.name);
                   }
@@ -123,6 +128,8 @@ export default class NameRecycling extends Transform {
                   referencedHere.add(o.name);
                 }
               }
+
+              lastReferenceMap.set(o.name, i);
             };
           }
         });
