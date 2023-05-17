@@ -119,7 +119,11 @@ export default class NameRecycling extends Transform {
                   ) {
                     illegal.add(o.name);
                   }
-                  if (defined.has(o.name) || getBlock(o, p) !== object) {
+                  if (
+                    defined.has(o.name) ||
+                    getBlock(o, p) !== object ||
+                    info.isImportSpecifier
+                  ) {
                     illegal.add(o.name);
                   }
                   defined.add(o.name);

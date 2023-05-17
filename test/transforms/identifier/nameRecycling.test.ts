@@ -184,3 +184,22 @@ it("should work on Function Declarations that are defined later in the code", as
 
   expect(TEST_VAR).toStrictEqual("Hello World");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/71
+it("should work on Import Declarations", async () => {
+  var output = await JsConfuser(
+    `
+  import crypto from 'node:crypto'
+
+  var x = 1;
+  
+  console.log(x);
+  `,
+    {
+      target: "node",
+      nameRecycling: true,
+    }
+  );
+
+  expect(output).not.toContain("crypto=");
+});
