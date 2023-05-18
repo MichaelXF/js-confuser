@@ -366,3 +366,31 @@ test("Variant #19: Remove unreachable code following a throw statement", async (
 
   expect(output).not.toContain("unreachableStmt");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/76
+test("Variant #20: Properly handle objects with `, ^, [, ] as keys", async () => {
+  var output = await JsConfuser(
+    `
+  TEST_OBJECT = {
+    "\`": true,
+    "^": true,
+    "]": true,
+    "[": true
+  };
+  `,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
+
+  var TEST_OBJECT;
+  eval(output);
+
+  expect(TEST_OBJECT).toStrictEqual({
+    "`": true,
+    "^": true,
+    "]": true,
+    "[": true,
+  });
+});

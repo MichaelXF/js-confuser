@@ -53,8 +53,8 @@ export function isValidIdentifier(name: string): boolean {
     return false;
   }
 
-  var x = name.match(/^[A-z$_][A-z0-9$_]*/);
-  return x && x[0] == name;
+  var x = name.match(/^[A-Za-z$_][A-Za-z0-9$_]*/);
+  return !!(x && x[0] == name);
 }
 
 export function isInsideType(
