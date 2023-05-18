@@ -269,6 +269,7 @@ test("Variant #15: Removing implied 'return'", async () => {
   function MyFunction(){ 
     var output = "Hello World";
     console.log(output);
+    this; // Stop arrow function conversion
     return;
   } 
   
@@ -393,4 +394,41 @@ test("Variant #20: Properly handle objects with `, ^, [, ] as keys", async () =>
     "]": true,
     "[": true,
   });
+});
+
+// https://github.com/MichaelXF/js-confuser/issues/75
+test("Variant #21: Properly handle Object constructor (Function Declaration)", async () => {
+  var output = await JsConfuser(
+    `
+  function MyClass() {};
+
+  var myObject = new MyClass();
+
+  TEST_OUTPUT = myObject instanceof MyClass;
+  `,
+    { target: "node", minify: true }
+  );
+
+  var TEST_OUTPUT = false;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+test("Variant #22: Properly handle Object constructor (Function Expression)", async () => {
+  var output = await JsConfuser(
+    `
+  var MyClass = function() {};
+
+  var myObject = new MyClass();
+
+  TEST_OUTPUT = myObject instanceof MyClass;
+  `,
+    { target: "node", minify: true }
+  );
+
+  var TEST_OUTPUT = false;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
 });

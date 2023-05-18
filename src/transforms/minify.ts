@@ -15,6 +15,7 @@ import {
   AssignmentExpression,
   VariableDeclarator,
   Identifier,
+  CallExpression,
 } from "../util/gen";
 import {
   getBlockBody,
@@ -22,11 +23,13 @@ import {
   isForInitialize,
   isLexContext,
   getFunction,
+  prepend,
 } from "../util/insert";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
 import { walk, isBlock } from "../traverse";
 import { ok } from "assert";
 import { isLexicalScope } from "../util/scope";
+import Template from "../templates/template";
 
 /**
  * Basic transformations to reduce code size.
@@ -38,6 +41,11 @@ import { isLexicalScope } from "../util/scope";
  */
 export default class Minify extends Transform {
   variables: Map<Node, Location[]>;
+
+  /**
+   * A helper function that is introduced preserve function semantics
+   */
+  arrowFunctionName: string;
 
   constructor(o) {
     super(o, ObfuscateOrder.Minify);
@@ -239,17 +247,42 @@ export default class Minify extends Transform {
         });
 
         if (canTransform) {
+          if (!this.arrowFunctionName) {
+            this.arrowFunctionName = this.getPlaceholder();
+
+            prepend(
+              parents[parents.length - 1] || object,
+              Template(`
+            function ${this.arrowFunctionName}(arrowFn){
+              return function(){ return arrowFn(...arguments) }
+            }
+            `).single()
+            );
+          }
+
+          const wrap = (object: Node) => {
+            return CallExpression(Identifier(this.arrowFunctionName), [
+              clone(object),
+            ]);
+          };
+
           if (object.type == "FunctionExpression") {
             object.type = "ArrowFunctionExpression";
+
+            this.replace(object, wrap(clone(object)));
           } else {
             var arrow = { ...clone(object), type: "ArrowFunctionExpression" };
             this.replace(
               object,
-              VariableDeclaration(VariableDeclarator(object.id.name, arrow))
+              VariableDeclaration(
+                VariableDeclarator(object.id.name, wrap(arrow))
+              )
             );
 
             var x = this.transform(arrow, []);
-            x();
+            if (typeof x === "function") {
+              x();
+            }
           }
         }
       };
