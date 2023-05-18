@@ -104,7 +104,7 @@ export default class Dispatcher extends Transform {
         var illegalFnNames: Set<string> = new Set();
 
         // New Names for Functions
-        var newFnNames: { [name: string]: string } = {}; // [old name]: randomized name
+        var newFnNames: { [name: string]: string } = Object.create(null); // [old name]: randomized name
 
         var context = isVarContext(object)
           ? object
@@ -469,7 +469,7 @@ export default class Dispatcher extends Transform {
             }
 
             var newName = newFnNames[o.name];
-            if (!newName) {
+            if (!newName || typeof newName !== "string") {
               return;
             }
 

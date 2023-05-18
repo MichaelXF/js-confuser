@@ -330,3 +330,27 @@ it("should apply to every level of the code", async () => {
 
   expect(value).toStrictEqual(100);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/77
+it("should work with code that uses toString() function", async () => {
+  var output = await JsConfuser(
+    `
+  function myFunction(){
+    
+  }
+  
+  TEST_OUTPUT = toString();
+  `,
+    {
+      target: "node",
+      dispatcher: true,
+    }
+  );
+
+  var toString = () => "Correct Value";
+  var TEST_OUTPUT;
+
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
