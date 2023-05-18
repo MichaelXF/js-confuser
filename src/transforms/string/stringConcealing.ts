@@ -214,7 +214,7 @@ export default class StringConcealing extends Transform {
       if (Math.random() > 0.5) {
         callExpr = CallExpression(
           MemberExpression(Identifier(fnName), Identifier("apply"), false),
-          [ThisExpression(), ArrayExpression([Literal(index)])]
+          [Identifier("undefined"), ArrayExpression([Literal(index)])]
         );
       }
 
@@ -222,7 +222,7 @@ export default class StringConcealing extends Transform {
       else if (Math.random() > 0.5) {
         callExpr = CallExpression(
           MemberExpression(Identifier(fnName), Identifier("call"), false),
-          [ThisExpression(), Literal(index)]
+          [Identifier("undefined"), Literal(index)]
         );
       }
 
