@@ -97,7 +97,7 @@ export default class Obfuscator extends EventEmitter {
     test(options.stack, Stack);
     test(true, AntiTooling);
     test(options.hideInitializingCode, HideInitializingCode);
-    test(options.hexadecimalNumbers, HexadecimalNumbers);
+    test(true, HexadecimalNumbers); // BigInt support is included
 
     if (
       options.lock &&
