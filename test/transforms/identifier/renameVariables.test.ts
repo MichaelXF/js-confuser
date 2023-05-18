@@ -474,3 +474,29 @@ test("Variant #19: Don't break Import Declarations", async () => {
     "1cac63f39fd68d8c531f27b807610fb3d50f0fc3f186995767fb6316e7200a3e"
   );
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/80
+test("Variant #20: Don't break code with var and let variables in same scope", async () => {
+  var output = await JsConfuser(
+    `
+  function log(param) {
+    let message = param;
+    var isWarning = false;
+    var isError = false;
+  
+    TEST_OUTPUT = message;
+  };
+
+  log("Correct Value");
+  `,
+    {
+      target: "node",
+      renameVariables: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

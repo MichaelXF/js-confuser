@@ -113,8 +113,14 @@ export function getDefiningContext(o: Node, p: Node[]): Node {
     var variableDeclaration = p.find((x) => x.type == "VariableDeclaration");
     ok(variableDeclaration);
 
-    if (variableDeclaration.kind === "let") {
-      return getLexContext(o, p);
+    if (
+      variableDeclaration.kind === "let" ||
+      variableDeclaration.kind === "const"
+    ) {
+      var context = getVarContext(o, p);
+      if (context && context.type === "Program") {
+        return getLexContext(o, p);
+      }
     }
   }
 
