@@ -446,3 +446,24 @@ it("should not apply to objects with non-init properties (method, set, get)", as
   expect(output).toContain("TEST_OBJECT");
   expect(output).toContain("set ");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/78
+it("should handle objects with spread elements", async () => {
+  var output = await JsConfuser(
+    `
+    var x = { firstName: "John", lastName: "Doe" }
+    var y = { ...x };
+
+    TEST_OUTPUT = y;
+`,
+    {
+      target: "node",
+      objectExtraction: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual({ firstName: "John", lastName: "Doe" });
+});
