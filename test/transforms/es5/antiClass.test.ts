@@ -392,3 +392,36 @@ it("should work with stringConcealing and hide method names", async () => {
 
   expect(TEST_VALUE).toStrictEqual(100);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/72
+it("should support class fields", async () => {
+  var output = await JsConfuser(
+    `
+  class MyClass {
+    myField = 1;
+    ["myComputedField"] = 2;
+    
+    static myStaticField = 3;
+    static ["myComputedStaticField"] = 4;
+  }
+
+  var myObject = new MyClass();
+  TEST_OUTPUT_1 = myObject.myField;
+  TEST_OUTPUT_2 = myObject.myComputedField;
+  TEST_OUTPUT_3 = MyClass.myStaticField;
+  TEST_OUTPUT_4 = MyClass.myComputedStaticField;
+  `,
+    {
+      target: "node",
+      es5: true,
+    }
+  );
+
+  var TEST_OUTPUT_1, TEST_OUTPUT_2, TEST_OUTPUT_3, TEST_OUTPUT_4;
+
+  eval(output);
+  expect(TEST_OUTPUT_1).toStrictEqual(1);
+  expect(TEST_OUTPUT_2).toStrictEqual(2);
+  expect(TEST_OUTPUT_3).toStrictEqual(3);
+  expect(TEST_OUTPUT_4).toStrictEqual(4);
+});
