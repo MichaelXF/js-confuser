@@ -20,7 +20,13 @@ export default class ExpressionObfuscation extends Transform {
         if (stmt.type == "ExpressionStatement") {
           var expr = stmt.expression;
 
-          if (expr.type == "UnaryExpression" && exprs.length) {
+          if (
+            expr.type == "UnaryExpression" &&
+            !(
+              expr.operator === "typeof" && expr.argument.type === "Identifier"
+            ) &&
+            exprs.length // typeof is special
+          ) {
             expr.argument = SequenceExpression([
               ...exprs,
               { ...expr.argument },
@@ -38,7 +44,13 @@ export default class ExpressionObfuscation extends Transform {
                 stmt.test.type == "BinaryExpression" &&
                 stmt.test.operator !== "**"
               ) {
-                if (stmt.test.left.type == "UnaryExpression") {
+                if (
+                  stmt.test.left.type == "UnaryExpression" &&
+                  !(
+                    stmt.test.left.operator === "typeof" &&
+                    stmt.test.left.argument.type === "Identifier"
+                  ) // typeof is special
+                ) {
                   stmt.test.left.argument = SequenceExpression([
                     ...exprs,
                     { ...stmt.test.left.argument },

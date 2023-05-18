@@ -708,3 +708,25 @@ test("Variant #21: Don't move Import Declarations", async () => {
     "1cac63f39fd68d8c531f27b807610fb3d50f0fc3f186995767fb6316e7200a3e"
   );
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/81
+test("Variant #22: Don't break typeof expression", async () => {
+  var output = await JsConfuser(
+    `
+    TEST_OUTPUT = false;
+    if(typeof nonExistentVariable === "undefined") {
+      TEST_OUTPUT = true;
+    }
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
