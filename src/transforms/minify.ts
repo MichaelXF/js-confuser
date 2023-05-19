@@ -24,6 +24,7 @@ import {
   isLexContext,
   getFunction,
   prepend,
+  append,
 } from "../util/insert";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
 import { walk, isBlock } from "../traverse";
@@ -40,8 +41,6 @@ import Template from "../templates/template";
  * - `x['y']` **->** `x.y`
  */
 export default class Minify extends Transform {
-  variables: Map<Node, Location[]>;
-
   /**
    * A helper function that is introduced preserve function semantics
    */
@@ -49,8 +48,6 @@ export default class Minify extends Transform {
 
   constructor(o) {
     super(o, ObfuscateOrder.Minify);
-
-    this.variables = new Map();
   }
 
   match(object: Node, parents: Node[]) {
@@ -250,7 +247,7 @@ export default class Minify extends Transform {
           if (!this.arrowFunctionName) {
             this.arrowFunctionName = this.getPlaceholder();
 
-            prepend(
+            append(
               parents[parents.length - 1] || object,
               Template(`
             function ${this.arrowFunctionName}(arrowFn){
@@ -475,6 +472,8 @@ export default class Minify extends Transform {
         }
 
         if (
+          object.consequent &&
+          object.consequent.body &&
           object.consequent.body.length == 1 &&
           object.alternate &&
           object.alternate.body.length == 1

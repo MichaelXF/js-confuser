@@ -44,11 +44,11 @@ export enum ObfuscateOrder {
 
   MovedDeclarations = 26,
 
-  RenameVariables = 27,
+  RenameLabels = 27,
 
-  RenameLabels = 28,
+  Minify = 28,
 
-  Minify = 30,
+  RenameVariables = 30,
 
   ES5 = 31,
 
