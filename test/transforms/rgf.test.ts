@@ -288,6 +288,35 @@ input(console.log, result)
 
     expect(output).not.toContain("new Function");
   });
+
+  it("should work with Control Flow Flattening and Duplicate Literals Removal enabled", async () => {
+    var output = await JsConfuser.obfuscate(
+      `
+      var x = [1,1,1,1,1,1,1,1,1,1];
+
+      function myFunction(){
+        return 1;
+      };
+
+      input( myFunction() ); // 1
+    `,
+      {
+        target: "node",
+        controlFlowFlattening: true,
+        duplicateLiteralsRemoval: true,
+        rgf: true,
+      }
+    );
+
+    var value = "never_called";
+    function input(valueIn) {
+      value = valueIn;
+    }
+
+    eval(output);
+
+    expect(value).toStrictEqual(1);
+  });
 });
 
 describe("RGF with the 'all' mode", () => {
