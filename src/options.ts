@@ -867,8 +867,7 @@ export async function correctOptions(
     options.compact = true; // self defending forcibly enables this
   }
 
-  // options.globalVariables was never used.
-  // GlobalConcealing implicitly determines a global to be a variable referenced but never defined or modified.
+  // options.globalVariables outlines generic globals that should be present in the execution context
   if (!options.hasOwnProperty("globalVariables")) {
     options.globalVariables = new Set([]);
 
@@ -908,6 +907,10 @@ export async function correctOptions(
       "Array",
       "Proxy",
       "Error",
+      "TypeError",
+      "ReferenceError",
+      "RangeError",
+      "EvalError",
       "setTimeout",
       "clearTimeout",
       "setInterval",
@@ -919,6 +922,11 @@ export async function correctOptions(
       "module",
       "isNaN",
       "isFinite",
+      "Set",
+      "Map",
+      "WeakSet",
+      "WeakMap",
+      "Symbol",
     ].forEach((x) => options.globalVariables.add(x));
   }
 
