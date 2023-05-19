@@ -261,16 +261,25 @@ export function prepend(block: Node, ...nodes: Node[]) {
   ok(!Array.isArray(block), "block should not be array");
 
   if (block.type == "Program") {
-    var decs = 0;
+    var moveBy = 0;
     block.body.forEach((stmt, i) => {
       if (stmt.type == "ImportDeclaration") {
-        if (decs == i) {
-          decs++;
+        if (moveBy == i) {
+          moveBy++;
+        }
+      }
+
+      if (
+        stmt.type === "ExpressionStatement" &&
+        typeof stmt.directive === "string"
+      ) {
+        if (moveBy == i) {
+          moveBy++;
         }
       }
     });
 
-    block.body.splice(decs, 0, ...nodes);
+    block.body.splice(moveBy, 0, ...nodes);
   } else {
     getBlockBody(block).unshift(...nodes);
   }
