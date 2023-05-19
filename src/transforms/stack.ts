@@ -55,7 +55,9 @@ export default class Stack extends Transform {
     return () => {
       // Uncaught SyntaxError: Getter must not have any formal parameters.
       // Uncaught SyntaxError: Setter must have exactly one formal parameter
-      var propIndex = parents.findIndex((x) => x.type == "Property");
+      var propIndex = parents.findIndex(
+        (x) => x.type === "Property" || x.type === "MethodDefinition"
+      );
       if (propIndex !== -1) {
         if (parents[propIndex].value === (parents[propIndex - 1] || object)) {
           if (parents[propIndex].kind !== "init" || parents[propIndex].method) {
