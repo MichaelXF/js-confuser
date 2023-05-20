@@ -4,7 +4,7 @@ it("should bring independent to the global level", async () => {
   var output = await JsConfuser.obfuscate(
     `
     function container(){
-      function nested(){
+      function nested(param){
 
       }
 
@@ -17,7 +17,8 @@ it("should bring independent to the global level", async () => {
     }
   );
 
-  expect(output).toContain("set");
+  // Ensure flatten was applied
+  expect(output).toContain("[param]");
 });
 
 it("should have correct return values", async () => {
@@ -255,11 +256,153 @@ it("should work when pattern-based assignment expressions are involved", async (
     }
   );
 
-  expect(output).toContain("set");
+  // Ensure flatten was applied
+  expect(output).toContain("[i],[]");
 
   var value = "never_called",
     input = (x) => (value = x);
 
   eval(output);
   expect(value).toStrictEqual(1);
+});
+
+it("should work on async functions", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    async function timeout(ms){
+      return await new Promise((resolve, reject)=>{
+        setTimeout(()=>{
+          resolve();
+        }, ms);
+      });
+    }
+
+    (async ()=>{
+      var startTime = Date.now();
+
+      await timeout(1000);
+
+      var endTime = Date.now();
+
+      var duration = endTime - startTime;
+
+      TEST_CALLBACK(duration);
+    })();
+    `,
+    {
+      target: "node",
+      flatten: true,
+    }
+  );
+
+  expect(output).toContain("_flat_timeout");
+
+  var wasCalled = false;
+  var TEST_CALLBACK = (time) => {
+    expect(time).toBeGreaterThan(500);
+    wasCalled = true;
+  };
+
+  eval(output);
+
+  setTimeout(() => {
+    expect(wasCalled).toStrictEqual(true);
+  }, 2000);
+});
+
+it("should work on Function Expressions", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var outsideVar = "Correct Value";
+
+    var myFunctionExpression = function(){
+      return outsideVar;
+    }
+
+    TEST_OUTPUT = myFunctionExpression();
+    `,
+    {
+      target: "node",
+      flatten: true,
+    }
+  );
+
+  // Ensure flatten applied
+  expect(output).toContain("_flat_myFunctionExpression");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+it("should work on Properties", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var outsideVar = "Incorrect Value";
+
+    var myObject = {
+      myInitProperty: function(){
+        return outsideVar;
+      },
+
+      myMethodProperty(){
+        return;
+      },
+
+      get myGetProperty(){
+        return;  
+      },
+
+      set mySetProperty(val){
+        outsideVar = val;
+      }
+    }
+
+    myObject.mySetProperty = "Correct Value";
+    TEST_OUTPUT = myObject.myInitProperty();
+    `,
+    {
+      target: "node",
+      flatten: true,
+    }
+  );
+
+  // Ensure flatten applied
+  expect(output).toContain("_flat_myInitProperty");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+it("should work with RGF enabled", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+  var outsideVar = "Correct Value";
+
+  function myFunction(){
+    return outsideVar;
+  }
+
+  TEST_OUTPUT = myFunction();
+  `,
+    {
+      target: "node",
+      flatten: true,
+      rgf: true,
+    }
+  );
+
+  // Ensure flatten applied
+  expect(output).toContain("_flat_myFunction");
+
+  // Ensure RGF applied
+  expect(output).toContain("new Function");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });

@@ -1,3 +1,4 @@
+import { ok } from "assert";
 import { reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
 import traverse, { walk } from "../traverse";
@@ -24,6 +25,8 @@ import {
   IfStatement,
   ThrowStatement,
   NewExpression,
+  AwaitExpression,
+  UnaryExpression,
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
 import {
@@ -46,20 +49,19 @@ import Transform from "./transform";
  *   return [ref1, ref2, refN, returnValue];
  * }
  * ```
+ *
+ * Flatten is used to make functions eligible for the RGF transformation.
  */
 export default class Flatten extends Transform {
   definedNames: Map<Node, Set<string>>;
-
-  flatMapName: string;
-  flatNode: Node;
-  gen: any;
+  flattenedFns: Node[];
+  gen: ReturnType<Transform["getGenerator"]>;
 
   constructor(o) {
     super(o, ObfuscateOrder.Flatten);
 
     this.definedNames = new Map();
-    this.flatMapName = null;
-    this.flatNode = null;
+    this.flattenedFns = [];
     this.gen = this.getGenerator();
   }
 
@@ -87,32 +89,63 @@ export default class Flatten extends Transform {
     });
 
     super.apply(tree);
+
+    if (this.flattenedFns.length) {
+      prepend(tree, VariableDeclaration(this.flattenedFns));
+    }
   }
 
   match(object: Node, parents: Node[]) {
     return (
-      object.type == "FunctionDeclaration" &&
+      (object.type == "FunctionDeclaration" ||
+        object.type === "FunctionExpression") &&
       object.body.type == "BlockStatement" &&
       !object.generator &&
-      !object.async &&
       !object.params.find((x) => x.type !== "Identifier")
     );
   }
 
   transform(object: Node, parents: Node[]) {
     return () => {
-      //
+      if (parents[0]) {
+        // Don't change class methods
+        if (
+          parents[0].type === "MethodDefinition" &&
+          parents[0].value === object
+        ) {
+          return;
+        }
 
-      if (
-        parents.find(
-          (x) =>
-            x.type == "ClassExpression" ||
-            x.type == "ClassDeclaration" ||
-            x.type == "MethodDefinition"
-        )
-      ) {
-        return;
+        // Don't change getter/setter methods
+        if (
+          parents[0].type === "Property" &&
+          parents[0].value === object &&
+          parents[0].kind !== "init"
+        ) {
+          return;
+        }
       }
+
+      ok(
+        object.type === "FunctionDeclaration" ||
+          object.type === "FunctionExpression"
+      );
+
+      // The name is purely for debugging purposes
+      var currentFnName =
+        object.type === "FunctionDeclaration"
+          ? object.id?.name
+          : parents[0]?.type === "VariableDeclarator" &&
+            parents[0].id?.type === "Identifier" &&
+            parents[0].id?.name;
+
+      if (parents[0]?.type === "Property" && parents[0]?.key) {
+        currentFnName =
+          currentFnName ||
+          String(parents[0]?.key?.name || parents[0]?.key?.value);
+      }
+
+      if (!currentFnName) currentFnName = "unnamed";
 
       var defined = new Set<string>();
       var references = new Set<string>();
@@ -147,9 +180,7 @@ export default class Flatten extends Transform {
 
           if (o.hidden) {
             illegal.add(o.name);
-          }
-
-          if (info.spec.isDefined) {
+          } else if (info.spec.isDefined) {
             defined.add(o.name);
           } else if (info.spec.isModified) {
             modified.add(o.name);
@@ -198,9 +229,6 @@ export default class Flatten extends Transform {
         return;
       }
 
-      illegal.forEach((name) => {
-        defined.delete(name);
-      });
       defined.forEach((name) => {
         references.delete(name);
         modified.delete(name);
@@ -216,16 +244,35 @@ export default class Flatten extends Transform {
 
       var output = Array.from(modified);
 
-      var newName = this.gen.generate();
-      var valName = this.getPlaceholder();
+      var newName = this.getPlaceholder() + "_flat_" + currentFnName;
       var resultName = this.getPlaceholder();
       var propName = this.gen.generate();
+
+      var newOutputNames: { [originalName: string]: string } =
+        Object.create(null);
+      output.forEach((name) => {
+        newOutputNames[name] = this.gen.generate();
+      });
+      var returnOutputName = this.gen.generate();
 
       getBlockBody(object.body).push(ReturnStatement());
       walk(object.body, [object, ...parents], (o, p) => {
         return () => {
+          // Change return statements from
+          // return (argument)
+          // to
+          // return [ [modifiedRefs],  ]
           if (o.type == "ReturnStatement" && getVarContext(o, p) === object) {
-            var elements = output.map(Identifier);
+            var returnObject = ObjectExpression(
+              output.map((outputName) =>
+                Property(
+                  Literal(newOutputNames[outputName]),
+                  Identifier(outputName),
+                  true
+                )
+              )
+            );
+
             if (
               o.argument &&
               !(
@@ -233,10 +280,10 @@ export default class Flatten extends Transform {
                 o.argument.name == "undefined"
               )
             ) {
-              elements.unshift(clone(o.argument));
+              returnObject.properties.push(
+                Property(Literal(returnOutputName), clone(o.argument), true)
+              );
             }
-
-            o.argument = ArrayExpression(elements);
 
             o.argument = AssignmentExpression(
               "=",
@@ -245,7 +292,7 @@ export default class Flatten extends Transform {
                 Identifier(propName),
                 false
               ),
-              o.argument
+              returnObject
             );
           }
         };
@@ -253,35 +300,12 @@ export default class Flatten extends Transform {
 
       var newBody = getBlockBody(object.body);
 
-      newBody.unshift(
-        VariableDeclaration(
-          VariableDeclarator(
-            ArrayPattern([
-              ArrayPattern(input.map(Identifier)),
-              ArrayPattern(clone(object.params)),
-              Identifier(resultName),
-            ]),
-
-            Identifier(valName)
-          )
-        )
-      );
-
-      if (!this.flatMapName) {
-        this.flatMapName = this.getPlaceholder();
-        prepend(
-          parents[parents.length - 1],
-          VariableDeclaration(
-            VariableDeclarator(
-              this.flatMapName,
-              (this.flatNode = ObjectExpression([]))
-            )
-          )
-        );
-      }
-
       var newFunctionExpression = FunctionExpression(
-        [Identifier(valName)],
+        [
+          ArrayPattern(input.map(Identifier)),
+          ArrayPattern(clone(object.params)),
+          Identifier(resultName),
+        ],
         newBody
       );
 
@@ -295,134 +319,163 @@ export default class Flatten extends Transform {
       );
       property.kind = "set";
 
-      this.flatNode.properties.push(property);
-
-      var identifier = MemberExpression(
-        Identifier(this.flatMapName),
-        Identifier(newName),
-        false
+      this.flattenedFns.push(
+        VariableDeclarator(newName, newFunctionExpression)
       );
 
       var newParamNodes = object.params.map(() =>
         Identifier(this.getPlaceholder())
       );
 
-      // var result = newFn.call([...refs], ...arguments)
-      var call = VariableDeclaration([
-        VariableDeclarator(resultName, ArrayExpression([])),
-        VariableDeclarator(
-          "_",
-          AssignmentExpression(
-            "=",
-            identifier,
-            ArrayExpression([
-              ArrayExpression(input.map(Identifier)),
-              ArrayExpression([...newParamNodes]),
-              Identifier(resultName),
-            ])
-          )
-        ),
+      // result.pop()
+      var getOutputMemberExpression = (outputName) =>
+        MemberExpression(
+          MemberExpression(Identifier(resultName), Literal(propName), true),
+          Literal(outputName),
+          true
+        );
+
+      // newFn.call([...refs], ...arguments, resultObject)
+      var callExpression = CallExpression(Identifier(newName), [
+        ArrayExpression(input.map(Identifier)),
+        ArrayExpression([...newParamNodes]),
+        Identifier(resultName),
       ]);
 
-      // result.pop()
-      var pop = CallExpression(
-        MemberExpression(
-          MemberExpression(Identifier(resultName), Identifier(propName), false),
-          Literal("pop"),
-          true
+      var newObjectBody: Node[] = [
+        // var resultObject = {};
+        VariableDeclaration([
+          VariableDeclarator(resultName, ObjectExpression([])),
+        ]),
+
+        ExpressionStatement(
+          newFunctionExpression.async
+            ? AwaitExpression(callExpression)
+            : callExpression
         ),
-        []
-      );
+      ];
 
-      // var result = newFn.call([...refs], ...arguments)
-      // modified1 = result.pop();
-      // modified2 = result.pop();
-      // ...modifiedN = result.pop();...
-      //
-      // return result.pop()
-
-      var newObjectBody: Node[] = [call];
       var outputReversed = [...output].reverse();
+
+      // realVar
+      outputReversed.forEach((outputName) => {
+        newObjectBody.push(
+          ExpressionStatement(
+            AssignmentExpression(
+              "=",
+              Identifier(outputName),
+              getOutputMemberExpression(newOutputNames[outputName])
+            )
+          )
+        );
+      });
 
       // DECOY STATEMENTS
       var decoyKey = this.gen.generate();
       var decoyNodes = [
+        // if (result.random) throw result.prop.random
         IfStatement(
           MemberExpression(
             Identifier(resultName),
-            Identifier(this.gen.generate()),
-            false
+            Literal(this.gen.generate()),
+            true
           ),
           [
             ThrowStatement(
               NewExpression(Identifier("Error"), [
-                Literal(this.getPlaceholder()),
+                getOutputMemberExpression(this.gen.generate()),
               ])
             ),
           ]
         ),
+        // if (result.random) return true;
         IfStatement(
           MemberExpression(
             Identifier(resultName),
-            Identifier(this.gen.generate()),
-            false
+            Literal(this.gen.generate()),
+            true
           ),
-          [ReturnStatement(Identifier(resultName))]
+          [ReturnStatement(Literal(true))]
         ),
+        // if (result.random) return result;
         IfStatement(
           MemberExpression(
             Identifier(resultName),
-            Identifier(this.gen.generate()),
-            false
+            Literal(this.gen.generate()),
+            true
           ),
           [ReturnStatement(Identifier(resultName))]
         ),
+        // if (result.random) return result.random;
         IfStatement(
-          MemberExpression(Identifier(resultName), Identifier(decoyKey), false),
+          MemberExpression(Identifier(resultName), Literal(decoyKey), true),
+          [
+            ReturnStatement(
+              MemberExpression(Identifier(resultName), Literal(decoyKey), true)
+            ),
+          ]
+        ),
+        // if(result.random1) return result.random2;
+        IfStatement(
+          MemberExpression(
+            Identifier(resultName),
+            Literal(this.gen.generate()),
+            true
+          ),
           [
             ReturnStatement(
               MemberExpression(
                 Identifier(resultName),
-                Identifier(decoyKey),
-                false
+                Literal(this.gen.generate()),
+                true
               )
             ),
           ]
         ),
+        // if(result.random) return flatFn;
         IfStatement(
           MemberExpression(
             Identifier(resultName),
-            Identifier(this.gen.generate()),
-            false
+            Literal(this.gen.generate()),
+            true
+          ),
+          [ReturnStatement(Identifier(newName))]
+        ),
+        // if(result.random) flatFn = undefined;
+        IfStatement(
+          MemberExpression(
+            Identifier(resultName),
+            Literal(this.gen.generate()),
+            true
           ),
           [
-            ReturnStatement(
-              MemberExpression(
-                Identifier(resultName),
-                Identifier(this.gen.generate()),
-                false
+            ExpressionStatement(
+              AssignmentExpression(
+                "=",
+                Identifier(newName),
+                Identifier("undefined")
               )
             ),
           ]
         ),
-      ];
+        // if(!result) return;
+        IfStatement(UnaryExpression("!", Identifier(resultName)), [
+          ReturnStatement(),
+        ]),
+      ].filter(() => Math.random() > 0.25);
+
+      // if (result.output) return result.output.returnValue;
+      // this is the real return statement, it is always added
+      decoyNodes.push(
+        IfStatement(
+          MemberExpression(Identifier(resultName), Literal(propName), true),
+          [ReturnStatement(getOutputMemberExpression(returnOutputName))]
+        )
+      );
 
       shuffle(decoyNodes);
-      decoyNodes.forEach((decoyNode) => {
-        if (Math.random() < 0.5) {
-          newObjectBody.push(decoyNode);
-        }
-      });
 
-      newObjectBody.push(
-        ...outputReversed.map((name) => {
-          return ExpressionStatement(
-            AssignmentExpression("=", Identifier(name), clone(pop))
-          );
-        }),
-
-        ReturnStatement(clone(pop))
-      );
+      newObjectBody.push(...decoyNodes);
 
       object.body = BlockStatement(newObjectBody);
 
