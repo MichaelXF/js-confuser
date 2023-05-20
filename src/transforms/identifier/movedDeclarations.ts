@@ -46,7 +46,7 @@ export default class MovedDeclarations extends Transform {
 
       walk(object, parents, (o, p) => {
         if (o.type == "Identifier") {
-          if (getLexicalScope(o, p) !== object) {
+          if (o.hidden || getLexicalScope(o, p) !== object) {
             illegal.add(o.name);
           } else {
             var info = getIdentifierInfo(o, p);

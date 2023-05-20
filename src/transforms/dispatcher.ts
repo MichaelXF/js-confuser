@@ -97,7 +97,8 @@ export default class Dispatcher extends Transform {
         }
 
         // Map of FunctionDeclarations
-        var functionDeclarations: { [name: string]: Location } = {};
+        var functionDeclarations: { [name: string]: Location } =
+          Object.create(null);
 
         // Array of Identifier nodes
         var identifiers: Location[] = [];
