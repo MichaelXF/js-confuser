@@ -184,7 +184,7 @@ export function getBlockBody(block: Node): Node[] {
   return getBlockBody(block.body);
 }
 
-export function getIndexDirect(object: Node, parent: Node[]): string {
+export function getIndexDirect(object: Node, parent: Node): string {
   return Object.keys(parent).find((x) => parent[x] == object);
 }
 
@@ -328,7 +328,10 @@ export function clone<T>(object: T): T {
  * @param p
  * @returns
  */
-export function isForInitialize(o, p): "initializer" | "left-hand" | false {
+export function isForInitialize(
+  o: Node,
+  p: Node[]
+): "initializer" | "left-hand" | false {
   validateChain(o, p);
 
   var forIndex = p.findIndex(
@@ -337,6 +340,17 @@ export function isForInitialize(o, p): "initializer" | "left-hand" | false {
       x.type == "ForInStatement" ||
       x.type == "ForOfStatement"
   );
+
+  if (
+    p
+      .slice(0, forIndex)
+      .find((x) =>
+        ["ArrowFunctionExpression", "BlockStatement"].includes(x.type)
+      )
+  ) {
+    return false;
+  }
+
   if (forIndex !== -1) {
     if (p[forIndex].type == "ForStatement") {
       if (p[forIndex].init == (p[forIndex - 1] || o)) {
