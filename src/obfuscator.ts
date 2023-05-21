@@ -47,17 +47,22 @@ export default class Obfuscator extends EventEmitter {
   state: "transform" | "eval" = "transform";
   generated: Set<string>;
 
+  totalPossibleTransforms: number;
+
   constructor(public options: ObfuscateOptions) {
     super();
 
     this.varCount = 0;
     this.transforms = Object.create(null);
     this.generated = new Set();
+    this.totalPossibleTransforms = 0;
 
     this.push(new Preparation(this));
     this.push(new RenameLabels(this));
 
     const test = <T>(map: ProbabilityMap<T>, ...transformers: any[]) => {
+      this.totalPossibleTransforms += transformers.length;
+
       if (isProbabilityMapProbable(map)) {
         // options.verbose && console.log("+ Added " + transformer.name);
 
