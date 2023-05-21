@@ -182,3 +182,36 @@ it("should not encode constructor key", async () => {
 
   expect(TEST_VAR).toStrictEqual(100);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/82
+it("should work inside the Class Constructor function", async () => {
+  var code = `
+  class MyClass1 {}
+  class MyClass2 extends MyClass1 {
+    constructor(){
+      super();
+      this["myString1"] = true;
+      this["myString2"] = true;
+      this["myString3"] = true;
+    }
+  }
+
+  var instance = new MyClass2();
+
+  TEST_OUTPUT = instance.myString1 === true; // true
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    stringConcealing: true,
+  });
+
+  // Ensure the strings got encrypted properly
+  expect(output).not.toContain("myString");
+
+  // Ensure the code works
+  var TEST_OUTPUT = false;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});

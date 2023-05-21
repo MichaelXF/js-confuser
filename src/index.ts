@@ -4,6 +4,7 @@ import Obfuscator from "./obfuscator";
 import Transform from "./transforms/transform";
 import { remove$Properties } from "./util/object";
 import presets from "./presets";
+import { performance } from "perf_hooks";
 
 import * as assert from "assert";
 import { correctOptions, ObfuscateOptions, validateOptions } from "./options";
@@ -85,8 +86,8 @@ var JsConfuser: IJsConfuser = async function (
   return result;
 } as any;
 
-export var debugTransformations: IJsConfuserDebugTransformations =
-  async function debugTransformations(
+export const debugTransformations: IJsConfuserDebugTransformations =
+  async function (
     code: string,
     options: ObfuscateOptions
   ): Promise<{ name: string; code: string; ms: number }[]> {
@@ -115,28 +116,65 @@ export var debugTransformations: IJsConfuserDebugTransformations =
     return frames;
   };
 
-export var debugObfuscation: IJsConfuserDebugObfuscation =
-  async function debugTransformations(
-    code: string,
-    options: ObfuscateOptions,
-    callback: (name: string, complete: number, totalTransforms: number) => void
-  ): Promise<string> {
-    validateOptions(options);
-    options = await correctOptions(options);
+/**
+ * This method is used by the obfuscator website to display a progress bar and additional information
+ * about the obfuscation.
+ *
+ * @param code - Source code to obfuscate
+ * @param options - Options
+ * @param callback - Progress callback, called after each transformation
+ * @returns
+ */
+export const debugObfuscation: IJsConfuserDebugObfuscation = async function (
+  code: string,
+  options: ObfuscateOptions,
+  callback: (name: string, complete: number, totalTransforms: number) => void
+) {
+  const startTime = performance.now();
 
-    var tree = parseSync(code);
-    var obfuscator = new Obfuscator(options);
-    var totalTransforms = obfuscator.array.length;
+  validateOptions(options);
+  options = await correctOptions(options);
 
-    obfuscator.on("debug", (name: string, tree: Node, i: number) => {
-      callback(name, i, totalTransforms);
-    });
+  const beforeParseTime = performance.now();
 
-    await obfuscator.apply(tree, true);
+  var tree = parseSync(code);
 
-    var output = compileJs(tree, options);
-    return output;
+  const parseTime = performance.now() - beforeParseTime;
+
+  var obfuscator = new Obfuscator(options);
+  var totalTransforms = obfuscator.array.length;
+
+  var transformationTimes = Object.create(null);
+  var currentTransformTime = performance.now();
+
+  obfuscator.on("debug", (name: string, tree: Node, i: number) => {
+    var nowTime = performance.now();
+    transformationTimes[name] = nowTime - currentTransformTime;
+    currentTransformTime = nowTime;
+
+    callback(name, i, totalTransforms);
+  });
+
+  await obfuscator.apply(tree, true);
+
+  const beforeCompileTime = performance.now();
+
+  var output = await compileJs(tree, options);
+
+  const compileTime = performance.now() - beforeCompileTime;
+
+  const endTime = performance.now();
+
+  return {
+    obfuscated: output,
+    transformationTimes: transformationTimes,
+    obfuscationTime: endTime - startTime,
+    parseTime: parseTime,
+    compileTime: compileTime,
+    totalTransforms: totalTransforms,
+    totalPossibleTransforms: obfuscator.totalPossibleTransforms,
   };
+};
 
 JsConfuser.obfuscate = obfuscate;
 JsConfuser.obfuscateAST = obfuscateAST;

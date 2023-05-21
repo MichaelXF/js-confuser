@@ -31,6 +31,7 @@ import {
   isFunction,
   prepend,
   getDefiningContext,
+  clone,
 } from "../util/insert";
 import { getRandomString } from "../util/random";
 import Transform from "./transform";
@@ -300,7 +301,8 @@ export default class RGF extends Transform {
                         [],
                         [
                           ReturnStatement(
-                            CallExpression(memberExpression, [
+                            // clone() is required!
+                            CallExpression(clone(memberExpression), [
                               Identifier(referenceArray),
                               SpreadElement(Identifier("arguments")),
                             ])
@@ -328,8 +330,6 @@ export default class RGF extends Transform {
 
       queue.forEach(([object, parents]) => {
         var name = object?.id?.name;
-        var hasName = !!name;
-        var params = object.params.map((x) => x.name) || [];
         var signature = referenceSignatures[names.get(name)];
 
         var embeddedName = name || this.getPlaceholder();
@@ -349,6 +349,7 @@ export default class RGF extends Transform {
           },
           eval: false,
           hideInitializingCode: false,
+          stringEncoding: false,
         });
         var transforms = Object.values(obfuscator.transforms).filter(
           (x) => x.priority > this.priority

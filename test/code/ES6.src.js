@@ -73,3 +73,17 @@ for (var x of [3, 3, 5]) {
   sum += x;
 }
 expect(sum).toStrictEqual(11);
+
+// Variant #12 More complex for-loop initializer
+var outside = 12;
+for (
+  var myFunction = function () {
+    return outside;
+  };
+  false;
+
+) {}
+
+var TEST_OUTPUT = myFunction();
+
+expect(TEST_OUTPUT).toStrictEqual(12);

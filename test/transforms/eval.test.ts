@@ -76,3 +76,56 @@ it("should work with Integrity also enabled", async () => {
 
   expect(value).toStrictEqual("Hello World");
 });
+
+it("should work on async functions", async () => {
+  var output = await JsConfuser(
+    `
+  async function myFunction(){
+    return "Correct Value";
+  }
+
+  (async ()=>{
+    TEST_FUNCTION( await myFunction() );
+  })();
+  `,
+    { target: "node", eval: true }
+  );
+
+  expect(output).toContain("eval");
+
+  var wasCalled = false;
+
+  function TEST_FUNCTION(value) {
+    wasCalled = true;
+    expect(value).toStrictEqual("Correct Value");
+  }
+
+  eval(output);
+
+  setTimeout(() => {
+    expect(wasCalled).toStrictEqual(true);
+  }, 1000);
+});
+
+it("should work on generator functions", async () => {
+  var output = await JsConfuser(
+    `
+  function* myFunction(){
+    yield "Correct Value";
+  }
+  
+  const gen = myFunction();
+
+  TEST_OUTPUT = gen.next().value;
+  `,
+    { target: "node", eval: true }
+  );
+
+  expect(output).toContain("eval");
+
+  var TEST_OUTPUT;
+
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

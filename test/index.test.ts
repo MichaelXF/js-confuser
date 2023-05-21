@@ -230,7 +230,19 @@ describe("debugObfuscation", () => {
       callback
     );
 
-    expect(typeof output).toStrictEqual("string");
+    expect(typeof output).toStrictEqual("object");
+    expect(typeof output.obfuscated).toStrictEqual("string");
+    expect(typeof output.obfuscationTime).toStrictEqual("number");
+    expect(typeof output.compileTime).toStrictEqual("number");
+    expect(typeof output.parseTime).toStrictEqual("number");
+    expect(typeof output.totalPossibleTransforms).toStrictEqual("number");
+    expect(typeof output.totalTransforms).toStrictEqual("number");
+    expect(typeof output.transformationTimes).toStrictEqual("object");
+    expect(typeof output.transformationTimes.RenameVariables).toStrictEqual(
+      "number"
+    );
+
+    eval(output.obfuscated);
     expect(called).toStrictEqual(true);
   });
 });

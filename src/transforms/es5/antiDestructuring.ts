@@ -266,7 +266,7 @@ export default class AntiDestructuring extends Transform {
         ]);
 
         if (object.type == "VariableDeclarator") {
-          var i = getIndexDirect(object, parents);
+          var i = getIndexDirect(object, parents[0]);
 
           var extra = Array.from(names).map((x) => {
             return {

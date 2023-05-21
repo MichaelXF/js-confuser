@@ -39,16 +39,9 @@ export type ExitCallback = () => void;
 export function walk(
   object: Node | Node[],
   parents: Node[],
-  onEnter: EnterCallback,
-  seen = new Set<Node>()
+  onEnter: EnterCallback
 ): "EXIT" | void {
   if (typeof object === "object" && object) {
-    if (seen.has(object as any)) {
-      console.log(object);
-      throw new Error("Already seen: " + (object as any).type);
-    }
-    seen.add(object as any);
-
     var newParents: Node[] = [object as Node, ...parents];
 
     if (!Array.isArray(object)) {

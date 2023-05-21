@@ -97,14 +97,15 @@ export default class Dispatcher extends Transform {
         }
 
         // Map of FunctionDeclarations
-        var functionDeclarations: { [name: string]: Location } = {};
+        var functionDeclarations: { [name: string]: Location } =
+          Object.create(null);
 
         // Array of Identifier nodes
         var identifiers: Location[] = [];
         var illegalFnNames: Set<string> = new Set();
 
         // New Names for Functions
-        var newFnNames: { [name: string]: string } = {}; // [old name]: randomized name
+        var newFnNames: { [name: string]: string } = Object.create(null); // [old name]: randomized name
 
         var context = isVarContext(object)
           ? object
@@ -469,7 +470,7 @@ export default class Dispatcher extends Transform {
             }
 
             var newName = newFnNames[o.name];
-            if (!newName) {
+            if (!newName || typeof newName !== "string") {
               return;
             }
 

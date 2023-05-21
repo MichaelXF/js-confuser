@@ -28,6 +28,24 @@ export default class Eval extends Transform {
   }
 
   transform(object, parents) {
+    // Don't apply to getter/setters or class methods
+    if (parents[0]) {
+      if (
+        parents[0].type === "MethodDefinition" &&
+        parents[0].value === object
+      ) {
+        return;
+      }
+
+      if (
+        parents[0].type === "Property" &&
+        parents[0].value === object &&
+        (parents[0].kind !== "init" || parents[0].method)
+      ) {
+        return;
+      }
+    }
+
     if (
       !ComputeProbabilityMap(
         this.options.eval,

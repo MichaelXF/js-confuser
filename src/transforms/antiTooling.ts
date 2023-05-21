@@ -45,7 +45,7 @@ export default class AntiTooling extends Transform {
             exprs[0],
             ExpressionStatement(
               UnaryExpression(
-                choice(["typeof", "void", "~", "!", "+"]),
+                choice(["typeof", "void", "!"]),
                 SequenceExpression(flattened)
               )
             )

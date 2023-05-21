@@ -110,7 +110,16 @@ export default class AntiClass extends Transform {
           );
         }
 
-        if (
+        // Support class fields
+        if (methodDefinition.type === "PropertyDefinition") {
+          var assignmentExpression = AssignmentExpression(
+            "=",
+            key,
+            value || Identifier("undefined")
+          );
+
+          pushingTo.push(ExpressionStatement(assignmentExpression));
+        } else if (
           methodDefinition.kind == "constructor" ||
           methodDefinition.kind == "method"
         ) {

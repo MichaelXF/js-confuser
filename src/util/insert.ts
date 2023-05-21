@@ -113,8 +113,14 @@ export function getDefiningContext(o: Node, p: Node[]): Node {
     var variableDeclaration = p.find((x) => x.type == "VariableDeclaration");
     ok(variableDeclaration);
 
-    if (variableDeclaration.kind === "let") {
-      return getLexContext(o, p);
+    if (
+      variableDeclaration.kind === "let" ||
+      variableDeclaration.kind === "const"
+    ) {
+      var context = getVarContext(o, p);
+      if (context && context.type === "Program") {
+        return getLexContext(o, p);
+      }
     }
   }
 
@@ -178,7 +184,7 @@ export function getBlockBody(block: Node): Node[] {
   return getBlockBody(block.body);
 }
 
-export function getIndexDirect(object: Node, parent: Node[]): string {
+export function getIndexDirect(object: Node, parent: Node): string {
   return Object.keys(parent).find((x) => parent[x] == object);
 }
 
@@ -255,16 +261,25 @@ export function prepend(block: Node, ...nodes: Node[]) {
   ok(!Array.isArray(block), "block should not be array");
 
   if (block.type == "Program") {
-    var decs = 0;
+    var moveBy = 0;
     block.body.forEach((stmt, i) => {
       if (stmt.type == "ImportDeclaration") {
-        if (decs == i) {
-          decs++;
+        if (moveBy == i) {
+          moveBy++;
+        }
+      }
+
+      if (
+        stmt.type === "ExpressionStatement" &&
+        typeof stmt.directive === "string"
+      ) {
+        if (moveBy == i) {
+          moveBy++;
         }
       }
     });
 
-    block.body.splice(decs, 0, ...nodes);
+    block.body.splice(moveBy, 0, ...nodes);
   } else {
     getBlockBody(block).unshift(...nodes);
   }
@@ -313,7 +328,10 @@ export function clone<T>(object: T): T {
  * @param p
  * @returns
  */
-export function isForInitialize(o, p): "initializer" | "left-hand" | false {
+export function isForInitialize(
+  o: Node,
+  p: Node[]
+): "initializer" | "left-hand" | false {
   validateChain(o, p);
 
   var forIndex = p.findIndex(
@@ -322,6 +340,17 @@ export function isForInitialize(o, p): "initializer" | "left-hand" | false {
       x.type == "ForInStatement" ||
       x.type == "ForOfStatement"
   );
+
+  if (
+    p
+      .slice(0, forIndex)
+      .find((x) =>
+        ["ArrowFunctionExpression", "BlockStatement"].includes(x.type)
+      )
+  ) {
+    return false;
+  }
+
   if (forIndex !== -1) {
     if (p[forIndex].type == "ForStatement") {
       if (p[forIndex].init == (p[forIndex - 1] || o)) {

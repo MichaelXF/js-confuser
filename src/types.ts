@@ -119,4 +119,12 @@ export type IJsConfuserDebugObfuscation = (
   code: string,
   options: ObfuscateOptions,
   callback: (name: string, complete: number, totalTransforms: number) => void
-) => Promise<string>;
+) => Promise<{
+  obfuscated: string;
+  transformationTimes: { [transformName: string]: number };
+  parseTime: number;
+  compileTime: number;
+  obfuscationTime: number;
+  totalTransforms: number;
+  totalPossibleTransforms: number;
+}>;

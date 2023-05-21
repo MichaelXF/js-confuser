@@ -100,11 +100,18 @@ export default class ObjectExtraction extends Transform {
               );
 
               if (nonInitOrComputed) {
-                this.log(
-                  name +
-                    " has non-init/computed property: " +
-                    nonInitOrComputed.key.name || nonInitOrComputed.key.value
-                );
+                if (nonInitOrComputed.key) {
+                  this.log(
+                    name +
+                      " has non-init/computed property: " +
+                      nonInitOrComputed.key.name || nonInitOrComputed.key.value
+                  );
+                } else {
+                  this.log(
+                    name + " has spread-element or other type of property"
+                  );
+                }
+
                 illegal.add(name);
                 return;
               } else {

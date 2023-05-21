@@ -159,7 +159,7 @@ export default class DuplicateLiteralsRemoval extends Transform {
       var body = [];
       var thisShift = getRandomInteger(-250, 250);
       // the name of the getter
-      getterName = this.getPlaceholder();
+      getterName = this.getPlaceholder() + "_dLR_" + this.fnGetters.size;
 
       if (basedOn) {
         var shift = this.fnShifts.get(basedOn);
@@ -268,20 +268,20 @@ export default class DuplicateLiteralsRemoval extends Transform {
           this.arrayExpression = ArrayExpression([]);
         }
 
-        var first = this.first.get(value);
-        if (first) {
+        var firstLocation = this.first.get(value);
+        if (firstLocation) {
           this.first.set(value, null);
           var index = this.map.size;
 
           ok(!this.map.has(value));
           this.map.set(value, index);
 
-          this.toCaller(first[0], first[1], index);
-
           var pushing = clone(object);
           this.arrayExpression.elements.push(pushing);
 
           ok(this.arrayExpression.elements[index] === pushing);
+
+          this.toCaller(firstLocation[0], firstLocation[1], index);
         }
 
         var index = this.map.get(value);

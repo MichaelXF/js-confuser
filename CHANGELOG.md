@@ -1,3 +1,40 @@
+# `1.5.9`
+Big update
+
+This updates comes with many bug fixes:
+
+- Fixed [#72](https://github.com/MichaelXF/js-confuser/issues/72)
+- - ES5 to handle Class Fields
+
+Note: The `ES5` option is not meant to replace Babel. It is only intended to undo ES6 features the obfuscator may have added to your code.
+
+- Fixed [#74](https://github.com/MichaelXF/js-confuser/issues/74)
+- - Anti Tooling to not break Symbols
+
+- Fixed [#75](https://github.com/MichaelXF/js-confuser/issues/75)
+- - Minify to properly handle Object constructors
+
+- Fixed [#76](https://github.com/MichaelXF/js-confuser/issues/76)
+- - Minify to not cause syntax errors when objects used `^`, `` ` ``, `[`, `]` as property keys
+
+- Fixed [#77](https://github.com/MichaelXF/js-confuser/issues/77)
+- - Dispatcher to not break code that uses generic names like `toString` and `hasOwnProperty`
+
+- Fixed [#78](https://github.com/MichaelXF/js-confuser/issues/78)
+- - Object Extraction to not error on objects with spread elements
+
+- Fixed [#79](https://github.com/MichaelXF/js-confuser/issues/79)
+- - JsConfuser now supports `BigInt` literals
+
+- Fixed [#80](https://github.com/MichaelXF/js-confuser/issues/80)
+- - Rename Variables to not break code that had `var` and `let` variables in the same scope
+
+- Fixed [#81](https://github.com/MichaelXF/js-confuser/issues/81)
+- - Control Flow Flattening to not break `typeof` expressions
+
+- Fixed [#82](https://github.com/MichaelXF/js-confuser/issues/82)
+- - String Concealing to not break class constructors
+
 # `1.5.8`
 Several fixes
 
