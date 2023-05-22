@@ -118,7 +118,8 @@ export type IJsConfuserDebugTransformations = (
 export type IJsConfuserDebugObfuscation = (
   code: string,
   options: ObfuscateOptions,
-  callback: (name: string, complete: number, totalTransforms: number) => void
+  callback: (name: string, complete: number, totalTransforms: number) => void,
+  performance: Performance
 ) => Promise<{
   obfuscated: string;
   transformationTimes: { [transformName: string]: number };

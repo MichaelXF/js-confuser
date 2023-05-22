@@ -227,7 +227,8 @@ describe("debugObfuscation", () => {
     var output = await debugObfuscation(
       `console.log(1)`,
       { target: "node", preset: "low" },
-      callback
+      callback,
+      require("perf_hooks").performance
     );
 
     expect(typeof output).toStrictEqual("object");
