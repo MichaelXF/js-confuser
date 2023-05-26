@@ -44,9 +44,9 @@ export function walk(
   if (typeof object === "object" && object) {
     var newParents: Node[] = [object as Node, ...parents];
 
-    if (!Array.isArray(object)) {
-      validateChain(object, parents);
-    }
+    // if (!Array.isArray(object)) {
+    //   validateChain(object, parents);
+    // }
 
     // 1. Call `onEnter` function and remember any onExit callback returned
     var onExit = onEnter(object as Node, parents);
@@ -59,7 +59,6 @@ export function walk(
           return "EXIT";
         }
       }
-      copy.forEach((x) => {});
     } else {
       var keys = Object.keys(object);
       for (var key of keys) {

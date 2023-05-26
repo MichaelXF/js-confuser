@@ -75,6 +75,7 @@ export default class RenameVariables extends Transform {
 
     var possible = new Set();
 
+    // Try to re-use names when possible
     if (this.generated.length && !isGlobal) {
       var allReferences = new Set(references || []);
       var nope = new Set(defined);
@@ -156,6 +157,10 @@ export default class RenameVariables extends Transform {
           return;
         }
 
+        if (o.$renamed) {
+          return;
+        }
+
         var info = getIdentifierInfo(o, p);
 
         if (info.spec.isExported) {
@@ -182,10 +187,6 @@ export default class RenameVariables extends Transform {
         }
 
         if (newName && typeof newName === "string") {
-          if (o.$renamed) {
-            return;
-          }
-
           // Strange behavior where the `local` and `imported` objects are the same
           if (info.isImportSpecifier) {
             var importSpecifierIndex = p.findIndex(

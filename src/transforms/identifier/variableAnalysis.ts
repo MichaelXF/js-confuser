@@ -48,77 +48,73 @@ export default class VariableAnalysis extends Transform {
   }
 
   match(object, parents) {
-    return isContext(object);
+    return object.type === "Identifier";
   }
 
-  transform(object, parents) {
-    walk(object, parents, (o, p) => {
-      if (o.type == "Identifier") {
-        var name = o.name;
-        ok(typeof name === "string");
-        if (!isValidIdentifier(name)) {
-          return;
+  transform(o, p) {
+    var name = o.name;
+    ok(typeof name === "string");
+    if (!isValidIdentifier(name)) {
+      return;
+    }
+
+    if (reservedIdentifiers.has(name)) {
+      return;
+    }
+    if (this.options.globalVariables.has(name)) {
+      return;
+    }
+
+    var info = getIdentifierInfo(o, p);
+    if (!info.spec.isReferenced) {
+      return;
+    }
+
+    if (info.spec.isExported) {
+      return;
+    }
+
+    var isDefined = info.spec.isDefined;
+
+    // Keep track of defined names within the program
+    if (isDefined) {
+      this.notGlobals.add(o.name);
+      this.globals.delete(o.name);
+    } else if (!this.notGlobals.has(o.name)) {
+      this.globals.add(o.name);
+    }
+
+    var definingContexts = info.spec.isDefined
+      ? getAllDefiningContexts(o, p)
+      : getReferencingContexts(o, p, info);
+
+    ok(definingContexts.length);
+
+    definingContexts.forEach((definingContext) => {
+      // ok(
+      //   isContext(definingContext),
+      //   `${definingContext.type} is not a context`
+      // );
+
+      if (isDefined) {
+        // Add to defined Map
+        if (!this.defined.has(definingContext)) {
+          this.defined.set(definingContext, new Set());
         }
-
-        if (reservedIdentifiers.has(name)) {
-          return;
-        }
-        if (this.options.globalVariables.has(name)) {
-          return;
-        }
-
-        var info = getIdentifierInfo(o, p);
-        if (!info.spec.isReferenced) {
-          return;
-        }
-
-        if (info.spec.isExported) {
-          return;
-        }
-
-        var isDefined = info.spec.isDefined;
-
-        // Keep track of defined names within the program
-        if (isDefined) {
-          this.notGlobals.add(o.name);
-          this.globals.delete(o.name);
-        } else if (!this.notGlobals.has(o.name)) {
-          this.globals.add(o.name);
-        }
-
-        var definingContexts = info.spec.isDefined
-          ? getAllDefiningContexts(o, p)
-          : getReferencingContexts(o, p, info);
-
-        ok(definingContexts.length);
-
-        definingContexts.forEach((definingContext) => {
-          // ok(
-          //   isContext(definingContext),
-          //   `${definingContext.type} is not a context`
-          // );
-
-          if (isDefined) {
-            // Add to defined Map
-            if (!this.defined.has(definingContext)) {
-              this.defined.set(definingContext, new Set());
-            }
-            this.defined.get(definingContext).add(name);
-            this.references.has(definingContext) &&
-              this.references.get(definingContext).delete(name);
-          } else {
-            // Add to references Map
-            if (
-              !this.defined.has(definingContext) ||
-              !this.defined.get(definingContext).has(name)
-            ) {
-              if (!this.references.has(definingContext)) {
-                this.references.set(definingContext, new Set());
-              }
-              this.references.get(definingContext).add(name);
-            }
+        this.defined.get(definingContext).add(name);
+        this.references.has(definingContext) &&
+          this.references.get(definingContext).delete(name);
+      } else {
+        // Add to references Map
+        if (
+          !this.defined.has(definingContext) ||
+          !this.defined.get(definingContext).has(name)
+        ) {
+          if (!this.references.has(definingContext)) {
+            this.references.set(definingContext, new Set());
           }
-        });
+          this.references.get(definingContext).add(name);
+        }
       }
     });
   }
