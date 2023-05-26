@@ -21,6 +21,7 @@ import { append, prepend } from "../../util/insert";
 import { choice, getRandomInteger, getRandomString } from "../../util/random";
 import Transform from "../transform";
 import Encoding from "./encoding";
+import { ComputeProbabilityMap } from "../../probability";
 
 export function isModuleSource(object: Node, parents: Node[]) {
   if (!parents[0]) {
@@ -161,6 +162,17 @@ export default class StringConcealing extends Transform {
         !object.value ||
         this.ignore.has(object.value) ||
         object.value.length == 0
+      ) {
+        return;
+      }
+
+      // Allow user to choose which strings get changed
+      if (
+        !ComputeProbabilityMap(
+          this.options.stringConcealing,
+          (x) => x,
+          object.value
+        )
       ) {
         return;
       }
