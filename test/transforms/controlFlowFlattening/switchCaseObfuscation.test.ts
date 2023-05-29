@@ -66,7 +66,7 @@ it("should not obfuscate switch statements with complex discriminants (SwitchCas
     controlFlowFlattening: true,
   });
 
-  expect(output).toContain("stateParam||0");
+  expect(output).toContain("switch(stateParam");
 
   function input(array) {
     expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -76,9 +76,8 @@ it("should not obfuscate switch statements with complex discriminants (SwitchCas
 });
 
 // https://github.com/MichaelXF/js-confuser/issues/41
-it("Not apply to switch statements with default cases", async ()=>{
-
-    var code = `
+it("Not apply to switch statements with default cases", async () => {
+  var code = `
     var array = [];
 
     function runOnce(stateParam){
@@ -103,18 +102,11 @@ it("Not apply to switch statements with default cases", async ()=>{
     controlFlowFlattening: true,
   });
 
-  expect(
-    output.includes("case 1:") &&
-      output.includes("case 2:") &&
-      output.includes("case 3:") 
-  ).toStrictEqual(true);
+  expect(output).toContain("switch(stateParam");
 
   function input(array) {
     expect(array).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   }
 
   eval(output);
-
-
-
 });

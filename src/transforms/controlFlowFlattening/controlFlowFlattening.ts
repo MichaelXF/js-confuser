@@ -14,10 +14,12 @@ import {
   ConditionalExpression,
   ExpressionStatement,
   FunctionDeclaration,
+  FunctionExpression,
   Identifier,
   IfStatement,
   LabeledStatement,
   Literal,
+  Location,
   MemberExpression,
   Node,
   ObjectExpression,
@@ -26,6 +28,7 @@ import {
   SequenceExpression,
   SwitchCase,
   SwitchStatement,
+  UnaryExpression,
   VariableDeclaration,
   VariableDeclarator,
   WhileStatement,
@@ -38,16 +41,17 @@ import {
   clone,
   getBlockBody,
   getFunction,
-  getVarContext,
+  isContext,
+  isForInitialize,
   isVarContext,
 } from "../../util/insert";
-import { choice, getRandomInteger, shuffle } from "../../util/random";
+import { chance, choice, getRandomInteger, shuffle } from "../../util/random";
 import Transform from "../transform";
-import ChoiceFlowObfuscation from "./choiceFlowObfuscation";
 import ControlFlowObfuscation from "./controlFlowObfuscation";
 import ExpressionObfuscation from "./expressionObfuscation";
 import SwitchCaseObfuscation from "./switchCaseObfuscation";
 import { isModuleSource } from "../string/stringConcealing";
+import { reservedIdentifiers } from "../../constants";
 
 var flattenStructures = new Set([
   "IfStatement",
@@ -55,6 +59,16 @@ var flattenStructures = new Set([
   "WhileStatement",
   "DoWhileStatement",
 ]);
+
+/**
+ * A chunk represents a small segment of code
+ */
+interface Chunk {
+  label: string;
+  body: Node[];
+
+  impossible?: boolean;
+}
 
 /**
  * Breaks functions into DAGs (Directed Acyclic Graphs)
@@ -70,7 +84,19 @@ var flattenStructures = new Set([
  * - 3. The while loop continues until the the state variable is the end state.
  */
 export default class ControlFlowFlattening extends Transform {
+  // in Debug mode, the output is much easier to read
   isDebug = false;
+  mangleNumberLiterals = true;
+  mangleBooleanLiterals = true;
+  mangleIdentifiers = true;
+  outlineStatements = true;
+  outlineExpressions = true;
+
+  // Limit amount of mangling
+  mangledExpressionsMade = 0;
+
+  // Previously used switch labels
+  switchLabels = new Set<string>();
 
   constructor(o) {
     super(o, ObfuscateOrder.ControlFlowFlattening);
@@ -246,15 +272,27 @@ export default class ControlFlowFlattening extends Transform {
       var resultVar = this.getPlaceholder();
       var argVar = this.getPlaceholder();
       var testVar = this.getPlaceholder();
-      var stringBankVar = this.getPlaceholder();
-      var stringBank: { [strValue: string]: string } = Object.create(null);
-      var stringBankByLabels: { [label: string]: Set<string> } =
-        Object.create(null);
-      let stringBankGen = this.getGenerator();
+
+      // The controlVar is an object containing:
+      // - Strings found in chunks
+      // - Numbers found in chunks
+      // - Helper functions to adjust the state
+      // - Outlined expressions changed into functions
+      var controlVar = this.getPlaceholder();
+      var controlPropertiesByLabel: { [label: string]: Node[] } = {};
+      var controlMap = new Map<
+        string | number,
+        { key: string; label: string }
+      >();
+      var controlDynamicKeys = new Set<string>();
+      var controlGen = this.getGenerator();
+
+      // Helper function to easily make control object accessors
+      const getControlMember = (key) =>
+        MemberExpression(Identifier(controlVar), Literal(key), true);
 
       var needsTestVar = false;
       var needsResultAndArgVar = false;
-      var needsStringBankVar = false;
       var fnToLabel: { [fnName: string]: string } = Object.create(null);
 
       fnNames.forEach((fnName) => {
@@ -264,8 +302,8 @@ export default class ControlFlowFlattening extends Transform {
       const flattenBody = (
         body: Node[],
         startingLabel = this.getPlaceholder()
-      ): { label: string; body: Node[] }[] => {
-        var chunks = [];
+      ): Chunk[] => {
+        var chunks: Chunk[] = [];
         var currentBody = [];
         var currentLabel = startingLabel;
         const finishCurrentChunk = (
@@ -290,35 +328,62 @@ export default class ControlFlowFlattening extends Transform {
           });
 
           walk(currentBody, [], (o, p) => {
-            if (
-              o.type == "Literal" &&
-              typeof o.value == "string" &&
-              !isModuleSource(o, p) &&
-              !o.regex &&
-              Math.random() / (Object.keys(stringBank).length / 2 + 1) > 0.5
-            ) {
-              needsStringBankVar = true;
-              if (!stringBankByLabels[currentLabel]) {
-                stringBankByLabels[currentLabel] = new Set();
+            if (o.type === "Literal" && !this.isDebug) {
+              // Add strings to the control object
+              if (
+                typeof o.value === "string" &&
+                !isModuleSource(o, p) &&
+                !o.regex &&
+                chance(75 - controlMap.size)
+              ) {
+                if (!controlPropertiesByLabel[currentLabel]) {
+                  controlPropertiesByLabel[currentLabel] = [];
+                }
+
+                var key = controlMap.get(o.value)?.key;
+
+                // Not in the bank, add
+                if (!key) {
+                  key = controlGen.generate();
+
+                  controlPropertiesByLabel[currentLabel].push(
+                    Property(Literal(key), Literal(o.value), false)
+                  );
+                  controlMap.set(o.value, { key, label: currentLabel });
+                }
+
+                return () => {
+                  this.replaceIdentifierOrLiteral(o, getControlMember(key), p);
+                };
               }
 
-              stringBankByLabels[currentLabel].add(o.value);
+              // Add numbers to the control object
+              if (
+                typeof o.value === "number" &&
+                Math.floor(o.value) === o.value &&
+                Math.abs(o.value) < 100_000 &&
+                chance(50 - controlMap.size)
+              ) {
+                if (!controlPropertiesByLabel[currentLabel]) {
+                  controlPropertiesByLabel[currentLabel] = [];
+                }
 
-              if (typeof stringBank[o.value] === "undefined") {
-                stringBank[o.value] = stringBankGen.generate();
+                var key = controlMap.get(o.value)?.key;
+
+                // Not in the bank, add
+                if (!key) {
+                  key = controlGen.generate();
+
+                  controlPropertiesByLabel[currentLabel].push(
+                    Property(Literal(key), Literal(o.value), false)
+                  );
+                  controlMap.set(o.value, { key, label: currentLabel });
+                }
+
+                return () => {
+                  this.replaceIdentifierOrLiteral(o, getControlMember(key), p);
+                };
               }
-
-              return () => {
-                this.replaceIdentifierOrLiteral(
-                  o,
-                  MemberExpression(
-                    Identifier(stringBankVar),
-                    Literal(stringBank[o.value]),
-                    true
-                  ),
-                  p
-                );
-              };
             }
           });
 
@@ -392,7 +457,7 @@ export default class ControlFlowFlattening extends Transform {
 
           if (stmt.type == "LabeledStatement") {
             var lbl = stmt.label.name;
-            var control = stmt.body;
+            var control: Node = stmt.body;
 
             var isSwitchStatement = control.type === "SwitchStatement";
 
@@ -440,9 +505,14 @@ export default class ControlFlowFlattening extends Transform {
                   o.type == "BreakStatement" ||
                   (supportContinueStatement && o.type == "ContinueStatement")
                 ) {
+                  // TODO:
+                  // Figure out a proper way to detect break's and continue's that are
+                  // eligible for being flattened
                   if (!o.label || o.label.name !== lbl) {
-                    possible = false;
-                    return "EXIT";
+                    if (!this.switchLabels.has(o.label.name)) {
+                      possible = false;
+                      return "EXIT";
+                    }
                   }
                   if (o.label.name === lbl) {
                     return () => {
@@ -668,12 +738,31 @@ export default class ControlFlowFlattening extends Transform {
         return chunks;
       };
 
-      var chunks = [];
+      /**
+       * Executable code segments are broken down into `chunks` typically 1-3 statements each
+       *
+       * Chunked Code has special `GotoStatement` and `StateIdentifier` nodes that get processed later on
+       * This allows more complex control structures like `IfStatement`s and `ForStatement`s to be converted into basic
+       * conditional jumps and flattened in the switch body
+       *
+       * IfStatement would be converted like this:
+       *
+       * MAIN:
+       * if ( TEST ) {
+       *    GOTO consequent_label;
+       * } else? {
+       *    GOTO alternate_label;
+       * }
+       * GOTO NEXT_CHUNK;
+       */
+      var chunks: Chunk[] = [];
 
       /**
        * label: switch(a+b+c){...break label...}
        */
       var switchLabel = this.getPlaceholder();
+
+      var innerFnNames = new Set<string>();
 
       functionDeclarations.forEach((node) => {
         if (node.id && fnNames.has(node.id.name)) {
@@ -727,6 +816,7 @@ export default class ControlFlowFlattening extends Transform {
           }
 
           var innerName = this.getPlaceholder();
+          innerFnNames.add(innerName);
 
           chunks.push(
             ...flattenBody(
@@ -751,7 +841,7 @@ export default class ControlFlowFlattening extends Transform {
         }
       });
 
-      var startLabel = this.getPlaceholder();
+      const startLabel = this.getPlaceholder();
 
       chunks.push(...flattenBody(body, startLabel));
       chunks[chunks.length - 1].body.push({
@@ -763,10 +853,82 @@ export default class ControlFlowFlattening extends Transform {
         body: [],
       });
 
-      var caseSelection: Set<number> = new Set();
+      const endLabel = chunks[Object.keys(chunks).length - 1].label;
 
+      if (!this.isDebug) {
+        // DEAD CODE 1/3: Add fake chunks that are never reached
+        var fakeChunkCount = getRandomInteger(1, 5);
+        for (var i = 0; i < fakeChunkCount; i++) {
+          // These chunks just jump somewhere random, they are never executed
+          // so it could contain any code
+          var fakeChunkBody = [
+            // This a fake assignment expression
+            ExpressionStatement(
+              AssignmentExpression(
+                "=",
+                Identifier(choice(stateVars)),
+                Literal(getRandomInteger(-150, 150))
+              )
+            ),
+
+            {
+              type: "GotoStatement",
+              label: choice(chunks).label,
+            },
+          ];
+
+          chunks.push({
+            label: this.getPlaceholder(),
+            body: fakeChunkBody,
+            impossible: true,
+          });
+        }
+
+        // DEAD CODE 2/3: Add fake jumps to really mess with deobfuscators
+        chunks.forEach((chunk) => {
+          if (chance(25)) {
+            var randomLabel = choice(chunks).label;
+
+            // The `false` literal will be mangled
+            chunk.body.unshift(
+              IfStatement(Literal(false), [
+                {
+                  type: "GotoStatement",
+                  label: randomLabel,
+                  impossible: true,
+                },
+              ])
+            );
+          }
+        });
+
+        // DEAD CODE 3/3: Clone chunks but these chunks are never ran
+        var cloneChunkCount = getRandomInteger(1, 5);
+        for (var i = 0; i < cloneChunkCount; i++) {
+          var randomChunk = choice(chunks);
+          var clonedChunk = {
+            body: clone(randomChunk.body),
+            label: this.getPlaceholder(),
+            impossible: true,
+          };
+
+          // Don't double define functions
+          var hasDeclaration = clonedChunk.body.find((stmt) => {
+            return (
+              stmt.type === "FunctionDeclaration" ||
+              stmt.type === "ClassDeclaration"
+            );
+          });
+
+          if (!hasDeclaration) {
+            chunks.unshift(clonedChunk);
+          }
+        }
+      }
+
+      // Generate a unique 'state' number for each chunk
+      var caseSelection: Set<number> = new Set();
       var uniqueStatesNeeded = chunks.length;
-      var endLabel = chunks[Object.keys(chunks).length - 1].label;
 
       do {
         var newState = getRandomInteger(1, chunks.length * 15);
@@ -794,12 +956,21 @@ export default class ControlFlowFlattening extends Transform {
        */
       var labelToStates: { [label: string]: number[] } = Object.create(null);
 
+      var lastLabel;
+
       Object.values(chunks).forEach((chunk, i) => {
         var state = caseStates[i];
 
         var stateValues = Array(stateVars.length)
           .fill(0)
-          .map(() => getRandomInteger(-250, 250));
+          .map((_, i) =>
+            lastLabel // Try to make state changes not as drastic (If last label, re-use some of it's values)
+              ? choice([
+                  labelToStates[lastLabel][i],
+                  getRandomInteger(-500, 500),
+                ])
+              : getRandomInteger(-500, 500)
+          );
 
         const getCurrentState = () => {
           return stateValues.reduce((a, b) => b + a, 0);
@@ -810,31 +981,68 @@ export default class ControlFlowFlattening extends Transform {
           state - (getCurrentState() - stateValues[correctIndex]);
 
         labelToStates[chunk.label] = stateValues;
+        lastLabel = chunk.label;
       });
-
-      // console.log(labelToStates);
 
       var initStateValues = [...labelToStates[startLabel]];
       var endState = labelToStates[endLabel].reduce((a, b) => b + a, 0);
 
-      const numberLiteral = (num, depth, stateValues) => {
+      // This function is recursively called to create complex mangled expressions
+      // Example: (state + 50) == 10 ? <NUM> : <FAKE>
+      const numberLiteral = (
+        num: number,
+        depth: number,
+        stateValues: number[]
+      ): Node => {
         ok(Array.isArray(stateValues));
-        if (depth > 10 || Math.random() > 0.8 / (depth * 4)) {
+
+        // Base case: After 4 depth, OR random chance
+        if (depth > 4 || chance(75 + depth * 5 + this.mangledExpressionsMade)) {
+          // Add this number to the control object?
+          if (chance(25 - controlMap.size)) {
+            var key = controlMap.get(num)?.key;
+
+            if (!key) {
+              key = controlGen.generate();
+              controlMap.set(num, { key: key, label: "?" });
+
+              if (!controlPropertiesByLabel["?"]) {
+                controlPropertiesByLabel["?"] = [];
+              }
+
+              controlPropertiesByLabel["?"].push(
+                Property(Literal(key), Literal(num), false)
+              );
+            }
+
+            return getControlMember(key);
+          }
+
           return Literal(num);
         }
+        this.mangledExpressionsMade++;
 
         var opposing = getRandomInteger(0, stateVars.length);
 
-        if (Math.random() > 0.5) {
-          var x = getRandomInteger(-250, 250);
-          var operator = choice(["<", ">"]);
-          var answer =
-            operator == "<"
-              ? x < stateValues[opposing]
-              : x > stateValues[opposing];
+        if (chance(25)) {
+          // state > compare ? real : fake
+
+          var compareValue: number = choice([
+            stateValues[opposing],
+            getRandomInteger(-150, 150),
+          ]);
+
+          var operator = choice(["<", ">", "==", "!="]);
+          var answer: boolean = {
+            ">": compareValue > stateValues[opposing],
+            "<": compareValue < stateValues[opposing],
+            "==": compareValue === stateValues[opposing],
+            "!=": compareValue !== stateValues[opposing],
+          }[operator];
+
           var correct = numberLiteral(num, depth + 1, stateValues);
           var incorrect = numberLiteral(
-            getRandomInteger(-250, 250),
+            getRandomInteger(-150, 150),
             depth + 1,
             stateValues
           );
@@ -842,7 +1050,7 @@ export default class ControlFlowFlattening extends Transform {
           return ConditionalExpression(
             BinaryExpression(
               operator,
-              numberLiteral(x, depth + 1, stateValues),
+              numberLiteral(compareValue, depth + 1, stateValues),
               Identifier(stateVars[opposing])
             ),
             answer ? correct : incorrect,
@@ -850,17 +1058,206 @@ export default class ControlFlowFlattening extends Transform {
           );
         }
 
+        // state + 10 = <REAL>
+        var difference = num - stateValues[opposing];
+
         return BinaryExpression(
           "+",
           Identifier(stateVars[opposing]),
-          numberLiteral(num - stateValues[opposing], depth + 1, stateValues)
+          numberLiteral(difference, depth + 1, stateValues)
         );
+      };
+
+      var outlinesCreated = 0;
+
+      // This function checks if the expression or statements is possible to be outlined
+      const canOutline = (object: Node | Node[]) => {
+        var isIllegal = false;
+
+        var breakStatements: Location[] = [];
+        var returnStatements: Location[] = [];
+
+        walk(object, [], (o, p) => {
+          if (
+            (o.type === "BreakStatement" ||
+              o.type === "ContinueStatement" ||
+              o.type === "ThisExpression" ||
+              o.type === "MetaProperty" ||
+              o.type === "AwaitExpression" ||
+              o.type === "YieldExpression" ||
+              o.type === "ReturnStatement" ||
+              o.type === "VariableDeclaration" ||
+              o.type === "FunctionDeclaration" ||
+              o.type === "ClassDeclaration") &&
+            !p.find((x) => isVarContext(x))
+          ) {
+            // This can be safely outlined
+            if (
+              o.type === "BreakStatement" &&
+              o.label &&
+              o.label.name === switchLabel
+            ) {
+              breakStatements.push([o, p]);
+            } else if (o.type === "ReturnStatement") {
+              returnStatements.push([o, p]);
+            } else {
+              isIllegal = true;
+              return "EXIT";
+            }
+          }
+
+          if (o.type === "Identifier") {
+            if (
+              illegalFnNames.has(o.name) ||
+              fnNames.has(o.name) ||
+              innerFnNames.has(o.name) ||
+              o.name === "arguments"
+            ) {
+              isIllegal = true;
+              return "EXIT";
+            }
+          }
+        });
+
+        return { isIllegal, breakStatements, returnStatements };
+      };
+
+      const createOutlineFunction = (body: Node[], label: string) => {
+        var key = controlGen.generate();
+
+        var functionExpression = FunctionExpression([], body);
+
+        if (!controlPropertiesByLabel[label]) {
+          controlPropertiesByLabel[label] = [];
+        }
+        controlPropertiesByLabel[label].push(
+          Property(Literal(key), functionExpression, false)
+        );
+
+        return key;
+      };
+
+      const attemptOutlineStatements = (
+        statements: Node[],
+        parentBlock: Node[],
+        label: string
+      ) => {
+        if (
+          this.isDebug ||
+          !this.outlineStatements ||
+          chance(75 + outlinesCreated)
+        ) {
+          return;
+        }
+
+        var index = parentBlock.indexOf(statements[0]);
+        if (index === -1) return;
+
+        var outlineInfo = canOutline(statements);
+        if (outlineInfo.isIllegal) return;
+
+        var breakFlag = controlGen.generate();
+
+        outlineInfo.breakStatements.forEach(([breakStatement, p]) => {
+          this.replace(breakStatement, ReturnStatement(Literal(breakFlag)));
+        });
+
+        var returnFlag = controlGen.generate();
+
+        outlineInfo.returnStatements.forEach(([returnStatement, p]) => {
+          var argument = returnStatement.argument || Identifier("undefined");
+
+          this.replace(
+            returnStatement,
+            ReturnStatement(
+              ObjectExpression([Property(Literal(returnFlag), argument, false)])
+            )
+          );
+        });
+
+        outlinesCreated++;
+
+        // Outline these statements!
+        var key = createOutlineFunction(clone(statements), label);
+        var callExpression = CallExpression(getControlMember(key), []);
+
+        var newStatements: Node[] = [];
+        if (
+          outlineInfo.breakStatements.length === 0 &&
+          outlineInfo.returnStatements.length === 0
+        ) {
+          newStatements.push(ExpressionStatement(callExpression));
+        } else if (outlineInfo.returnStatements.length === 0) {
+          newStatements.push(
+            IfStatement(
+              BinaryExpression("==", callExpression, Literal(breakFlag)),
+              [BreakStatement(switchLabel)]
+            )
+          );
+        } else {
+          var tempVar = this.getPlaceholder();
+          newStatements.push(
+            VariableDeclaration(VariableDeclarator(tempVar, callExpression))
+          );
+
+          const t = (str): Node => Template(str).single().expression;
+
+          newStatements.push(
+            IfStatement(
+              t(`${tempVar} === "${breakFlag}"`),
+              [BreakStatement(switchLabel)],
+              [
+                IfStatement(t(`typeof ${tempVar} == "object"`), [
+                  ReturnStatement(t(`${tempVar}["${returnFlag}"]`)),
+                ]),
+              ]
+            )
+          );
+        }
+
+        // Remove the original statements from the block and replace it with the call expression
+        parentBlock.splice(index, statements.length, ...newStatements);
+      };
+
+      const attemptOutlineExpression = (
+        expression: Node,
+        p: Node[],
+        label: string
+      ) => {
+        if (
+          this.isDebug ||
+          !this.outlineExpressions ||
+          chance(75 + outlinesCreated)
+        ) {
+          return;
+        }
+
+        var outlineInfo = canOutline(expression);
+        if (
+          outlineInfo.isIllegal ||
+          outlineInfo.breakStatements.length ||
+          outlineInfo.returnStatements.length
+        )
+          return;
+
+        outlinesCreated++;
+
+        // Outline this expression!
+        var key = createOutlineFunction(
+          [ReturnStatement(clone(expression))],
+          label
+        );
+
+        var callExpression = CallExpression(getControlMember(key), []);
+
+        this.replaceIdentifierOrLiteral(expression, callExpression, p);
       };
 
       const createTransitionExpression = (
         index: number,
         add: number,
-        mutatingStateValues: number[]
+        mutatingStateValues: number[],
+        label: string
       ) => {
         var newValue = mutatingStateValues[index] + add;
 
@@ -872,7 +1269,7 @@ export default class ControlFlowFlattening extends Transform {
             Identifier(stateVars[index]),
             Literal(newValue)
           );
-        } else if (Math.random() > 0.5) {
+        } else if (chance(90)) {
           expr = AssignmentExpression(
             "+=",
             Identifier(stateVars[index]),
@@ -901,6 +1298,8 @@ export default class ControlFlowFlattening extends Transform {
 
         mutatingStateValues[index] = newValue;
 
+        attemptOutlineExpression(expr, [], label);
+
         return expr;
       };
 
@@ -921,7 +1320,6 @@ export default class ControlFlowFlattening extends Transform {
 
         ok(labelToStates[chunk.label]);
         var state = caseStates[i];
-        var made = 1;
 
         var breaksInsertion = [];
         var staticStateValues = [...labelToStates[chunk.label]];
@@ -929,23 +1327,146 @@ export default class ControlFlowFlattening extends Transform {
 
         chunk.body.forEach((stmt, stmtIndex) => {
           var addBreak = false;
+
           walk(stmt, [], (o, p) => {
+            if (!this.isDebug) {
+              // This mangles certain literals with the state variables
+              // Ex: A number literal (50) changed to a expression (stateVar + 40), when stateVar = 10
+              if (o.type === "Literal" && !p.find((x) => isVarContext(x))) {
+                if (
+                  typeof o.value === "number" &&
+                  Math.floor(o.value) === o.value && // Only whole numbers
+                  Math.abs(o.value) < 100_000 && // Hard-coded limit
+                  this.mangleNumberLiterals &&
+                  chance(50)
+                ) {
+                  // 50 -> state1 - 10, when state1 = 60. The result is still 50
+
+                  return () => {
+                    this.replaceIdentifierOrLiteral(
+                      o,
+                      numberLiteral(o.value, 0, staticStateValues),
+                      p
+                    );
+                  };
+                }
+
+                if (
+                  typeof o.value === "boolean" &&
+                  this.mangleBooleanLiterals
+                ) {
+                  // true -> state1 == 10, when state1 = 10. The result is still true
+
+                  // Choose a random state var to compare again
+                  var index = getRandomInteger(0, stateVars.length);
+
+                  var compareValue = staticStateValues[index];
+
+                  // When false, always choose a different number, so the expression always equals false
+                  while (
+                    !o.value &&
+                    compareValue === staticStateValues[index]
+                  ) {
+                    compareValue = getRandomInteger(-150, 150);
+                  }
+
+                  var mangledExpression: Node = BinaryExpression(
+                    "==",
+                    Identifier(stateVars[index]),
+                    numberLiteral(compareValue, 0, staticStateValues)
+                  );
+
+                  return () => {
+                    this.replaceIdentifierOrLiteral(o, mangledExpression, p);
+
+                    attemptOutlineExpression(o, p, chunk.label);
+                  };
+                }
+              }
+            }
+
+            // Mangle certain referenced identifiers
+            // console.log("hi") -> (x ? console : window).log("hi"), when is x true. The result is the same
             if (
-              !this.isDebug &&
-              o.type == "Literal" &&
-              typeof o.value === "number" &&
-              Math.floor(o.value) === o.value &&
-              Math.abs(o.value) < 100_000 &&
-              Math.random() < 4 / made &&
-              !p.find((x) => isVarContext(x))
+              o.type === "Identifier" &&
+              !p.find((x) => isVarContext(x)) &&
+              this.mangleIdentifiers &&
+              chance(75 - outlinesCreated)
             ) {
-              made++;
+              // ONLY referenced identifiers (like actual variable names) can be changed
+              var info = getIdentifierInfo(o, p);
+              if (
+                !info.spec.isReferenced ||
+                info.spec.isDefined ||
+                info.spec.isModified ||
+                info.spec.isExported
+              ) {
+                return;
+              }
+
+              // TYPEOF expression check
+              if (
+                p[0] &&
+                p[0].type === "UnaryExpression" &&
+                p[0].operator === "typeof" &&
+                p[0].argument === o
+              ) {
+                return;
+              }
+
+              // FOR-in/of initializer check
+              if (isForInitialize(o, p) === "left-hand") {
+                return;
+              }
+
+              // Choose a random state variable
+              var index = getRandomInteger(0, stateVars.length);
+
+              var compareValue = choice([
+                staticStateValues[index],
+                getRandomInteger(-100, 100),
+              ]);
+
+              var test = BinaryExpression(
+                "==",
+                Identifier(stateVars[index]),
+                numberLiteral(compareValue, 0, staticStateValues)
+              );
+              var testValue = staticStateValues[index] === compareValue;
+
+              var alternateName = choice([
+                ...stateVars,
+                ...this.options.globalVariables,
+                ...reservedIdentifiers,
+              ]);
+
+              var mangledExpression: Node = ConditionalExpression(
+                test,
+                Identifier(testValue ? o.name : alternateName),
+                Identifier(!testValue ? o.name : alternateName)
+              );
+
               return () => {
-                this.replaceIdentifierOrLiteral(
-                  o,
-                  numberLiteral(o.value, 0, staticStateValues),
-                  p
-                );
+                this.replaceIdentifierOrLiteral(o, mangledExpression, p);
+              };
+            }
+
+            // Function outlining: bring out certain expressions
+            if (
+              o.type &&
+              [
+                "BinaryExpression",
+                "LogicalExpression",
+                "CallExpression",
+                "AssignmentExpression",
+                "MemberExpression",
+                "ObjectExpression",
+              ].includes(o.type) &&
+              !p.find((x) => isContext(x) || x.$outlining)
+            ) {
+              o.$outlining = true;
+              return () => {
+                attemptOutlineExpression(o, p, chunk.label);
               };
             }
 
@@ -975,28 +1496,46 @@ export default class ControlFlowFlattening extends Transform {
                   );
                 }
 
-                potentialBranches.add(o.label);
+                if (!o.impossible) {
+                  potentialBranches.add(o.label);
+                }
 
                 var mutatingStateValues = [...labelToStates[chunk.label]];
                 var nextStateValues = labelToStates[o.label];
                 ok(nextStateValues, o.label);
-                this.replace(
-                  o,
-                  ExpressionStatement(
-                    SequenceExpression(
-                      mutatingStateValues.map((_v, stateValueIndex) => {
-                        var diff =
-                          nextStateValues[stateValueIndex] -
-                          mutatingStateValues[stateValueIndex];
-                        return createTransitionExpression(
-                          stateValueIndex,
-                          diff,
-                          mutatingStateValues
-                        );
-                      })
-                    )
-                  )
+
+                var transitionExpressions: Node[] = [];
+                for (
+                  var stateValueIndex = 0;
+                  stateValueIndex < stateVars.length;
+                  stateValueIndex++
+                ) {
+                  var diff =
+                    nextStateValues[stateValueIndex] -
+                    mutatingStateValues[stateValueIndex];
+
+                  // Only add if state value changed
+                  // If pointing to itself then always add to ensure SequenceExpression isn't empty
+                  if (diff !== 0 || o.label === chunk.label) {
+                    transitionExpressions.push(
+                      createTransitionExpression(
+                        stateValueIndex,
+                        diff,
+                        mutatingStateValues,
+                        chunk.label
+                      )
+                    );
+                  }
+                }
+
+                ok(transitionExpressions.length !== 0);
+
+                var sequenceExpression = SequenceExpression(
+                  transitionExpressions
                 );
+                attemptOutlineExpression(sequenceExpression, [], chunk.label);
+
+                this.replace(o, ExpressionStatement(sequenceExpression));
               };
             }
           });
@@ -1013,32 +1552,38 @@ export default class ControlFlowFlattening extends Transform {
           chunk.body.splice(index + 1, 0, BreakStatement(switchLabel));
         });
 
-        for (var branch of Array.from(potentialBranches)) {
-          var strings = stringBankByLabels[branch];
-          if (strings) {
-            chunk.body.unshift(
-              ExpressionStatement(
-                SequenceExpression(
-                  Array.from(strings).map((strValue) => {
-                    return AssignmentExpression(
-                      "=",
-                      MemberExpression(
-                        Identifier(stringBankVar),
-                        Literal(stringBank[strValue]),
-                        true
-                      ),
-                      Literal(strValue)
-                    );
-                  })
-                )
-              )
-            );
-          }
-        }
+        attemptOutlineStatements(chunk.body, chunk.body, chunk.label);
 
-        // var c = Identifier("undefined");
-        // this.addComment(c, stateValues.join(", "));
-        // transitionStatements.push(c);
+        if (!chunk.impossible) {
+          // var neededKeys = new Map<string, string>();
+          // for (var branch of Array.from(potentialBranches)) {
+          //   var properties = controlPropertiesByLabel[branch];
+          //   if (properties) {
+          //     properties.forEach((property) => {
+          //       neededKeys.set(property.key.value, branch);
+          //     });
+          //   }
+          // }
+          // if (neededKeys.size > 0) {
+          //   chunk.body.unshift(
+          //     ExpressionStatement(
+          //       SequenceExpression(
+          //         Array.from(neededKeys).map(([key, label]) => {
+          //           var value = controlPropertiesByLabel[label].find(
+          //             (prop) => prop.key.value === key
+          //           )?.value;
+          //           controlDynamicKeys.add(key);
+          //           return AssignmentExpression(
+          //             "=",
+          //             getControlMember(key),
+          //             value
+          //           );
+          //         })
+          //       )
+          //     )
+          //   );
+          // }
+        }
 
         var caseObject = {
           body: chunk.body,
@@ -1049,6 +1594,63 @@ export default class ControlFlowFlattening extends Transform {
 
         cases.push(caseObject);
       });
+
+      // Half of the control keys will be added in the first block of code
+      var initialControlKeys = new Map<string, Node>();
+      Object.keys(controlPropertiesByLabel).forEach((label) => {
+        controlPropertiesByLabel[label].forEach((property) => {
+          var key = property.key.value;
+          if (typeof key === "string") {
+            if (chance(50)) {
+              initialControlKeys.set(key, property.value);
+              controlDynamicKeys.add(key);
+            }
+          }
+        });
+      });
+
+      if (!this.isDebug) {
+        // Add fake control object updates
+        chunks.forEach((chunk) => {
+          if (chance(10)) {
+            chunk.body.unshift(
+              choice([
+                ExpressionStatement(
+                  AssignmentExpression(
+                    "=",
+                    getControlMember(controlGen.generate()),
+                    Literal(controlGen.generate())
+                  )
+                ),
+                ExpressionStatement(
+                  UnaryExpression(
+                    "delete",
+                    getControlMember(controlGen.generate())
+                  )
+                ),
+              ])
+            );
+          }
+        });
+      }
+
+      if (initialControlKeys.size) {
+        chunks
+          .find((x) => x.label === startLabel)
+          .body.unshift(
+            ExpressionStatement(
+              SequenceExpression(
+                Array.from(initialControlKeys).map(([key, value]) => {
+                  return AssignmentExpression(
+                    "=",
+                    getControlMember(key),
+                    value
+                  );
+                })
+              )
+            )
+          );
+      }
 
       if (!this.isDebug) {
         shuffle(cases);
@@ -1064,10 +1666,14 @@ export default class ControlFlowFlattening extends Transform {
       if (functionDeclarations.size) {
         functionDeclarations.forEach((x) => {
           if (!x.id || illegalFnNames.has(x.id.name)) {
-            body.unshift(clone(x));
+            body.push(clone(x));
           }
         });
       }
+
+      var defaultCase = getRandomInteger(0, cases.length);
+
+      attemptOutlineExpression(discriminant, [], startLabel);
 
       var switchStatement: Node = SwitchStatement(
         discriminant,
@@ -1077,6 +1683,9 @@ export default class ControlFlowFlattening extends Transform {
           statements.push(...x.body);
 
           var test = Literal(x.state);
+
+          // One random case gets to be default
+          if (i === defaultCase) test = null;
 
           return SwitchCase(test, statements);
         })
@@ -1093,42 +1702,43 @@ export default class ControlFlowFlattening extends Transform {
         declarations.push(VariableDeclarator(argVar));
       }
 
-      if (needsStringBankVar) {
-        declarations.push(
-          VariableDeclarator(
-            stringBankVar,
-            ObjectExpression(
-              stringBankByLabels[startLabel]
-                ? Array.from(stringBankByLabels[startLabel]).map((strValue) =>
-                    Property(
-                      Literal(stringBank[strValue]),
-                      Literal(strValue),
-                      false
-                    )
-                  )
-                : []
-            )
-          )
-        );
-      }
-
       declarations.push(
         ...stateVars.map((stateVar, i) => {
           return VariableDeclarator(stateVar, Literal(initStateValues[i]));
         })
       );
 
-      body.push(
-        VariableDeclaration(declarations),
-
-        WhileStatement(
-          BinaryExpression("!=", clone(discriminant), Literal(endState)),
-          [LabeledStatement(switchLabel, switchStatement)]
+      declarations.push(
+        VariableDeclarator(
+          controlVar,
+          ObjectExpression(
+            Object.values(controlPropertiesByLabel)
+              .flat(1)
+              .filter((x) => !controlDynamicKeys.has(x.key.value))
+          )
         )
+      );
+
+      var whileTest = BinaryExpression(
+        "!=",
+        clone(discriminant),
+        Literal(endState)
+      );
+
+      body.push(
+        // Use individual variable declarations instead so Stack can apply
+        ...declarations.map((declaration) =>
+          VariableDeclaration(declaration, "var")
+        ),
+
+        WhileStatement(whileTest, [
+          LabeledStatement(switchLabel, switchStatement),
+        ])
       );
 
       // mark this object for switch case obfuscation
       switchStatement.$controlFlowFlattening = true;
+      this.switchLabels.add(switchLabel);
     };
   }
 }

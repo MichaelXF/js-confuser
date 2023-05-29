@@ -1,4 +1,3 @@
-import Template from "../../templates/template";
 import { walk } from "../../traverse";
 import {
   BinaryExpression,
@@ -24,16 +23,17 @@ export default class SwitchCaseObfuscation extends Transform {
   match(object, parents) {
     return (
       object.type == "SwitchStatement" &&
-      !object.cases.find(
-        (x) =>
-          !(
-            x.test &&
-            typeof x.test === "object" &&
-            x.test.type == "Literal" &&
-            typeof x.test.value === "number" &&
-            Math.abs(x.test.value) < 100_000
-          )
-      )
+      (object.$controlFlowFlattening ||
+        !object.cases.find(
+          (x) =>
+            !(
+              x.test &&
+              typeof x.test === "object" &&
+              x.test.type == "Literal" &&
+              typeof x.test.value === "number" &&
+              Math.abs(x.test.value) < 100_000
+            )
+        ))
     );
   }
 
@@ -41,20 +41,15 @@ export default class SwitchCaseObfuscation extends Transform {
     var types = new Set();
     walk(object.discriminant, [object, ...parents], (o, p) => {
       if (o.type) {
-        if (
-          object.$controlFlowFlattening &&
-          o.type == "BinaryExpression" &&
-          o.operator === "+"
-        ) {
-        } else {
-          types.add(o.type);
-        }
+        types.add(o.type);
       }
     });
 
-    types.delete("Identifier");
-    if (types.size) {
-      return;
+    if (!object.$controlFlowFlattening) {
+      types.delete("Identifier");
+      if (types.size) {
+        return;
+      }
     }
 
     var body = parents[0];
@@ -74,32 +69,30 @@ export default class SwitchCaseObfuscation extends Transform {
       return;
     }
 
-    var factor = getRandomInteger(-150, 150);
-    if (factor == 0) {
-      factor = 2;
-    }
+    var factor = getRandomInteger(2, 100);
     var offset = getRandomInteger(-250, 250);
 
     var newVar = this.getPlaceholder();
 
     var newStates = [];
     var max;
-    object.cases.forEach((x) => {
-      var current = x.test.value;
-      var value = current * factor + offset;
+    object.cases.forEach((caseObject, i) => {
+      if (
+        caseObject.test &&
+        caseObject.test.type === "Literal" &&
+        typeof caseObject.test.value === "number"
+      ) {
+        var current = caseObject.test.value;
+        var value = current * factor + offset;
 
-      newStates.push(value);
-      if (!max || Math.abs(value) > max) {
-        max = Math.abs(value);
+        newStates[i] = value;
+        if (!max || Math.abs(value) > max) {
+          max = Math.abs(value);
+        }
       }
     });
 
     if (max > 100_000) {
-      return;
-    }
-
-    if (new Set(newStates).size !== newStates.length) {
-      // not possible because of clashing case test
       return;
     }
 
@@ -124,7 +117,17 @@ export default class SwitchCaseObfuscation extends Transform {
 
     // possible so override
     object.cases.forEach((x, i) => {
-      x.test = Literal(newStates[i]);
+      if (x.test) {
+        if (x.test.type === "Literal" && typeof x.test.value === "number") {
+          x.test = Literal(newStates[i]);
+        } else {
+          x.test = BinaryExpression(
+            "+",
+            BinaryExpression("*", x.test, Literal(factor)),
+            Literal(offset)
+          );
+        }
+      }
     });
   }
 }
