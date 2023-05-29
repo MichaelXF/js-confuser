@@ -3,14 +3,12 @@ import { reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
 import traverse, { walk } from "../traverse";
 import {
-  FunctionDeclaration,
   Identifier,
   ReturnStatement,
   VariableDeclaration,
   VariableDeclarator,
   CallExpression,
   MemberExpression,
-  ThisExpression,
   ArrayExpression,
   ExpressionStatement,
   AssignmentExpression,
@@ -20,7 +18,6 @@ import {
   FunctionExpression,
   ObjectExpression,
   Property,
-  SpreadElement,
   Literal,
   IfStatement,
   ThrowStatement,
@@ -29,14 +26,8 @@ import {
   UnaryExpression,
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
-import {
-  getBlockBody,
-  getVarContext,
-  isFunction,
-  prepend,
-  clone,
-} from "../util/insert";
-import { shuffle } from "../util/random";
+import { getBlockBody, getVarContext, prepend, clone } from "../util/insert";
+import { chance, shuffle } from "../util/random";
 import Transform from "./transform";
 
 /**
@@ -257,12 +248,12 @@ export default class Flatten extends Transform {
 
       getBlockBody(object.body).push(ReturnStatement());
       walk(object.body, [object, ...parents], (o, p) => {
-        return () => {
-          // Change return statements from
-          // return (argument)
-          // to
-          // return [ [modifiedRefs],  ]
-          if (o.type == "ReturnStatement" && getVarContext(o, p) === object) {
+        // Change return statements from
+        // return (argument)
+        // to
+        // return [ [modifiedRefs],  ]
+        if (o.type == "ReturnStatement" && getVarContext(o, p) === object) {
+          return () => {
             var returnObject = ObjectExpression(
               output.map((outputName) =>
                 Property(
@@ -280,7 +271,8 @@ export default class Flatten extends Transform {
                 o.argument.name == "undefined"
               )
             ) {
-              returnObject.properties.push(
+              // FIX: The return argument must be executed first so it must use 'unshift'
+              returnObject.properties.unshift(
                 Property(Literal(returnOutputName), clone(o.argument), true)
               );
             }
@@ -294,15 +286,15 @@ export default class Flatten extends Transform {
               ),
               returnObject
             );
-          }
-        };
+          };
+        }
       });
 
       var newBody = getBlockBody(object.body);
 
       var newFunctionExpression = FunctionExpression(
         [
-          ArrayPattern(input.map(Identifier)),
+          ArrayPattern(input.map((name) => Identifier(name))),
           ArrayPattern(clone(object.params)),
           Identifier(resultName),
         ],
@@ -312,19 +304,12 @@ export default class Flatten extends Transform {
       newFunctionExpression.async = !!object.async;
       newFunctionExpression.generator = !!object.generator;
 
-      var property = Property(
-        Identifier(newName),
-        newFunctionExpression,
-        false
-      );
-      property.kind = "set";
-
       this.flattenedFns.push(
         VariableDeclarator(newName, newFunctionExpression)
       );
 
-      var newParamNodes = object.params.map(() =>
-        Identifier(this.getPlaceholder())
+      var newParamNames: string[] = object.params.map(() =>
+        this.getPlaceholder()
       );
 
       // result.pop()
@@ -337,8 +322,8 @@ export default class Flatten extends Transform {
 
       // newFn.call([...refs], ...arguments, resultObject)
       var callExpression = CallExpression(Identifier(newName), [
-        ArrayExpression(input.map(Identifier)),
-        ArrayExpression([...newParamNodes]),
+        ArrayExpression(input.map((name) => Identifier(name))),
+        ArrayExpression(newParamNames.map((name) => Identifier(name))),
         Identifier(resultName),
       ]);
 
@@ -462,7 +447,7 @@ export default class Flatten extends Transform {
         IfStatement(UnaryExpression("!", Identifier(resultName)), [
           ReturnStatement(),
         ]),
-      ].filter(() => Math.random() > 0.25);
+      ].filter(() => chance(25));
 
       // if (result.output) return result.output.returnValue;
       // this is the real return statement, it is always added
@@ -479,7 +464,7 @@ export default class Flatten extends Transform {
 
       object.body = BlockStatement(newObjectBody);
 
-      object.params = newParamNodes;
+      object.params = newParamNames.map((name) => Identifier(name));
     };
   }
 }
