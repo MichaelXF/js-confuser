@@ -195,8 +195,8 @@ it("should only replace variables defined within the function, and not run if an
 it("should work even when differing amount of arguments passed in", async () => {
   var output = await JsConfuser(
     `
-      function add3(x, y, z){
-        return x + y;
+      function add3(var_x, var_y, var_z){
+        return var_x + var_y;
       }
       
       input(add3(10, 15), add3(10, 15, 30))
@@ -207,7 +207,7 @@ it("should work even when differing amount of arguments passed in", async () => 
     }
   );
 
-  expect(output).not.toContain("x");
+  expect(output).not.toContain("var_x");
 
   var value = "never_called",
     input = (x) => (value = x);
@@ -282,9 +282,9 @@ it("should guess execution order correctly (AssignmentExpression, right side exe
     `
       function TEST_FUNCTION(a,b){
         
-        var C;
-        C = a + b;
-        input(C)
+        var _C;
+        _C = a + b;
+        input(_C)
         
       }
       
@@ -296,7 +296,7 @@ it("should guess execution order correctly (AssignmentExpression, right side exe
     }
   );
 
-  expect(output).not.toContain("C=");
+  expect(output).not.toContain("_C=");
 
   var value = "never_called",
     input = (x) => (value = x);
