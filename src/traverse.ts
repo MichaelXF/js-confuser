@@ -98,3 +98,23 @@ export function walk(
 export default function traverse(tree, onEnter: EnterCallback) {
   walk(tree, [], onEnter);
 }
+
+/**
+ * This is debugging function used to test for circular references.
+ */
+export function assertNoCircular(object) {
+  var seen = new Set();
+
+  traverse(object, (node, nodeParents) => {
+    if (node && typeof node === "object") {
+      if (seen.has(node)) {
+        console.log(nodeParents);
+        console.log(node);
+
+        throw new Error("FOUND CIRCULAR REFERENCE");
+      }
+
+      seen.add(node);
+    }
+  });
+}
