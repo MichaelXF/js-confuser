@@ -144,6 +144,8 @@ export interface ObfuscateOptions {
   /**
    * ### `nameRecycling`
    *
+   * (Experimental feature)
+   *
    * Attempts to reuse released names.
    *
    * - Potency Medium
@@ -191,6 +193,8 @@ export interface ObfuscateOptions {
 
   /**
    * ### `hideInitializingCode`
+   *
+   * (Experimental feature)
    *
    * Hides initializing code with complex ternary expressions. (`true/false`)
    *
