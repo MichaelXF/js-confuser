@@ -280,6 +280,8 @@ export function prepend(block: Node, ...nodes: Node[]) {
     });
 
     block.body.splice(moveBy, 0, ...nodes);
+  } else if (block.type === "SwitchCase") {
+    block.consequent.unshift(...nodes);
   } else {
     getBlockBody(block).unshift(...nodes);
   }
