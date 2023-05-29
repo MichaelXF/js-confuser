@@ -28,7 +28,7 @@ import { ObfuscateOrder } from "../../order";
 import { isModuleSource } from "../string/stringConcealing";
 import { ComputeProbabilityMap } from "../../probability";
 import { ok } from "assert";
-import { choice, getRandomInteger } from "../../util/random";
+import { chance, choice, getRandomInteger } from "../../util/random";
 
 /**
  * [Duplicate Literals Removal](https://docs.jscrambler.com/code-integrity/documentation/transformations/duplicate-literals-removal) replaces duplicate literals with a variable name.
@@ -232,6 +232,9 @@ export default class DuplicateLiteralsRemoval extends Transform {
       if (!ComputeProbabilityMap(this.options.duplicateLiteralsRemoval)) {
         return;
       }
+
+      // HARD CODED LIMIT of 10,000 (after 1,000 elements)
+      if (this.map.size > 1000 && !chance(this.map.size / 100)) return;
 
       if (
         this.arrayName &&
