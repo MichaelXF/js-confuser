@@ -7,25 +7,26 @@ import {
   Identifier,
   Literal,
   BinaryExpression,
-  LogicalExpression,
   SwitchCase,
   SwitchStatement,
-  SequenceExpression,
   AssignmentExpression,
   VariableDeclaration,
   VariableDeclarator,
-  ExpressionStatement,
+  UnaryExpression,
 } from "../util/gen";
 import { prepend } from "../util/insert";
-import { getBlock } from "../traverse";
 import { choice, getRandomInteger } from "../util/random";
 import { ObfuscateOrder } from "../order";
 import { ok } from "assert";
 import { OPERATOR_PRECEDENCE } from "../precedence";
 import Template from "../templates/template";
+import { ComputeProbabilityMap } from "../probability";
+
+const allowedBinaryOperators = new Set(["+", "-", "*", "/"]);
+const allowedUnaryOperators = new Set(["!", "void", "typeof", "-", "~", "+"]);
 
 export default class Calculator extends Transform {
-  gen: any;
+  gen: ReturnType<Transform["getGenerator"]>;
   ops: { [operator: string]: number };
   statesUsed: Set<string>;
   calculatorFn: string;
@@ -37,7 +38,7 @@ export default class Calculator extends Transform {
 
     this.ops = Object.create(null);
     this.statesUsed = new Set();
-    this.calculatorFn = this.getPlaceholder();
+    this.calculatorFn = this.getPlaceholder() + "_calc";
     this.calculatorOpVar = this.getPlaceholder();
     this.calculatorSetOpFn = this.getPlaceholder();
 
@@ -55,19 +56,29 @@ export default class Calculator extends Transform {
     var rightArg = this.getPlaceholder();
     var switchCases = [];
 
-    Object.keys(this.ops).forEach((operator) => {
-      var code = this.ops[operator];
+    Object.keys(this.ops).forEach((opKey) => {
+      var [type, operator] = opKey.split("_");
 
-      var factory =
-        operator == "&&" || operator == "||"
-          ? LogicalExpression
-          : BinaryExpression;
+      var code = this.ops[opKey];
+      var body = [];
 
-      var body = [
-        ReturnStatement(
-          factory(operator, Identifier(leftArg), Identifier(rightArg))
-        ),
-      ];
+      if (type === "Binary") {
+        body = [
+          ReturnStatement(
+            BinaryExpression(
+              operator,
+              Identifier(leftArg),
+              Identifier(rightArg)
+            )
+          ),
+        ];
+      } else if (type === "Unary") {
+        body = [
+          ReturnStatement(UnaryExpression(operator, Identifier(leftArg))),
+        ];
+      } else {
+        throw new Error("Unknown type: " + type);
+      }
 
       switchCases.push(SwitchCase(Literal(code), body));
     });
@@ -95,70 +106,122 @@ export default class Calculator extends Transform {
   }
 
   match(object: Node, parents: Node[]) {
-    return object.type == "BinaryExpression";
+    return (
+      object.type === "BinaryExpression" || object.type === "UnaryExpression"
+    );
   }
 
   transform(object: Node, parents: Node[]) {
+    // Allow percentage
+    if (!ComputeProbabilityMap(this.options.calculator)) {
+      return;
+    }
+
     var operator = object.operator;
-    var allowedOperators = new Set(["+", "-", "*", "/"]);
-    if (!allowedOperators.has(operator)) {
-      return;
+
+    var type;
+
+    if (object.type === "BinaryExpression") {
+      type = "Binary";
+
+      if (!allowedBinaryOperators.has(operator)) {
+        return;
+      }
+
+      // Additional checks to ensure complex expressions still work
+      var myPrecedence =
+        OPERATOR_PRECEDENCE[operator] +
+        Object.keys(OPERATOR_PRECEDENCE).indexOf(operator) / 100;
+      var precedences = parents.map(
+        (x) =>
+          x.type == "BinaryExpression" &&
+          OPERATOR_PRECEDENCE[x.operator] +
+            Object.keys(OPERATOR_PRECEDENCE).indexOf(x.operator) / 100
+      );
+
+      // corrupt AST
+      if (precedences.find((x) => x >= myPrecedence)) {
+        return;
+      }
+      if (
+        parents.find((x) => x.$dispatcherSkip || x.type == "BinaryExpression")
+      ) {
+        return;
+      }
     }
 
-    var myPrecedence =
-      OPERATOR_PRECEDENCE[operator] +
-      Object.keys(OPERATOR_PRECEDENCE).indexOf(operator) / 100;
-    var precedences = parents.map(
-      (x) =>
-        x.type == "BinaryExpression" &&
-        OPERATOR_PRECEDENCE[x.operator] +
-          Object.keys(OPERATOR_PRECEDENCE).indexOf(x.operator) / 100
-    );
+    if (object.type === "UnaryExpression") {
+      type = "Unary";
 
-    // corrupt AST
-    if (precedences.find((x) => x >= myPrecedence)) {
-      return;
-    }
-    if (
-      parents.find((x) => x.$dispatcherSkip || x.type == "BinaryExpression")
-    ) {
-      return;
+      if (!allowedUnaryOperators.has(operator)) {
+        return;
+      }
+
+      // Typeof expression fix
+      if (operator === "typeof" && object.argument.type === "Identifier") {
+        // `typeof name` is special because it can reference the variable `name` without
+        // throwing any errors. If changed, an error could be thrown, breaking the users code
+        return;
+      }
     }
 
     return () => {
-      if (typeof this.ops[operator] !== "number") {
+      const opKey = type + "_" + operator;
+
+      if (typeof this.ops[opKey] !== "number") {
         var newState;
         do {
           newState = getRandomInteger(
-            -1000,
-            1000 + Object.keys(this.ops).length * 5
+            -50,
+            50 + Object.keys(this.ops).length * 5
           );
         } while (this.statesUsed.has(newState));
 
         ok(!isNaN(newState));
 
         this.statesUsed.add(newState);
-        this.ops[operator] = newState;
-        this.log(operator, `calc(${newState}, left, right)`);
+        this.ops[opKey] = newState;
+
+        if (type === "Binary") {
+          this.log(
+            `left ${operator} right ->`,
+            `${this.calculatorFn}((${newState}, left, right)`
+          );
+        } else if (type === "Unary") {
+          this.log(
+            `${operator}(argument) ->`,
+            `${this.calculatorFn}(${newState}, argument)`
+          );
+        }
       }
 
-      this.replace(
-        object,
-        CallExpression(Identifier(this.calculatorFn), [
+      // The operator expression sets the operator to be used
+      var operatorExpression = choice([
+        AssignmentExpression(
+          "=",
+          Identifier(this.calculatorOpVar),
+          Literal(this.ops[opKey])
+        ),
+        CallExpression(Identifier(this.calculatorSetOpFn), [
+          Literal(this.ops[opKey]),
+        ]),
+      ]);
+
+      var newExpression;
+      if (type === "Binary") {
+        newExpression = CallExpression(Identifier(this.calculatorFn), [
           object.left,
           object.right,
-          choice([
-            AssignmentExpression(
-              "=",
-              Identifier(this.calculatorOpVar),
-              Literal(this.ops[operator])
-            ),
-            CallExpression(Identifier(this.calculatorSetOpFn), [
-              Literal(this.ops[operator]),
-            ]),
-          ]),
-        ])
-      );
+          operatorExpression,
+        ]);
+      } else {
+        newExpression = CallExpression(Identifier(this.calculatorFn), [
+          object.argument,
+          operatorExpression,
+        ]);
+      }
+
+      this.replace(object, newExpression);
     };
   }
 }
