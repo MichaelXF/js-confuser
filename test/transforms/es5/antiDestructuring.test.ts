@@ -139,3 +139,19 @@ it("should fix destructuring inside the try...catch clause", async () => {
 
   expect(TEST_VARIABLE).toStrictEqual(100);
 });
+
+it("should fix destructuring member expressions", async () => {
+  var code = `
+  var myObject = { nested: {} };
+  [myObject.key1, myObject["key2"], myObject.nested.key3] = [1, 2, 3];
+
+  TEST_VARIABLE = [myObject.key1, myObject.key2, myObject.nested.key3];
+  `;
+
+  var output = await JsConfuser(code, { target: "node", es5: true });
+
+  var TEST_VARIABLE;
+  eval(output);
+
+  expect(TEST_VARIABLE).toStrictEqual([1, 2, 3]);
+});
