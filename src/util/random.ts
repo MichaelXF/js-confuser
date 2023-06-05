@@ -8,9 +8,22 @@ import {
   ArrayExpression,
 } from "./gen";
 
+/**
+ * Returns a random element from the given array
+ * @param choices Array of items
+ * @returns One of the items in the array at random
+ */
 export function choice<T>(choices: T[]): T {
   var index = Math.floor(Math.random() * choices.length);
   return choices[index];
+}
+
+/**
+ * Returns a true/false based on the percent chance (0%-100%)
+ * @param percentChance AS A PERCENTAGE 0 - 100%
+ */
+export function chance(percentChance: number): boolean {
+  return Math.random() < percentChance / 100;
 }
 
 /**

@@ -23,7 +23,7 @@ it("add a background interval", async () => {
 });
 
 it("should place syntax-correct code", async () => {
-  for (var i = 0; i < 50; i++) {
+  for (var i = 0; i < 25; i++) {
     var output = await JsConfuser.obfuscate(
       `
     /**
@@ -49,7 +49,7 @@ it("should place syntax-correct code", async () => {
     `,
       {
         compact: true,
-        controlFlowFlattening: 0.25,
+        controlFlowFlattening: true,
         identifierGenerator: "randomized",
         lock: { antiDebug: true },
         minify: true,

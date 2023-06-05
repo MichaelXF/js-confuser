@@ -211,6 +211,8 @@ export default class AntiDestructuring extends Transform {
           exprs.push(AssignmentExpression(operator, clone(x), realm));
 
           names.add(x.name);
+        } else if (x.type == "MemberExpression") {
+          exprs.push(AssignmentExpression(operator, clone(x), realm));
         } else if (x.type == "ObjectPattern") {
           x.properties.forEach((property) => {
             recursive(

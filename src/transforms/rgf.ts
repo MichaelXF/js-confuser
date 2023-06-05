@@ -20,7 +20,6 @@ import {
   Node,
   ReturnStatement,
   SpreadElement,
-  ThisExpression,
   VariableDeclaration,
   VariableDeclarator,
 } from "../util/gen";
@@ -309,7 +308,7 @@ export default class RGF extends Transform {
                           ),
                         ]
                       ),
-                      memberExpression
+                      clone(memberExpression)
                     );
 
                     this.replace(o, conditionalExpression);
@@ -348,10 +347,9 @@ export default class RGF extends Transform {
             integrity: false,
           },
           eval: false,
-          hideInitializingCode: false,
           stringEncoding: false,
         });
-        var transforms = Object.values(obfuscator.transforms).filter(
+        var transforms = obfuscator.array.filter(
           (x) => x.priority > this.priority
         );
 

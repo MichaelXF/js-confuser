@@ -9,12 +9,12 @@ import Transform from "./transform";
  * Renames the labels to shorter names.
  */
 export default class RenameLabels extends Transform {
-  gen: any;
+  gen: ReturnType<Transform["getGenerator"]>;
 
   constructor(o) {
     super(o, ObfuscateOrder.RenameLabels);
 
-    this.gen = this.getGenerator();
+    this.gen = this.getGenerator("randomized");
   }
 
   match(object, parents) {

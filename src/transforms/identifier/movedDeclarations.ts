@@ -1,21 +1,18 @@
 import Transform from "../transform";
-import { isBlock, getBlock, walk } from "../../traverse";
+import { isBlock, walk } from "../../traverse";
 import {
   Location,
   ExpressionStatement,
-  SequenceExpression,
   AssignmentExpression,
   Identifier,
   Node,
   VariableDeclarator,
   VariableDeclaration,
 } from "../../util/gen";
-import { clone, isForInitialize, isFunction, prepend } from "../../util/insert";
+import { isForInitialize, prepend } from "../../util/insert";
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import { getIdentifierInfo } from "../../util/identifiers";
-import { isLoop } from "../../util/compare";
-import { reservedIdentifiers } from "../../constants";
 import { isLexicalScope, getLexicalScope } from "../../util/scope";
 
 /**
@@ -125,11 +122,7 @@ export default class MovedDeclarations extends Transform {
         })
       );
 
-      if (object.type == "Program") {
-        prepend(object, variableDeclaration);
-      } else {
-        body.unshift(variableDeclaration);
-      }
+      prepend(object, variableDeclaration);
 
       movingNames.forEach((name) => {
         var { location, replace } = variableDeclarations[name];

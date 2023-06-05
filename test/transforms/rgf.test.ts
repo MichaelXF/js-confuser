@@ -126,35 +126,6 @@ describe("RGF", () => {
     expect(value).toStrictEqual("Hello World");
   });
 
-  it("should work with hideInitializingCode enabled", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-function abc(x, y){
-  return x + y;
-}
-
-var result = abc(10, 50);
-input(console.log, result) 
-`,
-      {
-        target: "node",
-        identifierGenerator: "randomized",
-        hideInitializingCode: true,
-        rgf: true,
-        compact: false,
-        renameVariables: true,
-      }
-    );
-
-    var value = "never_called";
-    function input(_, valueIn) {
-      value = valueIn;
-    }
-
-    eval(output);
-    expect(value).toStrictEqual(60);
-  });
-
   // https://github.com/MichaelXF/js-confuser/issues/64
   it("should work on Arrow Functions", async () => {
     var output = await JsConfuser.obfuscate(

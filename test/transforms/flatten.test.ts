@@ -406,3 +406,52 @@ it("should work with RGF enabled", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+it("should work with assignment expressions in the return statement", async () => {
+  var output = await JsConfuser(
+    `
+  var outside;
+
+  function myFunction(){
+    return outside = "Correct Value"
+  }
+
+  myFunction(outside);
+
+  TEST_OUTPUT = outside;
+  
+  `,
+    { target: "node", flatten: true }
+  );
+
+  // Ensure flat was applied
+  expect(output).toContain("_flat_myFunction");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+it("should work with 'use strict' directive", async () => {
+  var output = await JsConfuser(
+    `
+  function myFunction(){
+    "use strict";
+
+    return "Correct Value";
+  }
+
+  TEST_OUTPUT = myFunction();
+  `,
+    { target: "node", flatten: true }
+  );
+
+  // Ensure flat was applied
+  expect(output).toContain("_flat_myFunction");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

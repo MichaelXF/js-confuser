@@ -36,3 +36,43 @@ it("should execute property with complex operations", async () => {
 
   expect(value).toStrictEqual(5618);
 });
+
+it("should apply to unary operators", async () => {
+  var code = `
+  var one = +1;
+  var negativeOne = -one;
+
+  var trueValue = true;
+  var falseValue = !trueValue;
+
+  TEST_OUTPUT = typeof (1, falseValue) === "boolean" && negativeOne === ~~-1 && void 0 === undefined;
+  `;
+
+  var output = await JsConfuser(code, { target: "node", calculator: true });
+
+  expect(output).toContain("_calc");
+  expect(output).not.toContain("+1");
+  expect(output).not.toContain("-one");
+  expect(output).not.toContain("typeof(1,falseValue)");
+  expect(output).not.toContain("void 0");
+
+  var TEST_OUTPUT = true;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+it("should not break typeof expressions", async () => {
+  var code = `
+    TEST_OUTPUT = typeof nonExistentVariable === "undefined";
+    `;
+
+  var output = await JsConfuser(code, { target: "node", calculator: true });
+
+  expect(output).not.toContain("_calc");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});

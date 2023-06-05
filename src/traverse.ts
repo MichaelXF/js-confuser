@@ -44,9 +44,9 @@ export function walk(
   if (typeof object === "object" && object) {
     var newParents: Node[] = [object as Node, ...parents];
 
-    if (!Array.isArray(object)) {
-      validateChain(object, parents);
-    }
+    // if (!Array.isArray(object)) {
+    //   validateChain(object, parents);
+    // }
 
     // 1. Call `onEnter` function and remember any onExit callback returned
     var onExit = onEnter(object as Node, parents);
@@ -59,7 +59,6 @@ export function walk(
           return "EXIT";
         }
       }
-      copy.forEach((x) => {});
     } else {
       var keys = Object.keys(object);
       for (var key of keys) {
@@ -98,4 +97,24 @@ export function walk(
  */
 export default function traverse(tree, onEnter: EnterCallback) {
   walk(tree, [], onEnter);
+}
+
+/**
+ * This is debugging function used to test for circular references.
+ */
+export function assertNoCircular(object) {
+  var seen = new Set();
+
+  traverse(object, (node, nodeParents) => {
+    if (node && typeof node === "object") {
+      if (seen.has(node)) {
+        console.log(nodeParents);
+        console.log(node);
+
+        throw new Error("FOUND CIRCULAR REFERENCE");
+      }
+
+      seen.add(node);
+    }
+  });
 }

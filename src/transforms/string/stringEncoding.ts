@@ -1,8 +1,9 @@
 import Transform from "../transform";
 import { choice } from "../../util/random";
-import { ObfuscateOrder } from "../../order";
 import { isDirective } from "../../util/compare";
 import { isModuleSource } from "./stringConcealing";
+import { ComputeProbabilityMap } from "../../probability";
+import { Identifier } from "../../util/gen";
 
 function pad(x: string, len: number): string {
   while (x.length < len) {
@@ -54,32 +55,30 @@ function toUnicodeRepresentation(str: string) {
  * - Cost Low
  */
 export default class StringEncoding extends Transform {
-  seen: Set<Node>;
-
   constructor(o) {
-    super(o, ObfuscateOrder.StringEncoding);
-  }
-
-  apply(tree) {
-    this.seen = new Set();
-    super.apply(tree);
+    super(o);
   }
 
   match(object, parents) {
     return (
       object.type == "Literal" &&
       typeof object.value === "string" &&
+      object.value.length > 0 &&
       !isModuleSource(object, parents) &&
       !isDirective(object, parents)
     );
   }
 
   transform(object, parents) {
-    // Todo fix circular json problems
-    if (this.seen.has(object)) {
+    // Allow percentages
+    if (
+      !ComputeProbabilityMap(
+        this.options.stringEncoding,
+        (x) => x,
+        object.value
+      )
+    )
       return;
-    }
-    this.seen.add(object);
 
     var type = choice(["hexadecimal", "unicode"]);
 
@@ -87,10 +86,11 @@ export default class StringEncoding extends Transform {
       type == "hexadecimal" ? toHexRepresentation : toUnicodeRepresentation
     )(object.value);
 
-    // escodegen tries to escape backslashes, here is a work-around
-    this.replace(object, {
-      type: "Identifier",
-      name: `'${escapedString}'`,
-    });
+    return () => {
+      if (object.type !== "Literal") return;
+
+      // ESCodeGen tries to escape backslashes, here is a work-around
+      this.replace(object, Identifier(`'${escapedString}'`));
+    };
   }
 }

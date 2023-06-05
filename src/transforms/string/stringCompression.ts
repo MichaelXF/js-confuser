@@ -17,6 +17,7 @@ import {
 import { append, prepend } from "../../util/insert";
 import Transform from "../transform";
 import { isModuleSource } from "./stringConcealing";
+import { chance } from "../../util/random";
 function LZ_encode(c) {
   ok(c);
   var x = "charCodeAt",
@@ -83,7 +84,7 @@ export default class StringCompression extends Transform {
   map: Map<string, number>;
   ignore: Set<string>;
   string: string;
-  delimiter = "1";
+  delimiter = "|";
 
   fnName: string;
 
@@ -110,7 +111,11 @@ export default class StringCompression extends Transform {
 
     var encoded = LZ_encode(this.string);
     if (LZ_decode(encoded) !== this.string) {
-      this.error(new Error("String failed to be decoded"));
+      this.error(
+        new Error(
+          "String failed to be decoded. Try disabling the 'stringCompression' option."
+        )
+      );
     }
 
     var getStringParamName = this.getPlaceholder();
@@ -195,37 +200,41 @@ export default class StringCompression extends Transform {
       return;
     }
 
-    if (!ComputeProbabilityMap(object.value, (x) => x)) {
+    if (
+      !ComputeProbabilityMap(
+        this.options.stringCompression,
+        (x) => x,
+        object.value
+      )
+    ) {
       return;
     }
 
+    // HARD CODED LIMIT of 10,000 (after 1,000 elements)
+    if (this.map.size > 1000 && !chance(this.map.size / 100)) return;
+
     var index = this.map.get(object.value);
+
+    // New string, add it!
     if (typeof index !== "number") {
+      // Ensure the string gets properly decoded
       if (LZ_decode(LZ_encode(object.value)) !== object.value) {
         this.ignore.add(object.value);
         return;
       }
 
-      var before = this.string;
-
       index = this.map.size;
       this.map.set(object.value, index);
       this.string += object.value + this.delimiter;
-
-      // allow rollback if string becomes corrupted
-      if (LZ_decode(LZ_encode(this.string)) !== this.string) {
-        this.string = before;
-        this.map.delete(object.value);
-        this.ignore.add(object.value);
-        return;
-      }
     }
     ok(typeof index === "number");
 
-    this.replaceIdentifierOrLiteral(
-      object,
-      CallExpression(Identifier(this.fnName), [Literal(index)]),
-      parents
-    );
+    return () => {
+      this.replaceIdentifierOrLiteral(
+        object,
+        CallExpression(Identifier(this.fnName), [Literal(index)]),
+        parents
+      );
+    };
   }
 }

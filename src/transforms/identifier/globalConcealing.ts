@@ -16,88 +16,15 @@ import {
   VariableDeclarator,
   FunctionExpression,
   ExpressionStatement,
-  SequenceExpression,
   AssignmentExpression,
   VariableDeclaration,
   BreakStatement,
 } from "../../util/gen";
 import { append, prepend } from "../../util/insert";
-import { getIdentifierInfo } from "../../util/identifiers";
-import { getRandomInteger } from "../../util/random";
-import { reservedIdentifiers, reservedKeywords } from "../../constants";
+import { chance, getRandomInteger } from "../../util/random";
+import { reservedIdentifiers } from "../../constants";
 import { ComputeProbabilityMap } from "../../probability";
-
-class GlobalAnalysis extends Transform {
-  notGlobals: Set<string>;
-  globals: { [name: string]: Location[] };
-
-  constructor(o) {
-    super(o);
-
-    this.globals = Object.create(null);
-    this.notGlobals = new Set();
-  }
-
-  match(object: Node, parents: Node[]) {
-    return object.type == "Identifier" && !reservedKeywords.has(object.name);
-  }
-
-  transform(object: Node, parents: Node[]) {
-    // no touching `import()` or `import x from ...`
-    var importIndex = parents.findIndex(
-      (x) => x.type == "ImportExpression" || x.type == "ImportDeclaration"
-    );
-    if (importIndex !== -1) {
-      if (
-        parents[importIndex].source === (parents[importIndex - 1] || object)
-      ) {
-        return;
-      }
-    }
-
-    var info = getIdentifierInfo(object, parents);
-    if (!info.spec.isReferenced) {
-      return;
-    }
-
-    // Add to globals
-    if (!this.notGlobals.has(object.name)) {
-      if (!this.globals[object.name]) {
-        this.globals[object.name] = [];
-      }
-
-      this.globals[object.name].push([object, parents]);
-    }
-
-    if (info.spec.isDefined || info.spec.isModified) {
-      delete this.globals[object.name];
-
-      this.notGlobals.add(object.name);
-    }
-
-    var assignmentIndex = parents.findIndex(
-      (x) => x.type == "AssignmentExpression"
-    );
-    var updateIndex = parents.findIndex((x) => x.type == "UpdateExpression");
-
-    if (
-      (assignmentIndex != -1 &&
-        parents[assignmentIndex].left ===
-          (parents[assignmentIndex - 1] || object)) ||
-      updateIndex != -1
-    ) {
-      var memberIndex = parents.findIndex((x) => x.type == "MemberExpression");
-      if (
-        memberIndex == -1 ||
-        memberIndex > (assignmentIndex == -1 ? assignmentIndex : updateIndex)
-      ) {
-        delete this.globals[object.name];
-
-        this.notGlobals.add(object.name);
-      }
-    }
-  }
-}
+import GlobalAnalysis from "./globalAnalysis";
 
 /**
  * Global Concealing hides global variables being accessed.
@@ -141,12 +68,10 @@ export default class GlobalConcealing extends Transform {
         }
       });
 
-      // this.log(Object.keys(globals).join(', '))
-
       if (Object.keys(globals).length > 0) {
         var used = new Set();
 
-        // 1. Make getter function
+        // Make getter function
 
         // holds "window" or "global"
         var globalVar = this.getPlaceholder();
@@ -157,6 +82,8 @@ export default class GlobalConcealing extends Transform {
         // "window" or "global" in node
         var global =
           this.options.globalVariables.values().next().value || "window";
+        var alternateGlobal = global === "window" ? "global" : "window";
+
         var getGlobalVariableFnName = this.getPlaceholder();
         var getThisVariableFnName = this.getPlaceholder();
 
@@ -164,7 +91,7 @@ export default class GlobalConcealing extends Transform {
         var getGlobalVariableFn = Template(`
         var ${getGlobalVariableFnName} = function(){
           try {
-            return ${global};
+            return ${global} || ${alternateGlobal} || (new Function("return this"))();
           } catch (e){
             return ${getThisVariableFnName}["call"](this);
           }
@@ -182,7 +109,7 @@ export default class GlobalConcealing extends Transform {
         // 2. Replace old accessors
         var globalFn = this.getPlaceholder();
 
-        var newNames = Object.create(null);
+        var newNames: { [globalVarName: string]: number } = Object.create(null);
 
         Object.keys(globals).forEach((name) => {
           var locations: Location[] = globals[name];
@@ -195,26 +122,10 @@ export default class GlobalConcealing extends Transform {
           newNames[name] = state;
 
           locations.forEach(([node, parents]) => {
-            if (!parents.find((x) => x.$dispatcherSkip)) {
-              // Do not replace
-              if (parents[0]) {
-                if (
-                  parents[0].type == "ClassDeclaration" ||
-                  parents[0].type == "ClassExpression" ||
-                  parents[0].type == "FunctionExpression" ||
-                  parents[0].type == "FunctionDeclaration"
-                ) {
-                  if (parents[0].id === node) {
-                    return;
-                  }
-                }
-              }
-
-              this.replace(
-                node,
-                CallExpression(Identifier(globalFn), [Literal(state)])
-              );
-            }
+            this.replace(
+              node,
+              CallExpression(Identifier(globalFn), [Literal(state)])
+            );
           });
         });
 
@@ -224,7 +135,7 @@ export default class GlobalConcealing extends Transform {
             var state;
             do {
               state = getRandomInteger(
-                -1000,
+                0,
                 1000 + used.size + this.options.globalVariables.size * 100
               );
             } while (used.has(state));
@@ -259,7 +170,7 @@ export default class GlobalConcealing extends Transform {
                     )
                   ),
                 ];
-                if (Math.random() > 0.5 && name) {
+                if (chance(50)) {
                   body = [
                     ExpressionStatement(
                       AssignmentExpression(

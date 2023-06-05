@@ -1,14 +1,6 @@
 import Template from "./template";
 
 export const CrashTemplate1 = Template(`
-try {
-    if(typeof process !== "undefined") {
-        Math.random() > 0.5 && process && process.exit();
-    }
-} catch ( e ) {
-    
-}
-
 var {var} = "a";
 while(1){
     {var} = {var} += "a";    //add as much as the browser can handle
@@ -17,12 +9,16 @@ while(1){
 
 export const CrashTemplate2 = Template(`
 while(true) {
-    for(var {var} = 99; {var} == {var}; {var} *= {var}) {
+    var {var} = 99;
+    for({var} = 99; {var} == {var}; {var} *= {var}) {
         !{var} && console.log({var});
         if ({var} <= 10){
             break;
         }
     };
+    if({var} === 100) {
+        {var}--
+    }
  };`);
 
 export const CrashTemplate3 = Template(`

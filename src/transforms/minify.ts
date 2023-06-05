@@ -2,7 +2,6 @@ import Transform from "./transform";
 import { ObfuscateOrder } from "../order";
 import {
   Node,
-  Location,
   VariableDeclaration,
   BinaryExpression,
   ExpressionStatement,
@@ -21,10 +20,8 @@ import {
   getBlockBody,
   clone,
   isForInitialize,
-  isLexContext,
-  getFunction,
-  prepend,
   append,
+  isVarContext,
 } from "../util/insert";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
 import { walk, isBlock } from "../traverse";
@@ -97,7 +94,7 @@ export default class Minify extends Transform {
           var sequences: { index: number; exprs: Node[] }[] = [];
 
           body.forEach((stmt, i) => {
-            if (stmt.type == "ExpressionStatement") {
+            if (stmt.type == "ExpressionStatement" && !stmt.directive) {
               exprs.push(stmt.expression);
               if (startIndex == -1) {
                 startIndex = i;
@@ -129,51 +126,52 @@ export default class Minify extends Transform {
           });
         }
 
-        if (object.type != "SwitchCase") {
-          // Unnecessary return
-          if (body.length && body[body.length - 1]) {
-            var last = body[body.length - 1];
-            if (last.type == "ReturnStatement") {
-              var isUndefined = last.argument == null;
+        // Unnecessary return
+        if (
+          parents[0] &&
+          isVarContext(parents[0]) &&
+          body.length &&
+          body[body.length - 1]
+        ) {
+          var last = body[body.length - 1];
+          if (last.type == "ReturnStatement") {
+            var isUndefined = last.argument == null;
 
-              if (isUndefined) {
-                if (getFunction(object, parents).body == object) {
-                  body.pop();
-                }
-              }
+            if (isUndefined) {
+              body.pop();
             }
           }
-
-          // Variable declaration grouping
-          // var a = 1;
-          // var b = 1;
-          // var c = 1;
-          //
-          // var a=1,b=1,c=1;
-          var lastDec = null;
-
-          var remove = [];
-          body.forEach((x, i) => {
-            if (x.type === "VariableDeclaration") {
-              if (
-                !lastDec ||
-                lastDec.kind !== x.kind ||
-                !lastDec.declarations.length
-              ) {
-                lastDec = x;
-              } else {
-                lastDec.declarations.push(...clone(x.declarations));
-                remove.unshift(i);
-              }
-            } else {
-              lastDec = null;
-            }
-          });
-
-          remove.forEach((x) => {
-            body.splice(x, 1);
-          });
         }
+
+        // Variable declaration grouping
+        // var a = 1;
+        // var b = 1;
+        // var c = 1;
+        //
+        // var a=1,b=1,c=1;
+        var lastDec = null;
+
+        var remove = [];
+        body.forEach((x, i) => {
+          if (x.type === "VariableDeclaration") {
+            if (
+              !lastDec ||
+              lastDec.kind !== x.kind ||
+              !lastDec.declarations.length
+            ) {
+              lastDec = x;
+            } else {
+              lastDec.declarations.push(...clone(x.declarations));
+              remove.unshift(i);
+            }
+          } else {
+            lastDec = null;
+          }
+        });
+
+        remove.forEach((x) => {
+          body.splice(x, 1);
+        });
       };
     }
 
@@ -203,28 +201,38 @@ export default class Minify extends Transform {
           }
         }
 
-        var blockIndex = parents.findIndex((x) => isLexContext(x));
-        if (blockIndex !== -1) {
-          var block = parents[blockIndex];
-          var body = block.body;
+        if (object.type === "FunctionDeclaration") {
+          var body = parents[0];
           if (!Array.isArray(body)) {
             return;
           }
 
-          var stmt = parents[blockIndex - 2] || object;
-
-          var index = body.indexOf(stmt);
+          var index = body.indexOf(object);
           if (index == -1) {
             return;
           }
 
           var before = body.slice(0, index);
-          ok(!before.includes(stmt));
+          ok(!before.includes(object));
 
-          var set = new Set(before.map((x) => x.type));
-          set.delete("FunctionDeclaration");
+          var beforeTypes = new Set(before.map((x) => x.type));
+          beforeTypes.delete("FunctionDeclaration");
 
-          if (set.size) {
+          if (beforeTypes.size > 0) {
+            return;
+          }
+
+          // Test Variant #25: Don't break redefined function declaration
+          if (
+            object.id &&
+            body.find(
+              (x) =>
+                x.type === "FunctionDeclaration" &&
+                x !== object &&
+                x.id &&
+                x.id.name === object.id.name
+            )
+          ) {
             return;
           }
         }
@@ -298,7 +306,7 @@ export default class Minify extends Transform {
 
         if (body.length == 1 && stmt1.type == "ReturnStatement") {
           // x=>{a: 1} // Invalid syntax
-          if (stmt1.argument.type != "ObjectExpression") {
+          if (stmt1.argument && stmt1.argument.type != "ObjectExpression") {
             object.body = stmt1.argument;
             object.expression = true;
           }
@@ -544,16 +552,16 @@ export default class Minify extends Transform {
         object.property.type = "Identifier";
         object.property.name = clone(object.property.value);
 
-        obj.name &&
-          this.log(
-            obj.name +
-              "['" +
-              object.property.name +
-              "'] -> " +
-              obj.name +
-              "." +
-              object.property.name
-          );
+        // obj.name &&
+        //   this.log(
+        //     obj.name +
+        //       "['" +
+        //       object.property.name +
+        //       "'] -> " +
+        //       obj.name +
+        //       "." +
+        //       object.property.name
+        //   );
       }
     }
 
@@ -572,7 +580,7 @@ export default class Minify extends Transform {
     }
 
     // { "x": 1 } -> {x: 1}
-    if (object.type == "Property") {
+    if (object.type === "Property" || object.type === "MethodDefinition") {
       if (
         object.key.type == "SequenceExpression" &&
         object.key.expressions.length == 1
@@ -581,15 +589,14 @@ export default class Minify extends Transform {
         object.computed = true;
       }
 
-      if (object.key.type == "Literal" && isValidIdentifier(object.key.value)) {
+      if (
+        object.key.type == "Literal" &&
+        typeof object.key.value === "string" &&
+        isValidIdentifier(object.key.value)
+      ) {
         object.key.type = "Identifier";
         object.key.name = object.key.value;
         object.computed = false;
-      } else if (
-        object.key.type == "Identifier" &&
-        !isValidIdentifier(object.key.name)
-      ) {
-        object.key = Literal(object.key.name);
       }
     }
 

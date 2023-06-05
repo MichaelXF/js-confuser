@@ -215,3 +215,85 @@ it("should work inside the Class Constructor function", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
+
+it("should be configurable by custom function option", async () => {
+  var code = `
+  var myVar1 = "My First String";
+  var myVar2 = "My Second String";
+  var myVar3 = "My Third String";
+
+  TEST_RESULT = [myVar1, myVar2, myVar3];
+  `;
+
+  var strings = [];
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    stringConcealing: (str) => {
+      strings.push(str);
+
+      return str !== "My Second String";
+    },
+  });
+
+  // Ensure stringConcealing found all the strings
+  expect(strings).toContain("My First String");
+  expect(strings).toContain("My Second String");
+  expect(strings).toContain("My Third String");
+
+  // These strings should be encoded
+  expect(output).not.toContain("My First String");
+  expect(output).not.toContain("My Third String");
+
+  // This string should NOT be encoded
+  expect(output).toContain("My Second String");
+
+  // Ensure strings get properly decoded
+  var TEST_RESULT;
+
+  eval(output);
+  expect(TEST_RESULT).toStrictEqual([
+    "My First String",
+    "My Second String",
+    "My Third String",
+  ]);
+});
+
+test("Variant #13: Work without TextEncoder or Buffer being defined", async () => {
+  var output = await JsConfuser(
+    `
+  TEST_OUTPUT = [];
+  TEST_OUTPUT.push("My First String");
+  TEST_OUTPUT.push("My Second String");
+  TEST_OUTPUT.push("My Third String");
+  TEST_OUTPUT.push("My Fourth String");
+  TEST_OUTPUT.push("My Fifth String");
+  `,
+    { target: "node", stringConcealing: true }
+  );
+
+  // Ensure the strings got changed
+  expect(output).not.toContain("My First String");
+  expect(output).not.toContain("My Second String");
+  expect(output).not.toContain("My Third String");
+  expect(output).not.toContain("My Fourth String");
+  expect(output).not.toContain("My Fifth String");
+
+  // Disable TextEncoder and Buffer
+  var global = {};
+  var window = {};
+  var Buffer = undefined;
+  var TextEncoder = undefined;
+
+  // Test the code
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual([
+    "My First String",
+    "My Second String",
+    "My Third String",
+    "My Fourth String",
+    "My Fifth String",
+  ]);
+});

@@ -7,7 +7,7 @@ import { ProbabilityMap, isProbabilityMapProbable } from "./probability";
 
 import Transform from "./transforms/transform";
 
-import Preparation from "./transforms/preparation/preparation";
+import Preparation from "./transforms/preparation";
 import ObjectExtraction from "./transforms/extraction/objectExtraction";
 import Lock from "./transforms/lock/lock";
 import Dispatcher from "./transforms/dispatcher";
@@ -17,8 +17,9 @@ import Calculator from "./transforms/calculator";
 import ControlFlowFlattening from "./transforms/controlFlowFlattening/controlFlowFlattening";
 import Eval from "./transforms/eval";
 import GlobalConcealing from "./transforms/identifier/globalConcealing";
-import StringConcealing from "./transforms/string/stringConcealing";
 import StringSplitting from "./transforms/string/stringSplitting";
+import StringConcealing from "./transforms/string/stringConcealing";
+import StringCompression from "./transforms/string/stringCompression";
 import DuplicateLiteralsRemoval from "./transforms/extraction/duplicateLiteralsRemoval";
 import Shuffle from "./transforms/shuffle";
 import MovedDeclarations from "./transforms/identifier/movedDeclarations";
@@ -26,15 +27,12 @@ import RenameVariables from "./transforms/identifier/renameVariables";
 import RenameLabels from "./transforms/renameLabels";
 import Minify from "./transforms/minify";
 import ES5 from "./transforms/es5/es5";
-import StringEncoding from "./transforms/string/stringEncoding";
 import RGF from "./transforms/rgf";
 import Flatten from "./transforms/flatten";
 import Stack from "./transforms/stack";
-import StringCompression from "./transforms/string/stringCompression";
 import NameRecycling from "./transforms/identifier/nameRecycling";
 import AntiTooling from "./transforms/antiTooling";
-import HideInitializingCode from "./transforms/hideInitializingCode";
-import HexadecimalNumbers from "./transforms/hexadecimalNumbers";
+import Finalizer from "./transforms/finalizer";
 
 /**
  * The parent transformation holding the `state`.
@@ -57,9 +55,6 @@ export default class Obfuscator extends EventEmitter {
     this.generated = new Set();
     this.totalPossibleTransforms = 0;
 
-    this.push(new Preparation(this));
-    this.push(new RenameLabels(this));
-
     const test = <T>(map: ProbabilityMap<T>, ...transformers: any[]) => {
       this.totalPossibleTransforms += transformers.length;
 
@@ -73,36 +68,33 @@ export default class Obfuscator extends EventEmitter {
     };
 
     // Optimization: Only add needed transformers. If a probability always return false, no need in running that extra code.
+    test(true, Preparation);
+    test(true, RenameLabels);
+
     test(options.objectExtraction, ObjectExtraction);
-    test(options.deadCode, DeadCode);
-
-    test(options.dispatcher, Dispatcher);
-    test(options.controlFlowFlattening, ControlFlowFlattening);
-    test(options.globalConcealing, GlobalConcealing);
-    test(options.stringCompression, StringCompression);
-    test(options.stringConcealing, StringConcealing);
-    test(options.stringEncoding, StringEncoding);
-    test(options.stringSplitting, StringSplitting);
-    test(options.renameVariables, RenameVariables);
-    test(options.nameRecycling, NameRecycling);
-
-    test(options.eval, Eval);
-    test(options.opaquePredicates, OpaquePredicates);
-    test(options.duplicateLiteralsRemoval, DuplicateLiteralsRemoval);
-    test(options.minify, Minify);
-
-    test(options.calculator, Calculator);
-    test(options.movedDeclarations, MovedDeclarations);
-
-    test(options.es5, ES5);
-    test(options.shuffle, Shuffle);
-
     test(options.flatten, Flatten);
     test(options.rgf, RGF);
+    test(options.dispatcher, Dispatcher);
+    test(options.deadCode, DeadCode);
+    test(options.calculator, Calculator);
+    test(options.controlFlowFlattening, ControlFlowFlattening);
+    test(options.eval, Eval);
+    test(options.globalConcealing, GlobalConcealing);
+    test(options.opaquePredicates, OpaquePredicates);
+    test(options.stringSplitting, StringSplitting);
+    test(options.stringConcealing, StringConcealing);
+    test(options.stringCompression, StringCompression);
     test(options.stack, Stack);
+    test(options.duplicateLiteralsRemoval, DuplicateLiteralsRemoval);
+    test(options.shuffle, Shuffle);
+    test(options.nameRecycling, NameRecycling);
+    test(options.movedDeclarations, MovedDeclarations);
+    test(options.minify, Minify);
+    test(options.renameVariables, RenameVariables);
+    test(options.es5, ES5);
+
     test(true, AntiTooling);
-    test(options.hideInitializingCode, HideInitializingCode);
-    test(true, HexadecimalNumbers); // BigInt support is included
+    test(true, Finalizer); // String Encoding, Hexadecimal Numbers, BigInt support is included
 
     if (
       options.lock &&

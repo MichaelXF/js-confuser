@@ -124,6 +124,8 @@ export default class Dispatcher extends Transform {
 
           if (context === c) {
             if (o.type == "FunctionDeclaration" && o.id.name) {
+              var name = o.id.name;
+
               if (
                 o.$requiresEval ||
                 o.async ||
@@ -135,8 +137,6 @@ export default class Dispatcher extends Transform {
               ) {
                 illegalFnNames.add(name);
               }
-
-              var name = o.id.name;
 
               // If dupe, no routing
               if (functionDeclarations[name]) {
@@ -203,7 +203,8 @@ export default class Dispatcher extends Transform {
 
         // Only make a dispatcher function if it caught any functions
         if (set.size > 0) {
-          var payloadArg = `$jsc_d${this.count}_payload`;
+          var payloadArg =
+            this.getPlaceholder() + "_dispatcher_" + this.count + "_payload";
 
           var dispatcherFnName =
             this.getPlaceholder() + "_dispatcher_" + this.count;

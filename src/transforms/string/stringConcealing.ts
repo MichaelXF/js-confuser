@@ -13,14 +13,20 @@ import {
   Node,
   ObjectExpression,
   Property,
-  ThisExpression,
   VariableDeclaration,
   VariableDeclarator,
 } from "../../util/gen";
 import { append, prepend } from "../../util/insert";
-import { choice, getRandomInteger, getRandomString } from "../../util/random";
+import {
+  chance,
+  choice,
+  getRandomInteger,
+  getRandomString,
+} from "../../util/random";
 import Transform from "../transform";
 import Encoding from "./encoding";
+import { ComputeProbabilityMap } from "../../probability";
+import { BufferToStringTemplate } from "../../templates/bufferToString";
 
 export function isModuleSource(object: Node, parents: Node[]) {
   if (!parents[0]) {
@@ -89,13 +95,23 @@ export default class StringConcealing extends Transform {
     super.apply(tree);
 
     var cacheName = this.getPlaceholder();
+    var bufferToStringName = this.getPlaceholder();
+
+    // This helper functions convert UInt8 Array to UTf-string
+    prepend(
+      tree,
+      ...BufferToStringTemplate.compile({ name: bufferToStringName })
+    );
 
     Object.keys(this.encoding).forEach((type) => {
       var { template } = Encoding[type];
       var decodeFn = this.getPlaceholder();
       var getterFn = this.encoding[type];
 
-      append(tree, template.single({ name: decodeFn }));
+      append(
+        tree,
+        template.single({ name: decodeFn, bufferToString: bufferToStringName })
+      );
 
       append(
         tree,
@@ -165,10 +181,24 @@ export default class StringConcealing extends Transform {
         return;
       }
 
+      // Allow user to choose which strings get changed
+      if (
+        !ComputeProbabilityMap(
+          this.options.stringConcealing,
+          (x) => x,
+          object.value
+        )
+      ) {
+        return;
+      }
+
+      // HARD CODED LIMIT of 10,000 (after 1,000 elements)
+      if (this.set.size > 1000 && !chance(this.set.size / 100)) return;
+
       var types = Object.keys(this.encoding);
 
       var type = choice(types);
-      if (!type || (!this.hasAllEncodings && Math.random() > 0.9)) {
+      if (!type || (!this.hasAllEncodings && chance(10))) {
         var allowed = Object.keys(Encoding).filter(
           (type) => !this.encoding[type]
         );
@@ -211,23 +241,23 @@ export default class StringConcealing extends Transform {
       var callExpr = CallExpression(Identifier(fnName), [Literal(index)]);
 
       // use `.apply` to fool automated de-obfuscators
-      if (Math.random() > 0.5) {
+      if (chance(10)) {
         callExpr = CallExpression(
-          MemberExpression(Identifier(fnName), Identifier("apply"), false),
+          MemberExpression(Identifier(fnName), Literal("apply"), true),
           [Identifier("undefined"), ArrayExpression([Literal(index)])]
         );
       }
 
       // use `.call`
-      else if (Math.random() > 0.5) {
+      else if (chance(10)) {
         callExpr = CallExpression(
-          MemberExpression(Identifier(fnName), Identifier("call"), false),
+          MemberExpression(Identifier(fnName), Literal("call"), true),
           [Identifier("undefined"), Literal(index)]
         );
       }
 
       var referenceType = "call";
-      if (parents.length && Math.random() < 0.5 / this.variablesMade) {
+      if (parents.length && chance(50 - this.variablesMade)) {
         referenceType = "constantReference";
       }
 

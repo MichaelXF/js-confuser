@@ -28,3 +28,25 @@ test("Variant #1: Don't break Symbols", async () => {
     }
   }
 });
+
+test("Variant #2: Join expressions into sequence expressions", async () => {
+  var output = await JsConfuser(
+    `
+  TEST_OUTPUT = 0;
+  TEST_OUTPUT++;
+  TEST_OUTPUT++;
+  TEST_OUTPUT++;
+  if(TEST_OUTPUT > 0) {
+    TEST_OUTPUT *= 2;
+  }
+  `,
+    { target: "node", renameVariables: true }
+  );
+
+  expect(output).toContain("(TEST_OUTPUT=0,TEST_OUTPUT++");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(6);
+});

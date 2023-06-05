@@ -1,3 +1,5 @@
+"use strict";
+
 // Variant #1 Using `let`
 let myVariable = 1;
 
@@ -87,3 +89,123 @@ for (
 var TEST_OUTPUT = myFunction();
 
 expect(TEST_OUTPUT).toStrictEqual(12);
+
+function noLexicalVariables() {
+  // Variant #13 For-in statement
+  var object = { 100: true, "-87": true, 1000: false };
+  var sumOfKeys = 0;
+  for (var propertyName in object) {
+    if (object[propertyName] === true) {
+      sumOfKeys += parseInt(propertyName);
+    }
+  }
+
+  expect(sumOfKeys).toStrictEqual(13);
+
+  // Variant #14 For-of statement
+  var values = [10, 20, 30, 40, -86];
+  var sumOfValues = 0;
+  for (var value of values) {
+    sumOfValues += value;
+  }
+
+  expect(sumOfValues).toStrictEqual(14);
+}
+
+noLexicalVariables();
+
+function useStrictFunction() {
+  "use strict";
+
+  function testThis() {
+    // Ensure 'this' behaves like strict mode
+    function fun() {
+      return this;
+    }
+
+    expect(fun() === undefined).toStrictEqual(true);
+    expect(fun.call(2) === 2).toStrictEqual(true);
+    expect(fun.apply(null) === null).toStrictEqual(true);
+    expect(fun.call(undefined) === undefined).toStrictEqual(true);
+    expect(fun.bind(true)() === true).toStrictEqual(true);
+  }
+
+  testThis();
+
+  function testArguments() {
+    // Ensure arguments behaves like strict-mode
+    expect(() => useStrictFunction.arguments).toThrow();
+    expect(() => useStrictFunction.caller).toThrow();
+    expect(() => arguments.callee).toThrow();
+  }
+
+  testArguments();
+
+  function testEval() {
+    var __NO_JS_CONFUSER_RENAME__myOuterVariable = "Initial Value";
+
+    // Eval will not leak names
+    eval("var __NO_JS_CONFUSER_RENAME__myOuterVariable = 'Incorrect Value';");
+
+    expect(__NO_JS_CONFUSER_RENAME__myOuterVariable).toStrictEqual(
+      "Initial Value"
+    );
+  }
+
+  testEval();
+}
+
+useStrictFunction();
+
+function labeledBreaksAndContinues() {
+  var flag = true;
+
+  label_1: for (var i = 0; i < 20; i++) {
+    b: switch (i) {
+      case 15:
+        c: do {
+          if (i !== 15) {
+            break c;
+          }
+          flag = true;
+
+          break label_1;
+
+          var fillerVar1;
+          var fillerVar2;
+          var fillerVar3;
+        } while (i == 15);
+
+        break;
+
+      case 10:
+        continue label_1;
+
+      default:
+        flag = false;
+        break b;
+    }
+
+    var fillerVar1;
+    var fillerVar2;
+    var fillerVar3;
+  }
+
+  var fillerVar1;
+  var fillerVar2;
+  var fillerVar3;
+
+  if (flag) {
+    return i;
+  }
+}
+
+var variant15 = labeledBreaksAndContinues();
+expect(variant15).toStrictEqual(15);
+
+// Set 'ranAllTest' to TRUE
+ranAllTest = true;
+
+function countermeasures() {
+  throw new Error("Countermeasures function called.");
+}

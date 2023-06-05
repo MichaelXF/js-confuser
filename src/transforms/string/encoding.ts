@@ -7,7 +7,120 @@ const Encoding: {
     template: ReturnType<typeof Template>;
   };
 } = {
-  ascii85: {
+  base91: {
+    encode(str) {
+      const table =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"';
+
+      const raw = Buffer.from(str, "utf-8");
+      const len = raw.length;
+      let ret = "";
+
+      let n = 0;
+      let b = 0;
+
+      for (let i = 0; i < len; i++) {
+        b |= raw[i] << n;
+        n += 8;
+
+        if (n > 13) {
+          let v = b & 8191;
+          if (v > 88) {
+            b >>= 13;
+            n -= 13;
+          } else {
+            v = b & 16383;
+            b >>= 14;
+            n -= 14;
+          }
+          ret += table[v % 91] + table[(v / 91) | 0];
+        }
+      }
+
+      if (n) {
+        ret += table[b % 91];
+        if (n > 7 || b > 90) ret += table[(b / 91) | 0];
+      }
+
+      return ret;
+    },
+    decode(str) {
+      const table =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"';
+
+      const raw = "" + (str || "");
+      const len = raw.length;
+      const ret = [];
+
+      let b = 0;
+      let n = 0;
+      let v = -1;
+
+      for (let i = 0; i < len; i++) {
+        const p = table.indexOf(raw[i]);
+        if (p === -1) continue;
+        if (v < 0) {
+          v = p;
+        } else {
+          v += p * 91;
+          b |= v << n;
+          n += (v & 8191) > 88 ? 13 : 14;
+          do {
+            ret.push(b & 0xff);
+            b >>= 8;
+            n -= 8;
+          } while (n > 7);
+          v = -1;
+        }
+      }
+
+      if (v > -1) {
+        ret.push((b | (v << n)) & 0xff);
+      }
+
+      return Buffer.from(ret).toString("utf-8");
+    },
+    template: Template(`  
+      function {name}(str){
+        const table =
+          'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_\`{|}~"';
+
+        const raw = "" + (str || "");
+        const len = raw.length;
+        const ret = [];
+
+        let b = 0;
+        let n = 0;
+        let v = -1;
+
+        for (let i = 0; i < len; i++) {
+          const p = table.indexOf(raw[i]);
+          if (p === -1) continue;
+          if (v < 0) {
+            v = p;
+          } else {
+            v += p * 91;
+            b |= v << n;
+            n += (v & 8191) > 88 ? 13 : 14;
+            do {
+              ret.push(b & 0xff);
+              b >>= 8;
+              n -= 8;
+            } while (n > 7);
+            v = -1;
+          }
+        }
+
+        if (v > -1) {
+          ret.push((b | (v << n)) & 0xff);
+        }
+
+        return {bufferToString}(ret);
+      }
+    `),
+  },
+
+  /* ascii85: { This implementation is flaky and causes decoding errors 
     encode(a) {
       var b, c, d, e, f, g, h, i, j, k;
       // @ts-ignore
@@ -94,217 +207,7 @@ const Encoding: {
       }(e, c[l]), h[LL[0]][LL[1]](h, e);
     }
     `),
-  },
-
-  base32: {
-    encode: function (s) {
-      var a = "!\"#$%&'()*+,-./0123456789:;<=>?@";
-      var len = s.length;
-      var o = "";
-      var w,
-        c,
-        r = 0,
-        sh = 0,
-        i;
-      for (i = 0; i < len; i += 5) {
-        // mask top 5 bits
-        c = s.charCodeAt(i);
-        w = 0xf8 & c;
-        o += a.charAt(w >> 3);
-        r = 0x07 & c;
-        sh = 2;
-
-        if (i + 1 < len) {
-          c = s.charCodeAt(i + 1);
-          // mask top 2 bits
-          w = 0xc0 & c;
-          o += a.charAt((r << 2) + (w >> 6));
-          o += a.charAt((0x3e & c) >> 1);
-          r = c & 0x01;
-          sh = 4;
-        }
-
-        if (i + 2 < len) {
-          c = s.charCodeAt(i + 2);
-          // mask top 4 bits
-          w = 0xf0 & c;
-          o += a.charAt((r << 4) + (w >> 4));
-          r = 0x0f & c;
-          sh = 1;
-        }
-
-        if (i + 3 < len) {
-          c = s.charCodeAt(i + 3);
-          // mask top 1 bit
-          w = 0x80 & c;
-          o += a.charAt((r << 1) + (w >> 7));
-          o += a.charAt((0x7c & c) >> 2);
-          r = 0x03 & c;
-          sh = 3;
-        }
-
-        if (i + 4 < len) {
-          c = s.charCodeAt(i + 4);
-          // mask top 3 bits
-          w = 0xe0 & c;
-          o += a.charAt((r << 3) + (w >> 5));
-          o += a.charAt(0x1f & c);
-          r = 0;
-          sh = 0;
-        }
-      }
-      // Calculate length of pad by getting the
-      // number of words to reach an 8th octet.
-      if (r != 0) {
-        o += a.charAt(r << sh);
-      }
-      return o;
-    },
-    decode: function (s) {
-      var v,
-        x,
-        bits = 0,
-        o = "",
-        len = s.length,
-        d = String,
-        e = "charCodeAt",
-        f = "fromCharCode",
-        i;
-
-      for (i = 0; i < len; i += 1) {
-        (v = s[e](i) - 33),
-          v >= 0 && v < 32
-            ? ((bits += ((x = (x << 5) | v), 5)),
-              bits >= 8
-                ? (bits -= ((o += d[f]((x >> (bits - 8)) & 0xff)), 8))
-                : 0)
-            : 0;
-      }
-      return o;
-    },
-    template: Template(`
-    function {name}(s) {
-      var v,
-        x,
-        b = 0,
-        o = "",
-        len = s.length,
-        d = String,
-        e = "charCodeAt",
-        f = "fromCharCode", i;
-  
-      for (i = 0; i < len; i += 1) {
-        (v = s[e](i) - 33),
-          v >= 0 && v < 32
-            ? ((b += ((x = (x << 5) | v), 5)),
-              b >= 8
-                ? (b -= ((o += d[f]((x >> (b - 8)) & 0xff)), 8))
-                : 0)
-            : 0;
-      }
-      return o;
-    }
-    `),
-  },
-
-  hexTable: {
-    encode: function (str) {
-      var output = "";
-
-      for (var j = 0; j < str.length; j += 3) {
-        var chunk = str.substring(j, j + 3);
-        if (!chunk) {
-          continue;
-        }
-
-        chunk = chunk + "~";
-
-        var uniqueChars = new Set([]);
-        for (var char of chunk) {
-          uniqueChars.add(char);
-        }
-
-        var keys = Array.from(uniqueChars).sort();
-        var table = {},
-          i = 0;
-        for (var key of keys) {
-          table[key] = i++;
-        }
-
-        var idx = [];
-        for (var char of chunk) {
-          idx.push(table[char]);
-        }
-
-        var table64 = "0x";
-        for (var i = keys.length - 1; i >= 0; i--) {
-          table64 += keys[i].charCodeAt(0).toString(16).toUpperCase();
-        }
-
-        var idxInt = 0;
-        for (var i = idx.length - 1; i >= 0; i--) {
-          idxInt = (idxInt << 3) | idx[i];
-        }
-
-        var idx64 = "0x" + idxInt.toString(16).toUpperCase();
-
-        // console.log(chunk, table, idx, table64, idx64);
-
-        output += table64 + "," + idx64 + ",";
-      }
-
-      if (output.endsWith(",")) {
-        output = output.substring(0, output.length - 1);
-      }
-
-      return "{" + output + "}";
-    },
-
-    decode: function (str) {
-      var output = "";
-
-      str = str.substring(1, str.length - 1);
-      var chunks = str.split(",");
-
-      for (var i = 0; i < chunks.length; i += 2) {
-        var arr = [chunks[i], chunks[i + 1]];
-
-        var [table, idx] = arr.map(Number);
-
-        // console.log(table, idx);
-        while (idx) {
-          output += String.fromCharCode((table >> (8 * (idx & 7))) & 0xff);
-          idx >>= 3;
-        }
-      }
-
-      return output.replace(/~/g, "");
-    },
-
-    template: Template(`
-      function {name}(str){
-        var output = "";
-    
-        str = str.substring(1, str.length - 1);
-        var chunks = str.split(",");
-      
-        for (var i = 0; i < chunks.length; i += 2) {
-          var arr = [chunks[i], chunks[i + 1]];
-      
-          var [table, idx] = arr.map(Number);
-      
-          // console.log(table, idx);
-          while (idx) {
-            output += String.fromCharCode((table >> (8 * (idx & 7))) & 0xff);
-            idx >>= 3;
-          }
-        }
-      
-        return output.replace(/~/g, "");
-      }
-    
-    `),
-  },
+  }, */
 };
 
 export default Encoding;

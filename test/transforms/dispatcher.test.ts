@@ -1,4 +1,3 @@
-import { isObject } from "util";
 import JsConfuser from "../../src/index";
 
 it("should middleman function calls", async () => {
@@ -353,4 +352,24 @@ it("should work with code that uses toString() function", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #16: Don't change functions that use 'eval'", async () => {
+  var output = await JsConfuser(
+    `
+  function myEvalFunction(){
+    return eval("1+1");
+  }
+
+  TEST_OUTPUT = myEvalFunction();
+  `,
+    { target: "node", dispatcher: true }
+  );
+
+  expect(output).not.toContain("dispatcher");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(2);
 });

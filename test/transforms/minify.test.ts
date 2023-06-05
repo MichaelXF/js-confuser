@@ -432,3 +432,88 @@ test("Variant #22: Properly handle Object constructor (Function Expression)", as
 
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
+
+test("Variant #23: Shorten property names and method names", async () => {
+  var output = await JsConfuser(
+    `
+  var myObject = { "myKey": "Correct Value" };
+  var myClass = class { ["myMethod"](){ return "Correct Value" } }
+
+  TEST_OUTPUT = myObject.myKey === (new myClass()).myMethod();
+  `,
+    { target: "node", minify: true }
+  );
+
+  expect(output).not.toContain("'myKey'");
+  expect(output).not.toContain("'myMethod'");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+test("Variant #24: Variable grouping in switch case", async () => {
+  var output = await JsConfuser(
+    `
+  switch(true){
+    case true:
+      var myVar1;
+      var myVar2;
+      var myVar3 = "Correct Value";
+      var myVar4;
+
+      TEST_OUTPUT = myVar3;
+    break;
+  }
+  `,
+    { target: "node", minify: true }
+  );
+
+  // Ensure the variable declarations were grouped
+  expect(output).toContain("var myVar1,myVar2,myVar3");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #25: Don't break redefined function declaration", async () => {
+  var output = await JsConfuser(
+    `
+  function a(){ TEST_OUTPUT = 1 };
+  function a(){ TEST_OUTPUT = 2 };
+  function a(){ TEST_OUTPUT = 3 };
+
+  a();
+  `,
+    { target: "node", minify: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(3);
+});
+
+test("Variant #26: Don't break nested redefined function declaration", async () => {
+  var output = await JsConfuser(
+    `
+  var a = 0;
+  if(true){
+    function a(){
+      TEST_OUTPUT = 1;
+    }
+  }
+
+  a();
+  `,
+    { target: "node", minify: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(1);
+});

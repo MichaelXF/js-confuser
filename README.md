@@ -1,8 +1,8 @@
 # JS Confuser
 
-JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://master--hungry-shannon-c1ce6b.netlify.app/).
+JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://js-confuser.com).
 
-  [![NPM](https://img.shields.io/badge/NPM-%23000000.svg?style=for-the-badge&logo=npm&logoColor=white)](https://npmjs.com/package/js-confuser) [![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/MichaelXF/js-confuser) [![Netlify](https://img.shields.io/badge/netlify-%23000000.svg?style=for-the-badge&logo=netlify&logoColor=#00C7B7)](https://master--hungry-shannon-c1ce6b.netlify.app/)
+  [![NPM](https://img.shields.io/badge/NPM-%23000000.svg?style=for-the-badge&logo=npm&logoColor=white)](https://npmjs.com/package/js-confuser) [![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/MichaelXF/js-confuser) [![Netlify](https://img.shields.io/badge/netlify-%23000000.svg?style=for-the-badge&logo=netlify&logoColor=#00C7B7)](https://js-confuser.com)
 
 ## Key features
 
@@ -19,9 +19,9 @@ JS-Confuser comes with three presets built into the obfuscator.
 
 | Preset | Transforms | Performance Reduction | Sample |
 | --- | --- | --- | --- |
-| High | 21/22 | 98% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/high.js) |
-| Medium | 15/22 | 52% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/medium.js) |
-| Low | 10/22 | 30% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/low.js) |
+| High | 22/25 | 98% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/high.js) |
+| Medium | 19/25 | 52% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/medium.js) |
+| Low | 15/25 | 30% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/low.js) |
 
 You can extend each preset or all go without them entirely.
 
@@ -109,7 +109,7 @@ JsConfuser.obfuscate(`<source code>`, {
   target: "node",
   preset: "high" // | "medium" | "low"
 }).then(obfuscated=>{
-  console.log(obfuscated) // obfuscated is a string
+  console.log(obfuscated); // obfuscated is a string
 })
 ```
 
@@ -119,7 +119,7 @@ Remove's whitespace from the final output. Enabled by default. (`true/false`)
 
 ### `hexadecimalNumbers`
 
-Uses the hexadecimal representation (`50` -> `0x32`) for numbers. (`true/false`)
+Uses the hexadecimal representation for numbers. (`true/false`)
 
 ### `minify`
 
@@ -218,6 +218,131 @@ Use a number to control the percentage from 0 to 1.
 - Potency High
 - Resilience High
 - Cost High
+
+```js
+// Input
+function countTo(num){
+  for ( var i = 1; i <= num; i++ ) {
+    console.log(i);
+  }
+}
+
+var number = 10;
+countTo(number); // 1,2,3,4,5,6,7,8,9,10
+
+// Output
+var n2DUka,
+  O7yZ0oU,
+  mJMdMhJ = -337,
+  A1Nyvv = -94,
+  xDwpOk6 = 495,
+  uKcJl2 = {
+    TGCpW6t: "log",
+    qUrjFe: function () {
+      return xDwpOk6 == (126 > mJMdMhJ ? -16 : 34);
+    },
+    YN20IBx: function () {
+      return (A1Nyvv -= 53);
+    },
+    CTW4vwx: -73,
+    PLzWYDx: function () {
+      return (O7yZ0oU = [[385, -94, -282], [10]]);
+    },
+    bW2FK2: function () {
+      return (mJMdMhJ *= 2), (mJMdMhJ += 366);
+    },
+    AfOoRT: function () {
+      return xDwpOk6 == xDwpOk6 + 867;
+    },
+    KTNMdj: function () {
+      if (uKcJl2.AfOoRT()) {
+        typeof ((mJMdMhJ += 0), uKcJl2.Q0I6e4f(), (xDwpOk6 += 0));
+        return "cobTe8G";
+      }
+      typeof (uKcJl2.htRXYx(),
+      (mJMdMhJ += 59),
+      (A1Nyvv -= 537),
+      (xDwpOk6 += uKcJl2.mLuSzZ < mJMdMhJ ? 449 : -33));
+      return "cobTe8G";
+    },
+  };
+while (mJMdMhJ + A1Nyvv + xDwpOk6 != 83) {
+  var yQNDJh = (mJMdMhJ + A1Nyvv + xDwpOk6) * 58 + 54;
+  switch (yQNDJh) {
+    case 750:
+      if (A1Nyvv == 24) {
+        uKcJl2.FxREGd6();
+        break;
+      }
+    case 1214:
+      if (uKcJl2.qUrjFe()) {
+        typeof ((mJMdMhJ *= -8 > xDwpOk6 ? -109 : 2),
+        (mJMdMhJ += 1168),
+        (xDwpOk6 += xDwpOk6 - 1290));
+        break;
+      }
+      function _VSsIw() {
+        var [yQNDJh, _VSsIw] = O7yZ0oU,
+          [L9B14E] = _VSsIw,
+          uTyFFb = 322;
+        while (uTyFFb != 23) {
+          var cBx3ysg = uTyFFb * 48 - 77;
+          switch (cBx3ysg) {
+            case 15379:
+              var IOoqIZ = 1;
+              uTyFFb -= 306;
+              break;
+            case 691:
+              uTyFFb += IOoqIZ <= L9B14E ? 976 : 7;
+              break;
+            case 47539:
+              typeof (console[uKcJl2.TGCpW6t](IOoqIZ), (uTyFFb -= 795));
+              break;
+            case 9379:
+              !(IOoqIZ++, (uTyFFb -= 181));
+          }
+        }
+        return ([mJMdMhJ, A1Nyvv, xDwpOk6] = yQNDJh), (n2DUka = void 0);
+      }
+      (xDwpOk6 == -73 ? parseInt : _VSsIw)();
+      break;
+    case 576:
+      typeof (mJMdMhJ == -4 ? clearImmediate : void 0,
+      uKcJl2.bky8kL(),
+      (xDwpOk6 -= 463));
+      break;
+    case 4172:
+      var L9B14E = 10;
+      void ((O7yZ0oU = [[385, -94, -282], [10]]),
+      (mJMdMhJ -= 187),
+      uKcJl2.YN20IBx(),
+      (xDwpOk6 += 189));
+      break;
+    case 3766:
+      !((uKcJl2.Fpp8x5 = -167),
+      (uKcJl2.mLuSzZ = 144),
+      (uKcJl2.FxREGd6 = function () {
+        return (mJMdMhJ += uKcJl2.Fpp8x5), (xDwpOk6 += 164);
+      }),
+      (uKcJl2.bky8kL = function () {
+        return (A1Nyvv += 537);
+      }),
+      (uKcJl2.Q0I6e4f = function () {
+        return (A1Nyvv += 0);
+      }),
+      (uKcJl2.htRXYx = function () {
+        return (xDwpOk6 = -82);
+      }));
+      var L9B14E = 10;
+      void (uKcJl2.PLzWYDx(), uKcJl2.bW2FK2(), (xDwpOk6 += uKcJl2.CTW4vwx));
+      break;
+    default:
+      if (uKcJl2.KTNMdj() == "cobTe8G") {
+        break;
+      }
+  }
+}
+```
 
 ### `globalConcealing`
 
@@ -455,6 +580,16 @@ Set to `true` to use the default set of native functions. (`string[]/true/false`
 - Resilience Medium
 - Cost Medium
 
+### `lock.selfDefending`
+
+Prevents the use of code beautifiers or formatters against your code.
+
+[Identical to Obfuscator.io's Self Defending](https://github.com/javascript-obfuscator/javascript-obfuscator#selfdefending)
+
+- Potency Low
+- Resilience Low
+- Cost Low
+
 ### `lock.integrity`
 
 Integrity ensures the source code is unchanged. (`true/false/0-1`)
@@ -623,6 +758,7 @@ You must enable locks yourself, and configure them to your needs.
   target: "node",
   lock: {
     integrity: true,
+    selfDefending: true,
     domainLock: ["mywebsite.com"],
     osLock: ["windows", "linux"],
     browserLock: ["firefox"],

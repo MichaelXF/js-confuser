@@ -1,15 +1,15 @@
 {
   "name": "js-confuser",
-  "version": "1.5.9",
+  "version": "1.6.0",
   "description": "JavaScript Obfuscation Tool.",
   "main": "dist/index.js",
   "types": "index.d.ts",
   "scripts": {
     "dev": "node ./dev.js",
     "build": "./node_modules/.bin/babel src --out-dir dist --copy-files --extensions \".ts\"",
-    "test": "jest",
+    "test": "jest --forceExit",
     "test:coverage": "jest --coverage",
-    "prepublishOnly": "npm run build & npm run test"
+    "prepublishOnly": "npm run build & npm run test --forceExit"
   },
   "keywords": [
     "obfuscator",
@@ -36,7 +36,7 @@
     "@types/jest": "^26.0.24",
     "@types/node": "^15.14.9",
     "babel-jest": "^26.6.3",
-    "jest": "^26.6.3"
+    "jest": "^29.5.0"
   },
   "repository": {
     "type": "git",
@@ -45,7 +45,7 @@
   "bugs": {
     "url": "https://github.com/MichaelXF/js-confuser/issues"
   },
-  "homepage": "https://master--hungry-shannon-c1ce6b.netlify.app/",
+  "homepage": "https://js-confuser.com",
   "jest": {
     "coverageReporters": [
       "html"

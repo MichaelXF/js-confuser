@@ -1,4 +1,5 @@
 import JsConfuser from "../../../src/index";
+import { ObfuscateOptions } from "../../../src/options";
 
 test("Variant #1: Rename variables properly", async () => {
   var code = "var TEST_VARIABLE = 1;";
@@ -494,6 +495,87 @@ test("Variant #20: Don't break code with var and let variables in same scope", a
       renameVariables: true,
     }
   );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test.each(["hexadecimal", "mangled", "number", "zeroWidth"])(
+  "Variant #21: Work with custom identifierGenerator mode",
+  async (identifierGeneratorMode) => {
+    var output = await JsConfuser(
+      `
+  var myVar1 = "Correct Value";
+
+  TEST_OUTPUT = myVar1;
+  `,
+      {
+        target: "node",
+        renameVariables: true,
+        identifierGenerator:
+          identifierGeneratorMode as ObfuscateOptions["identifierGenerator"],
+      }
+    );
+
+    // Ensure 'myVar1' got renamed
+    expect(output).not.toContain("myVar1");
+
+    var TEST_OUTPUT;
+
+    eval(output);
+    expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+  }
+);
+
+test("Variant #22: Don't rename variables prefixed with '__NO_JS_CONFUSER_RENAME__'", async () => {
+  var output = await JsConfuser(
+    `
+    var myValue = "Correct Value";
+
+    var __NO_JS_CONFUSER_RENAME__myVar4 = "Incorrect Value";
+
+    __NO_JS_CONFUSER_RENAME__myVar4 = myValue;
+
+    eval( "TEST_OUTPUT = __NO_JS_CONFUSER_RENAME__myVar4" );
+    `,
+    {
+      target: "node",
+      renameVariables: true,
+    }
+  );
+
+  // Ensure 'myValue' got renamed
+  expect(output).not.toContain("myValue");
+  // Ensure '__NO_JS_CONFUSER_RENAME__myVar4' was not renamed
+  expect(output).toContain("__NO_JS_CONFUSER_RENAME__myVar4");
+
+  // Test the code
+  var TEST_OUTPUT;
+
+  eval(output);
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #23: Re-use previously generated names", async () => {
+  var output = await JsConfuser(
+    `
+  function log(message){
+    TEST_OUTPUT = message;
+  }
+
+  log("Correct Value");
+  `,
+    {
+      target: "node",
+      renameVariables: true,
+      identifierGenerator: "mangled",
+    }
+  );
+
+  expect(output).not.toContain("log");
+  expect(output).toContain("function a(a)");
 
   var TEST_OUTPUT;
   eval(output);

@@ -1,6 +1,4 @@
 import { ok } from "assert";
-import { stringify } from "querystring";
-import { reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
@@ -12,7 +10,6 @@ import {
   Identifier,
   IfStatement,
   Literal,
-  Location,
   MemberExpression,
   Node,
   RestElement,
@@ -21,24 +18,24 @@ import {
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
 import {
+  getBlockBody,
   getDefiningContext,
   getReferencingContexts,
-  getVarContext,
   isForInitialize,
   isFunction,
   isVarContext,
   prepend,
 } from "../util/insert";
-import { choice, getRandomInteger, getRandomString } from "../util/random";
+import { chance, choice, getRandomInteger } from "../util/random";
 import Transform from "./transform";
 
 export default class Stack extends Transform {
-  made: number;
+  mangledExpressionsMade: number;
 
   constructor(o) {
     super(o, ObfuscateOrder.Stack);
 
-    this.made = 0;
+    this.mangledExpressionsMade = 0;
   }
 
   match(object: Node, parents: Node[]) {
@@ -66,12 +63,41 @@ export default class Stack extends Transform {
         }
       }
 
+      // Don't apply to functions with 'use strict' directive
+      if (getBlockBody(object.body)[0]?.directive) {
+        return;
+      }
+
+      if (!ComputeProbabilityMap(this.options.stack)) {
+        return;
+      }
+
       var defined = new Set<string>();
       var referenced = new Set<string>();
       var illegal = new Set<string>();
 
+      /**
+       * Maps old names to new indices
+       */
       var subscripts = new Map<string, string>();
       var deadValues = Object.create(null);
+
+      var propertyGen = this.getGenerator();
+
+      function isTransformableFunction(functionNode: Node) {
+        if (functionNode.$requiresEval) return false;
+
+        // Check for 'this'
+        var isIllegal = false;
+        walk(functionNode.body, [], (o, p) => {
+          if (o.type === "ThisExpression") {
+            isIllegal = true;
+            return "EXIT";
+          }
+        });
+
+        return !isIllegal;
+      }
 
       function setSubscript(string, index) {
         subscripts.set(string, index + "");
@@ -89,15 +115,16 @@ export default class Stack extends Transform {
       walk(object.body, [object, ...parents], (o, p) => {
         if (o.type == "Identifier") {
           var info = getIdentifierInfo(o, p);
-          if (!info.spec.isReferenced) {
+          if (!info.spec.isReferenced || info.spec.isExported) {
             return;
           }
+
           var c = info.spec.isDefined
             ? getDefiningContext(o, p)
             : getReferencingContexts(o, p).find((x) => isVarContext(x));
 
           if (c !== object) {
-            this.log(o.name + " is illegal due to different context");
+            // this.log(o.name + " is illegal due to different context");
             illegal.add(o.name);
           }
 
@@ -106,9 +133,9 @@ export default class Stack extends Transform {
             info.isFunctionParameter ||
             isForInitialize(o, p)
           ) {
-            this.log(
-              o.name + " is illegal due to clause parameter/function parameter"
-            );
+            // this.log(
+            //   o.name + " is illegal due to clause parameter/function parameter"
+            // );
             illegal.add(o.name);
           }
           if (o.hidden) {
@@ -121,22 +148,53 @@ export default class Stack extends Transform {
             }
 
             if (info.isFunctionDeclaration) {
-              if (p[0] !== object.body.body[0]) {
+              ok(p[0].type === "FunctionDeclaration");
+              if (
+                p[0] !== object.body.body[0] ||
+                !isTransformableFunction(p[0])
+              ) {
                 illegal.add(o.name);
               }
             }
 
-            setSubscript(o.name, subscripts.size);
+            // The new accessors will either be numbered: [index] or as a string .string
+            var newSubscript = choice([
+              subscripts.size,
+              propertyGen.generate(),
+            ]);
+
+            setSubscript(o.name, newSubscript);
             defined.add(o.name);
 
+            // Stack can only process single VariableDeclarations
             var varIndex = p.findIndex((x) => x.type == "VariableDeclaration");
-            if (
-              varIndex !== -1 &&
-              (varIndex !== 2 || p[varIndex].declarations.length > 1)
-            ) {
-              illegal.add(o.name);
+
+            if (varIndex !== -1) {
+              // Invalid 'id' property (must be Identifier)
+              if (varIndex !== 2) {
+                illegal.add(o.name);
+              } else if (p[varIndex].declarations.length > 1) {
+                illegal.add(o.name);
+              } else {
+                var value = p[varIndex].declarations[0].init;
+                if (value && !isTransformableFunction(value)) {
+                  illegal.add(o.name);
+                }
+              }
             }
           } else if (info.spec.isReferenced) {
+            if (info.spec.isModified) {
+              var assignmentIndex = p.findIndex(
+                (x) => x.type === "AssignmentExpression"
+              );
+              if (assignmentIndex !== -1) {
+                var value = p[assignmentIndex].right;
+                if (value && !isTransformableFunction(value)) {
+                  illegal.add(o.name);
+                }
+              }
+            }
+
             referenced.add(o.name);
           }
         }
@@ -162,16 +220,17 @@ export default class Stack extends Transform {
         return;
       }
 
-      function numberLiteral(number, depth = 0) {
+      const numberLiteral = (number: number | string, depth = 0): Node => {
         ok(number === number);
         if (
           typeof number !== "number" ||
           !Object.keys(deadValues).length ||
-          depth > 5 ||
-          Math.random() > (depth == 0 ? 0.9 : 0.8 / (depth * 2))
+          depth > 4 ||
+          chance(75 + depth * 15 + this.mangledExpressionsMade / 25)
         ) {
           return Literal(number);
         }
+        this.mangledExpressionsMade++;
 
         var opposingIndex = choice(Object.keys(deadValues));
         if (typeof opposingIndex === "undefined") {
@@ -195,7 +254,7 @@ export default class Stack extends Transform {
           ),
           numberLiteral(actualValue - number, depth + 1)
         );
-      }
+      };
 
       function getMemberExpression(index) {
         ok(typeof index === "string", typeof index);
@@ -206,8 +265,7 @@ export default class Stack extends Transform {
         );
       }
 
-      var stackName = this.getPlaceholder();
-      var made = 1;
+      var stackName = this.getPlaceholder() + "_stack";
 
       const scan = (o, p) => {
         if (o.type == "Identifier") {
@@ -289,10 +347,9 @@ export default class Stack extends Transform {
           typeof o.value === "number" &&
           Math.floor(o.value) === o.value &&
           Math.abs(o.value) < 100_000 &&
-          Math.random() < 4 / made &&
-          p.find((x) => isFunction(x)) === object
+          p.find((x) => isFunction(x)) === object &&
+          chance(50)
         ) {
-          made++;
           return () => {
             this.replaceIdentifierOrLiteral(o, numberLiteral(o.value, 0), p);
           };
@@ -304,10 +361,10 @@ export default class Stack extends Transform {
       object.body.body.forEach((stmt, index) => {
         var isFirst = index == 0;
 
-        if (isFirst || Math.random() < 0.9 / index) {
+        if (isFirst || chance(50 - index * 10)) {
           var exprs = [];
 
-          var changes = getRandomInteger(isFirst ? 2 : 1, isFirst ? 3 : 2);
+          var changes = getRandomInteger(1, 3);
 
           for (var i = 0; i < changes; i++) {
             var expr;
@@ -320,8 +377,10 @@ export default class Stack extends Transform {
             var newIndex;
             var i = 0;
             do {
-              newIndex =
-                getRandomInteger(0, 250 + subscripts.size + i * 1000) + "";
+              newIndex = choice([
+                propertyGen.generate(),
+                getRandomInteger(0, 250 + subscripts.size + i * 1000) + "",
+              ]);
               i++;
             } while (valueSet.has(newIndex));
 
@@ -344,10 +403,10 @@ export default class Stack extends Transform {
                 break;
 
               case "deadValue":
-                var rand = getRandomInteger(-250, 250);
+                var rand = getRandomInteger(-150, 150);
 
                 // modify an already existing dead value index
-                if (Math.random() > 0.5) {
+                if (chance(50)) {
                   var alreadyExisting = choice(Object.keys(deadValues));
 
                   if (typeof alreadyExisting === "string") {
@@ -361,7 +420,6 @@ export default class Stack extends Transform {
                   numberLiteral(rand)
                 );
 
-                ok(!subscripts.has(newIndex));
                 deadValues[newIndex] = rand;
                 break;
             }
@@ -415,7 +473,7 @@ export default class Stack extends Transform {
       // Ensure the array is correct length
       prepend(
         object.body,
-        Template(`${stackName}.length = ${startingSize}`).single()
+        Template(`${stackName}["length"] = ${startingSize}`).single()
       );
     };
   }

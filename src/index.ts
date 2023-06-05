@@ -4,7 +4,6 @@ import Obfuscator from "./obfuscator";
 import Transform from "./transforms/transform";
 import { remove$Properties } from "./util/object";
 import presets from "./presets";
-import { performance } from "perf_hooks";
 
 import * as assert from "assert";
 import { correctOptions, ObfuscateOptions, validateOptions } from "./options";
@@ -128,7 +127,8 @@ export const debugTransformations: IJsConfuserDebugTransformations =
 export const debugObfuscation: IJsConfuserDebugObfuscation = async function (
   code: string,
   options: ObfuscateOptions,
-  callback: (name: string, complete: number, totalTransforms: number) => void
+  callback: (name: string, complete: number, totalTransforms: number) => void,
+  performance: Performance
 ) {
   const startTime = performance.now();
 

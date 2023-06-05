@@ -110,7 +110,10 @@ dist
 
 dev.error.js
 dev.input.js
+dev.output.js
 dev.ts
+
+package-lock.json
 
 Cash.output.js
 
