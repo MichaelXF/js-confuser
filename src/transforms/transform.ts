@@ -74,11 +74,6 @@ export default class Transform {
    */
   after: Transform[];
 
-  /**
-   * Transformations to run at the same time (can cause conflicts so use sparingly)
-   */
-  concurrent: Transform[];
-
   constructor(obfuscator, priority: number = -1) {
     ok(obfuscator instanceof Obfuscator, "obfuscator should be an Obfuscator");
 
@@ -89,8 +84,6 @@ export default class Transform {
 
     this.before = [];
     this.after = [];
-
-    this.concurrent = [];
   }
 
   /**
@@ -120,14 +113,11 @@ export default class Transform {
      */
     this.before.forEach((x) => x.apply(tree));
 
+    /**
+     * Run this transformation
+     */
     traverse(tree, (object, parents) => {
-      var fns = [];
-      fns.push(this.input(object, parents));
-
-      // Fix 1. Increase performance with multiple transforms on one iteration.
-      this.concurrent.forEach((x) => fns.push(x.input(object, parents)));
-
-      return () => fns.forEach((x) => x && x());
+      return this.input(object, parents);
     });
 
     /**
@@ -191,18 +181,18 @@ export default class Transform {
 
   /**
    * Returns an independent name generator with it's own counter.
-   * @param offset
+   * @param overrideMode - Override the user's `identifierGenerator` option
    * @returns
    */
-  getGenerator(offset = 0) {
-    var count = offset;
+  getGenerator(overrideMode?: string) {
+    var count = 0;
     var identifiers = new Set();
     return {
       generate: () => {
-        var retValue;
+        var retValue: string;
         do {
           count++;
-          retValue = this.generateIdentifier(-1, count);
+          retValue = this.generateIdentifier(-1, count, overrideMode);
         } while (identifiers.has(retValue));
 
         identifiers.add(retValue);
@@ -217,7 +207,11 @@ export default class Transform {
    * @param length Default length is 6 to 10 characters.
    * @returns **`string`**
    */
-  generateIdentifier(length: number = -1, count = -1): string {
+  generateIdentifier(
+    length: number = -1,
+    count = -1,
+    overrideMode?: string
+  ): string {
     if (length == -1) {
       length = getRandomInteger(6, 8);
     }
@@ -233,7 +227,7 @@ export default class Transform {
     var identifier;
     do {
       identifier = ComputeProbabilityMap(
-        this.options.identifierGenerator,
+        overrideMode || this.options.identifierGenerator,
         (mode = "randomized") => {
           switch (mode) {
             case "randomized":
