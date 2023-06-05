@@ -10,9 +10,9 @@ export interface ObfuscateOptions {
    *
    * | Preset | Transforms | Performance Reduction | Sample |
    * | --- | --- | --- | --- |
-   * | High | 21/22 | 98% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/high.js) |
-   * | Medium | 15/22 | 52% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/medium.js) |
-   * | Low | 10/22 | 30% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/low.js) |
+   * | High | 22/25 | 98% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/high.js) |
+   * | Medium | 19/25 | 52% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/medium.js) |
+   * | Low | 15/25 | 30% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/low.js) |
    *
    * You can extend each preset or all go without them entirely. (`"high"/"medium"/"low"`)
    *
@@ -53,7 +53,7 @@ export interface ObfuscateOptions {
   /**
    * ### `hexadecimalNumbers`
    *
-   * Uses the hexadecimal representation (`50` -> `0x32`) for numbers. (`true/false`)
+   * Uses the hexadecimal representation for numbers. (`true/false`)
    */
   hexadecimalNumbers?: boolean;
 
@@ -190,21 +190,6 @@ export interface ObfuscateOptions {
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   controlFlowFlattening?: ProbabilityMap<boolean>;
-
-  /**
-   * ### `hideInitializingCode`
-   *
-   * (Experimental feature)
-   *
-   * Hides initializing code with complex ternary expressions. (`true/false`)
-   *
-   * - Potency High
-   * - Resilience High
-   * - Cost High
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-   */
-  hideInitializingCode?: ProbabilityMap<boolean>;
 
   /**
    * ### `globalConcealing`
@@ -695,7 +680,6 @@ const validProperties = new Set([
   "identifierGenerator",
   "nameRecycling",
   "controlFlowFlattening",
-  "hideInitializingCode",
   "globalConcealing",
   "stringCompression",
   "stringConcealing",
@@ -730,7 +714,7 @@ const validBrowsers = new Set([
 ]);
 
 export function validateOptions(options: ObfuscateOptions) {
-  if (Object.keys(options).length <= 1) {
+  if (!options || Object.keys(options).length <= 1) {
     /**
      * Give a welcoming introduction to those who skipped the documentation.
      */

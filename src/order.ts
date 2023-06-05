@@ -32,8 +32,6 @@ export enum ObfuscateOrder {
 
   StringCompression = 18,
 
-  HideInitializingCode = 19,
-
   Stack = 20,
 
   DuplicateLiteralsRemoval = 22,
@@ -52,9 +50,7 @@ export enum ObfuscateOrder {
 
   ES5 = 31,
 
-  StringEncoding = 32,
-
   AntiTooling = 34,
 
-  HexadecimalNumbers = 35,
+  Finalizer = 35,
 }
