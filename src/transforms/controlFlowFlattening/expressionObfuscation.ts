@@ -2,6 +2,9 @@ import { isBlock } from "../../traverse";
 import { Identifier, SequenceExpression } from "../../util/gen";
 import Transform from "../transform";
 
+/**
+ * Expression Obfuscation runs before Control Flow Flattening
+ */
 export default class ExpressionObfuscation extends Transform {
   constructor(o) {
     super(o);
@@ -17,7 +20,7 @@ export default class ExpressionObfuscation extends Transform {
       var deleteExprs = [];
 
       object.body.forEach((stmt, i) => {
-        if (stmt.type == "ExpressionStatement") {
+        if (stmt.type == "ExpressionStatement" && !stmt.directive) {
           var expr = stmt.expression;
 
           if (
