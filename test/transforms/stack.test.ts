@@ -1,6 +1,6 @@
 import JsConfuser from "../../src/index";
 
-it("should replace all variables with array indexes (single variable)", async () => {
+test("Variant #1: Replace all variables with array indexes (single variable)", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -26,7 +26,7 @@ it("should replace all variables with array indexes (single variable)", async ()
   expect(value).toStrictEqual(1);
 });
 
-it("should replace all variables with array indexes (multiple variables)", async () => {
+test("Variant #2: Replace all variables with array indexes (multiple variables)", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -53,7 +53,7 @@ it("should replace all variables with array indexes (multiple variables)", async
   expect(value).toStrictEqual(15);
 });
 
-it("should replace all variables with array indexes (uninitialized variable are made undefined)", async () => {
+test("Variant #3: Replace all variables with array indexes (uninitialized variable are made undefined)", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -79,7 +79,7 @@ it("should replace all variables with array indexes (uninitialized variable are 
   expect(value).toStrictEqual(undefined);
 });
 
-it("should replace all variables with array indexes (parameters)", async () => {
+test("Variant #4: Replace all variables with array indexes (parameters)", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(TEST_VARIABLE_1, TEST_VARIABLE_2){
@@ -105,7 +105,7 @@ it("should replace all variables with array indexes (parameters)", async () => {
   expect(value).toStrictEqual(75);
 });
 
-it("should replace all variables with array indexes (nested function)", async () => {
+test("Variant #5: Replace all variables with array indexes (nested function)", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -135,7 +135,7 @@ it("should replace all variables with array indexes (nested function)", async ()
   expect(value).toStrictEqual(65);
 });
 
-it("should replace all variables with array indexes (nested class)", async () => {
+test("Variant #6: Replace all variables with array indexes (nested class)", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -173,7 +173,7 @@ it("should replace all variables with array indexes (nested class)", async () =>
   expect(value).toStrictEqual("Value");
 });
 
-it("should only replace variables defined within the function, and not run if any changes can be made", async () => {
+test("Variant #7: Replace variables defined within the function, and not run if any changes can be made", async () => {
   var output = await JsConfuser(
     `
       var TEST_VARIABLE = 0;
@@ -192,7 +192,7 @@ it("should only replace variables defined within the function, and not run if an
   expect(output).not.toContain("...");
 });
 
-it("should work even when differing amount of arguments passed in", async () => {
+test("Variant #8: Work even when differing amount of arguments passed in", async () => {
   var output = await JsConfuser(
     `
       function add3(var_x, var_y, var_z){
@@ -216,7 +216,7 @@ it("should work even when differing amount of arguments passed in", async () => 
   expect(value).toStrictEqual(25);
 });
 
-it("should replace all variables with array indexes (middle indexes use array[index] syntax)", async () => {
+test("Variant #9: Replace all variables with array indexes (middle indexes use array[index] syntax)", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -249,7 +249,7 @@ it("should replace all variables with array indexes (middle indexes use array[in
   expect(value).toStrictEqual("Updated");
 });
 
-it("should guess execution order correctly (CallExpression, arguments run before callee)", async () => {
+test("Variant #10: Guess execution order correctly (CallExpression, arguments run before callee)", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(a,b){
@@ -277,7 +277,7 @@ it("should guess execution order correctly (CallExpression, arguments run before
   expect(value).toStrictEqual(25);
 });
 
-it("should guess execution order correctly (AssignmentExpression, right side executes first)", async () => {
+test("Variant #11: Guess execution order correctly (AssignmentExpression, right side executes first)", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(a,b){
@@ -305,7 +305,7 @@ it("should guess execution order correctly (AssignmentExpression, right side exe
   expect(value).toStrictEqual(25);
 });
 
-it("should not entangle floats or NaN", async () => {
+test("Variant #12: Should not entangle floats or NaN", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -335,7 +335,7 @@ it("should not entangle floats or NaN", async () => {
   expect(value).toStrictEqual(25.02);
 });
 
-it("should correctly entangle property keys", async () => {
+test("Variant #13: Correctly entangle property keys", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -382,7 +382,7 @@ it("should correctly entangle property keys", async () => {
   expect(value).toStrictEqual(10);
 });
 
-it("should correctly entangle method definition keys", async () => {
+test("Variant #14: Correctly entangle method definition keys", async () => {
   var output = await JsConfuser(
     `
       function TEST_FUNCTION(){
@@ -448,4 +448,74 @@ it("should correctly entangle method definition keys", async () => {
 
   eval(output);
   expect(value).toStrictEqual(10);
+});
+
+test("Variant #15: Function with 'use strict' directive", async () => {
+  var output = await JsConfuser(
+    `
+  function useStrictFunction(){
+    'use strict';
+
+    function fun(){
+      return this;
+    }
+
+    var necessaryDeclarationForStackToApply;
+
+    TEST_OUTPUT = fun() === undefined; // true
+  }
+
+  useStrictFunction();
+  `,
+    { target: "node", stack: true }
+  );
+
+  // Stack will not apply to functions with 'use strict' directive
+  expect(output).not.toContain("_stack");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+test("Variant #16: Function with 'this'", async () => {
+  var output = await JsConfuser(
+    `
+  'use strict';
+  function stackFunction(){
+    var necessaryDeclarationForStackToApply;
+
+    function thisFunctionDeclaration(){
+      return this;
+    }
+
+    var thisFunctionExpression1 = function(){
+      return this;
+    }
+
+    var thisFunctionExpression2;
+
+    thisFunctionExpression2 = function(){
+      return this;
+    }
+
+    return thisFunctionDeclaration() || thisFunctionExpression1() || thisFunctionExpression2();
+  }
+
+  TEST_OUTPUT = stackFunction() === undefined;
+  `,
+    { target: "node", stack: true }
+  );
+
+  // Ensure stack applied
+  expect(output).toContain("_stack");
+
+  // Ensure 'thisFunction' was not changed by stack due to using 'this' keyword
+  expect(output).toContain("function thisFunction");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
 });

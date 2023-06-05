@@ -1,6 +1,4 @@
 import { ok } from "assert";
-import { stringify } from "querystring";
-import { reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
@@ -20,6 +18,7 @@ import {
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
 import {
+  getBlockBody,
   getDefiningContext,
   getReferencingContexts,
   isForInitialize,
@@ -64,6 +63,11 @@ export default class Stack extends Transform {
         }
       }
 
+      // Don't apply to functions with 'use strict' directive
+      if (getBlockBody(object.body)[0]?.directive) {
+        return;
+      }
+
       if (!ComputeProbabilityMap(this.options.stack)) {
         return;
       }
@@ -79,6 +83,21 @@ export default class Stack extends Transform {
       var deadValues = Object.create(null);
 
       var propertyGen = this.getGenerator();
+
+      function isTransformableFunction(functionNode: Node) {
+        if (functionNode.$requiresEval) return false;
+
+        // Check for 'this'
+        var isIllegal = false;
+        walk(functionNode.body, [], (o, p) => {
+          if (o.type === "ThisExpression") {
+            isIllegal = true;
+            return "EXIT";
+          }
+        });
+
+        return !isIllegal;
+      }
 
       function setSubscript(string, index) {
         subscripts.set(string, index + "");
@@ -129,7 +148,11 @@ export default class Stack extends Transform {
             }
 
             if (info.isFunctionDeclaration) {
-              if (p[0] !== object.body.body[0]) {
+              ok(p[0].type === "FunctionDeclaration");
+              if (
+                p[0] !== object.body.body[0] ||
+                !isTransformableFunction(p[0])
+              ) {
                 illegal.add(o.name);
               }
             }
@@ -145,13 +168,33 @@ export default class Stack extends Transform {
 
             // Stack can only process single VariableDeclarations
             var varIndex = p.findIndex((x) => x.type == "VariableDeclaration");
-            if (
-              varIndex !== -1 &&
-              (varIndex !== 2 || p[varIndex].declarations.length > 1)
-            ) {
-              illegal.add(o.name);
+
+            if (varIndex !== -1) {
+              // Invalid 'id' property (must be Identifier)
+              if (varIndex !== 2) {
+                illegal.add(o.name);
+              } else if (p[varIndex].declarations.length > 1) {
+                illegal.add(o.name);
+              } else {
+                var value = p[varIndex].declarations[0].init;
+                if (value && !isTransformableFunction(value)) {
+                  illegal.add(o.name);
+                }
+              }
             }
           } else if (info.spec.isReferenced) {
+            if (info.spec.isModified) {
+              var assignmentIndex = p.findIndex(
+                (x) => x.type === "AssignmentExpression"
+              );
+              if (assignmentIndex !== -1) {
+                var value = p[assignmentIndex].right;
+                if (value && !isTransformableFunction(value)) {
+                  illegal.add(o.name);
+                }
+              }
+            }
+
             referenced.add(o.name);
           }
         }
@@ -183,7 +226,7 @@ export default class Stack extends Transform {
           typeof number !== "number" ||
           !Object.keys(deadValues).length ||
           depth > 4 ||
-          chance(75 + depth * 15 + this.mangledExpressionsMade)
+          chance(75 + depth * 15 + this.mangledExpressionsMade / 25)
         ) {
           return Literal(number);
         }
@@ -222,7 +265,7 @@ export default class Stack extends Transform {
         );
       }
 
-      var stackName = this.getPlaceholder();
+      var stackName = this.getPlaceholder() + "_stack";
 
       const scan = (o, p) => {
         if (o.type == "Identifier") {
@@ -430,7 +473,7 @@ export default class Stack extends Transform {
       // Ensure the array is correct length
       prepend(
         object.body,
-        Template(`${stackName}.length = ${startingSize}`).single()
+        Template(`${stackName}["length"] = ${startingSize}`).single()
       );
     };
   }
