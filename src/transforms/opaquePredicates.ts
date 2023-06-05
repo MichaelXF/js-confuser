@@ -64,14 +64,14 @@ export default class OpaquePredicates extends Transform {
   predicate: Node;
   predicates: { [name: string]: Node };
 
-  gen: any;
+  gen: ReturnType<Transform["getGenerator"]>;
   made: number;
 
   constructor(o) {
     super(o, ObfuscateOrder.OpaquePredicates);
 
     this.predicates = Object.create(null);
-    this.gen = this.getGenerator(getRandomInteger(0, 20));
+    this.gen = this.getGenerator();
     this.made = 0;
   }
 
