@@ -557,6 +557,22 @@ export function ClassDeclaration(
   } as Node;
 }
 
+export function ClassExpression(
+  id: Node | null,
+  superClass: Node = null,
+  body: Node[] = []
+) {
+  return {
+    type: "ClassExpression",
+    id: id,
+    superClass: superClass,
+    body: {
+      type: "ClassBody",
+      body: body,
+    },
+  } as Node;
+}
+
 export function ThrowStatement(argument: Node) {
   return {
     type: "ThrowStatement",
@@ -607,7 +623,11 @@ export function CatchClause(param: Node = null, body) {
   };
 }
 
-export function TryStatement(body: Node[], handler: Node, finallyBody: Node[]) {
+export function TryStatement(
+  body: Node[],
+  handler: Node,
+  finallyBody?: Node[]
+) {
   ok(handler);
   ok(handler.type == "CatchClause");
   return {
