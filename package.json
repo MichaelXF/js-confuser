@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "node ./dev.js",
     "build": "./node_modules/.bin/babel src --out-dir dist --copy-files --extensions \".ts\"",
-    "test": "jest",
+    "test": "jest --forceExit",
     "test:coverage": "jest --coverage",
-    "prepublishOnly": "npm run build & npm run test"
+    "prepublishOnly": "npm run build & npm run test --forceExit"
   },
   "keywords": [
     "obfuscator",
