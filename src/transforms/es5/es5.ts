@@ -7,14 +7,10 @@ import {
   BlockStatement,
   ReturnStatement,
   CallExpression,
-  ObjectExpression,
-  ArrayExpression,
   ThisExpression,
-  Property,
 } from "../../util/gen";
-import { clone, getBlockBody, prepend } from "../../util/insert";
-import { isBlock, getBlock, walk } from "../../traverse";
-import Template from "../../templates/template";
+import { clone, prepend } from "../../util/insert";
+import { isBlock, walk } from "../../traverse";
 import { ObfuscateOrder } from "../../order";
 import { ok } from "assert";
 import { reservedKeywords } from "../../constants";
@@ -23,6 +19,7 @@ import AntiTemplate from "./antiTemplate";
 import AntiClass from "./antiClass";
 import AntiES6Object from "./antiES6Object";
 import AntiSpreadOperator from "./antiSpreadOperator";
+import { ES5Template } from "../../templates/es5";
 
 /**
  * `Const` and `Let` are not allowed in ES5.
@@ -96,44 +93,12 @@ export class AntiArrowFunction extends Transform {
   }
 }
 
-class FixedExpressions extends Transform {
-  constructor(o) {
-    super(o);
-  }
-
-  match(object, parents) {
-    return true;
-  }
-
-  transform(object, parents) {
-    return () => {
-      if (
-        object.type == "ForStatement" &&
-        object.init.type == "ExpressionStatement"
-      ) {
-        object.init = object.init.expression;
-      }
-
-      if (object.type == "MemberExpression") {
-        if (!object.computed && object.property.type == "Identifier") {
-          if (reservedKeywords.has(object.property.name)) {
-            object.property = Literal(object.property.name);
-            object.computed = true;
-          }
-        }
-      }
-
-      if (object.type == "Property") {
-        if (!object.computed && object.key.type == "Identifier") {
-          if (reservedKeywords.has(object.key.name)) {
-            object.key = Literal(object.key.name);
-          }
-        }
-      }
-    };
-  }
-}
-
+/**
+ * The ES5 options aims to convert ES6 and up features down to ES5-compatible code.
+ *
+ * The obfuscator regularly adds ES6 code (variable destructuring, spread element, etc.)
+ * This transformations goal is undo only these things.
+ */
 export default class ES5 extends Transform {
   constructor(o) {
     super(o, ObfuscateOrder.ES5);
@@ -145,50 +110,40 @@ export default class ES5 extends Transform {
     this.before.push(new AntiArrowFunction(o));
     this.before.push(new AntiDestructuring(o));
     this.before.push(new AntiConstLet(o));
-
-    this.concurrent.push(new FixedExpressions(o));
   }
 
+  apply(tree: Node) {
+    super.apply(tree);
+
+    var nodesToAdd = ES5Template.compile();
+    prepend(tree, ...nodesToAdd);
+  }
+
+  // FixedExpressions
   match(object: Node, parents: Node[]) {
-    return object.type == "Program";
+    return !!object.type;
   }
 
   transform(object: Node, parents: Node[]) {
-    var block = getBlock(object, parents);
-
-    getBlockBody(block).splice(
-      0,
-      0,
-      ...Template(`
-    !Array.prototype.forEach ? Array.prototype.forEach = function (callback, thisArg) {
-      thisArg = thisArg;
-      for (var i = 0; i < this.length; i++) {
-          callback.call(thisArg, this[i], i, this);
-      }
-    } : 0;
-  
-    !Array.prototype.map ? Array.prototype.map = function (callback, thisArg) {
-      thisArg = thisArg;
-      var array=[];
-      for (var i = 0; i < this.length; i++) {
-        array.push( callback.call(thisArg, this[i], i, this) );
-      }
-      return array;
-    } : 0;
-
-    !Array.prototype.reduce ? Array.prototype.reduce = function(fn, initial) {
-      var values = this;
-      if ( typeof initial === "undefined" ) {
-        initial = 0;
+    return () => {
+      // Object.keyword -> Object["keyword"]
+      if (object.type == "MemberExpression") {
+        if (!object.computed && object.property.type == "Identifier") {
+          if (reservedKeywords.has(object.property.name)) {
+            object.property = Literal(object.property.name);
+            object.computed = true;
+          }
+        }
       }
 
-      values.forEach(function(item, index){
-        initial = fn(initial, item, index, this);
-      });
-
-      return initial;
-    } : 0;
-  `).compile()
-    );
+      // { keyword: ... } -> { "keyword": ... }
+      if (object.type == "Property") {
+        if (!object.computed && object.key.type == "Identifier") {
+          if (reservedKeywords.has(object.key.name)) {
+            object.key = Literal(object.key.name);
+          }
+        }
+      }
+    };
   }
 }
