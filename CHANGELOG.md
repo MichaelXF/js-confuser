@@ -1,3 +1,35 @@
+# `1.6.0`
+Website Redesign + Updates
+
+The website is now redesigned and live at [js-confuser.com](https://wwww.js-confuser.com)!
+
+- Check out the source code for the website here: https://github.com/MichaelXF/js-confuser-website
+
+#### New feature
+
+### `selfDefending`
+
+Prevents the use of code beautifiers or formatters against your code.
+
+[Identical to Obfuscator.io's Self Defending](https://github.com/javascript-obfuscator/javascript-obfuscator#selfdefending)
+
+#### Improvements
+
+- Fixed [#56](https://github.com/MichaelXF/js-confuser/issues/56)
+- - Calculator improved to apply to more operators
+
+- ES5 to handle destructuring member expressions
+
+- Improved Control Flow Flattening techniques
+
+- - Outlining expressions
+
+- - Control object to store numbers and strings
+
+- Updated the String concealing encoding algorithm
+
+- Optimizations / Small fixes
+
 # `1.5.9`
 Big update
 

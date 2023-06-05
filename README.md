@@ -1,8 +1,8 @@
 # JS Confuser
 
-JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://master--hungry-shannon-c1ce6b.netlify.app/).
+JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://js-confuser.com).
 
-  [![NPM](https://img.shields.io/badge/NPM-%23000000.svg?style=for-the-badge&logo=npm&logoColor=white)](https://npmjs.com/package/js-confuser) [![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/MichaelXF/js-confuser) [![Netlify](https://img.shields.io/badge/netlify-%23000000.svg?style=for-the-badge&logo=netlify&logoColor=#00C7B7)](https://master--hungry-shannon-c1ce6b.netlify.app/)
+  [![NPM](https://img.shields.io/badge/NPM-%23000000.svg?style=for-the-badge&logo=npm&logoColor=white)](https://npmjs.com/package/js-confuser) [![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/MichaelXF/js-confuser) [![Netlify](https://img.shields.io/badge/netlify-%23000000.svg?style=for-the-badge&logo=netlify&logoColor=#00C7B7)](https://js-confuser.com)
 
 ## Key features
 
@@ -119,7 +119,7 @@ Remove's whitespace from the final output. Enabled by default. (`true/false`)
 
 ### `hexadecimalNumbers`
 
-Uses the hexadecimal representation (`50` -> `0x32`) for numbers. (`true/false`)
+Uses the hexadecimal representation for numbers. (`true/false`)
 
 ### `minify`
 
@@ -179,7 +179,7 @@ JsConfuser.obfuscate(code, {
 
 JSConfuser tries to reuse names when possible, creating very potent code.
 
-<!-- ### `nameRecycling`
+### `nameRecycling`
 
 ⚠️ Experimental feature, may break your code!
 
@@ -205,7 +205,7 @@ function percentage(x) {
   multiplied = floored + "%";
   return multiplied;
 }
-``` -->
+```
 
 ### `controlFlowFlattening`
 
@@ -228,7 +228,7 @@ function countTo(num){
 }
 
 var number = 10;
-countTo(10); // 1,2,3,4,5,6,7,8,9,10
+countTo(number); // 1,2,3,4,5,6,7,8,9,10
 
 // Output
 var n2DUka,
