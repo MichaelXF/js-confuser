@@ -1,14 +1,9 @@
 import { ok } from "assert";
 import { reservedIdentifiers } from "../../constants";
-import { walk } from "../../traverse";
 import { isValidIdentifier } from "../../util/compare";
 import { Node } from "../../util/gen";
 import { getIdentifierInfo } from "../../util/identifiers";
 import {
-  getDefiningContext,
-  getVarContext,
-  getLexContext,
-  isContext,
   getReferencingContexts,
   getAllDefiningContexts,
 } from "../../util/insert";
@@ -30,11 +25,13 @@ export default class VariableAnalysis extends Transform {
 
   /**
    * Set of global identifiers to never be redefined
+   *
+   * - Used to not accidentally block access to a global variable
    */
   globals: Set<string>;
 
   /**
-   * Set of identifers that are defined within the program
+   * Set of identifiers that are defined within the program
    */
   notGlobals: Set<string>;
 
@@ -51,8 +48,8 @@ export default class VariableAnalysis extends Transform {
     return object.type === "Identifier";
   }
 
-  transform(o, p) {
-    var name = o.name;
+  transform(object: Node, parents: Node[]) {
+    var name = object.name;
     ok(typeof name === "string");
     if (!isValidIdentifier(name)) {
       return;
@@ -65,7 +62,7 @@ export default class VariableAnalysis extends Transform {
       return;
     }
 
-    var info = getIdentifierInfo(o, p);
+    var info = getIdentifierInfo(object, parents);
     if (!info.spec.isReferenced) {
       return;
     }
@@ -78,15 +75,15 @@ export default class VariableAnalysis extends Transform {
 
     // Keep track of defined names within the program
     if (isDefined) {
-      this.notGlobals.add(o.name);
-      this.globals.delete(o.name);
-    } else if (!this.notGlobals.has(o.name)) {
-      this.globals.add(o.name);
+      this.notGlobals.add(object.name);
+      this.globals.delete(object.name);
+    } else if (!this.notGlobals.has(object.name)) {
+      this.globals.add(object.name);
     }
 
     var definingContexts = info.spec.isDefined
-      ? getAllDefiningContexts(o, p)
-      : getReferencingContexts(o, p, info);
+      ? getAllDefiningContexts(object, parents)
+      : getReferencingContexts(object, parents, info);
 
     ok(definingContexts.length);
 
