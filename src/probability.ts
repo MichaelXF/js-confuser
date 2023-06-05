@@ -87,6 +87,8 @@ export function ComputeProbabilityMap<T>(
  * @param map
  */
 export function isProbabilityMapProbable<T>(map: ProbabilityMap<T>): boolean {
+  ok(!Number.isNaN(map), "Numbers cannot be NaN");
+
   if (!map || typeof map === "undefined") {
     return false;
   }
@@ -96,9 +98,6 @@ export function isProbabilityMapProbable<T>(map: ProbabilityMap<T>): boolean {
   if (typeof map === "number") {
     if (map > 1 || map < 0) {
       throw new Error(`Numbers must be between 0 and 1 for 0% - 100%`);
-    }
-    if (isNaN(map)) {
-      throw new Error("Numbers cannot be NaN");
     }
   }
   if (Array.isArray(map)) {
