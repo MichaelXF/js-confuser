@@ -292,6 +292,11 @@ export default class Flatten extends Transform {
 
       var newBody = getBlockBody(object.body);
 
+      // Remove 'use strict' directive
+      if (newBody.length > 0 && newBody[0].directive) {
+        newBody.shift();
+      }
+
       var newFunctionExpression = FunctionExpression(
         [
           ArrayPattern(input.map((name) => Identifier(name))),
