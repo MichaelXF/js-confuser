@@ -157,3 +157,30 @@ test("Variant #6: Don't move const or let variables", async () => {
 
   expect(TEST_VARIABLE).toStrictEqual(25);
 });
+
+test("Variant #7: Work with 'use strict'", async () => {
+  var code = `
+  function myFunction(){
+    'use strict';
+
+    var x = 1;
+
+    return this === undefined;
+  }
+
+  TEST_OUTPUT = myFunction();
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    movedDeclarations: true,
+  });
+
+  // Ensure movedDeclarations applied and 'use strict' is still first
+  expect(output).toContain("function myFunction(){'use strict';var x;");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});

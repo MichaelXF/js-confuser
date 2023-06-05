@@ -283,7 +283,16 @@ export function prepend(block: Node, ...nodes: Node[]) {
   } else if (block.type === "SwitchCase") {
     block.consequent.unshift(...nodes);
   } else {
-    getBlockBody(block).unshift(...nodes);
+    var bodyArray = getBlockBody(block);
+
+    // Check for 'use strict'
+    if (bodyArray[0] && bodyArray[0].directive) {
+      // Insert under 'use strict' directive
+      bodyArray.splice(1, 0, ...nodes);
+    } else {
+      // Prepend at the top of the block
+      bodyArray.unshift(...nodes);
+    }
   }
 }
 
