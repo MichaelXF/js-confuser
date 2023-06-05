@@ -258,3 +258,42 @@ it("should be configurable by custom function option", async () => {
     "My Third String",
   ]);
 });
+
+test("Variant #13: Work without TextEncoder or Buffer being defined", async () => {
+  var output = await JsConfuser(
+    `
+  TEST_OUTPUT = [];
+  TEST_OUTPUT.push("My First String");
+  TEST_OUTPUT.push("My Second String");
+  TEST_OUTPUT.push("My Third String");
+  TEST_OUTPUT.push("My Fourth String");
+  TEST_OUTPUT.push("My Fifth String");
+  `,
+    { target: "node", stringConcealing: true }
+  );
+
+  // Ensure the strings got changed
+  expect(output).not.toContain("My First String");
+  expect(output).not.toContain("My Second String");
+  expect(output).not.toContain("My Third String");
+  expect(output).not.toContain("My Fourth String");
+  expect(output).not.toContain("My Fifth String");
+
+  // Disable TextEncoder and Buffer
+  var global = {};
+  var window = {};
+  var Buffer = undefined;
+  var TextEncoder = undefined;
+
+  // Test the code
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual([
+    "My First String",
+    "My Second String",
+    "My Third String",
+    "My Fourth String",
+    "My Fifth String",
+  ]);
+});

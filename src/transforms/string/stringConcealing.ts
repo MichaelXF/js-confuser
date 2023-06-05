@@ -26,6 +26,7 @@ import {
 import Transform from "../transform";
 import Encoding from "./encoding";
 import { ComputeProbabilityMap } from "../../probability";
+import { BufferToStringTemplate } from "../../templates/bufferToString";
 
 export function isModuleSource(object: Node, parents: Node[]) {
   if (!parents[0]) {
@@ -94,13 +95,23 @@ export default class StringConcealing extends Transform {
     super.apply(tree);
 
     var cacheName = this.getPlaceholder();
+    var bufferToStringName = this.getPlaceholder();
+
+    // This helper functions convert UInt8 Array to UTf-string
+    prepend(
+      tree,
+      ...BufferToStringTemplate.compile({ name: bufferToStringName })
+    );
 
     Object.keys(this.encoding).forEach((type) => {
       var { template } = Encoding[type];
       var decodeFn = this.getPlaceholder();
       var getterFn = this.encoding[type];
 
-      append(tree, template.single({ name: decodeFn }));
+      append(
+        tree,
+        template.single({ name: decodeFn, bufferToString: bufferToStringName })
+      );
 
       append(
         tree,
