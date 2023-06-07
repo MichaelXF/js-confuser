@@ -51,11 +51,11 @@ export interface ObfuscateOptions {
   compact?: boolean;
 
   /**
-   * ### `hexadecimalNumbers`
+   * ### `numberConcealing`
    *
-   * Uses the hexadecimal representation for numbers. (`true/false`)
+   * Conceals numbers by using alternative representations. (`true/false`)
    */
-  hexadecimalNumbers?: boolean;
+  numberConcealing?: ProbabilityMap<boolean>;
 
   /**
    * ### `minify`
@@ -672,7 +672,7 @@ const validProperties = new Set([
   "target",
   "indent",
   "compact",
-  "hexadecimalNumbers",
+  "numberConcealing",
   "minify",
   "es5",
   "renameVariables",
