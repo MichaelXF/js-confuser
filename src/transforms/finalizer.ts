@@ -108,7 +108,7 @@ export default class Finalizer extends Transform {
           );
         }
         // convert number to math expression for whole numbers up to 48bit
-        else if(Math.abs(object.value) < 0xffff_ffff_ffff && Math.floor(object.value) === object.value) {
+        else if(Math.abs(object.value) > 1 && Math.abs(object.value) < 0xffff_ffff_ffff && Math.floor(object.value) === object.value) {
           var lower = isNegative ? object.value - 32768 : 0;
           var upper = isNegative ? 0 : object.value + 32768;
   
