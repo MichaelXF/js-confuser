@@ -49,7 +49,7 @@ export default class Obfuscator extends EventEmitter {
 
   totalPossibleTransforms: number;
 
-  progress_bar: any;
+  progress_bar: SingleBar | undefined;
 
 
 
