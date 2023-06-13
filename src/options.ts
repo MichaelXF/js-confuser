@@ -21,6 +21,13 @@ export interface ObfuscateOptions {
   preset?: "high" | "medium" | "low" | false;
 
   /**
+   * ### `progress`
+   *
+   * Whether to display a graphical progress bar in the STDOUT. (`true/false`)
+   */
+  progress?: true | false;
+
+  /**
    * ### `target`
    *
    * The execution context for your output. _Required_.
@@ -669,6 +676,7 @@ export interface ObfuscateOptions {
 
 const validProperties = new Set([
   "preset",
+  "progress",
   "target",
   "indent",
   "compact",
