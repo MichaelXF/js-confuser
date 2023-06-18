@@ -81,6 +81,20 @@ export default class Finalizer extends Transform {
     return value.toString();
   }
 
+  wrapExpression(value: string): string {
+    const variant = choice(["none", "iia", "iio"]);
+    switch(variant) {
+      case "iia":
+        return `[${value}][${this.encodeNumber(0)}]`;
+      case "iio":
+        const alphabet = "abcdefghijklmnopqrstuvwxyz";
+        const name = choice((alphabet + alphabet.toUpperCase()).split(""));
+        return `{${name}: ${value}}.${name}`;
+      default:
+        return value;
+    }
+  }
+
   isHexadecimalAcceptable(hex: string): boolean {
     // for some numbers, the hexadecimal representation makes it more readable
     // for example: colors (0xff0000 - red), limits (0xffff - max uint16)
@@ -119,14 +133,14 @@ export default class Finalizer extends Transform {
             : operator === "-" ? object.value + part1
             : part1 ^ object.value
           )
-          newStr = `(${this.encodeNumber(part2)} ${operator} ${this.encodeNumber(part1)})`;
+          newStr = this.wrapExpression(`(${this.wrapExpression(this.encodeNumber(part2))} ${operator} ${this.wrapExpression(this.encodeNumber(part1))})`);
         } else {
-          newStr = this.encodeNumber(object.value);
+          newStr = this.wrapExpression(this.encodeNumber(object.value));
         }
 
         // need to wrap () in [] in definitions like { 1: 1 }
-        if(parents[0].key === object && newStr.startsWith("("))
-          newStr = `[${newStr.substring(1, newStr.length - 1)}]`;
+        if(parents[0].key === object && (newStr.startsWith("(") || newStr.startsWith("[") || newStr.startsWith("{")))
+          newStr = `[${newStr.startsWith("(") ? newStr.substring(1, newStr.length - 1) : newStr}]`;
 
         // console.log(object, newStr)
         this.replace(object, Identifier(newStr));
