@@ -12,7 +12,7 @@ test("Variant #1: Move variable 'y' to top", async () => {
     movedDeclarations: true,
   });
 
-  expect(output).toContain("var y;");
+  expect(output).toContain("var x=10,y;");
   expect(output).toContain("y=15");
 
   var TEST_VARIABLE;
@@ -34,7 +34,7 @@ test("Variant #2: Move variable 'y' and 'z' to top", async () => {
     movedDeclarations: true,
   });
 
-  expect(output).toContain("var y,z");
+  expect(output).toContain("var x=10,y,z;");
   expect(output).toContain("y=15");
   expect(output).toContain("z=5");
 
@@ -44,7 +44,7 @@ test("Variant #2: Move variable 'y' and 'z' to top", async () => {
   expect(TEST_VARIABLE).toStrictEqual(30);
 });
 
-test("Variant #2: Don't move 'y' (destructuring)", async () => {
+test("Variant #3: Don't move 'y' (destructuring)", async () => {
   var code = `
     var x = 10;
     var [y] = [15];
@@ -64,7 +64,7 @@ test("Variant #2: Don't move 'y' (destructuring)", async () => {
   expect(TEST_VARIABLE).toStrictEqual(25);
 });
 
-test("Variant #3: Don't move 'y' (nested lexical scope)", async () => {
+test("Variant #4: Move 'y' (nested lexical scope)", async () => {
   var code = `
     var x = 10;
     var y = 15;
@@ -81,7 +81,7 @@ test("Variant #3: Don't move 'y' (nested lexical scope)", async () => {
     movedDeclarations: true,
   });
 
-  expect(output).toContain("var y=15");
+  expect(output).toContain("var x=10,y;");
 
   var TEST_VARIABLE;
   eval(output);
@@ -89,7 +89,7 @@ test("Variant #3: Don't move 'y' (nested lexical scope)", async () => {
   expect(TEST_VARIABLE).toStrictEqual(20);
 });
 
-test("Variant #4: Move 'y' (for statement initializer)", async () => {
+test("Variant #5: Move 'y' (for statement initializer)", async () => {
   var code = `
     var x = 10;
     for ( var y = 0; y < 15; y++ ) {
@@ -111,7 +111,7 @@ test("Variant #4: Move 'y' (for statement initializer)", async () => {
   expect(TEST_VARIABLE).toStrictEqual(25);
 });
 
-test("Variant #5: Move 'y' (for-in left-hand initializer)", async () => {
+test("Variant #6: Move 'y' (for-in left-hand initializer)", async () => {
   var code = `
     var x = 10;
     for ( var y in [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] ) {
@@ -134,7 +134,7 @@ test("Variant #5: Move 'y' (for-in left-hand initializer)", async () => {
   expect(TEST_VARIABLE).toStrictEqual(25);
 });
 
-test("Variant #6: Don't move const or let variables", async () => {
+test("Variant #7: Don't move const or let variables", async () => {
   var code = `
     var fillerExpr;
 
@@ -158,7 +158,7 @@ test("Variant #6: Don't move const or let variables", async () => {
   expect(TEST_VARIABLE).toStrictEqual(25);
 });
 
-test("Variant #7: Work with 'use strict'", async () => {
+test("Variant #8: Work with 'use strict'", async () => {
   var code = `
   function myFunction(){
     'use strict';
