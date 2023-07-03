@@ -142,39 +142,6 @@ export interface ObfuscateOptions {
   >;
 
   /**
-   * ### `nameRecycling`
-   *
-   * (Experimental feature)
-   *
-   * Attempts to reuse released names.
-   *
-   * - Potency Medium
-   * - Resilience High
-   * - Cost Low
-   *
-   * ```js
-   * // Input
-   * function percentage(x) {
-   *   var multiplied = x * 100;
-   *   var floored = Math.floor(multiplied);
-   *   var output = floored + "%"
-   *   return output;
-   * }
-   *
-   * // Output
-   * function percentage(x) {
-   *   var multiplied = x * 100;
-   *   var floored = Math.floor(multiplied);
-   *   multiplied = floored + "%";
-   *   return multiplied;
-   * }
-   * ```
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-   */
-  nameRecycling?: ProbabilityMap<boolean>;
-
-  /**
    * ### `controlFlowFlattening`
    *
    * ⚠️ Significantly impacts performance, use sparingly!
@@ -287,46 +254,13 @@ export interface ObfuscateOptions {
   dispatcher?: ProbabilityMap<boolean>;
 
   /**
-   * ### `eval`
-   *
-   * #### **`Security Warning`**
-   *
-   * From [MDN](<(https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval)**>): Executing JavaScript from a string is an enormous security risk. It is far too easy
-   * for a bad actor to run arbitrary code when you use eval(). Never use eval()!
-   *
-   * Wraps defined functions within eval statements.
-   *
-   * - **`false`** - Avoids using the `eval` function. _Default_.
-   * - **`true`** - Wraps function's code into an `eval` statement.
-   *
-   * ```js
-   * // Output.js
-   * var Q4r1__ = {
-   *   Oo$Oz8t: eval(
-   *     "(function(YjVpAp){var gniSBq6=kHmsJrhOO;switch(gniSBq6){case'RW11Hj5x':return console;}});"
-   *   ),
-   * };
-   * Q4r1__.Oo$Oz8t("RW11Hj5x");
-   * ```
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-   */
-  eval?: ProbabilityMap<boolean>;
-
-  /**
    * ### `rgf`
    *
    * RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings. (`"all"/true/false`)
    *
-   * - **This can break your code. This is also as dangerous as `eval`.**
+   * - **This can break your code.
    * - **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
    * - The arbitrary code is also obfuscated.
-   *
-   * | Mode | Description |
-   * | --- | --- |
-   * | `"all"` | Recursively applies to every scope (slow) |
-   * | `true` | Applies to the top level only |
-   * | `false` | Feature disabled |
    *
    * ```js
    * // Input
@@ -342,7 +276,7 @@ export interface ObfuscateOptions {
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  rgf?: ProbabilityMap<boolean | "all">;
+  rgf?: ProbabilityMap<boolean>;
 
   /**
    * ### `stack`
@@ -678,7 +612,6 @@ const validProperties = new Set([
   "renameVariables",
   "renameGlobals",
   "identifierGenerator",
-  "nameRecycling",
   "controlFlowFlattening",
   "globalConcealing",
   "stringCompression",
@@ -687,7 +620,6 @@ const validProperties = new Set([
   "stringSplitting",
   "duplicateLiteralsRemoval",
   "dispatcher",
-  "eval",
   "rgf",
   "objectExtraction",
   "flatten",
@@ -868,6 +800,10 @@ export async function correctOptions(
         "alert",
         "confirm",
         "location",
+        "btoa",
+        "atob",
+        "unescape",
+        "encodeURIComponent",
       ].forEach((x) => options.globalVariables.add(x));
     } else {
       // node
@@ -876,6 +812,8 @@ export async function correctOptions(
         "Buffer",
         "require",
         "process",
+        "exports",
+        "module",
         "__dirname",
         "__filename",
       ].forEach((x) => options.globalVariables.add(x));
@@ -887,6 +825,7 @@ export async function correctOptions(
       "parseInt",
       "parseFloat",
       "Math",
+      "JSON",
       "Promise",
       "String",
       "Boolean",
@@ -906,8 +845,6 @@ export async function correctOptions(
       "setImmediate",
       "clearImmediate",
       "queueMicrotask",
-      "exports",
-      "module",
       "isNaN",
       "isFinite",
       "Set",

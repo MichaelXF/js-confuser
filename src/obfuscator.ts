@@ -15,7 +15,6 @@ import DeadCode from "./transforms/deadCode";
 import OpaquePredicates from "./transforms/opaquePredicates";
 import Calculator from "./transforms/calculator";
 import ControlFlowFlattening from "./transforms/controlFlowFlattening/controlFlowFlattening";
-import Eval from "./transforms/eval";
 import GlobalConcealing from "./transforms/identifier/globalConcealing";
 import StringSplitting from "./transforms/string/stringSplitting";
 import StringConcealing from "./transforms/string/stringConcealing";
@@ -30,7 +29,6 @@ import ES5 from "./transforms/es5/es5";
 import RGF from "./transforms/rgf";
 import Flatten from "./transforms/flatten";
 import Stack from "./transforms/stack";
-import NameRecycling from "./transforms/identifier/nameRecycling";
 import AntiTooling from "./transforms/antiTooling";
 import Finalizer from "./transforms/finalizer";
 
@@ -78,7 +76,6 @@ export default class Obfuscator extends EventEmitter {
     test(options.deadCode, DeadCode);
     test(options.calculator, Calculator);
     test(options.controlFlowFlattening, ControlFlowFlattening);
-    test(options.eval, Eval);
     test(options.globalConcealing, GlobalConcealing);
     test(options.opaquePredicates, OpaquePredicates);
     test(options.stringSplitting, StringSplitting);
@@ -87,7 +84,6 @@ export default class Obfuscator extends EventEmitter {
     test(options.stack, Stack);
     test(options.duplicateLiteralsRemoval, DuplicateLiteralsRemoval);
     test(options.shuffle, Shuffle);
-    test(options.nameRecycling, NameRecycling);
     test(options.movedDeclarations, MovedDeclarations);
     test(options.minify, Minify);
     test(options.renameVariables, RenameVariables);
