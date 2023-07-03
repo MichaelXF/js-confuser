@@ -1,419 +1,328 @@
 import { writeFileSync } from "fs";
 import JsConfuser from "../../src/index";
 
-describe("RGF", () => {
-  it("should contain `new Function` in the output and work", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      function add(a,b){
-        return a + b;
-      }
-      
-      input(add(10, 5))
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).toContain("new Function");
-    var value = "never_called";
-    function input(valueIn) {
-      value = valueIn;
+test("Variant #1: Convert Function Declaration into 'new Function' code", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    function addTwoNumbers(a, b){
+      return a + b;
     }
-
-    eval(output);
-    expect(value).toStrictEqual(15);
-  });
-
-  it("should work with multiple functions", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      function add(a,b){
-        return a + b;
-      }
-  
-      function parse(str){
-        return parseInt(str);
-      }
-      
-      input(add(parse("20"), 5))
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).toContain("new Function");
-    var value = "never_called";
-    function input(valueIn) {
-      value = valueIn;
-    }
-
-    eval(output);
-    expect(value).toStrictEqual(25);
-  });
-
-  it("should not change functions that have references to parent scopes", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      var parentScope = 0;
-      function add(a,b){
-
-        // reference to parent scope
-        return a + parentScope;
-      }
-      
-      input(add(10, 5))
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).not.toContain("new Function");
-  });
-
-  it("should not change functions that have mutate their parent scopes", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      var parentScope = 0;
-      function add(a,b){
-
-        // modifies parent scope
-        parentScope = 1;
-        return a + b;
-      }
-      
-      input(add(10, 5))
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).not.toContain("new Function");
-  });
-
-  it("should work with High Preset", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-    function log2(){
-      var inputFn = input;
-      var inputString = "Hello World";
-      inputFn(inputString)
-    }
-    log2()
+    
+    TEST_OUTPUT = addTwoNumbers(10, 5);
     `,
-      {
-        target: "node",
-        preset: "high",
-        globalConcealing: false,
-      }
-    );
-
-    var value = "never_called";
-    function input(valueIn) {
-      value = valueIn;
+    {
+      target: "node",
+      rgf: true,
     }
+  );
 
-    eval(output);
+  expect(output).toContain("new Function");
 
-    expect(value).toStrictEqual("Hello World");
-  });
+  var TEST_OUTPUT;
+  eval(output);
 
-  // https://github.com/MichaelXF/js-confuser/issues/64
-  it("should work on Arrow Functions", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      var double = (num)=>num*2;
-      TEST_VALUE = double(10);
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).toContain("new Function");
-
-    var TEST_VALUE;
-
-    eval(output);
-    expect(TEST_VALUE).toStrictEqual(20);
-  });
-
-  it("should work on Function Expressions", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      var double = function(num){
-        return num * 2
-      };
-      TEST_VALUE = double(10);
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).toContain("new Function");
-
-    var TEST_VALUE;
-
-    eval(output);
-    expect(TEST_VALUE).toStrictEqual(20);
-  });
-
-  it("should work on re-assigned functions", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      var fn1 = ()=>{
-        return "FN1";
-      }
-      var fn2 = ()=>{
-        fn1 = ()=>{
-          return "FN1 - Modified"
-        }
-      }
-      fn2();
-      TEST_VALUE = fn1();
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).toContain("new Function");
-
-    var TEST_VALUE;
-
-    eval(output);
-    expect(TEST_VALUE).toStrictEqual("FN1 - Modified");
-  });
-
-  it("should work on re-assigned functions to non-function values", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      var fn1 = ()=>{
-        return "FN1";
-      }
-      var fn2 = ()=>{
-        fn1 = undefined;
-      }
-      fn2();
-      TEST_VALUE = typeof fn1;
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).toContain("new Function");
-
-    var TEST_VALUE;
-
-    eval(output);
-    expect(TEST_VALUE).toStrictEqual("undefined");
-  });
-
-  it("should not apply to functions that reference their parent scope in the parameters", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      var outsideVar = 0;
-      function myFunction(insideVar = outsideVar){
-      }
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).not.toContain("new Function");
-  });
-
-  it("should not apply to functions that reference their parent scope in previously defined names", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      var outsideVar = 0;
-      function myFunction(){
-        (function (){
-          var outsideVar;
-        })();
-
-        console.log(outsideVar);
-      }
-      `,
-      {
-        target: "node",
-        rgf: true,
-      }
-    );
-
-    expect(output).not.toContain("new Function");
-  });
-
-  it("should work with Control Flow Flattening and Duplicate Literals Removal enabled", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      var x = [1,1,1,1,1,1,1,1,1,1];
-
-      function myFunction(){
-        return 1;
-      };
-
-      input( myFunction() ); // 1
-    `,
-      {
-        target: "node",
-        controlFlowFlattening: true,
-        duplicateLiteralsRemoval: true,
-        rgf: true,
-      }
-    );
-
-    var value = "never_called";
-    function input(valueIn) {
-      value = valueIn;
-    }
-
-    eval(output);
-
-    expect(value).toStrictEqual(1);
-  });
-
-  it("should work with String Encoding enabled", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      function myFunction(){
-        var val1 = "\\x43\\x6F\\x72\\x72\\x65\\x63\\x74\\x20\\x56\\x61\\x6C\\x75\\x65"; // "Correct Value"
-        var val2 = "Correct Value";
-        return val1 === val2;
-      }
-
-      TEST_OUTPUT = myFunction(); // true
-    `,
-      {
-        target: "node",
-        rgf: true,
-        stringEncoding: true,
-      }
-    );
-
-    // Ensure RGF applied
-    expect(output).toContain("new Function");
-
-    var TEST_OUTPUT;
-    eval(output);
-
-    expect(TEST_OUTPUT).toStrictEqual(true);
-  });
+  expect(TEST_OUTPUT).toStrictEqual(15);
 });
 
-describe("RGF with the 'all' mode", () => {
-  it("should contain `new Function` in the output and work", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      function add(a,b){
-        return a + b;
-      }
-      
-      input(add(10, 5))
-      `,
-      {
-        target: "node",
-        rgf: "all",
-      }
-    );
+test("Variant #2: Convert Function Expression into 'new Function' code", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var addTwoNumbers = function(a, b){
+      return a + b;
+    }
+    
+    TEST_OUTPUT = addTwoNumbers(10, 5);
+    `,
+    {
+      target: "node",
+      rgf: true,
+    }
+  );
 
-    expect(output).toContain("new Function");
-    var value = "never_called";
-    function input(valueIn) {
-      value = valueIn;
+  expect(output).toContain("new Function");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(15);
+});
+
+test("Variant #3: Convert functions that use global variables", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    function floorNumber(num){
+      return Math.floor(num);
+    }
+    
+    TEST_OUTPUT = floorNumber(1.9);
+    `,
+    {
+      target: "node",
+      rgf: true,
+    }
+  );
+
+  expect(output).toContain("new Function");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(1);
+});
+
+test("Variant #4: Don't convert functions that rely on outside-scoped variables", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var _Math = Math;
+
+    function floorNumber(num){
+      return _Math.floor(num);
+    }
+    
+    TEST_OUTPUT = floorNumber(1.9);
+    `,
+    {
+      target: "node",
+      rgf: true,
+    }
+  );
+
+  expect(output).not.toContain("new Function");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(1);
+});
+
+test("Variant #5: Don't convert functions that rely on outside-scoped variables (trap)", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var _Math = Math;
+
+    function floorNumber(num){
+      (()=>{
+        var _Math;
+      })();
+      return _Math.floor(num);
+    }
+    
+    TEST_OUTPUT = floorNumber(1.9);
+    `,
+    {
+      target: "node",
+      rgf: true,
+    }
+  );
+
+  expect(output).not.toContain("new Function");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(1);
+});
+
+test("Variant #6: Work on High Preset", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    function addTwoNumbers(a, b){
+      return a + b;
+    }
+    
+    TEST_OUTPUT = addTwoNumbers(10, 5);
+    `,
+    {
+      target: "node",
+      preset: "high",
+      rgf: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(15);
+});
+
+test("Variant #7: Don't convert arrow, async, or generator functions", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var arrowFunction = ()=>{};
+    async function asyncFunction(){
+
+    };
+    function* generatorFunction(){
+      yield "Correct Value";
+    };
+
+    TEST_OUTPUT = generatorFunction().next().value;
+    `,
+    {
+      target: "node",
+      rgf: true,
+    }
+  );
+
+  expect(output).not.toContain("new Function");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #8: Modified Function", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    function addTwoNumbers(x,y){
+      return x + y;
     }
 
-    eval(output);
-    expect(value).toStrictEqual(15);
-  });
-
-  it("should work with multiple functions", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-      function add(a,b){
-        return a + b;
-      }
-  
-      function parse(str){
-        return parseInt(str);
-      }
-      
-      input(add(parse("20"), 5))
-      `,
-      {
-        target: "node",
-        rgf: "all",
-      }
-    );
-
-    expect(output).toContain("new Function");
-    var value = "never_called";
-    function input(valueIn) {
-      value = valueIn;
+    addTwoNumbers = function(){
+      return "Incorrect Value";
     }
 
-    eval(output);
-    expect(value).toStrictEqual(25);
-  });
+    addTwoNumbers = ()=>{
+      return "Correct Value";
+    }
 
-  it("should work with multiple, deeply-nested, functions", async () => {
-    var output = await JsConfuser.obfuscate(
-      `
-     
-function getNumbers(){
-  return [5, 10];
-}
+    TEST_OUTPUT = addTwoNumbers(10, 5);
+    `,
+    {
+      target: "node",
+      rgf: true,
+    }
+  );
 
-function multiply(x,y){
-  return x*y;
-}
+  expect(output).toContain("new Function");
 
-function testFunction(){
-  function add(x,y){
-    return x+y;
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #8: Modified Function (non function value)", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    function addTwoNumbers(x,y){
+      return x+y;
+    }
+
+    addTwoNumbers = "Correct Value";
+
+    TEST_OUTPUT = addTwoNumbers;
+    `,
+    {
+      target: "node",
+      rgf: true,
+    }
+  );
+
+  expect(output).toContain("new Function");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #9: Work with Flatten on any function", async () => {
+  var output = await JsConfuser.obfuscate(
+    `
+    var outsideCounter = 0;
+    var outsideFlag = false;
+
+    function incrementOutsideCounter(){
+      outsideCounter++;
+    }
+
+    function incrementTimes(times){
+      for( var i = 0; i < times; i++ ) {
+        incrementOutsideCounter();
+      }
+      if( outsideFlag ) {
+        TEST_OUTPUT = times === 1 && outsideCounter === 10 ? "Correct Value" : "Incorrect Value";
+      } 
+      outsideFlag = true;
+    }
+
+    incrementOutsideCounter();
+    incrementTimes(8);
+    incrementTimes(1); 
+    `,
+    {
+      target: "node",
+      rgf: true,
+      flatten: true,
+    }
+  );
+
+  expect(output).toContain("new Function");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #10: Configurable by custom function option", async () => {
+  var functionNames: string[] = [];
+
+  var output = await JsConfuser(
+    `
+  "use strict";
+
+  // By checking strict-mode, we can check if the function was RGF or not
+  function rgfThisFunction(){
+    var isStrictMode = () => {
+      try {
+        undefined = true;
+      } catch (E) {
+        return true;
+      }
+      return false;
+    }
+
+    return isStrictMode();
   }
 
-  function testInnerFunction(){
-    var numbers = getNumbers();
-
-    // 5*10 + 10 = 60
-    return add(multiply(numbers[0], numbers[1]), numbers[1])
-  }
-
-  input( testInnerFunction() );
-}
-
-testFunction();
-      `,
-      {
-        target: "node",
-        rgf: "all",
+  function doNotRgfThisFunction(){
+    var isStrictMode = () => {
+      try {
+        undefined = true;
+      } catch (E) {
+        return true;
       }
-    );
-
-    expect(output).toContain("new Function");
-    var value = "never_called";
-    function input(valueIn) {
-      value = valueIn;
+      return false;
     }
 
-    eval(output);
-    expect(value).toStrictEqual(60);
-  });
+    return isStrictMode();
+  }
+
+  TEST_OUTPUT_1 = rgfThisFunction();
+  TEST_OUTPUT_2 = doNotRgfThisFunction();
+  `,
+    {
+      target: "node",
+      rgf: (name) => {
+        functionNames.push(name);
+        return name !== "doNotRgfThisFunction";
+      },
+    }
+  );
+
+  expect(functionNames).toStrictEqual([
+    "rgfThisFunction",
+    "doNotRgfThisFunction",
+  ]);
+  expect(output).toContain("new Function");
+
+  var TEST_OUTPUT_1;
+  var TEST_OUTPUT_2;
+
+  eval(output);
+  expect(TEST_OUTPUT_1).toStrictEqual(false);
+  expect(TEST_OUTPUT_2).toStrictEqual(true);
 });
