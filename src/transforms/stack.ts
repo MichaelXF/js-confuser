@@ -6,6 +6,7 @@ import { walk } from "../traverse";
 import {
   AssignmentExpression,
   BinaryExpression,
+  CallExpression,
   ExpressionStatement,
   Identifier,
   IfStatement,
@@ -18,6 +19,7 @@ import {
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
 import {
+  computeFunctionLength,
   getBlockBody,
   getDefiningContext,
   getReferencingContexts,
@@ -28,9 +30,13 @@ import {
 } from "../util/insert";
 import { chance, choice, getRandomInteger } from "../util/random";
 import Transform from "./transform";
+import { noRenameVariablePrefix } from "../constants";
+import { FunctionLengthTemplate } from "../templates/functionLength";
 
 export default class Stack extends Transform {
   mangledExpressionsMade: number;
+
+  functionLengthName: string;
 
   constructor(o) {
     super(o, ObfuscateOrder.Stack);
@@ -111,8 +117,14 @@ export default class Stack extends Transform {
       });
 
       var startingSize = subscripts.size;
+      var isIllegal = false;
 
       walk(object.body, [object, ...parents], (o, p) => {
+        if (o.type === "Identifier" && o.name === "arguments") {
+          isIllegal = true;
+          return "EXIT";
+        }
+
         if (o.type == "Identifier") {
           var info = getIdentifierInfo(o, p);
           if (!info.spec.isReferenced || info.spec.isExported) {
@@ -125,6 +137,10 @@ export default class Stack extends Transform {
 
           if (c !== object) {
             // this.log(o.name + " is illegal due to different context");
+            illegal.add(o.name);
+          }
+
+          if (o.name.startsWith(noRenameVariablePrefix)) {
             illegal.add(o.name);
           }
 
@@ -199,6 +215,8 @@ export default class Stack extends Transform {
           }
         }
       });
+
+      if (isIllegal) return;
 
       illegal.forEach((name) => {
         defined.delete(name);
@@ -467,6 +485,9 @@ export default class Stack extends Transform {
         object.body.body.splice(parseInt(index) + i, 0, rotateNodes[index]);
       });
 
+      // Preserve function.length property
+      var originalFunctionLength = computeFunctionLength(object.params);
+
       // Set the params for this function to be the stack array
       object.params = [RestElement(Identifier(stackName))];
 
@@ -475,6 +496,47 @@ export default class Stack extends Transform {
         object.body,
         Template(`${stackName}["length"] = ${startingSize}`).single()
       );
+
+      if (originalFunctionLength !== 0) {
+        if (!this.functionLengthName) {
+          this.functionLengthName = this.getPlaceholder();
+          prepend(
+            parents[parents.length - 1] || object,
+            FunctionLengthTemplate.single({ name: this.functionLengthName })
+          );
+        }
+
+        if (object.type === "FunctionDeclaration") {
+          var body = parents[0];
+          if (Array.isArray(body)) {
+            var index = body.indexOf(object);
+
+            body.splice(
+              index,
+              0,
+              ExpressionStatement(
+                CallExpression(Identifier(this.functionLengthName), [
+                  Identifier(object.id.name),
+                  Literal(originalFunctionLength),
+                ])
+              )
+            );
+          }
+        } else {
+          ok(
+            object.type === "FunctionExpression" ||
+              object.type === "ArrowFunctionExpression"
+          );
+
+          this.replace(
+            object,
+            CallExpression(Identifier(this.functionLengthName), [
+              { ...object },
+              Literal(originalFunctionLength),
+            ])
+          );
+        }
+      }
     };
   }
 }
