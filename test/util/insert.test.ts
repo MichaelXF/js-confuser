@@ -1,7 +1,8 @@
+import { ok } from "assert";
 import { compileJsSync } from "../../src/compiler";
-import parseJS from "../../src/parser";
-import { isBlock } from "../../src/traverse";
-import { Identifier } from "../../src/util/gen";
+import parseJS, { parseSync } from "../../src/parser";
+import traverse, { isBlock } from "../../src/traverse";
+import { Identifier, Location } from "../../src/util/gen";
 import {
   deleteDeclaration,
   isVarContext,
@@ -10,6 +11,7 @@ import {
   getContexts,
   getLexContext,
   getVarContext,
+  computeFunctionLength,
 } from "../../src/util/insert";
 
 it("isBlock() should be true for block statements and program", async () => {
@@ -85,4 +87,56 @@ it("should throw when missing parameters", () => {
   expect(getVarContext).toThrow();
   expect(() => getLexContext(Identifier("test"), [])).toThrow();
   expect(() => getVarContext(Identifier("test"), [])).toThrow();
+});
+
+test("computeFunctionLength", () => {
+  var tree = parseSync(`
+  function zeroParameters(){}; // 0
+  function oneParameter(a){}; // 1
+  function twoParameter(a,b){}; // 2
+  function restParameter1(...a){}; // 0
+  function restParameter2(a,b,...c){}; // 2
+  function defaultValue(a,b,c=1,d){}; // 2
+  function arrayPattern([a],[b = 2],[[c]]){}; // 3
+  function objectPattern({a},{b = 2},{c, d}){}; // 3
+  function mixed(a,{b},[c = 3],d,e=5,f,...g){}; // 4
+  `);
+
+  function getFunction(searchName: string): Location {
+    var searchLocation: Location;
+    traverse(tree, (o, p) => {
+      if (o.type === "FunctionDeclaration" && o.id.name === searchName) {
+        ok(!searchLocation);
+        searchLocation = [o, p];
+      }
+    });
+
+    ok(searchLocation);
+    return searchLocation;
+  }
+
+  expect(
+    computeFunctionLength(getFunction("zeroParameters")[0].params)
+  ).toStrictEqual(0);
+  expect(
+    computeFunctionLength(getFunction("oneParameter")[0].params)
+  ).toStrictEqual(1);
+  expect(
+    computeFunctionLength(getFunction("twoParameter")[0].params)
+  ).toStrictEqual(2);
+  expect(
+    computeFunctionLength(getFunction("restParameter1")[0].params)
+  ).toStrictEqual(0);
+  expect(
+    computeFunctionLength(getFunction("restParameter2")[0].params)
+  ).toStrictEqual(2);
+  expect(
+    computeFunctionLength(getFunction("arrayPattern")[0].params)
+  ).toStrictEqual(3);
+  expect(
+    computeFunctionLength(getFunction("objectPattern")[0].params)
+  ).toStrictEqual(3);
+  expect(computeFunctionLength(getFunction("mixed")[0].params)).toStrictEqual(
+    4
+  );
 });
