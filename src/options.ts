@@ -407,20 +407,6 @@ export interface ObfuscateOptions {
     context?: string[];
 
     /**
-     * ### `lock.nativeFunctions`
-     *
-     * Set of global functions that are native. Such as `require`, `fetch`. If these variables are modified the program crashes.
-     * Set to `true` to use the default set of native functions. (`string[]/true/false`)
-     *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-     */
-    nativeFunctions?: string[] | Set<string> | boolean;
-
-    /**
      * ### `lock.startDate`
      *
      * When the program is first able to be used. (`number` or `Date`)
