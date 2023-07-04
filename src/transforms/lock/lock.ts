@@ -219,9 +219,7 @@ export default class Lock extends Transform {
     if (this.options.lock.domainLock && this.options.lock.domainLock.length) {
       choices.push("domainLock");
     }
-    if (this.options.lock.nativeFunctions) {
-      choices.push("nativeFunction");
-    }
+
     if (this.options.lock.context && this.options.lock.context.length) {
       choices.push("context");
     }
@@ -309,45 +307,6 @@ export default class Lock extends Transform {
               null
             )
           );
-
-          break;
-
-        case "nativeFunction":
-          var set = this.options.lock.nativeFunctions;
-          if (set === true) {
-            if (this.options.target == "node") {
-              set = new Set(["Function", "String"]);
-            } else {
-              set = new Set(["Function", "String", "fetch"]);
-            }
-          }
-          if (Array.isArray(set)) {
-            set = new Set(set);
-          }
-          if (!set) {
-            set = new Set();
-          }
-
-          var fn = choice(Array.from(set));
-          if (fn) {
-            test = Template(
-              `(${fn}+"").indexOf("[native code]") == -1`
-            ).single().expression;
-
-            if (Math.random() > 0.5) {
-              test = Template(
-                `${fn}.toString().split("{ [native code] }").length <= 1`
-              ).single().expression;
-            }
-
-            nodes.push(
-              IfStatement(
-                test,
-                this.getCounterMeasuresCode(object, parents) || [],
-                null
-              )
-            );
-          }
 
           break;
 

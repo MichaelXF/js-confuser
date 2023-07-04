@@ -30,6 +30,23 @@ export function validateChain(object: Node, parents: Node[]) {
   }
 }
 
+function objectPatternCheck(object: Node, parents: Node[]) {
+  var objectPatternIndex = parents.findIndex((x) => x.type === "ObjectPattern");
+  if (objectPatternIndex == -1) {
+    return true;
+  }
+
+  var property = parents[objectPatternIndex].properties.find(
+    (property) => parents[objectPatternIndex - 2] === property
+  );
+
+  if (property.key === (parents[objectPatternIndex - 3] || object)) {
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * Returns detailed information about the given Identifier node.
  * @param object
@@ -74,7 +91,22 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
   var isVariableDeclaration =
     varIndex != -1 &&
     parents[varIndex].id == (parents[varIndex - 1] || object) &&
-    parents.find((x) => x.type == "VariableDeclaration");
+    parents.find((x) => x.type == "VariableDeclaration") &&
+    objectPatternCheck(object, parents);
+
+  // Assignment pattern check!
+  if (isVariableDeclaration) {
+    var slicedParents = parents.slice(0, varIndex - 1);
+    var i = 0;
+    for (var parent of slicedParents) {
+      var childNode = slicedParents[i - 1] || object;
+      if (parent.type === "AssignmentPattern" && parent.right === childNode) {
+        isVariableDeclaration = false;
+        break;
+      }
+      i++;
+    }
+  }
 
   var forIndex = parents.findIndex((x) => x.type == "ForStatement");
   var isForInitializer =
@@ -87,6 +119,12 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     functionIndex != -1 &&
     parents[functionIndex].type == "FunctionDeclaration" &&
     parents[functionIndex].id == object;
+
+  var isNamedFunctionExpression =
+    functionIndex != -1 &&
+    parents[functionIndex].type === "FunctionExpression" &&
+    parents[functionIndex].id === object;
+
   var isAFunctionParameter = isFunctionParameter(object, parents);
 
   var isClauseParameter = false;
@@ -112,7 +150,9 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
 
   var isAssignmentLeft =
     assignmentIndex !== -1 &&
-    parents[assignmentIndex].left === (parents[assignmentIndex - 1] || object);
+    parents[assignmentIndex].left ===
+      (parents[assignmentIndex - 1] || object) &&
+    objectPatternCheck(object, parents);
   var isAssignmentValue =
     assignmentIndex !== -1 &&
     parents[assignmentIndex].right === (parents[assignmentIndex - 1] || object);
@@ -272,6 +312,7 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
       isDefined:
         isVariableDeclaration ||
         isFunctionDeclaration ||
+        isNamedFunctionExpression ||
         isAFunctionParameter ||
         isClassDeclaration ||
         isClauseParameter ||

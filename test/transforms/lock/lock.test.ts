@@ -64,6 +64,7 @@ it("should work with endDate and call countermeasures function", async () => {
   expect(value).toStrictEqual(true);
 });
 
+// REMOVED FEATURE:
 // it("strings should be encoded when startDate and endDate are given", async () => {
 //   var startDate = await JsConfuser.obfuscate(` input("ENCODED_STRING") `, {
 //     target: "node",
@@ -81,54 +82,6 @@ it("should work with endDate and call countermeasures function", async () => {
 //   eval(startDate);
 //   expect(value).toStrictEqual("ENCODED_STRING");
 // });
-
-it("should work with nativeFunctions and call countermeasures function", async () => {
-  var output = await JsConfuser.obfuscate(
-    ` function countermeasures(){ input(true) } `,
-    {
-      target: "node",
-      lock: {
-        nativeFunctions: ["fetch"],
-        countermeasures: "countermeasures",
-      },
-    }
-  );
-
-  // custom function, not "native"
-  var fetch = () => {};
-
-  var value = "never_called";
-  function input(valueIn) {
-    value = valueIn;
-  }
-
-  eval(output);
-  expect(value).toStrictEqual(true);
-});
-
-it("should work with nativeFunctions and not call countermeasures function when correct", async () => {
-  var output = await JsConfuser.obfuscate(
-    ` function countermeasures(){ input(true) } `,
-    {
-      target: "node",
-      lock: {
-        nativeFunctions: ["fetch"],
-        countermeasures: "countermeasures",
-      },
-    }
-  );
-
-  // bound functions return the "[native code]" string
-  var fetch = (() => {}).bind(this);
-
-  var value = "never_called";
-  function input(valueIn) {
-    value = valueIn;
-  }
-
-  eval(output);
-  expect(value).toStrictEqual("never_called");
-});
 
 it("countermeasures function should still work even with renameVariables enabled", async () => {
   var output = await JsConfuser.obfuscate(

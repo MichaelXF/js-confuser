@@ -1,7 +1,7 @@
 import { ok } from "assert";
-import { reservedIdentifiers } from "../constants";
+import { noRenameVariablePrefix, reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
-import traverse, { walk } from "../traverse";
+import { walk } from "../traverse";
 import {
   Identifier,
   ReturnStatement,
@@ -9,7 +9,6 @@ import {
   VariableDeclarator,
   CallExpression,
   MemberExpression,
-  ArrayExpression,
   ExpressionStatement,
   AssignmentExpression,
   Node,
@@ -19,70 +18,93 @@ import {
   ObjectExpression,
   Property,
   Literal,
-  IfStatement,
-  ThrowStatement,
-  NewExpression,
   AwaitExpression,
+  FunctionDeclaration,
+  SpreadElement,
   UnaryExpression,
+  RestElement,
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
-import { getBlockBody, getVarContext, prepend, clone } from "../util/insert";
-import { chance, shuffle } from "../util/random";
+import {
+  getBlockBody,
+  prepend,
+  clone,
+  getDefiningContext,
+  computeFunctionLength,
+} from "../util/insert";
+import { shuffle } from "../util/random";
 import Transform from "./transform";
+import { FunctionLengthTemplate } from "../templates/functionLength";
 
 /**
- * Brings every function to the global level.
+ * Flatten takes functions and isolates them from their original scope, and brings it to the top level of the program.
  *
- * Functions take parameters, input, have a return value and return modified changes to the scoped variables.
+ * An additional `flatObject` parameter is passed in, giving access to the original scoped variables.
+ *
+ * The `flatObject` uses `get` and `set` properties to allow easy an AST transformation:
  *
  * ```js
- * function topLevel(ref1, ref2, refN, param1, param2, paramN){
- *   return [ref1, ref2, refN, returnValue];
+ * // Input
+ * function myFunction(myParam){
+ *    modified = true;
+ *    if(reference) {
+ *
+ *    }
+ *    ...
+ *    console.log(myParam);
+ * }
+ *
+ * // Output
+ * function myFunction_flat([myParam], flatObject){
+ *    flatObject["set_modified"] = true;
+ *    if(flatObject["get_reference"]) {
+ *
+ *    }
+ *    ...
+ *    console.log(myParam)
+ * }
+ *
+ * function myFunction(){
+ *    var flatObject = {
+ *        set set_modified(v) { modified = v }
+ *        get get_reference() { return reference }
+ *    }
+ *    return myFunction_flat([...arguments], flatObject)
  * }
  * ```
  *
  * Flatten is used to make functions eligible for the RGF transformation.
+ *
+ * - `myFunction_flat` is now eligible because it does not rely on outside scoped variables
  */
 export default class Flatten extends Transform {
+  isDebug = false;
+
   definedNames: Map<Node, Set<string>>;
+
+  // Array of FunctionDeclaration nodes
   flattenedFns: Node[];
   gen: ReturnType<Transform["getGenerator"]>;
+
+  functionLengthName: string;
 
   constructor(o) {
     super(o, ObfuscateOrder.Flatten);
 
     this.definedNames = new Map();
     this.flattenedFns = [];
-    this.gen = this.getGenerator();
+    this.gen = this.getGenerator("mangled");
+
+    if (this.isDebug) {
+      console.warn("Flatten debug mode");
+    }
   }
 
   apply(tree) {
-    traverse(tree, (o, p) => {
-      if (
-        o.type == "Identifier" &&
-        !reservedIdentifiers.has(o.name) &&
-        !this.options.globalVariables.has(o.name)
-      ) {
-        var info = getIdentifierInfo(o, p);
-        if (info.spec.isReferenced) {
-          if (info.spec.isDefined) {
-            var c = getVarContext(o, p);
-            if (c) {
-              if (!this.definedNames.has(c)) {
-                this.definedNames.set(c, new Set([o.name]));
-              } else {
-                this.definedNames.get(c).add(o.name);
-              }
-            }
-          }
-        }
-      }
-    });
-
     super.apply(tree);
 
     if (this.flattenedFns.length) {
-      prepend(tree, VariableDeclaration(this.flattenedFns));
+      prepend(tree, ...this.flattenedFns);
     }
   }
 
@@ -91,6 +113,7 @@ export default class Flatten extends Transform {
       (object.type == "FunctionDeclaration" ||
         object.type === "FunctionExpression") &&
       object.body.type == "BlockStatement" &&
+      !object.$requiresEval &&
       !object.generator &&
       !object.params.find((x) => x.type !== "Identifier")
     );
@@ -111,7 +134,7 @@ export default class Flatten extends Transform {
         if (
           parents[0].type === "Property" &&
           parents[0].value === object &&
-          parents[0].kind !== "init"
+          (parents[0].kind !== "init" || parents[0].method)
         ) {
           return;
         }
@@ -131,36 +154,37 @@ export default class Flatten extends Transform {
             parents[0].id?.name;
 
       if (parents[0]?.type === "Property" && parents[0]?.key) {
-        currentFnName =
-          currentFnName ||
-          String(parents[0]?.key?.name || parents[0]?.key?.value);
+        currentFnName = currentFnName || String(parents[0]?.key?.name);
       }
 
       if (!currentFnName) currentFnName = "unnamed";
 
-      var defined = new Set<string>();
-      var references = new Set<string>();
-      var modified = new Set<string>();
+      var definedMap = new Map<Node, Set<string>>();
 
       var illegal = new Set<string>();
       var isIllegal = false;
 
-      var definedAbove = new Set<string>(this.options.globalVariables);
-
-      parents.forEach((x) => {
-        var set = this.definedNames.get(x);
-        if (set) {
-          set.forEach((name) => definedAbove.add(name));
-        }
-      });
+      var identifierNodes: [
+        Node,
+        Node[],
+        ReturnType<typeof getIdentifierInfo>
+      ][] = [];
 
       walk(object, parents, (o, p) => {
-        if (object.id && o === object.id) {
-          return;
+        if (
+          (o.type === "Identifier" && o.name === "arguments") ||
+          (o.type === "UnaryExpression" && o.operator === "delete") ||
+          o.type == "ThisExpression" ||
+          o.type == "Super" ||
+          o.type == "MetaProperty"
+        ) {
+          isIllegal = true;
+          return "EXIT";
         }
 
         if (
           o.type == "Identifier" &&
+          o !== object.id &&
           !this.options.globalVariables.has(o.name) &&
           !reservedIdentifiers.has(o.name)
         ) {
@@ -169,45 +193,36 @@ export default class Flatten extends Transform {
             return;
           }
 
-          if (o.hidden) {
+          if (
+            info.spec.isExported ||
+            o.name.startsWith(noRenameVariablePrefix)
+          ) {
             illegal.add(o.name);
-          } else if (info.spec.isDefined) {
-            defined.add(o.name);
-          } else if (info.spec.isModified) {
-            modified.add(o.name);
-          } else {
-            references.add(o.name);
+
+            return;
+          }
+
+          if (info.spec.isDefined) {
+            var definingContext = getDefiningContext(o, p);
+
+            if (!definedMap.has(definingContext)) {
+              definedMap.set(definingContext, new Set([o.name]));
+            } else {
+              definedMap.get(definingContext).add(o.name);
+            }
+            return;
+          }
+
+          var isDefined = p.find(
+            (x) => definedMap.has(x) && definedMap.get(x).has(o.name)
+          );
+
+          if (!isDefined) {
+            identifierNodes.push([o, p, info]);
           }
         }
 
         if (o.type == "TryStatement") {
-          isIllegal = true;
-          return "EXIT";
-        }
-
-        if (o.type == "Identifier") {
-          if (o.name == "arguments") {
-            isIllegal = true;
-            return "EXIT";
-          }
-        }
-
-        if (o.type == "ThisExpression") {
-          isIllegal = true;
-          return "EXIT";
-        }
-
-        if (o.type == "Super") {
-          isIllegal = true;
-          return "EXIT";
-        }
-
-        if (o.type == "MetaProperty") {
-          isIllegal = true;
-          return "EXIT";
-        }
-
-        if (o.type == "VariableDeclaration" && o.kind !== "var") {
           isIllegal = true;
           return "EXIT";
         }
@@ -220,75 +235,221 @@ export default class Flatten extends Transform {
         return;
       }
 
-      defined.forEach((name) => {
-        references.delete(name);
-        modified.delete(name);
-      });
+      var newFnName = this.getPlaceholder() + "_flat_" + currentFnName;
+      var flatObjectName = this.getPlaceholder() + "_flat_object";
 
-      // console.log(object.id.name, illegal, references);
+      const getFlatObjectMember = (propertyName: string) => {
+        return MemberExpression(
+          Identifier(flatObjectName),
+          Literal(propertyName),
+          true
+        );
+      };
 
-      var input = Array.from(new Set([...modified, ...references]));
-
-      if (Array.from(input).find((x) => !definedAbove.has(x))) {
-        return;
-      }
-
-      var output = Array.from(modified);
-
-      var newName = this.getPlaceholder() + "_flat_" + currentFnName;
-      var resultName = this.getPlaceholder();
-      var propName = this.gen.generate();
-
-      var newOutputNames: { [originalName: string]: string } =
+      var getterPropNames: { [identifierName: string]: string } =
         Object.create(null);
-      output.forEach((name) => {
-        newOutputNames[name] = this.gen.generate();
-      });
-      var returnOutputName = this.gen.generate();
+      var setterPropNames: { [identifierName: string]: string } =
+        Object.create(null);
+      var typeofPropNames: { [identifierName: string]: string } =
+        Object.create(null);
+      var callPropNames: { [identifierName: string]: string } =
+        Object.create(null);
 
-      getBlockBody(object.body).push(ReturnStatement());
-      walk(object.body, [object, ...parents], (o, p) => {
-        // Change return statements from
-        // return (argument)
-        // to
-        // return [ [modifiedRefs],  ]
-        if (o.type == "ReturnStatement" && getVarContext(o, p) === object) {
-          return () => {
-            var returnObject = ObjectExpression(
-              output.map((outputName) =>
-                Property(
-                  Literal(newOutputNames[outputName]),
-                  Identifier(outputName),
-                  true
-                )
-              )
-            );
+      for (var [o, p, info] of identifierNodes) {
+        var identifierName: string = o.name;
+        if (
+          p.find(
+            (x) => definedMap.has(x) && definedMap.get(x).has(identifierName)
+          )
+        )
+          continue;
 
-            if (
-              o.argument &&
-              !(
-                o.argument.type == "Identifier" &&
-                o.argument.name == "undefined"
-              )
-            ) {
-              // FIX: The return argument must be executed first so it must use 'unshift'
-              returnObject.properties.unshift(
-                Property(Literal(returnOutputName), clone(o.argument), true)
-              );
+        ok(!info.spec.isDefined);
+
+        var type = info.spec.isModified ? "setter" : "getter";
+
+        switch (type) {
+          case "setter":
+            var setterPropName = setterPropNames[identifierName];
+            if (typeof setterPropName === "undefined") {
+              // No getter function made yet, make it (Try to re-use getter name if available)
+              setterPropName =
+                getterPropNames[identifierName] ||
+                (this.isDebug ? "set_" + identifierName : this.gen.generate());
+              setterPropNames[identifierName] = setterPropName;
             }
 
-            o.argument = AssignmentExpression(
-              "=",
-              MemberExpression(
-                Identifier(resultName),
-                Identifier(propName),
-                false
-              ),
-              returnObject
-            );
-          };
+            // If an update expression, ensure a getter function is also available. Ex: a++
+            if (p[0].type === "UpdateExpression") {
+              getterPropNames[identifierName] = setterPropName;
+            } else {
+              // If assignment on member expression, ensure a getter function is also available: Ex. myObject.property = ...
+              var assignmentIndex = p.findIndex(
+                (x) => x.type === "AssignmentExpression"
+              );
+              if (
+                assignmentIndex !== -1 &&
+                p[assignmentIndex].left.type !== "Identifier"
+              ) {
+                getterPropNames[identifierName] = setterPropName;
+              }
+            }
+
+            // calls flatObject.set_identifier_value(newValue)
+            this.replace(o, getFlatObjectMember(setterPropName));
+            break;
+
+          case "getter":
+            var getterPropName = getterPropNames[identifierName];
+            if (typeof getterPropName === "undefined") {
+              // No getter function made yet, make it (Try to re-use setter name if available)
+              getterPropName =
+                setterPropNames[identifierName] ||
+                (this.isDebug ? "get_" + identifierName : this.gen.generate());
+              getterPropNames[identifierName] = getterPropName;
+            }
+
+            // Typeof expression check
+            if (
+              p[0].type === "UnaryExpression" &&
+              p[0].operator === "typeof" &&
+              p[0].argument === o
+            ) {
+              var typeofPropName = typeofPropNames[identifierName];
+              if (typeof typeofPropName === "undefined") {
+                // No typeof getter function made yet, make it (Don't re-use getter/setter names)
+                typeofPropName = this.isDebug
+                  ? "get_typeof_" + identifierName
+                  : this.gen.generate();
+                typeofPropNames[identifierName] = typeofPropName;
+              }
+
+              // Replace the entire unary expression not just the identifier node
+              // calls flatObject.get_typeof_identifier()
+              this.replace(p[0], getFlatObjectMember(typeofPropName));
+              break;
+            }
+
+            // Bound call-expression check
+            if (p[0].type === "CallExpression" && p[0].callee === o) {
+              var callPropName = callPropNames[identifierName];
+              if (typeof callPropName === "undefined") {
+                callPropName = this.isDebug
+                  ? "call_" + identifierName
+                  : this.gen.generate();
+                callPropNames[identifierName] = callPropName;
+              }
+
+              // Replace the entire call expression not just the identifier node
+              // calls flatObject.call_identifier(...arguments)
+              this.replace(
+                p[0],
+                CallExpression(
+                  getFlatObjectMember(callPropName),
+                  p[0].arguments
+                )
+              );
+              break;
+            }
+
+            // calls flatObject.get_identifier_value()
+            this.replace(o, getFlatObjectMember(getterPropName));
+            break;
         }
-      });
+      }
+
+      // Create the getter and setter functions
+      var flatObjectProperties: Node[] = [];
+
+      // Getter functions
+      for (var identifierName in getterPropNames) {
+        var getterPropName = getterPropNames[identifierName];
+
+        flatObjectProperties.push(
+          Property(
+            Literal(getterPropName),
+            FunctionExpression(
+              [],
+              [ReturnStatement(Identifier(identifierName))]
+            ),
+            true,
+            "get"
+          )
+        );
+      }
+
+      // Get typeof functions
+      for (var identifierName in typeofPropNames) {
+        var typeofPropName = typeofPropNames[identifierName];
+
+        flatObjectProperties.push(
+          Property(
+            Literal(typeofPropName),
+            FunctionExpression(
+              [],
+              [
+                ReturnStatement(
+                  UnaryExpression("typeof", Identifier(identifierName))
+                ),
+              ]
+            ),
+            true,
+            "get"
+          )
+        );
+      }
+
+      // Call functions
+      for (var identifierName in callPropNames) {
+        var callPropName = callPropNames[identifierName];
+        var argumentsName = this.getPlaceholder();
+        flatObjectProperties.push(
+          Property(
+            Literal(callPropName),
+            FunctionExpression(
+              [RestElement(Identifier(argumentsName))],
+              [
+                ReturnStatement(
+                  CallExpression(Identifier(identifierName), [
+                    SpreadElement(Identifier(argumentsName)),
+                  ])
+                ),
+              ]
+            ),
+            true
+          )
+        );
+      }
+
+      // Setter functions
+      for (var identifierName in setterPropNames) {
+        var setterPropName = setterPropNames[identifierName];
+        var newValueParameterName = this.getPlaceholder();
+
+        flatObjectProperties.push(
+          Property(
+            Literal(setterPropName),
+            FunctionExpression(
+              [Identifier(newValueParameterName)],
+              [
+                ExpressionStatement(
+                  AssignmentExpression(
+                    "=",
+                    Identifier(identifierName),
+                    Identifier(newValueParameterName)
+                  )
+                ),
+              ]
+            ),
+            true,
+            "set"
+          )
+        );
+      }
+
+      if (!this.isDebug) {
+        shuffle(flatObjectProperties);
+      }
 
       var newBody = getBlockBody(object.body);
 
@@ -297,179 +458,85 @@ export default class Flatten extends Transform {
         newBody.shift();
       }
 
-      var newFunctionExpression = FunctionExpression(
-        [
-          ArrayPattern(input.map((name) => Identifier(name))),
-          ArrayPattern(clone(object.params)),
-          Identifier(resultName),
-        ],
+      var newFunctionDeclaration = FunctionDeclaration(
+        newFnName,
+        [ArrayPattern(clone(object.params)), Identifier(flatObjectName)],
         newBody
       );
 
-      newFunctionExpression.async = !!object.async;
-      newFunctionExpression.generator = !!object.generator;
+      newFunctionDeclaration.async = !!object.async;
+      newFunctionDeclaration.generator = false;
 
-      this.flattenedFns.push(
-        VariableDeclarator(newName, newFunctionExpression)
-      );
+      this.flattenedFns.push(newFunctionDeclaration);
 
-      var newParamNames: string[] = object.params.map(() =>
-        this.getPlaceholder()
-      );
+      var argumentsName = this.getPlaceholder();
 
-      // result.pop()
-      var getOutputMemberExpression = (outputName) =>
-        MemberExpression(
-          MemberExpression(Identifier(resultName), Literal(propName), true),
-          Literal(outputName),
-          true
-        );
-
-      // newFn.call([...refs], ...arguments, resultObject)
-      var callExpression = CallExpression(Identifier(newName), [
-        ArrayExpression(input.map((name) => Identifier(name))),
-        ArrayExpression(newParamNames.map((name) => Identifier(name))),
-        Identifier(resultName),
+      // newFn.call([...arguments], flatObject)
+      var callExpression = CallExpression(Identifier(newFnName), [
+        Identifier(argumentsName),
+        Identifier(flatObjectName),
       ]);
 
       var newObjectBody: Node[] = [
-        // var resultObject = {};
+        // var flatObject = { get(), set() };
         VariableDeclaration([
-          VariableDeclarator(resultName, ObjectExpression([])),
+          VariableDeclarator(
+            flatObjectName,
+            ObjectExpression(flatObjectProperties)
+          ),
         ]),
 
-        ExpressionStatement(
-          newFunctionExpression.async
+        ReturnStatement(
+          newFunctionDeclaration.async
             ? AwaitExpression(callExpression)
             : callExpression
         ),
       ];
 
-      var outputReversed = [...output].reverse();
-
-      // realVar
-      outputReversed.forEach((outputName) => {
-        newObjectBody.push(
-          ExpressionStatement(
-            AssignmentExpression(
-              "=",
-              Identifier(outputName),
-              getOutputMemberExpression(newOutputNames[outputName])
-            )
-          )
-        );
-      });
-
-      // DECOY STATEMENTS
-      var decoyKey = this.gen.generate();
-      var decoyNodes = [
-        // if (result.random) throw result.prop.random
-        IfStatement(
-          MemberExpression(
-            Identifier(resultName),
-            Literal(this.gen.generate()),
-            true
-          ),
-          [
-            ThrowStatement(
-              NewExpression(Identifier("Error"), [
-                getOutputMemberExpression(this.gen.generate()),
-              ])
-            ),
-          ]
-        ),
-        // if (result.random) return true;
-        IfStatement(
-          MemberExpression(
-            Identifier(resultName),
-            Literal(this.gen.generate()),
-            true
-          ),
-          [ReturnStatement(Literal(true))]
-        ),
-        // if (result.random) return result;
-        IfStatement(
-          MemberExpression(
-            Identifier(resultName),
-            Literal(this.gen.generate()),
-            true
-          ),
-          [ReturnStatement(Identifier(resultName))]
-        ),
-        // if (result.random) return result.random;
-        IfStatement(
-          MemberExpression(Identifier(resultName), Literal(decoyKey), true),
-          [
-            ReturnStatement(
-              MemberExpression(Identifier(resultName), Literal(decoyKey), true)
-            ),
-          ]
-        ),
-        // if(result.random1) return result.random2;
-        IfStatement(
-          MemberExpression(
-            Identifier(resultName),
-            Literal(this.gen.generate()),
-            true
-          ),
-          [
-            ReturnStatement(
-              MemberExpression(
-                Identifier(resultName),
-                Literal(this.gen.generate()),
-                true
-              )
-            ),
-          ]
-        ),
-        // if(result.random) return flatFn;
-        IfStatement(
-          MemberExpression(
-            Identifier(resultName),
-            Literal(this.gen.generate()),
-            true
-          ),
-          [ReturnStatement(Identifier(newName))]
-        ),
-        // if(result.random) flatFn = undefined;
-        IfStatement(
-          MemberExpression(
-            Identifier(resultName),
-            Literal(this.gen.generate()),
-            true
-          ),
-          [
-            ExpressionStatement(
-              AssignmentExpression(
-                "=",
-                Identifier(newName),
-                Identifier("undefined")
-              )
-            ),
-          ]
-        ),
-        // if(!result) return;
-        IfStatement(UnaryExpression("!", Identifier(resultName)), [
-          ReturnStatement(),
-        ]),
-      ].filter(() => chance(25));
-
-      // if (result.output) return result.output.returnValue;
-      // this is the real return statement, it is always added
-      decoyNodes.push(
-        IfStatement(
-          MemberExpression(Identifier(resultName), Literal(propName), true),
-          [ReturnStatement(getOutputMemberExpression(returnOutputName))]
-        )
-      );
-
-      shuffle(decoyNodes);
-
-      newObjectBody.push(...decoyNodes);
-
       object.body = BlockStatement(newObjectBody);
 
-      object.params = newParamNames.map((name) => Identifier(name));
+      // Preserve function.length property
+      var originalFunctionLength = computeFunctionLength(object.params);
+
+      object.params = [SpreadElement(Identifier(argumentsName))];
+
+      if (originalFunctionLength !== 0) {
+        if (!this.functionLengthName) {
+          this.functionLengthName = this.getPlaceholder();
+
+          prepend(
+            parents[parents.length - 1] || object,
+            FunctionLengthTemplate.single({ name: this.functionLengthName })
+          );
+        }
+
+        if (object.type === "FunctionDeclaration") {
+          var body = parents[0];
+          if (Array.isArray(body)) {
+            var index = body.indexOf(object);
+
+            body.splice(
+              index + 1,
+              0,
+              ExpressionStatement(
+                CallExpression(Identifier(this.functionLengthName), [
+                  Identifier(object.id.name),
+                  Literal(originalFunctionLength),
+                ])
+              )
+            );
+          }
+        } else {
+          ok(object.type === "FunctionExpression");
+          this.replace(
+            object,
+            CallExpression(Identifier(this.functionLengthName), [
+              { ...object },
+              Literal(originalFunctionLength),
+            ])
+          );
+        }
+      }
     };
   }
 }

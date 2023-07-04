@@ -1,3 +1,26 @@
+# `1.7.0`
+Updates
+
+- Fixed [#89](https://github.com/MichaelXF/js-confuser/issues/89)
+- - Flatten to not break functions with invalid identifier names
+
+- Fixed [#88](https://github.com/MichaelXF/js-confuser/issues/88)
+- - Stack to not break functions with syncing arguments
+
+- Fixed [#91](https://github.com/MichaelXF/js-confuser/issues/91)
+- - Minify to preserve function.length property
+
+- Fixed [#95](https://github.com/MichaelXF/js-confuser/issues/95)
+- - Rename Variables optimized to obfuscate much faster
+
+- Added documentation pages for [RGF](https://github.com/MichaelXF/js-confuser/blob/master/docs/RGF.md) and [Control Flow Flattening](https://github.com/MichaelXF/js-confuser/blob/master/docs/ControlFlowFlattening.md)
+
+- Removed `eval` option in favor of `rgf` option.
+
+- - Removed the `"all"` option from `rgf`.
+
+- Removed `nameRecycling` option
+
 # `1.6.0`
 Website Redesign + Updates
 

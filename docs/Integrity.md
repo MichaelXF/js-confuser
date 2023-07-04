@@ -1,8 +1,8 @@
-# Integrity
+## `Integrity`
 
 JSConfuser can detect changes to the source and prevent execution.
 
-If the code is determined modified, the changed code will not run.
+If the code is determined modified, the tampered code will not run.
 
 ## Usage
 

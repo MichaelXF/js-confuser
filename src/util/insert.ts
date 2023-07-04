@@ -145,13 +145,13 @@ export function getAllDefiningContexts(o: Node, p: Node[]): Node[] {
     // Get Function
     var fn = getFunction(o, p);
 
-    contexts.push(fn.body);
+    // contexts.push(fn.body);
   }
 
   if (info.isClauseParameter) {
     var catchClause = p.find((x) => x.type === "CatchClause");
     if (catchClause) {
-      contexts.push(catchClause.body);
+      return [catchClause];
     }
   }
 
@@ -375,4 +375,28 @@ export function isForInitialize(
   }
 
   return false;
+}
+
+/**
+ * Computes the `function.length` property given the parameter nodes.
+ *
+ * @param params
+ * @returns
+ */
+export function computeFunctionLength(params: Node[]): number {
+  var count = 0;
+
+  for (var parameterNode of params) {
+    if (
+      parameterNode.type === "Identifier" ||
+      parameterNode.type === "ObjectPattern" ||
+      parameterNode.type === "ArrayPattern"
+    ) {
+      count++;
+    } else {
+      break;
+    }
+  }
+
+  return count;
 }

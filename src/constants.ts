@@ -79,3 +79,6 @@ export const reservedIdentifiers = new Set([
   "eval",
   "arguments",
 ]);
+
+export const noRenameVariablePrefix = "__NO_JS_CONFUSER_RENAME__";
+export const placeholderVariablePrefix = "__p_";

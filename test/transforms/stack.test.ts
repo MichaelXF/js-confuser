@@ -519,3 +519,55 @@ test("Variant #16: Function with 'this'", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/88
+test("Variant #17: Syncing arguments parameter", async () => {
+  var output = await JsConfuser(
+    `
+    var TEST_OUTPUT;
+
+    function syncingArguments(parameter) {
+      arguments[0] = "Correct Value";
+      TEST_OUTPUT = parameter;
+    }
+    
+    syncingArguments("Incorrect Value");
+  `,
+    { target: "node", stack: true }
+  );
+
+  function evalNoStrictMode(evalCode) {
+    var fn = new Function(evalCode + ";return TEST_OUTPUT");
+    return fn();
+  }
+
+  var TEST_OUTPUT = evalNoStrictMode(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #18: Preserve function.length property", async () => {
+  var output = await JsConfuser(
+    `
+    function oneParameter(a){
+      var _ = 1;
+    };
+    var twoParameters = function(a,b){
+      var _ = 1;
+    };
+    var myObject = {
+      threeParameters(a,b,c){
+        var _ = 1;
+      }
+    }
+
+    TEST_OUTPUT = oneParameter.length + twoParameters.length + myObject.threeParameters.length;
+  `,
+    { target: "node", stack: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(6);
+});

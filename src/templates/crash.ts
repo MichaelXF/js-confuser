@@ -3,7 +3,7 @@ import Template from "./template";
 export const CrashTemplate1 = Template(`
 var {var} = "a";
 while(1){
-    {var} = {var} += "a";    //add as much as the browser can handle
+    {var} = {var} += "a";
 }
 `);
 
@@ -40,16 +40,16 @@ try {
       });
       
       {$1}();
-} catch ( e ) {
-    while(e ? e : !e){
-        var b;
-        var c = 0;
-        (e ? !e : e) ? (function(e){
-            c = e ? 0 : !e ? 1 : 0;
-        })(e) : b = 1;
+} catch ( {$1}e ) {
+    while({$1}e ? {$1}e : !{$1}e){
+        var {$1}b;
+        var {$1}c = 0;
+        ({$1}e ? !{$1}e : {$1}e) ? (function({$1}e){
+            {$1}c = {$1}e ? 0 : !{$1}e ? 1 : 0;
+        })({$1}e) : {$1}b = 1;
 
-        if(b&&c){break;}
-        if(b){continue;}
+        if({$1}b&&{$1}c){break;}
+        if({$1}b){continue;}
     }
 }
 `);
