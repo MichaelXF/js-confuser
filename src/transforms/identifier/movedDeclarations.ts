@@ -66,7 +66,7 @@ export default class MovedDeclarations extends Transform {
       var assignmentExpression = AssignmentExpression(
         "=",
         Identifier(varName),
-        object.declarations[0].init || Identifier("undefined")
+        object.declarations[0].init || Identifier(varName)
       );
 
       if (forInitializeType) {

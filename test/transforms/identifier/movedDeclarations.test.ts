@@ -184,3 +184,31 @@ test("Variant #8: Work with 'use strict'", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
+
+test("Variant #9: Defined variable without an initializer", async () => {
+  var code = `
+  var x;
+  x = 1;
+  var y;
+  y = 2;
+  TEST_OUTPUT = x + y;
+  `;
+
+  var output1 = await JsConfuser(code, {
+    target: "node",
+    movedDeclarations: true,
+    controlFlowFlattening: true,
+    duplicateLiteralsRemoval: true,
+  });
+
+  var output2 = await JsConfuser(output1, {
+    target: "node",
+    movedDeclarations: true,
+    controlFlowFlattening: true,
+    duplicateLiteralsRemoval: true,
+  });
+
+  var TEST_OUTPUT;
+  eval(output2);
+  expect(TEST_OUTPUT).toStrictEqual(3);
+});
