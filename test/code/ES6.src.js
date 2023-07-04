@@ -203,6 +203,30 @@ function labeledBreaksAndContinues() {
 var variant15 = labeledBreaksAndContinues();
 expect(variant15).toStrictEqual(15);
 
+// Variant #16: Function.length property
+var variant16 = function (
+  n1,
+  n2,
+  n3,
+  n4,
+  n5,
+  n6,
+  n7,
+  n8,
+  n9,
+  n10,
+  n11,
+  n12,
+  n13,
+  n14,
+  n15,
+  n16
+) {
+  var _ = true;
+};
+
+expect(variant16.length).toStrictEqual(16);
+
 // Set 'ranAllTest' to TRUE
 ranAllTest = true;
 
