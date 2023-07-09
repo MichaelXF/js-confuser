@@ -171,7 +171,12 @@ export function BreakStatement(label?: string) {
   };
 }
 
-export function Property(key: Node, value: Node, computed = false) {
+export function Property(
+  key: Node,
+  value: Node,
+  computed = false,
+  kind: "init" | "set" | "get" = "init"
+) {
   if (!key) {
     throw new Error("key is undefined");
   }
@@ -183,7 +188,7 @@ export function Property(key: Node, value: Node, computed = false) {
     key: key,
     computed: computed,
     value: value,
-    kind: "init",
+    kind: kind,
     method: false,
     shorthand: false,
   };

@@ -8,9 +8,14 @@ import {
   isContext,
   isLexContext,
   clone,
+  isFunction,
 } from "../../util/insert";
 import Transform from "../transform";
-import { reservedIdentifiers } from "../../constants";
+import {
+  noRenameVariablePrefix,
+  placeholderVariablePrefix,
+  reservedIdentifiers,
+} from "../../constants";
 import { ComputeProbabilityMap } from "../../probability";
 import VariableAnalysis from "./variableAnalysis";
 
@@ -33,6 +38,9 @@ export default class RenameVariables extends Transform {
   // Ref to VariableAnalysis data
   variableAnalysis: VariableAnalysis;
 
+  // Option to re-use previously generated names
+  reusePreviousNames = true;
+
   constructor(o) {
     super(o, ObfuscateOrder.RenameVariables);
 
@@ -45,10 +53,10 @@ export default class RenameVariables extends Transform {
   }
 
   match(object: Node, parents: Node[]) {
-    return isContext(object);
+    return isContext(object) || object.type === "Identifier";
   }
 
-  transform(object: Node, parents: Node[]) {
+  transformContext(object: Node, parents: Node[]) {
     // 2. Notice this is on 'onEnter' (top-down)
     var isGlobal = object.type == "Program";
     var type = isGlobal
@@ -76,7 +84,7 @@ export default class RenameVariables extends Transform {
     var possible = new Set<string>();
 
     // 3. Try to re-use names when possible
-    if (this.generated.length && !isGlobal) {
+    if (this.reusePreviousNames && this.generated.length && !isGlobal) {
       var allReferences = new Set<string>();
       var nope = new Set(defined);
       walk(object, [], (o, p) => {
@@ -115,8 +123,8 @@ export default class RenameVariables extends Transform {
     // 4. Defined names to new names
     for (var name of defined) {
       if (
-        !name.startsWith("__NO_JS_CONFUSER_RENAME__") && // Variables prefixed with '__NO_JS_CONFUSER_RENAME__' are never renamed
-        (isGlobal && !name.startsWith("__p_") // Variables prefixed with '__p_' are created by the obfuscator, always renamed
+        !name.startsWith(noRenameVariablePrefix) && // Variables prefixed with '__NO_JS_CONFUSER_RENAME__' are never renamed
+        (isGlobal && !name.startsWith(placeholderVariablePrefix) // Variables prefixed with '__p_' are created by the obfuscator, always renamed
           ? ComputeProbabilityMap(this.options.renameGlobals, (x) => x, name)
           : true) &&
         ComputeProbabilityMap(
@@ -151,71 +159,127 @@ export default class RenameVariables extends Transform {
       }
     }
 
+    // console.log(object.type, newNames);
     this.changed.set(object, newNames);
+  }
 
-    // 5. Update Identifier node's 'name' property
-    walk(object, parents, (o, p) => {
-      if (o.type == "Identifier") {
-        if (
-          reservedIdentifiers.has(o.name) ||
-          this.options.globalVariables.has(o.name)
-        ) {
-          return;
-        }
+  transformIdentifier(object: Node, parents: Node[]) {
+    const identifierName = object.name;
+    if (
+      reservedIdentifiers.has(identifierName) ||
+      this.options.globalVariables.has(identifierName)
+    ) {
+      return;
+    }
 
-        if (o.$renamed) {
-          return;
-        }
+    if (object.$renamed) {
+      return;
+    }
 
-        var info = getIdentifierInfo(o, p);
+    var info = getIdentifierInfo(object, parents);
 
-        if (info.spec.isExported) {
-          return;
-        }
+    if (info.spec.isExported) {
+      return;
+    }
 
-        if (!info.spec.isReferenced) {
-          return;
-        }
+    if (!info.spec.isReferenced) {
+      return;
+    }
 
-        var contexts = [o, ...p].filter((x) => isContext(x));
-        var newName = null;
+    var contexts = [object, ...parents].filter((x) => isContext(x));
+    var newName = null;
 
-        for (var check of contexts) {
+    // Function default parameter check!
+    var functionIndices = [];
+    for (var i in parents) {
+      if (isFunction(parents[i])) {
+        functionIndices.push(i);
+      }
+    }
+
+    for (var functionIndex of functionIndices) {
+      if (parents[functionIndex].id === object) {
+        // This context is not referenced, so remove it
+        contexts = contexts.filter(
+          (context) => context != parents[functionIndex]
+        );
+        continue;
+      }
+      if (parents[functionIndex].params === parents[functionIndex - 1]) {
+        var isReferencedHere = true;
+
+        var slicedParents = parents.slice(0, functionIndex);
+        var forIndex = 0;
+        for (var parent of slicedParents) {
+          var childNode = slicedParents[forIndex - 1] || object;
+
           if (
-            this.variableAnalysis.defined.has(check) &&
-            this.variableAnalysis.defined.get(check).has(o.name)
+            parent.type === "AssignmentPattern" &&
+            parent.right === childNode
           ) {
-            if (this.changed.has(check) && this.changed.get(check)[o.name]) {
-              newName = this.changed.get(check)[o.name];
-              break;
-            }
+            isReferencedHere = false;
+            break;
           }
+
+          forIndex++;
         }
 
-        if (newName && typeof newName === "string") {
-          // Strange behavior where the `local` and `imported` objects are the same
-          if (info.isImportSpecifier) {
-            var importSpecifierIndex = p.findIndex(
-              (x) => x.type === "ImportSpecifier"
-            );
-            if (
-              importSpecifierIndex != -1 &&
-              p[importSpecifierIndex].imported ===
-                (p[importSpecifierIndex - 1] || o) &&
-              p[importSpecifierIndex].imported &&
-              p[importSpecifierIndex].imported.type === "Identifier"
-            ) {
-              p[importSpecifierIndex].imported = clone(
-                p[importSpecifierIndex - 1] || o
-              );
-            }
-          }
-
-          // console.log(o.name, "->", newName);
-          o.name = newName;
-          o.$renamed = true;
+        if (!isReferencedHere) {
+          // This context is not referenced, so remove it
+          contexts = contexts.filter(
+            (context) => context != parents[functionIndex]
+          );
         }
       }
-    });
+    }
+
+    for (var check of contexts) {
+      if (
+        this.variableAnalysis.defined.has(check) &&
+        this.variableAnalysis.defined.get(check).has(identifierName)
+      ) {
+        if (
+          this.changed.has(check) &&
+          this.changed.get(check)[identifierName]
+        ) {
+          newName = this.changed.get(check)[identifierName];
+          break;
+        }
+      }
+    }
+
+    if (newName && typeof newName === "string") {
+      // Strange behavior where the `local` and `imported` objects are the same
+      if (info.isImportSpecifier) {
+        var importSpecifierIndex = parents.findIndex(
+          (x) => x.type === "ImportSpecifier"
+        );
+        if (
+          importSpecifierIndex != -1 &&
+          parents[importSpecifierIndex].imported ===
+            (parents[importSpecifierIndex - 1] || object) &&
+          parents[importSpecifierIndex].imported &&
+          parents[importSpecifierIndex].imported.type === "Identifier"
+        ) {
+          parents[importSpecifierIndex].imported = clone(
+            parents[importSpecifierIndex - 1] || object
+          );
+        }
+      }
+
+      // console.log(o.name, "->", newName);
+      // 5. Update Identifier node's 'name' property
+      object.name = newName;
+      object.$renamed = true;
+    }
+  }
+
+  transform(object: Node, parents: Node[]) {
+    var matchType = object.type === "Identifier" ? "Identifier" : "Context";
+    if (matchType === "Identifier") {
+      this.transformIdentifier(object, parents);
+    } else {
+      this.transformContext(object, parents);
+    }
   }
 }

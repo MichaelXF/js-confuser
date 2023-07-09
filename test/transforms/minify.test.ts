@@ -517,3 +517,22 @@ test("Variant #26: Don't break nested redefined function declaration", async () 
 
   expect(TEST_OUTPUT).toStrictEqual(1);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/91
+test("Variant #27: Preserve function.length property", async () => {
+  var output = await JsConfuser(
+    `
+    function oneParameter(a){};
+    var twoParameters = function({a},{b,c},...d){};
+    function threeParameters(a,b,c,d = 1,{e},...f){};
+
+    TEST_OUTPUT = oneParameter.length + twoParameters.length + threeParameters.length;
+  `,
+    { target: "node", minify: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(6);
+});

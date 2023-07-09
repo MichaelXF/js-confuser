@@ -68,6 +68,8 @@ import Template from "../templates/template";
  * 3. using `this`
  */
 export default class Dispatcher extends Transform {
+  // Debug mode preserves function names
+  isDebug = false;
   count: number;
 
   constructor(o) {
@@ -196,7 +198,9 @@ export default class Dispatcher extends Transform {
         // map original name->new game
         var gen = this.getGenerator();
         Object.keys(functionDeclarations).forEach((name) => {
-          newFnNames[name] = gen.generate();
+          newFnNames[name] = this.isDebug
+            ? "_dispatcher_" + this.count + "_" + name
+            : gen.generate();
         });
         // set containing new name
         var set = new Set(Object.keys(newFnNames));

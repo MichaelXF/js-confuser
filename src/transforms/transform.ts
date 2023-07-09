@@ -9,7 +9,11 @@ import { ok } from "assert";
 import Obfuscator from "../obfuscator";
 import { ObfuscateOptions } from "../options";
 import { ComputeProbabilityMap } from "../probability";
-import { reservedIdentifiers, reservedKeywords } from "../constants";
+import {
+  placeholderVariablePrefix,
+  reservedIdentifiers,
+  reservedKeywords,
+} from "../constants";
 import { ObfuscateOrder } from "../order";
 
 /**
@@ -176,7 +180,7 @@ export default class Transform {
       [...Array(size)]
         .map(() => Math.floor(Math.random() * 10).toString(10))
         .join("");
-    return "__p_" + genRanHex(10);
+    return placeholderVariablePrefix + genRanHex(10);
   }
 
   /**

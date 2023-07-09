@@ -1,4 +1,7 @@
-import parseJS from "../../src/parser";
+import { ok } from "assert";
+import parseJS, { parseSync } from "../../src/parser";
+import traverse from "../../src/traverse";
+import { Location, Node } from "../../src/util/gen";
 import {
   getFunctionParameters,
   getIdentifierInfo,
@@ -40,6 +43,115 @@ describe("getIdentifierInfo", () => {
     expect(() => {
       getIdentifierInfo({ type: "Literal", value: true }, []);
     }).toThrow();
+  });
+
+  function findIdentifier(tree: Node, identifierName: string) {
+    var searchLocation: Location;
+
+    traverse(tree, (o, p) => {
+      if (o.type === "Identifier" && o.name === identifierName) {
+        ok(!searchLocation);
+        searchLocation = [o, p];
+      }
+    });
+
+    ok(searchLocation);
+    return searchLocation;
+  }
+
+  test("Variant #4: Variable declaration assignment pattern", async () => {
+    var tree = parseSync(`
+      var [ definedIdentifier = nonDefinedIdentifier ] = [];
+    `);
+
+    var definedIdentifier = findIdentifier(tree, "definedIdentifier");
+    var definedInfo = getIdentifierInfo(
+      definedIdentifier[0],
+      definedIdentifier[1]
+    );
+    expect(definedInfo.spec.isDefined).toStrictEqual(true);
+    expect(definedInfo.spec.isReferenced).toStrictEqual(true);
+
+    var nonDefinedIdentifier = findIdentifier(tree, "nonDefinedIdentifier");
+    var nonDefinedInfo = getIdentifierInfo(
+      nonDefinedIdentifier[0],
+      nonDefinedIdentifier[1]
+    );
+    expect(nonDefinedInfo.spec.isDefined).toStrictEqual(false);
+    expect(nonDefinedInfo.spec.isReferenced).toStrictEqual(true);
+  });
+
+  test("Variant #5: Function parameter assignment pattern", async () => {
+    var tree = parseSync(`
+      function myFunction(definedIdentifier = nonDefinedIdentifier) {
+
+      }
+    `);
+
+    var myFunction = findIdentifier(tree, "myFunction");
+    var myFunctionInfo = getIdentifierInfo(myFunction[0], myFunction[1]);
+
+    expect(myFunctionInfo.isFunctionDeclaration).toStrictEqual(true);
+    expect(myFunctionInfo.spec.isDefined).toStrictEqual(true);
+
+    var definedIdentifier = findIdentifier(tree, "definedIdentifier");
+    var definedInfo = getIdentifierInfo(
+      definedIdentifier[0],
+      definedIdentifier[1]
+    );
+    expect(definedInfo.spec.isDefined).toStrictEqual(true);
+    expect(definedInfo.spec.isReferenced).toStrictEqual(true);
+
+    var nonDefinedIdentifier = findIdentifier(tree, "nonDefinedIdentifier");
+    var nonDefinedInfo = getIdentifierInfo(
+      nonDefinedIdentifier[0],
+      nonDefinedIdentifier[1]
+    );
+    expect(nonDefinedInfo.spec.isDefined).toStrictEqual(false);
+    expect(nonDefinedInfo.spec.isReferenced).toStrictEqual(true);
+  });
+
+  test("Variant #6: Object pattern", async () => {
+    var tree = parseSync(`
+      var { nonDefinedIdentifier: definedIdentifier } = {};
+
+      ( { nonModifiedIdentifier: modifiedIdentifier } = {} );
+    `);
+
+    var definedIdentifier = findIdentifier(tree, "definedIdentifier");
+    var definedInfo = getIdentifierInfo(
+      definedIdentifier[0],
+      definedIdentifier[1]
+    );
+    expect(definedInfo.spec.isDefined).toStrictEqual(true);
+    expect(definedInfo.spec.isReferenced).toStrictEqual(true);
+
+    var nonDefinedIdentifier = findIdentifier(tree, "nonDefinedIdentifier");
+    var nonDefinedInfo = getIdentifierInfo(
+      nonDefinedIdentifier[0],
+      nonDefinedIdentifier[1]
+    );
+    expect(nonDefinedInfo.spec.isDefined).toStrictEqual(false);
+    expect(nonDefinedInfo.spec.isReferenced).toStrictEqual(false);
+
+    var modifiedIdentifier = findIdentifier(tree, "modifiedIdentifier");
+    var modifiedInfo = getIdentifierInfo(
+      modifiedIdentifier[0],
+      modifiedIdentifier[1]
+    );
+    expect(modifiedInfo.spec.isDefined).toStrictEqual(false);
+    expect(modifiedInfo.spec.isModified).toStrictEqual(true);
+    expect(modifiedInfo.spec.isReferenced).toStrictEqual(true);
+
+    var nonModifiedIdentifier = findIdentifier(tree, "nonModifiedIdentifier");
+    var nonModifiedInfo = getIdentifierInfo(
+      nonModifiedIdentifier[0],
+      nonModifiedIdentifier[1]
+    );
+
+    expect(nonModifiedInfo.spec.isDefined).toStrictEqual(false);
+    expect(nonModifiedInfo.spec.isModified).toStrictEqual(false);
+    expect(nonModifiedInfo.spec.isReferenced).toStrictEqual(false);
   });
 });
 

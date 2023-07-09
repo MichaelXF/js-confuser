@@ -11,7 +11,7 @@ JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ 
 - String concealing
 - Function obfuscation
 - Locks (domainLock, date)
-- [Detect changes to source code](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md)
+- [Detect changes to source code](https://github.com/MichaelXF/js-confuser/blob/master/docs/Integrity.md)
 
 ## Presets
 
@@ -135,13 +135,78 @@ Does not cover all cases such as Promises or Generator functions. Use [Babel](ht
 
 Determines if variables should be renamed. (`true/false`)
 
-- Potency High
-- Resilience High
-- Cost Medium
+```js
+// Input
+var twoSum = function (nums, target) {
+  var hash = {};
+  var len = nums.length;
+  for (var i = 0; i < len; i++) {
+    if (nums[i] in hash) return [hash[nums[i]], i];
+    hash[target - nums[i]] = i;
+  }
+  return [-1, -1];
+};
+
+var test = function () {
+  var inputNums = [2, 7, 11, 15];
+  var inputTarget = 9;
+  var expectedResult = [0, 1];
+
+  var actualResult = twoSum(inputNums, inputTarget);
+  ok(actualResult[0] === expectedResult[0]);
+  ok(actualResult[1] === expectedResult[1]);
+};
+
+test();
+
+// Output
+var _O2mOcF = function (kB4uXM, w_07HXS) {
+  var ZLTJcx = {};
+  var sXQOaUx = kB4uXM["length"];
+  for (var JYYxEk = 0; JYYxEk < sXQOaUx; JYYxEk++) {
+    if (kB4uXM[JYYxEk] in ZLTJcx) {
+      return [ZLTJcx[kB4uXM[JYYxEk]], JYYxEk];
+    }
+    ZLTJcx[w_07HXS - kB4uXM[JYYxEk]] = JYYxEk;
+  }
+  return [-1, -1];
+};
+var qFaI6S = function () {
+  var fZpeOw = [2, 7, 11, 15];
+  var UJ62R2c = 9;
+  var dG6R0cV = [0, 1];
+  var WgYXwn = _O2mOcF(fZpeOw, UJ62R2c);
+  void (ok(WgYXwn[0] === dG6R0cV[0]), ok(WgYXwn[1] === dG6R0cV[1]));
+};
+qFaI6S();
+```
 
 ### `renameGlobals`
 
 Renames top-level variables, turn this off for web-related scripts. Enabled by default. (`true/false`)
+
+```js
+// Output (Same input from above)
+var twoSum = function (Oc4nmjB, Fk3nptX) {
+  var on_KnCm = {};
+  var lqAauc = Oc4nmjB["length"];
+  for (var mALijp8 = 0; mALijp8 < lqAauc; mALijp8++) {
+    if (Oc4nmjB[mALijp8] in on_KnCm) {
+      return [on_KnCm[Oc4nmjB[mALijp8]], mALijp8];
+    }
+    on_KnCm[Fk3nptX - Oc4nmjB[mALijp8]] = mALijp8;
+  }
+  return [-1, -1];
+};
+var test = function () {
+  var y5ySeZ = [2, 7, 11, 15];
+  var gHYMOm = 9;
+  var aAdj3v = [0, 1];
+  var GnLVHX = twoSum(y5ySeZ, gHYMOm);
+  !(ok(GnLVHX[0] === aAdj3v[0]), ok(GnLVHX[1] === aAdj3v[1]));
+};
+test();
+```
 
 ### `identifierGenerator`
 
@@ -179,45 +244,15 @@ JsConfuser.obfuscate(code, {
 
 JSConfuser tries to reuse names when possible, creating very potent code.
 
-### `nameRecycling`
-
-⚠️ Experimental feature, may break your code!
-
-Attempts to reuse released names.
-
-- Potency Medium
-- Resilience High
-- Cost Low
-
-```js
-// Input
-function percentage(x) {
-  var multiplied = x * 100;
-  var floored = Math.floor(multiplied);
-  var output = floored + "%"
-  return output;
-}
-
-// Output
-function percentage(x) {
-  var multiplied = x * 100;
-  var floored = Math.floor(multiplied);
-  multiplied = floored + "%";
-  return multiplied;
-}
-```
-
 ### `controlFlowFlattening`
 
-⚠️ Significantly impacts performance, use sparingly!
+**⚠️ Significantly impacts performance, use sparingly!**
 
-[Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) hinders program comprehension by creating convoluted switch statements. (`true/false/0-1`)
+Control-flow Flattening hinders program comprehension by creating convoluted switch statements. (`true/false/0-1`)
 
 Use a number to control the percentage from 0 to 1.
 
-- Potency High
-- Resilience High
-- Cost High
+[Learn more here.](https://github.com/MichaelXF/js-confuser/blob/master/docs/ControlFlowFlattening.md)
 
 ```js
 // Input
@@ -348,124 +383,185 @@ while (mJMdMhJ + A1Nyvv + xDwpOk6 != 83) {
 
 Global Concealing hides global variables being accessed. (`true/false`)
 
-- Potency Medium
-- Resilience High
-- Cost Low
+```js
+// Input
+console.log("Hello World");
+
+// Output
+yAt1T_y(-93)["log"]("Hello World");
+```
 
 ### `stringCompression`
 String Compression uses LZW's compression algorithm to compress strings. (`true/false/0-1`)
 
 `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
-- Potency High
-- Resilience Medium
-- Cost Medium
 
 ### `stringConcealing`
 
-[String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. (`true/false/0-1`)
+String Concealing involves encoding strings to conceal plain-text values. (`true/false/0-1`)
 
 Use a number to control the percentage of strings.
 
 `"console"` -> `decrypt('<~@rH7+Dert~>')`
    
-- Potency High
-- Resilience Medium
-- Cost Medium
-
 ### `stringEncoding`
 
-[String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false/0-1`)
+String Encoding transforms a string into an encoded representation. (`true/false/0-1`)
 
 Use a number to control the percentage of strings.
 
 `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
 
-- Potency Low
-- Resilience Low
-- Cost Low
-
 ### `stringSplitting`
 
-[String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false/0-1`)
+String Splitting splits your strings into multiple expressions. (`true/false/0-1`)
 
 Use a number to control the percentage of strings.
 
 `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
 
-- Potency Medium
-- Resilience Medium
-- Cost Medium
-
 ### `duplicateLiteralsRemoval`
 
-[Duplicate Literals Removal](https://docs.jscrambler.com/code-integrity/documentation/transformations/duplicate-literals-removal) replaces duplicate literals with a single variable name. (`true/false`)
-
-- Potency Medium
-- Resilience Low
-- Cost High
+Duplicate Literals Removal replaces duplicate literals with a single variable name. (`true/false`)
 
 ### `dispatcher`
 
 Creates a middleman function to process function calls. (`true/false/0-1`)
 
-- Potency Medium
-- Resilience Medium
-- Cost High
-
-### `eval`
-
-#### **`Security Warning`**
-
-From [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval): Executing JavaScript from a string is an enormous security risk. It is far too easy for a bad actor to run arbitrary code when you use eval(). Never use eval()!
-
-Wraps defined functions within eval statements.
-
-- **`false`** - Avoids using the `eval` function. _Default_.
-- **`true`** - Wraps function's code into an `eval` statement.
-
 ```js
-// Output.js
-var Q4r1__ = {
-  Oo$Oz8t: eval(
-    "(function(YjVpAp){var gniSBq6=kHmsJrhOO;switch(gniSBq6){case'RW11Hj5x':return console;}});"
-  ),
-};
-Q4r1__.Oo$Oz8t("RW11Hj5x");
+// Input
+function print(x){
+  console.log(x);
+}
+
+print("Hello World"); // "Hello World"
+
+// Output
+var RfN5Yz = Object.create(null),
+  GEMxMoq = [];
+typeof ((GEMxMoq = ["Hello World"]), yT9GzM("jlg2V0"));
+function yT9GzM(yT9GzM, ChVrLK, b8q2HVZ) {
+  var RuH38a = {
+      jlg2V0: function (_x5bmV, fslYszl, YbdYYlj) {
+        if (!_x5bmV) {
+          return fslYszl(this, YbdYYlj);
+        }
+        var [yT9GzM] = GEMxMoq;
+        console.log(yT9GzM);
+      },
+    },
+    JwN3oMY;
+  if (ChVrLK == "smHux1f") {
+    GEMxMoq = [];
+  }
+  JwN3oMY =
+    ChVrLK == "DiwMvrE"
+      ? RfN5Yz[yT9GzM] ||
+        (RfN5Yz[yT9GzM] = function (...fslYszl) {
+          GEMxMoq = fslYszl;
+          return RuH38a[yT9GzM].call(this, "vZWlke7");
+        })
+      : RuH38a[yT9GzM]("EuVJE6");
+  return b8q2HVZ == "ePsy9W" ? { occYQrC: JwN3oMY } : JwN3oMY;
+}
 ```
 
 ### `rgf`
 
-RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings. (`"all"/true/false`)
+RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings. (`true/false/0-1`)
 
-- **This can break your code. This is also as dangerous as `eval`.**
+- **This can break your code.**
 - **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
 - The arbitrary code is also obfuscated.
 
-| Mode | Description |
-| --- | --- |
-| `"all"` | Recursively applies to every scope (slow) |
-| `true` | Applies to the top level only |
-| `false` | Feature disabled |
+Note: RGF will only apply to functions that do not rely on any outside-scoped variables. Enable `flatten` along with `rgf` to apply to these functions.
+
+Note: Does not apply to arrow, async, or generator functions.
+
+Use a number to control the percentage of functions changed.
+
+[Learn more here.](https://github.com/MichaelXF/js-confuser/blob/master/docs/RGF.md)
 
 ```js
 // Input
-function log(x){
-  console.log(x)
+function printToConsole(message){
+  console.log(message);
 }
 
-log("Hello World")
+printToConsole("Hello World"); // "Hello World"
 
 // Output
-var C6z0jyO=[new Function('a2Fjjl',"function OqNW8x(OqNW8x){console['log'](OqNW8x)}return OqNW8x(...Array.prototype.slice.call(arguments,1))")];(function(){return C6z0jyO[0](C6z0jyO,...arguments)}('Hello World'))
+var Ricvq8s = [new Function('function HIGRHaD(ANVivo_){console[\'log\'](ANVivo_)}return HIGRHaD[\'apply\'](this,arguments)')];
+function uhj6obs() {
+    return Ricvq8s[0]['apply'](this, arguments);
+}
+uhj6obs('Hello World'); // "Hello World"
+```
+
+
+### `flatten`
+
+Brings independent declarations to the highest scope. (`true/false/0-1`)
+
+This transformation makes functions eligible for the RGF transformation.
+
+Use a number to control the percentage of functions changed.
+
+```js
+// Input
+(function(){
+  var stringToPrint = "Hello World";
+  var timesPrinted = 0;
+
+  function printString(){
+    timesPrinted++;
+    console.log(stringToPrint);
+  }
+
+  printString(); // "Hello World"
+})();
+
+// Output
+var XKlik0N = lP2p9dc(([], pgswImq) => {
+  void (pgswImq.rGFfJKd++, console.log(pgswImq.I6NTID));
+});
+function M5IeIO([], mu63vsS) {
+  var p_hOdnM = "Hello World",
+    X_bU9rL = 0;
+  function Iwe3cJW(...nuTwoiz) {
+    var aNxnp94 = {
+      set rGFfJKd(C9XSMeD) {
+        X_bU9rL = C9XSMeD;
+      },
+      get I6NTID() {
+        return p_hOdnM;
+      },
+      get rGFfJKd() {
+        return X_bU9rL;
+      },
+    };
+    return mu63vsS.PbELcOw(nuTwoiz, aNxnp94);
+  }
+  Iwe3cJW();
+}
+lP2p9dc((...AvydL3) => {
+  var B6ymQf = {
+    get PbELcOw() {
+      return XKlik0N;
+    },
+  };
+  return M5IeIO(AvydL3, B6ymQf);
+})();
+function lP2p9dc(fJxfZW) {
+  return function () {
+    return fJxfZW(...arguments);
+  };
+}
 ```
 
 ### `objectExtraction`
 
 Extracts object properties into separate variables. (`true/false`)
-
-- Potency Medium
-- Resilience Medium
-- Cost Low
 
 ```js
 // Input
@@ -485,31 +581,15 @@ if ( utils_isString("Hello") ) {
 }
 ```
 
-### `flatten`
-
-Brings independent declarations to the highest scope. (`true/false`)
-
-- Potency Medium
-- Resilience Medium
-- Cost High
-
 ### `deadCode`
 
 Randomly injects dead code. (`true/false/0-1`)
 
 Use a number to control the percentage from 0 to 1.
 
-- Potency Medium
-- Resilience Medium
-- Cost Low 
-
 ### `calculator`
 
 Creates a calculator function to handle arithmetic and logical expressions. (`true/false/0-1`)
-
-- Potency Medium
-- Resilience Medium
-- Cost Low
 
 ### `lock.antiDebug`
 
@@ -525,35 +605,19 @@ When the program is first able to be used. (`number` or `Date`)
 
 Number should be in milliseconds.
 
-- Potency Low
-- Resilience Medium
-- Cost Medium
-
 ### `lock.endDate`
 
 When the program is no longer able to be used. (`number` or `Date`)
 
 Number should be in milliseconds.
 
-- Potency Low
-- Resilience Medium
-- Cost Medium
-
 ### `lock.domainLock`
 
 Array of regex strings that the `window.location.href` must follow. (`Regex[]` or `string[]`)
 
-- Potency Low
-- Resilience Medium
-- Cost Medium
-
 ### `lock.osLock`
 
 Array of operating-systems where the script is allowed to run. (`string[]`)
-
-- Potency Low
-- Resilience Medium
-- Cost Medium
 
 Allowed values: `"linux"`, `"windows"`, `"osx"`, `"android"`, `"ios"`
 
@@ -563,22 +627,9 @@ Example: `["linux", "windows"]`
 
 Array of browsers where the script is allowed to run. (`string[]`)
 
-- Potency Low
-- Resilience Medium
-- Cost Medium
-
 Allowed values: `"firefox"`, `"chrome"`, `"iexplorer"`, `"edge"`, `"safari"`, `"opera"`
 
 Example: `["firefox", "chrome"]`
-
-### `lock.nativeFunctions`
-
-Set of global functions that are native. Such as `require`, `fetch`. If these variables are modified the program crashes.
-Set to `true` to use the default set of native functions. (`string[]/true/false`)
-
-- Potency Low
-- Resilience Medium
-- Cost Medium
 
 ### `lock.selfDefending`
 
@@ -586,25 +637,17 @@ Prevents the use of code beautifiers or formatters against your code.
 
 [Identical to Obfuscator.io's Self Defending](https://github.com/javascript-obfuscator/javascript-obfuscator#selfdefending)
 
-- Potency Low
-- Resilience Low
-- Cost Low
-
 ### `lock.integrity`
 
 Integrity ensures the source code is unchanged. (`true/false/0-1`)
 
-[Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
-
-- Potency Medium
-- Resilience High
-- Cost High
+[Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/docs/Integrity.md).
 
 ### `lock.countermeasures`
 
 A custom callback function to invoke when a lock is triggered. (`string/false`)
 
-[Learn more about the countermeasures function](https://github.com/MichaelXF/js-confuser/blob/master/Countermeasures.md).
+[Learn more about the countermeasures function](https://github.com/MichaelXF/js-confuser/blob/master/docs/Countermeasures.md).
 
 Otherwise, the obfuscator falls back to crashing the process.
 
@@ -612,25 +655,32 @@ Otherwise, the obfuscator falls back to crashing the process.
 
 Moves variable declarations to the top of the context. (`true/false`)
 
-- Potency Medium
-- Resilience Medium
-- Cost Low
+```js
+// Input
+function getAreaOfCircle(radius) {
+  var pi = Math.PI;
+  var radiusSquared = Math.pow(radius, 2);
+  var area = pi * radiusSquared;
+
+  return area;
+}
+
+// Output
+function getAreaOfCircle(yLu5YB1) {
+  var eUf7Wle, XVYH4D;
+  var F8QuPL = Math["PI"];
+  typeof ((eUf7Wle = Math["pow"](yLu5YB1, 2)), (XVYH4D = F8QuPL * eUf7Wle));
+  return XVYH4D;
+}
+```
 
 ### `opaquePredicates`
 
-An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers from understanding your code. (`true/false/0-1`)
-
-- Potency Medium
-- Resilience Medium
-- Cost Low
+An Opaque Predicate that is evaluated at runtime, this can confuse reverse engineers from understanding your code. (`true/false/0-1`)
 
 ### `shuffle`
 
 Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false/0-1`)
-
-- Potency Medium
-- Resilience Low
-- Cost Low
 
 | Mode | Description |
 | --- | --- |
@@ -643,10 +693,6 @@ Shuffles the initial order of arrays. The order is brought back to the original 
 Local variables are consolidated into a rotating array. (`true/false/0-1`)
 
 [Similar to Jscrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)
-
-- Potency Medium
-- Resilience Medium
-- Cost Low
 
 ```js
 // Input
@@ -765,7 +811,6 @@ You must enable locks yourself, and configure them to your needs.
     startDate: new Date("Feb 1 2021"),
     endDate: new Date("Mar 1 2021"),
     antiDebug: true,
-    nativeFunctions: true,
 
     // crashes browser
     countermeasures: true,

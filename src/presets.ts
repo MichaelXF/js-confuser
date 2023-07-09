@@ -17,7 +17,7 @@ import { ObfuscateOptions } from "./options";
  * 10. Minified output
  *
  * ## **`Disabled features`**
- * - `eval` Use at your own risk!
+ * - `rgf` Use at your own risk!
  *
  * ### Potential Issues
  * 1. *String Encoding* can corrupt files. Disable `stringEncoding` manually if this happens.
@@ -51,7 +51,6 @@ const highPreset: ObfuscateOptions = {
   stringSplitting: 0.75,
 
   // Use at own risk
-  eval: false,
   rgf: false,
 };
 
@@ -66,9 +65,9 @@ const mediumPreset: ObfuscateOptions = {
   calculator: true,
   compact: true,
   numberConcealing: true,
-  controlFlowFlattening: 0.5,
+  controlFlowFlattening: 0.25,
   deadCode: 0.025,
-  dispatcher: 0.75,
+  dispatcher: 0.5,
   duplicateLiteralsRemoval: 0.5,
   globalConcealing: true,
   identifierGenerator: "randomized",
@@ -95,10 +94,10 @@ const lowPreset: ObfuscateOptions = {
   calculator: true,
   compact: true,
   numberConcealing: true,
-  controlFlowFlattening: 0.25,
+  controlFlowFlattening: 0.1,
   deadCode: 0.01,
-  dispatcher: 0.5,
-  duplicateLiteralsRemoval: true,
+  dispatcher: 0.25,
+  duplicateLiteralsRemoval: 0.5,
   identifierGenerator: "randomized",
   minify: true,
   movedDeclarations: true,

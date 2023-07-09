@@ -582,3 +582,40 @@ test("Variant #23: Re-use previously generated names", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+test("Variant #24: Reference function name with parameter", async () => {
+  var output = await JsConfuser(
+    `
+  function myFunction(myFunction){
+    myFunction.property = "Correct Value";
+  }
+
+  myFunction(myFunction);
+  TEST_OUTPUT = myFunction.property;
+  `,
+    { target: "node", renameVariables: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #25: Reference catch parameter", async () => {
+  var output = await JsConfuser(
+    `
+  try {
+    throw "Correct Value";
+  } catch ( e ) {
+    TEST_OUTPUT = e;
+  }
+  `,
+    { target: "node", renameVariables: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

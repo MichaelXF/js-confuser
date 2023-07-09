@@ -22,6 +22,7 @@ import {
   isForInitialize,
   append,
   isVarContext,
+  computeFunctionLength,
 } from "../util/insert";
 import { isValidIdentifier, isEquivalent } from "../util/compare";
 import { walk, isBlock } from "../traverse";
@@ -258,8 +259,15 @@ export default class Minify extends Transform {
             append(
               parents[parents.length - 1] || object,
               Template(`
-            function ${this.arrowFunctionName}(arrowFn){
-              return function(){ return arrowFn(...arguments) }
+            function ${this.arrowFunctionName}(arrowFn, functionLength){
+              var functionObject = function(){ return arrowFn(...arguments) };
+
+              Object["defineProperty"](functionObject, "length", {
+                "value": functionLength,
+                "configurable": true
+              });
+
+              return functionObject;
             }
             `).single()
             );
@@ -268,6 +276,7 @@ export default class Minify extends Transform {
           const wrap = (object: Node) => {
             return CallExpression(Identifier(this.arrowFunctionName), [
               clone(object),
+              Literal(computeFunctionLength(object.params)),
             ]);
           };
 

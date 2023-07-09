@@ -1,4 +1,4 @@
-# Countermeasures
+## `Countermeasures`
 
 [Countermeasures](https://docs.jscrambler.com/code-integrity/documentation/client-side-countermeasures) is a property on the `lock` object, determining the response to a triggered lock.
 
@@ -61,17 +61,3 @@ Try setting your machine time to the past or before the allowed range.
 #### Integrity:
 
 Try changing a string within your code.
-
-#### Native Functions:
-
-Open DevTools and run:
-
-```js
-var _fetch = fetch;
-fetch = (url, options)=>{
-  console.log("Intercepted", url, options);
-  return _fetch(url, options);
-}
-```
-
-Try to run your code after that.
