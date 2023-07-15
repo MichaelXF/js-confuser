@@ -1,6 +1,6 @@
 import JsConfuser from "../../../src/index";
 
-it("should remove duplicate literals", async () => {
+test("Variant #1: Remove duplicate literals", async () => {
   var code = `
   
   var TEST_ARRAY = [5,5];
@@ -15,7 +15,7 @@ it("should remove duplicate literals", async () => {
   expect(output).toContain("5");
 });
 
-it("should remove duplicate literals and execute correctly", async () => {
+test("Variant #2: Remove duplicate literals and execute correctly", async () => {
   var code = `
   
   TEST_ARRAY = [5,5];
@@ -36,7 +36,7 @@ it("should remove duplicate literals and execute correctly", async () => {
   expect(TEST_ARRAY).toEqual([5, 5]);
 });
 
-it("should remove 'undefined' and 'null' values", async () => {
+test("Variant #3: Remove 'undefined' and 'null' values", async () => {
   var code = `
   
   TEST_ARRAY = [undefined,undefined,null,null];
@@ -60,7 +60,7 @@ it("should remove 'undefined' and 'null' values", async () => {
   expect(TEST_ARRAY).toEqual([undefined, undefined, null, null]);
 });
 
-it("should not remove empty strings", async () => {
+test("Variant #4: Do not remove empty strings", async () => {
   var code = `
   
   TEST_ARRAY = ['','','',''];
@@ -80,7 +80,7 @@ it("should not remove empty strings", async () => {
   expect(TEST_ARRAY).toEqual(["", "", "", ""]);
 });
 
-it("should work with NaN values", async () => {
+test("Variant #5: Work with NaN values", async () => {
   var code = `
   
   TEST_ARRAY = [NaN];
@@ -98,7 +98,7 @@ it("should work with NaN values", async () => {
   expect(TEST_ARRAY[0] === TEST_ARRAY[0]).toStrictEqual(false);
 });
 
-it("should work on property keys", async () => {
+test("Variant #6: Work on property keys", async () => {
   var code = `
   var myObject = {
     myKey: 100
@@ -124,7 +124,7 @@ it("should work on property keys", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should work on class keys", async () => {
+test("Variant #7: Work on class keys", async () => {
   var code = `
   class MyClass {
     myMethod(){
@@ -150,7 +150,7 @@ it("should work on class keys", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should not encode constructor key", async () => {
+test("Variant #8: Do not encode constructor key", async () => {
   var code = `
   class MyClass {
     constructor(){
@@ -176,4 +176,17 @@ it("should not encode constructor key", async () => {
   eval(output);
 
   expect(TEST_VAR).toStrictEqual(100);
+});
+
+// https://github.com/MichaelXF/js-confuser/issues/105
+test("Variant #9: Undefined as variable name", async () => {
+  var output = await JsConfuser(
+    `
+  var undefined = 0;
+  var undefined = 1;
+  `,
+    { target: "node", duplicateLiteralsRemoval: true }
+  );
+
+  eval(output);
 });
