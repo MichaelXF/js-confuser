@@ -94,9 +94,14 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
     parents.find((x) => x.type == "VariableDeclaration") &&
     objectPatternCheck(object, parents);
 
+  var functionIndex = parents.findIndex((x) => isFunction(x));
+
   // Assignment pattern check!
   if (isVariableDeclaration) {
-    var slicedParents = parents.slice(0, varIndex - 1);
+    var slicedParents = parents.slice(
+      0,
+      functionIndex != -1 ? Math.min(varIndex, functionIndex) : varIndex
+    );
     var i = 0;
     for (var parent of slicedParents) {
       var childNode = slicedParents[i - 1] || object;
@@ -112,8 +117,6 @@ export function getIdentifierInfo(object: Node, parents: Node[]) {
   var isForInitializer =
     forIndex != -1 &&
     parents[forIndex].init == (parents[forIndex - 1] || object);
-
-  var functionIndex = parents.findIndex((x) => isFunction(x));
 
   var isFunctionDeclaration =
     functionIndex != -1 &&
