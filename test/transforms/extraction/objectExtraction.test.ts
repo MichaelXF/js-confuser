@@ -1,6 +1,6 @@
 import JsConfuser from "../../../src/index";
 
-it("should extract properties", async () => {
+test("Variant #1: Extract properties", async () => {
   var code = `
     var TEST_OBJECT = {
       TEST_1: "Hello World",
@@ -34,7 +34,7 @@ it("should extract properties", async () => {
   eval(output);
 });
 
-it("should extract function properties correctly", async () => {
+test("Variant #2: Extract function properties correctly", async () => {
   var code = `
     var TEST_OBJECT = {
       isBoolean: x=>typeof x === "boolean",
@@ -68,7 +68,7 @@ it("should extract function properties correctly", async () => {
   eval(output);
 });
 
-it("should not extract properties on with dynamically added keys", async () => {
+test("Variant #3: Not extract properties on with dynamically added keys", async () => {
   var code = `
     var TEST_OBJECT = {
       first_key: 1
@@ -100,7 +100,7 @@ it("should not extract properties on with dynamically added keys", async () => {
   eval(output);
 });
 
-it("should not extract properties on with dynamically added keys even when in nested contexts", async () => {
+test("Variant #4: Not extract properties on with dynamically added keys even when in nested contexts", async () => {
   var code = `
     var TEST_OBJECT = {
       first_key: 1
@@ -135,7 +135,7 @@ it("should not extract properties on with dynamically added keys even when in ne
   eval(output);
 });
 
-it("should not extract properties on objects with computed properties", async () => {
+test("Variant #5: Not extract properties on objects with computed properties", async () => {
   var code = `
     
     var key = "111"
@@ -166,7 +166,7 @@ it("should not extract properties on objects with computed properties", async ()
   eval(output);
 });
 
-it("should not extract properties on objects with computed properties (string)", async () => {
+test("Variant #6: Not extract properties on objects with computed properties (string)", async () => {
   var code = `
     
     var v = "key";
@@ -197,7 +197,7 @@ it("should not extract properties on objects with computed properties (string)",
   eval(output);
 });
 
-it("should not extract properties on objects when the object is referenced independently", async () => {
+test("Variant #7: Not extract properties on objects when the object is referenced independently", async () => {
   var code = `
     
     var TEST_OBJECT = {
@@ -229,7 +229,7 @@ it("should not extract properties on objects when the object is referenced indep
   eval(output);
 });
 
-it("should not extract properties on objects when the variable gets redefined", async () => {
+test("Variant #8: Not extract properties on objects when the variable gets redefined", async () => {
   var code = `
     
     var TEST_OBJECT = {
@@ -260,7 +260,7 @@ it("should not extract properties on objects when the variable gets redefined", 
   eval(output);
 });
 
-it("should not extract properties on objects when the variable gets reassigned", async () => {
+test("Variant #9: Not extract properties on objects when the variable gets reassigned", async () => {
   var code = `
     
     var TEST_OBJECT = {
@@ -292,7 +292,7 @@ it("should not extract properties on objects when the variable gets reassigned",
   eval(output);
 });
 
-it("should not extract properties on objects with methods referencing 'this'", async () => {
+test("Variant #10: Not extract properties on objects with methods referencing 'this'", async () => {
   var code = `
     
     var TEST_OBJECT = {
@@ -325,7 +325,7 @@ it("should not extract properties on objects with methods referencing 'this'", a
   eval(output);
 });
 
-it("should not extract properties on objects when properties are dynamically deleted", async () => {
+test("Variant #11: Not extract properties on objects when properties are dynamically deleted", async () => {
   var code = `
     
     var TEST_OBJECT = {
@@ -356,7 +356,7 @@ it("should not extract properties on objects when properties are dynamically del
   eval(output);
 });
 
-it("should not extract properties on objects with computed accessors", async () => {
+test("Variant #12: Not extract properties on objects with computed accessors", async () => {
   var code = `
     
     var TEST_OBJECT = {
@@ -388,7 +388,7 @@ it("should not extract properties on objects with computed accessors", async () 
   eval(output);
 });
 
-it("should properly use custom callback to exclude certain names from being changed", async () => {
+test("Variant #13: Properly use custom callback to exclude certain names from being changed", async () => {
   var code = `
     
     var TEST_OBJECT = {
@@ -424,7 +424,7 @@ it("should properly use custom callback to exclude certain names from being chan
   eval(output);
 });
 
-it("should not apply to objects with non-init properties (method, set, get)", async () => {
+test("Variant #14: Not apply to objects with non-init properties (method, set, get)", async () => {
   var code = `
     
     var realValue = 0;
@@ -448,7 +448,7 @@ it("should not apply to objects with non-init properties (method, set, get)", as
 });
 
 // https://github.com/MichaelXF/js-confuser/issues/78
-it("should handle objects with spread elements", async () => {
+test("Variant #15: Handle objects with spread elements", async () => {
   var output = await JsConfuser(
     `
     var x = { firstName: "John", lastName: "Doe" }
@@ -466,4 +466,24 @@ it("should handle objects with spread elements", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual({ firstName: "John", lastName: "Doe" });
+});
+
+// https://github.com/MichaelXF/js-confuser/issues/106
+test("Variant #16: Handle const declarations", async () => {
+  var output = await JsConfuser(
+    `
+    const obj = {prop: 0};
+    obj.prop = 1;
+    TEST_OUTPUT = obj.prop;
+`,
+    {
+      target: "node",
+      objectExtraction: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(1);
 });
