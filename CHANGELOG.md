@@ -1,3 +1,22 @@
+# `1.7.1`
+Updates
+
+- Fixed [#107](https://github.com/MichaelXF/js-confuser/issues/107)
+- - RGF and Integrity clash issue fixed
+
+- Fixed [#106](https://github.com/MichaelXF/js-confuser/issues/106)
+- - Object Extraction to properly handle `const` objects
+
+- Fixed [#105](https://github.com/MichaelXF/js-confuser/issues/105)
+- - Duplicate Literals Removal updated to not cause this error
+
+- Fixed [#103](https://github.com/MichaelXF/js-confuser/issues/103)
+- - Dispatcher will no longer apply to these types of functions to prevent this error
+
+- Added documentation page for [ES5](https://github.com/MichaelXF/js-confuser/blob/master/docs/ES5.md)
+
+- Rollup Plugin created: https://github.com/ayecue/rollup-js-confuser (Thanks @ayecue !)
+
 # `1.7.0`
 Updates
 

@@ -1,6 +1,6 @@
 {
   "name": "js-confuser",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "JavaScript Obfuscation Tool.",
   "main": "dist/index.js",
   "types": "index.d.ts",
@@ -22,7 +22,7 @@
   "author": "MichaelXF",
   "license": "MIT",
   "dependencies": {
-    "acorn": "^8.8.2",
+    "acorn": "^8.10.0",
     "escodegen": "^2.0.0"
   },
   "devDependencies": {
