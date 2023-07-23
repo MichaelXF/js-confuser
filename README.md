@@ -737,7 +737,6 @@ function iVQoGQD(...iVQoGQD){
   stringSplitting: 0.75,
 
   // Use at own risk
-  eval: false,
   rgf: false
 }
 ```
@@ -828,7 +827,6 @@ These features are experimental or a security concern.
 ```js
 {
   target: "node",
-  eval: true, // (security concern)
   rgf: true, // (security concern)
 
   // set to false for web-related scripts

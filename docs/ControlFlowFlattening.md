@@ -137,7 +137,7 @@ while (mJMdMhJ + A1Nyvv + xDwpOk6 != 83) {
 }
 ```
 
-As seen in the example, your code will bee wrapped in a large, complicated switch statement. The makes the behavior of your program very hard to understand and is resistent to deobfuscators. This comes with a large performance reduction.
+As seen in the example, your code will be wrapped in a large, complicated switch statement. The makes the behavior of your program very hard to understand and is resistent to deobfuscators. This comes with a large performance reduction.
 
 ## Flattening Control Structures
 
