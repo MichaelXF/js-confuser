@@ -135,3 +135,27 @@ it("should work on High Preset", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Hello World");
 });
+
+it("should work with RGF enabled", async () => {
+  var output = await JsConfuser(
+    `
+  function getTestOutput(){
+    return "Hello World";
+  }
+
+  TEST_OUTPUT = getTestOutput();
+  `,
+    {
+      target: "node",
+      rgf: true,
+      lock: {
+        integrity: true,
+      },
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
+});

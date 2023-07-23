@@ -153,6 +153,27 @@ describe("getIdentifierInfo", () => {
     expect(nonModifiedInfo.spec.isModified).toStrictEqual(false);
     expect(nonModifiedInfo.spec.isReferenced).toStrictEqual(false);
   });
+
+  test("Variant #7: Default parameter, function expression", async () => {
+    var tree = parseSync(`
+      function myFunction( myParameter = function() {
+        var myNestedDeclaration = true;
+      } ){
+
+      }
+    `);
+
+    var myNestedDeclaration = findIdentifier(tree, "myNestedDeclaration");
+    var myNestedDeclarationInfo = getIdentifierInfo(
+      myNestedDeclaration[0],
+      myNestedDeclaration[1]
+    );
+
+    expect(myNestedDeclarationInfo.isVariableDeclaration).toStrictEqual(true);
+    expect(myNestedDeclarationInfo.spec.isDefined).toStrictEqual(true);
+    expect(myNestedDeclarationInfo.spec.isReferenced).toStrictEqual(true);
+    expect(myNestedDeclarationInfo.spec.isModified).toStrictEqual(false);
+  });
 });
 
 describe("validateChain", () => {

@@ -316,6 +316,10 @@ export default class ObjectExtraction extends Transform {
             ...variableDeclarators
           );
 
+          if (declaration.kind === "const") {
+            declaration.kind = "var";
+          }
+
           // update all identifiers that pointed to the old object
           objectDefChanges[name] &&
             objectDefChanges[name].forEach((change) => {

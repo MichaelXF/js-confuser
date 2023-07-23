@@ -20,6 +20,7 @@ import {
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
 import { prepend, getDefiningContext } from "../util/insert";
+import Integrity from "./lock/integrity";
 import Transform from "./transform";
 
 /**
@@ -200,6 +201,14 @@ export default class RGF extends Transform {
 
       if (obfuscator.options.lock) {
         delete obfuscator.options.lock.countermeasures;
+
+        // Integrity will not recursively apply to RGF'd functions. This is intended.
+        var lockTransform = obfuscator.transforms["Lock"];
+        if (lockTransform) {
+          lockTransform.before = lockTransform.before.filter(
+            (beforeTransform) => !(beforeTransform instanceof Integrity)
+          );
+        }
       }
 
       var transforms = obfuscator.array.filter(

@@ -24,6 +24,7 @@ import { ComputeProbabilityMap } from "../../probability";
 import { ok } from "assert";
 import { chance, choice, getRandomInteger } from "../../util/random";
 import { getBlock } from "../../traverse";
+import { getIdentifierInfo } from "../../util/identifiers";
 
 /**
  * [Duplicate Literals Removal](https://docs.jscrambler.com/code-integrity/documentation/transformations/duplicate-literals-removal) replaces duplicate literals with a variable name.
@@ -221,7 +222,10 @@ export default class DuplicateLiteralsRemoval extends Transform {
 
   transform(object: Node, parents: Node[]) {
     return () => {
-      var value = object.value;
+      if (object.type === "Identifier") {
+        var info = getIdentifierInfo(object, parents);
+        if (info.isLabel || info.spec.isDefined) return;
+      }
       if (object.regex) {
         return;
       }

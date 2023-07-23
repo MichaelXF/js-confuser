@@ -157,6 +157,16 @@ export default class Dispatcher extends Transform {
                     return "EXIT";
                   }
                 }
+
+                // Avoid functions with function expressions as they have a different scope
+                if (
+                  (oo.type === "FunctionExpression" ||
+                    oo.type === "ArrowFunctionExpression") &&
+                  pp.find((x) => x == o.params)
+                ) {
+                  illegalFnNames.add(name);
+                  return "EXIT";
+                }
               });
 
               functionDeclarations[name] = [o, p];

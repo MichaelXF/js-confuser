@@ -373,3 +373,30 @@ test("Variant #16: Don't change functions that use 'eval'", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(2);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/103
+test("Variant #17: Don't break default parameter, function expression", async () => {
+  var output = await JsConfuser(
+    `
+  var X = "Correct Value";
+
+function printX(
+  getX = function () {
+    return X;
+  }
+) {
+  var X = "Incorrect Value";
+
+  TEST_OUTPUT = getX();
+}
+
+printX();
+  `,
+    { target: "node", dispatcher: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
