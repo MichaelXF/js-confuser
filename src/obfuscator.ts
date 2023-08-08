@@ -31,6 +31,8 @@ import Flatten from "./transforms/flatten";
 import Stack from "./transforms/stack";
 import AntiTooling from "./transforms/antiTooling";
 import Finalizer from "./transforms/finalizer";
+import { Presets, SingleBar } from "cli-progress";
+
 
 /**
  * The parent transformation holding the `state`.
@@ -45,6 +47,10 @@ export default class Obfuscator extends EventEmitter {
 
   totalPossibleTransforms: number;
 
+  progress_bar: SingleBar | undefined;
+
+
+
   constructor(public options: ObfuscateOptions) {
     super();
 
@@ -52,6 +58,10 @@ export default class Obfuscator extends EventEmitter {
     this.transforms = Object.create(null);
     this.generated = new Set();
     this.totalPossibleTransforms = 0;
+
+    if(options.progress) {
+      this.progress_bar = new SingleBar({});
+    }
 
     const test = <T>(map: ProbabilityMap<T>, ...transformers: any[]) => {
       this.totalPossibleTransforms += transformers.length;
@@ -133,8 +143,18 @@ export default class Obfuscator extends EventEmitter {
 
     this.resetState();
 
+    this.progress_bar ? this.progress_bar = new SingleBar({
+      format: `Applying Transformation: {transformation} | {percentage}% | {value}/{total} | {bar}`
+    }, Presets.legacy) : null;
+    this.progress_bar?.start(this.array.length, 0, {
+      transformation: this.array[0].className
+    });
+
+
     var completed = 0;
     for (var transform of this.array) {
+      this.progress_bar?.update(completed, { transformation: transform.className });
+
       await transform.apply(tree);
       completed++;
 
@@ -161,5 +181,6 @@ export default class Obfuscator extends EventEmitter {
     if (this.options.verbose) {
       console.log("<- Done");
     }
+    this.progress_bar?.stop();
   }
 }
