@@ -2,15 +2,11 @@ import Template from "./template";
 
 export const BufferToStringTemplate = Template(`
   function __getGlobal(){
-    try {
-      return global||window|| ( new Function("return this") )();
-    } catch ( e ) {
-      try {
-        return this;
-      } catch ( e ) {
-        return {};
-      }
-    }
+    if(typeof globalThis !== "undefined") return globalThis;
+    if(typeof window !== "undefined") return window;
+    if(typeof global !== "undefined") return global;
+    try { return new Function("return this")() } catch {}
+    return this;
   }
 
   var __globalObject = __getGlobal() || {};
