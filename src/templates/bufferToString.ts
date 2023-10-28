@@ -2,9 +2,9 @@ import Template from "./template";
 
 export const BufferToStringTemplate = Template(`
   function __getGlobal(){
-    try { return globalThis } catch {}
-    try { return window } catch {}
-    try { return global } catch {}
+    if(typeof globalThis !== "undefined") return globalThis;
+    if(typeof window !== "undefined") return window;
+    if(typeof global !== "undefined") return global;
     try { return new Function("return this")() } catch {}
     return this;
   }
