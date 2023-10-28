@@ -234,9 +234,6 @@ export default class DuplicateLiteralsRemoval extends Transform {
         return;
       }
 
-      // HARD CODED LIMIT of 10,000 (after 1,000 elements)
-      if (this.map.size > 1000 && chance(this.map.size / 100)) return;
-
       if (
         this.arrayName &&
         parents[0].object &&

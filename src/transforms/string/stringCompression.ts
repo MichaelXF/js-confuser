@@ -210,9 +210,6 @@ export default class StringCompression extends Transform {
       return;
     }
 
-    // HARD CODED LIMIT of 10,000 (after 1,000 elements)
-    if (this.map.size > 1000 && !chance(this.map.size / 100)) return;
-
     var index = this.map.get(object.value);
 
     // New string, add it!
