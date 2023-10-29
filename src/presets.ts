@@ -29,7 +29,7 @@ const highPreset: ObfuscateOptions = {
 
   calculator: true,
   compact: true,
-  hexadecimalNumbers: true,
+  numberConcealing: true,
   controlFlowFlattening: 0.75,
   deadCode: 0.2,
   dispatcher: true,
@@ -64,7 +64,7 @@ const mediumPreset: ObfuscateOptions = {
 
   calculator: true,
   compact: true,
-  hexadecimalNumbers: true,
+  numberConcealing: true,
   controlFlowFlattening: 0.25,
   deadCode: 0.025,
   dispatcher: 0.5,
@@ -93,7 +93,7 @@ const lowPreset: ObfuscateOptions = {
 
   calculator: true,
   compact: true,
-  hexadecimalNumbers: true,
+  numberConcealing: true,
   controlFlowFlattening: 0.1,
   deadCode: 0.01,
   dispatcher: 0.25,

@@ -49,6 +49,14 @@ export function getRandomString(length: number) {
   return result;
 }
 
+/**
+ * Returns a random valid identifier.
+ */
+export function getRandomIdentifier(length: number) {
+  var name = getRandomString(length);
+  return /^[a-zA-Z]/.test(name) ? name : "_" + name;
+}
+
 export function getRandom(min, max) {
   return Math.random() * (max - min) + min;
 }
