@@ -31,6 +31,7 @@ import Flatten from "./transforms/flatten";
 import Stack from "./transforms/stack";
 import AntiTooling from "./transforms/antiTooling";
 import Finalizer from "./transforms/finalizer";
+import NumberConcealing from "./transforms/numberConcealing";
 
 /**
  * The parent transformation holding the `state`.
@@ -85,12 +86,13 @@ export default class Obfuscator extends EventEmitter {
     test(options.duplicateLiteralsRemoval, DuplicateLiteralsRemoval);
     test(options.shuffle, Shuffle);
     test(options.movedDeclarations, MovedDeclarations);
+    test(options.numberConcealing, NumberConcealing);
     test(options.minify, Minify);
     test(options.renameVariables, RenameVariables);
     test(options.es5, ES5);
 
     test(true, AntiTooling);
-    test(true, Finalizer); // String Encoding, Hexadecimal Numbers, BigInt support is included
+    test(true, Finalizer); // String Encoding, BigInt support is included
 
     if (
       options.lock &&

@@ -7,9 +7,6 @@ import Transform from "./transform";
 /**
  * The Finalizer is the last transformation before the code is ready to be generated.
  *
- * Hexadecimal numbers:
- * - Convert integer literals into `Identifier` nodes with the name being a hexadecimal number
- *
  * BigInt support:
  * - Convert BigInt literals into `Identifier` nodes with the name being the raw BigInt string value + "n"
  *
@@ -25,14 +22,6 @@ export default class Finalizer extends Transform {
     this.stringEncoding = new StringEncoding(o);
   }
 
-  isNumberLiteral(object: Node) {
-    return (
-      object.type === "Literal" &&
-      typeof object.value === "number" &&
-      Math.floor(object.value) === object.value
-    );
-  }
-
   isBigIntLiteral(object: Node) {
     return object.type === "Literal" && typeof object.value === "bigint";
   }
@@ -42,20 +31,6 @@ export default class Finalizer extends Transform {
   }
 
   transform(object: Node, parents: Node[]): void | ExitCallback {
-    // Hexadecimal Numbers
-    if (this.options.hexadecimalNumbers && this.isNumberLiteral(object)) {
-      return () => {
-        // Technically, a Literal will never be negative because it's supposed to be inside a UnaryExpression with a "-" operator.
-        // This code handles it regardless
-        var isNegative = object.value < 0;
-        var hex = Math.abs(object.value).toString(16);
-
-        var newStr = (isNegative ? "-" : "") + "0x" + hex;
-
-        this.replace(object, Identifier(newStr));
-      };
-    }
-
     // BigInt support
     if (this.isBigIntLiteral(object)) {
       // https://github.com/MichaelXF/js-confuser/issues/79

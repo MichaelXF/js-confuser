@@ -50,6 +50,8 @@ export enum ObfuscateOrder {
 
   ES5 = 31,
 
+	NumberConcealing = 32,
+
   AntiTooling = 34,
 
   Finalizer = 35,

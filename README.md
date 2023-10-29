@@ -117,9 +117,9 @@ JsConfuser.obfuscate(`<source code>`, {
 
 Remove's whitespace from the final output. Enabled by default. (`true/false`)
 
-### `hexadecimalNumbers`
+### `numberConcealing`
 
-Uses the hexadecimal representation for numbers. (`true/false`)
+Conceals numbers by using alternative representations, introducing mathematical operations and deadcode. (`true/false`)
 
 ### `minify`
 
@@ -715,7 +715,7 @@ function iVQoGQD(...iVQoGQD){
 
   calculator: true,
   compact: true,
-  hexadecimalNumbers: true,
+  numberConcealing: true,
   controlFlowFlattening: 0.75,
   deadCode: 0.2,
   dispatcher: true,
@@ -749,7 +749,7 @@ function iVQoGQD(...iVQoGQD){
 
   calculator: true,
   compact: true,
-  hexadecimalNumbers: true,
+  numberConcealing: true,
   controlFlowFlattening: 0.5,
   deadCode: 0.025,
   dispatcher: 0.75,
@@ -778,7 +778,7 @@ function iVQoGQD(...iVQoGQD){
 
   calculator: true,
   compact: true,
-  hexadecimalNumbers: true,
+  numberConcealing: true,
   controlFlowFlattening: 0.25,
   deadCode: 0.01,
   dispatcher: 0.5,
