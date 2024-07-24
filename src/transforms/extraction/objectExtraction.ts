@@ -1,19 +1,7 @@
 import Transform from "../transform";
 import { walk } from "../../traverse";
-import {
-  Node,
-  Location,
-  Identifier,
-  VariableDeclaration,
-  VariableDeclarator,
-} from "../../util/gen";
-import {
-  clone,
-  deleteDeclaration,
-  getVarContext,
-  isVarContext,
-  prepend,
-} from "../../util/insert";
+import { Node, Location, Identifier, VariableDeclarator } from "../../util/gen";
+import { getVarContext, isVarContext } from "../../util/insert";
 import { ObfuscateOrder } from "../../order";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { isValidIdentifier } from "../../util/compare";
@@ -316,8 +304,9 @@ export default class ObjectExtraction extends Transform {
             ...variableDeclarators
           );
 
+          // const can only be safely changed to let
           if (declaration.kind === "const") {
-            declaration.kind = "var";
+            declaration.kind = "let";
           }
 
           // update all identifiers that pointed to the old object
