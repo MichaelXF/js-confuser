@@ -536,3 +536,30 @@ test("Variant #27: Preserve function.length property", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(6);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/125
+test("Variant #28: Don't break destructuring assignment", async () => {
+  var output = await JsConfuser(
+    `
+    let objectSlice = [];
+    objectSlice.push({
+      a: 1,
+      b: 2,
+      c: 3,
+    })
+    for (let {
+      a,
+      b,
+      c
+    } of objectSlice) {
+      TEST_OUTPUT = a + b + c;
+    }
+  `,
+    { target: "node", minify: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(6);
+});

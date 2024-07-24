@@ -619,6 +619,7 @@ export default class Minify extends Transform {
 
       if (
         object.id.type == "ObjectPattern" &&
+        object.init &&
         object.init.type == "ObjectExpression"
       ) {
         if (
