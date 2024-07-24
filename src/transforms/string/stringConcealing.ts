@@ -192,9 +192,6 @@ export default class StringConcealing extends Transform {
         return;
       }
 
-      // HARD CODED LIMIT of 10,000 (after 1,000 elements)
-      if (this.set.size > 1000 && !chance(this.set.size / 100)) return;
-
       var types = Object.keys(this.encoding);
 
       var type = choice(types);
