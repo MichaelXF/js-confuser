@@ -131,6 +131,8 @@ Converts output to ES5-compatible code. (`true/false`)
 
 Does not cover all cases such as Promises or Generator functions. Use [Babel](https://babel.dev/).
 
+[Learn more here.](https://github.com/MichaelXF/js-confuser/blob/master/docs/ES5.md)
+
 ### `renameVariables`
 
 Determines if variables should be renamed. (`true/false`)
