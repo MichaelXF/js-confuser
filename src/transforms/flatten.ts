@@ -35,6 +35,7 @@ import {
 import { shuffle } from "../util/random";
 import Transform from "./transform";
 import { FunctionLengthTemplate } from "../templates/functionLength";
+import { ObjectDefineProperty } from "../templates/globals";
 
 /**
  * Flatten takes functions and isolates them from their original scope, and brings it to the top level of the program.
@@ -506,7 +507,13 @@ export default class Flatten extends Transform {
 
           prepend(
             parents[parents.length - 1] || object,
-            FunctionLengthTemplate.single({ name: this.functionLengthName })
+            FunctionLengthTemplate.single({
+              name: this.functionLengthName,
+              ObjectDefineProperty: this.createInitVariable(
+                ObjectDefineProperty,
+                parents
+              ),
+            })
           );
         }
 

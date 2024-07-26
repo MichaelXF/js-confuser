@@ -188,10 +188,6 @@ function setCookie(cname, cvalue, exdays) {
     return true;
   }
   
-  /**
-   * @param {TreeNode} root
-   * @return {boolean}
-   */
   function isBalanced(root) {
     const height = getHeightBalanced(root);
     return height !== Infinity;
@@ -426,9 +422,6 @@ function setCookie(cname, cvalue, exdays) {
   console.log(maximumGap);
   `),
   Template(`
-  /**
-   * @param {number} capacity
-   */
   var LRUCache = function(capacity) {
     this.capacity = capacity;
     this.length = 0;
@@ -437,10 +430,6 @@ function setCookie(cname, cvalue, exdays) {
     this.tail = null;
   };
   
-  /** 
-   * @param {number} key
-   * @return {number}
-   */
   LRUCache.prototype.get = function(key) {
     var node = this.map[key];
     if (node) {
@@ -452,11 +441,6 @@ function setCookie(cname, cvalue, exdays) {
     }
   };
   
-  /** 
-   * @param {number} key 
-   * @param {number} value
-   * @return {void}
-   */
   LRUCache.prototype.put = function(key, value) {
     if (this.map[key]) {
       this.remove(this.map[key]);

@@ -1,19 +1,46 @@
+import { placeholderVariablePrefix } from "../constants";
 import Template from "./template";
 
-export const BufferToStringTemplate = Template(`
-  function __getGlobal(){
-    try {
-      return global||window|| ( new Function("return this") )();
-    } catch ( e ) {
-      try {
-        return this;
-      } catch ( e ) {
-        return {};
-      }
-    }
+export const GetGlobalTemplate = Template(`
+  function CFG__getGlobalThis(){
+    return globalThis
   }
 
-  var __globalObject = __getGlobal() || {};
+  function CFG__getGlobal(){
+    return global
+  }
+
+  function CFG__getWindow(){
+    return window
+  }
+
+  function CFG__getThisFunction(){
+    new Function("return this")()
+  }
+
+  function {getGlobalFnName}(){
+    var array = [
+      CFG__getGlobalThis,
+      CFG__getGlobal,
+      CFG__getWindow,
+      CFG__getThisFunction
+    ]
+
+    for(var i = 0; i < array.length; i++) {
+      try {
+        return array[i]()
+      } catch(e) {}
+    }
+
+		return this;
+  }
+`);
+
+export const BufferToStringTemplate = Template(`
+
+  ${GetGlobalTemplate.source}
+
+  var __globalObject = {getGlobalFnName}() || {};
   var __TextDecoder = __globalObject["TextDecoder"];
   var __Uint8Array = __globalObject["Uint8Array"];
   var __Buffer = __globalObject["Buffer"];
@@ -63,6 +90,4 @@ export const BufferToStringTemplate = Template(`
       return utf8ArrayToStr(buffer);
     }
   }
-
-  
 `);

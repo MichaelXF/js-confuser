@@ -100,7 +100,10 @@ export default class StringConcealing extends Transform {
     // This helper functions convert UInt8 Array to UTf-string
     prepend(
       tree,
-      ...BufferToStringTemplate.compile({ name: bufferToStringName })
+      ...BufferToStringTemplate.compile({
+        name: bufferToStringName,
+        getGlobalFnName: this.getPlaceholder(),
+      })
     );
 
     Object.keys(this.encoding).forEach((type) => {

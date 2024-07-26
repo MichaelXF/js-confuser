@@ -1,5 +1,10 @@
 import traverse, { ExitCallback } from "../traverse";
-import { AddComment, Node } from "../util/gen";
+import {
+  AddComment,
+  Node,
+  VariableDeclaration,
+  VariableDeclarator,
+} from "../util/gen";
 import {
   alphabeticalGenerator,
   choice,
@@ -15,6 +20,8 @@ import {
   reservedKeywords,
 } from "../constants";
 import { ObfuscateOrder } from "../order";
+import { ITemplate } from "../templates/template";
+import { prepend } from "../util/insert";
 
 /**
  * Base-class for all transformations.
@@ -77,6 +84,8 @@ export default class Transform {
    * Transforms to run after.
    */
   after: Transform[];
+
+  initVariables = new Map<string, string>();
 
   constructor(obfuscator, priority: number = -1) {
     ok(obfuscator instanceof Obfuscator, "obfuscator should be an Obfuscator");
@@ -335,6 +344,26 @@ export default class Transform {
 
     return identifier;
   }
+
+  createInitVariable = (value: ITemplate, parents: Node[]) => {
+    var key = value.templates[0];
+    if (this.initVariables.has(key)) {
+      return this.initVariables.get(key);
+    }
+
+    var root = parents[parents.length - 1];
+    ok(root.type === "Program");
+
+    var name = this.getPlaceholder();
+    this.initVariables.set(key, name);
+
+    prepend(
+      root,
+      VariableDeclaration(VariableDeclarator(name, value.single().expression))
+    );
+
+    return name;
+  };
 
   /**
    * Smartly appends a comment to a Node.

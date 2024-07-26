@@ -29,6 +29,7 @@ import { walk, isBlock } from "../traverse";
 import { ok } from "assert";
 import { isLexicalScope } from "../util/scope";
 import Template from "../templates/template";
+import { ObjectDefineProperty } from "../templates/globals";
 
 /**
  * Basic transformations to reduce code size.
@@ -259,25 +260,30 @@ export default class Minify extends Transform {
             append(
               parents[parents.length - 1] || object,
               Template(`
-            function ${this.arrowFunctionName}(arrowFn, functionLength){
+            function ${this.arrowFunctionName}(arrowFn, functionLength = 0){
               var functionObject = function(){ return arrowFn(...arguments) };
 
-              Object["defineProperty"](functionObject, "length", {
+              return {ObjectDefineProperty}(functionObject, "length", {
                 "value": functionLength,
                 "configurable": true
               });
-
-              return functionObject;
             }
-            `).single()
+            `).single({
+                ObjectDefineProperty: this.createInitVariable(
+                  ObjectDefineProperty,
+                  parents
+                ),
+              })
             );
           }
 
           const wrap = (object: Node) => {
-            return CallExpression(Identifier(this.arrowFunctionName), [
-              clone(object),
-              Literal(computeFunctionLength(object.params)),
-            ]);
+            var args: Node[] = [clone(object)];
+            var fnLength = computeFunctionLength(object.params);
+            if (fnLength != 0) {
+              args.push(Literal(fnLength));
+            }
+            return CallExpression(Identifier(this.arrowFunctionName), args);
           };
 
           if (object.type == "FunctionExpression") {

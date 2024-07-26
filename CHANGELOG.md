@@ -1,3 +1,15 @@
+# `1.7.2`
+Updates
+
+- Fixed [#131](https://github.com/MichaelXF/js-confuser/issues/131)
+- - __dirname is no longer changed by Global Concealing
+
+- Fixed [#106](https://github.com/MichaelXF/js-confuser/issues/106)
+- - Final fix for const variables for Object Extraction
+
+- Fixed [#96](https://github.com/MichaelXF/js-confuser/issues/96)
+- - Remove hardcoded limits on String Concealing, String Compression, and Duplicate Literals Removal
+
 # `1.7.1`
 Updates
 
