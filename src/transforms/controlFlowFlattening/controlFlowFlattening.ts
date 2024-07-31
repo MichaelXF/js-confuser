@@ -47,9 +47,8 @@ import {
 import { chance, choice, getRandomInteger, shuffle } from "../../util/random";
 import Transform from "../transform";
 import ExpressionObfuscation from "./expressionObfuscation";
-import { isModuleSource } from "../string/stringConcealing";
 import { reservedIdentifiers } from "../../constants";
-import { isDirective } from "../../util/compare";
+import { isDirective, isModuleSource } from "../../util/compare";
 
 const flattenStructures = new Set([
   "IfStatement",
@@ -1571,6 +1570,7 @@ export default class ControlFlowFlattening extends Transform {
               !this.isDebug &&
               o.type === "Identifier" &&
               this.mangleIdentifiers &&
+              !reservedIdentifiers.has(o.name) &&
               chance(50 - this.mangledExpressionsMade / 100) &&
               !p.find((x) => isVarContext(x))
             ) {

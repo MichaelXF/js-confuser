@@ -22,7 +22,7 @@ import {
 } from "../../util/gen";
 import { append, prepend } from "../../util/insert";
 import { chance, getRandomInteger } from "../../util/random";
-import { reservedIdentifiers } from "../../constants";
+import { predictableFunctionTag, reservedIdentifiers } from "../../constants";
 import { ComputeProbabilityMap } from "../../probability";
 import GlobalAnalysis from "./globalAnalysis";
 import { GetGlobalTemplate } from "../../templates/bufferToString";
@@ -34,7 +34,7 @@ import { GetGlobalTemplate } from "../../templates/bufferToString";
  */
 export default class GlobalConcealing extends Transform {
   globalAnalysis: GlobalAnalysis;
-  ignoreGlobals = new Set(["require", "__dirname"]);
+  ignoreGlobals = new Set(["require", "__dirname", "eval"]);
 
   constructor(o) {
     super(o, ObfuscateOrder.GlobalConcealing);
@@ -80,7 +80,8 @@ export default class GlobalConcealing extends Transform {
         // holds "window" or "global"
         var globalVar = this.getPlaceholder();
 
-        var getGlobalVariableFnName = this.getPlaceholder();
+        var getGlobalVariableFnName =
+          this.getPlaceholder() + predictableFunctionTag;
 
         // Returns global variable or fall backs to `this`
         var getGlobalVariableFn = GetGlobalTemplate.compile({
@@ -88,7 +89,7 @@ export default class GlobalConcealing extends Transform {
         });
 
         // 2. Replace old accessors
-        var globalFn = this.getPlaceholder();
+        var globalFn = this.getPlaceholder() + predictableFunctionTag;
 
         var newNames: { [globalVarName: string]: number } = Object.create(null);
 
