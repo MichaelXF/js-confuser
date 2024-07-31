@@ -184,9 +184,17 @@ test("Variant #9: Undefined as variable name", async () => {
     `
   var undefined = 0;
   var undefined = 1;
+
+  try {
+    (undefined = 0);
+    undefined = 1;
+  } catch (e) {
+  }
   `,
     { target: "node", duplicateLiteralsRemoval: true }
   );
+
+  expect(output).toContain("(undefined=");
 
   eval(output);
 });
