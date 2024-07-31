@@ -30,6 +30,7 @@ import { ok } from "assert";
 import { isLexicalScope } from "../util/scope";
 import Template from "../templates/template";
 import { ObjectDefineProperty } from "../templates/globals";
+import { getIdentifierInfo } from "../util/identifiers";
 
 /**
  * Basic transformations to reduce code size.
@@ -680,6 +681,9 @@ export default class Minify extends Transform {
     }
     if (object.type == "Identifier") {
       return () => {
+        var info = getIdentifierInfo(object, parents);
+        if (info.spec.isDefined || info.spec.isModified) return;
+
         if (object.name == "undefined" && !isForInitialize(object, parents)) {
           this.replaceIdentifierOrLiteral(
             object,

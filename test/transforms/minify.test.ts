@@ -211,6 +211,16 @@ test("Variant #11: Shorten 'undefined' to 'void 0'", async () => {
   });
 
   expect(output2).toContain("var x={[void 0]:1}");
+
+  var output3 = await JsConfuser(
+    `try { var undefined; (undefined) = true } catch(e) {}`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
+
+  eval(output3);
 });
 
 test("Variant #11: Shorten 'Infinity' to 1/0", async () => {
