@@ -1,17 +1,35 @@
 import { ObfuscateOrder } from "../order";
+import Template from "../templates/template";
 import { isBlock } from "../traverse";
 import {
+  Node,
   ExpressionStatement,
-  SequenceExpression,
-  UnaryExpression,
+  CallExpression,
+  Identifier,
 } from "../util/gen";
-import { choice } from "../util/random";
+import { prepend } from "../util/insert";
 import Transform from "./transform";
 
 // JsNice.org tries to separate sequence expressions into multiple lines, this stops that.
 export default class AntiTooling extends Transform {
+  fnName: string;
+
   constructor(o) {
     super(o, ObfuscateOrder.AntiTooling);
+  }
+
+  apply(tree: Node) {
+    super.apply(tree);
+
+    if (typeof this.fnName === "string") {
+      prepend(
+        tree,
+        Template(`
+      function {fnName}(){
+      }
+      `).single({ fnName: this.fnName })
+      );
+    }
   }
 
   match(object, parents) {
@@ -20,13 +38,14 @@ export default class AntiTooling extends Transform {
 
   transform(object, parents) {
     return () => {
-      var exprs = [];
-      var deleteExprs = [];
+      var exprs: Node[] = [];
+      var deleteExprs: Node[] = [];
 
-      var body = object.type == "SwitchCase" ? object.consequent : object.body;
+      var body: Node[] =
+        object.type == "SwitchCase" ? object.consequent : object.body;
 
       const end = () => {
-        function flatten(expr) {
+        function flatten(expr: Node) {
           if (expr.type == "ExpressionStatement") {
             flatten(expr.expression);
           } else if (expr.type == "SequenceExpression") {
@@ -41,13 +60,16 @@ export default class AntiTooling extends Transform {
 
         if (flattened.length > 1) {
           flattened[0] = { ...flattened[0] };
+
+          if (!this.fnName) {
+            this.fnName = this.getPlaceholder();
+          }
+
+          // (expr1,expr2,expr3) -> F(expr1, expr2, expr3)
           this.replace(
             exprs[0],
             ExpressionStatement(
-              UnaryExpression(
-                choice(["typeof", "void", "!"]),
-                SequenceExpression(flattened)
-              )
+              CallExpression(Identifier(this.fnName), [...flattened])
             )
           );
 

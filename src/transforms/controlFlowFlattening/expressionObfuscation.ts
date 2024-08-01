@@ -1,13 +1,46 @@
+import { criticalFunctionTag } from "../../constants";
+import Template from "../../templates/template";
 import { isBlock } from "../../traverse";
-import { Identifier, SequenceExpression } from "../../util/gen";
+import {
+  CallExpression,
+  Identifier,
+  Node,
+  SequenceExpression,
+} from "../../util/gen";
+import { prepend } from "../../util/insert";
 import Transform from "../transform";
 
 /**
  * Expression Obfuscation runs before Control Flow Flattening
  */
 export default class ExpressionObfuscation extends Transform {
+  fnName: string;
+
   constructor(o) {
     super(o);
+  }
+
+  apply(tree: Node): void {
+    super.apply(tree);
+
+    if (typeof this.fnName === "string") {
+      prepend(
+        tree,
+        Template(`
+        function {fnName}(...args){
+          return args[args["length"] - 1]
+        }
+        `).single({ fnName: this.fnName })
+      );
+    }
+  }
+
+  createSequenceExpression(expressions: Node[]): Node {
+    if (!this.fnName) {
+      this.fnName = this.getPlaceholder() + criticalFunctionTag;
+    }
+
+    return CallExpression(Identifier(this.fnName), [...expressions]);
   }
 
   match(object, parents) {
@@ -54,12 +87,12 @@ export default class ExpressionObfuscation extends Transform {
                     stmt.test.left.argument.type === "Identifier"
                   ) // typeof is special
                 ) {
-                  stmt.test.left.argument = SequenceExpression([
+                  stmt.test.left.argument = this.createSequenceExpression([
                     ...exprs,
                     { ...stmt.test.left.argument },
                   ]);
                 } else {
-                  stmt.test.left = SequenceExpression([
+                  stmt.test.left = this.createSequenceExpression([
                     ...exprs,
                     { ...stmt.test.left },
                   ]);
@@ -70,12 +103,15 @@ export default class ExpressionObfuscation extends Transform {
                 stmt.test.operator !== "**" &&
                 stmt.test.left.left.type == "UnaryExpression"
               ) {
-                stmt.test.left.left.argument = SequenceExpression([
+                stmt.test.left.left.argument = this.createSequenceExpression([
                   ...exprs,
                   { ...stmt.test.left.left.argument },
                 ]);
               } else {
-                stmt.test = SequenceExpression([...exprs, { ...stmt.test }]);
+                stmt.test = this.createSequenceExpression([
+                  ...exprs,
+                  { ...stmt.test },
+                ]);
               }
               deleteExprs.push(...exprs);
             } else if (
@@ -88,7 +124,7 @@ export default class ExpressionObfuscation extends Transform {
 
               if (init) {
                 if (init.type == "VariableDeclaration") {
-                  init.declarations[0].init = SequenceExpression([
+                  init.declarations[0].init = this.createSequenceExpression([
                     ...exprs,
                     {
                       ...(init.declarations[0].init || Identifier("undefined")),
@@ -96,7 +132,7 @@ export default class ExpressionObfuscation extends Transform {
                   ]);
                   deleteExprs.push(...exprs);
                 } else if (init.type == "AssignmentExpression") {
-                  init.right = SequenceExpression([
+                  init.right = this.createSequenceExpression([
                     ...exprs,
                     {
                       ...(init.right || Identifier("undefined")),
@@ -106,7 +142,7 @@ export default class ExpressionObfuscation extends Transform {
                 }
               }
             } else if (stmt.type == "VariableDeclaration") {
-              stmt.declarations[0].init = SequenceExpression([
+              stmt.declarations[0].init = this.createSequenceExpression([
                 ...exprs,
                 {
                   ...(stmt.declarations[0].init || Identifier("undefined")),
@@ -114,13 +150,13 @@ export default class ExpressionObfuscation extends Transform {
               ]);
               deleteExprs.push(...exprs);
             } else if (stmt.type == "ThrowStatement") {
-              stmt.argument = SequenceExpression([
+              stmt.argument = this.createSequenceExpression([
                 ...exprs,
                 { ...stmt.argument },
               ]);
               deleteExprs.push(...exprs);
             } else if (stmt.type == "ReturnStatement") {
-              stmt.argument = SequenceExpression([
+              stmt.argument = this.createSequenceExpression([
                 ...exprs,
                 { ...(stmt.argument || Identifier("undefined")) },
               ]);
