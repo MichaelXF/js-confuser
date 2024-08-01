@@ -6,10 +6,21 @@ import {
   Identifier,
   Node,
   VariableDeclarator,
+  AssignmentPattern,
 } from "../../util/gen";
-import { isForInitialize, prepend } from "../../util/insert";
+import {
+  isForInitialize,
+  isFunction,
+  isStrictModeFunction,
+  prepend,
+} from "../../util/insert";
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
+import { choice } from "../../util/random";
+import { predictableFunctionTag } from "../../constants";
+import { isIndependent, isMoveable } from "../../util/compare";
+import { getFunctionParameters } from "../../util/identifiers";
+import { isLexicalScope } from "../../util/scope";
 
 /**
  * Defines all the names at the top of every lexical block.
@@ -33,35 +44,85 @@ export default class MovedDeclarations extends Transform {
       var forInitializeType = isForInitialize(object, parents);
 
       // Get the block statement or Program node
-      var blockIndex = parents.findIndex((x) => isBlock(x));
+      var blockIndex = parents.findIndex((x) => isLexicalScope(x));
       var block = parents[blockIndex];
-      var body = block.body;
+      var body: Node[] =
+        block.type === "SwitchCase" ? block.consequent : block.body;
+      ok(Array.isArray(body), "No body array found.");
+
       var bodyObject = parents[blockIndex - 2] || object;
-
-      // Make sure in the block statement, and not already at the top of it
       var index = body.indexOf(bodyObject);
-      if (index === -1 || index === 0) return;
-
-      var topVariableDeclaration;
-      if (body[0].type === "VariableDeclaration" && body[0].kind === "var") {
-        topVariableDeclaration = body[0];
-      } else {
-        topVariableDeclaration = {
-          type: "VariableDeclaration",
-          declarations: [],
-          kind: "var",
-        };
-
-        prepend(block, topVariableDeclaration);
-      }
 
       var varName = object.declarations[0].id.name;
       ok(typeof varName === "string");
 
-      // Add `var x` at the top of the block
-      topVariableDeclaration.declarations.push(
-        VariableDeclarator(Identifier(varName))
-      );
+      var predictableFunctionIndex = parents.findIndex((x) => isFunction(x));
+      var predictableFunction = parents[predictableFunctionIndex];
+
+      var deleteStatement = false;
+
+      if (
+        predictableFunction &&
+        ((predictableFunction.id &&
+          predictableFunction.id.name.includes(predictableFunctionTag)) ||
+          predictableFunction[predictableFunctionTag]) && // Must have predictableFunctionTag in the name, or on object
+        predictableFunction.params.length < 1000 && // Max 1,000 parameters
+        !predictableFunction.params.find((x) => x.type === "RestElement") && // Cannot add parameters after spread operator
+        !(
+          ["Property", "MethodDefinition"].includes(
+            parents[predictableFunctionIndex + 1]?.type
+          ) && parents[predictableFunctionIndex + 1]?.kind !== "init"
+        ) && // Preserve getter/setter methods
+        !getFunctionParameters(
+          predictableFunction,
+          parents.slice(predictableFunctionIndex)
+        ).find((entry) => entry[0].name === varName) // Ensure not duplicate param name
+      ) {
+        // Use function f(..., x, y, z) to declare name
+
+        var value = object.declarations[0].init;
+        var isPredictablyComputed =
+          predictableFunction.body === block &&
+          !isStrictModeFunction(predictableFunction) &&
+          value &&
+          isIndependent(value, []) &&
+          isMoveable(value, [object.declarations[0], object, ...parents]);
+
+        var defineWithValue = isPredictablyComputed;
+
+        if (defineWithValue) {
+          predictableFunction.params.push(
+            AssignmentPattern(Identifier(varName), value)
+          );
+          object.declarations[0].init = null;
+          deleteStatement = true;
+        } else {
+          predictableFunction.params.push(Identifier(varName));
+        }
+      } else {
+        // Use 'var x, y, z' to declare name
+
+        // Make sure in the block statement, and not already at the top of it
+        if (index === -1 || index === 0) return;
+
+        var topVariableDeclaration;
+        if (body[0].type === "VariableDeclaration" && body[0].kind === "var") {
+          topVariableDeclaration = body[0];
+        } else {
+          topVariableDeclaration = {
+            type: "VariableDeclaration",
+            declarations: [],
+            kind: "var",
+          };
+
+          prepend(block, topVariableDeclaration);
+        }
+
+        // Add `var x` at the top of the block
+        topVariableDeclaration.declarations.push(
+          VariableDeclarator(Identifier(varName))
+        );
+      }
 
       var assignmentExpression = AssignmentExpression(
         "=",
@@ -79,8 +140,12 @@ export default class MovedDeclarations extends Transform {
           this.replace(object, Identifier(varName));
         }
       } else {
-        // Replace `var x = value` to `x = value`
-        this.replace(object, ExpressionStatement(assignmentExpression));
+        if (deleteStatement && index !== -1) {
+          body.splice(index, 1);
+        } else {
+          // Replace `var x = value` to `x = value`
+          this.replace(object, ExpressionStatement(assignmentExpression));
+        }
       }
     };
   }

@@ -10,6 +10,13 @@ Updates
 - Fixed [#96](https://github.com/MichaelXF/js-confuser/issues/96)
 - - Remove hardcoded limits on String Concealing, String Compression, and Duplicate Literals Removal
 
+- Moved Declarations improvements
+- - Now changes some variables to unused parameters on certain functions
+
+- Minor improvements
+- - Preserve Strict Mode behaviors
+- - Preserve indirect vs direct [`eval`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval) use
+
 # `1.7.1`
 Updates
 
