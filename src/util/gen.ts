@@ -1,4 +1,5 @@
 import { ok } from "assert";
+import { predictableFunctionTag } from "../constants";
 import { isValidIdentifier } from "./compare";
 
 export type Type =
@@ -306,6 +307,7 @@ export function FunctionExpression(params: Node[], body: any[]) {
     generator: false,
     expression: false,
     async: false,
+    [predictableFunctionTag]: true,
   };
 }
 
@@ -340,6 +342,7 @@ export function FunctionDeclaration(
     generator: false,
     expression: false,
     async: false,
+    [predictableFunctionTag]: true,
   };
 }
 

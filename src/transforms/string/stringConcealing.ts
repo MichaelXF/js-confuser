@@ -2,7 +2,7 @@ import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import Template from "../../templates/template";
 import { isBlock } from "../../traverse";
-import { isDirective } from "../../util/compare";
+import { isDirective, isModuleSource } from "../../util/compare";
 import {
   ArrayExpression,
   CallExpression,
@@ -27,36 +27,7 @@ import Transform from "../transform";
 import Encoding from "./encoding";
 import { ComputeProbabilityMap } from "../../probability";
 import { BufferToStringTemplate } from "../../templates/bufferToString";
-
-export function isModuleSource(object: Node, parents: Node[]) {
-  if (!parents[0]) {
-    return false;
-  }
-
-  if (parents[0].type == "ImportDeclaration" && parents[0].source == object) {
-    return true;
-  }
-
-  if (parents[0].type == "ImportExpression" && parents[0].source == object) {
-    return true;
-  }
-
-  if (
-    parents[1] &&
-    parents[1].type == "CallExpression" &&
-    parents[1].arguments[0] === object &&
-    parents[1].callee.type == "Identifier"
-  ) {
-    if (
-      parents[1].callee.name == "require" ||
-      parents[1].callee.name == "import"
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
+import { predictableFunctionTag } from "../../constants";
 
 export default class StringConcealing extends Transform {
   arrayExpression: Node;
@@ -95,14 +66,14 @@ export default class StringConcealing extends Transform {
     super.apply(tree);
 
     var cacheName = this.getPlaceholder();
-    var bufferToStringName = this.getPlaceholder();
+    var bufferToStringName = this.getPlaceholder() + predictableFunctionTag;
 
     // This helper functions convert UInt8 Array to UTf-string
     prepend(
       tree,
       ...BufferToStringTemplate.compile({
         name: bufferToStringName,
-        getGlobalFnName: this.getPlaceholder(),
+        getGlobalFnName: this.getPlaceholder() + predictableFunctionTag,
       })
     );
 

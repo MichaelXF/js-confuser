@@ -1,5 +1,9 @@
 import { ok } from "assert";
-import { noRenameVariablePrefix, reservedIdentifiers } from "../constants";
+import {
+  noRenameVariablePrefix,
+  predictableFunctionTag,
+  reservedIdentifiers,
+} from "../constants";
 import { ObfuscateOrder } from "../order";
 import { walk } from "../traverse";
 import {
@@ -236,7 +240,11 @@ export default class Flatten extends Transform {
         return;
       }
 
-      var newFnName = this.getPlaceholder() + "_flat_" + currentFnName;
+      var newFnName =
+        this.getPlaceholder() +
+        "_flat_" +
+        currentFnName +
+        predictableFunctionTag;
       var flatObjectName = this.getPlaceholder() + "_flat_object";
 
       const getFlatObjectMember = (propertyName: string) => {
@@ -499,7 +507,7 @@ export default class Flatten extends Transform {
       // Preserve function.length property
       var originalFunctionLength = computeFunctionLength(object.params);
 
-      object.params = [SpreadElement(Identifier(argumentsName))];
+      object.params = [RestElement(Identifier(argumentsName))];
 
       if (originalFunctionLength !== 0) {
         if (!this.functionLengthName) {

@@ -82,3 +82,9 @@ export const reservedIdentifiers = new Set([
 
 export const noRenameVariablePrefix = "__NO_JS_CONFUSER_RENAME__";
 export const placeholderVariablePrefix = "__p_";
+
+/**
+ * Tells the obfuscator this function is predictable:
+ * -  Never called with extraneous parameters
+ */
+export const predictableFunctionTag = "__JS_PREDICT__";

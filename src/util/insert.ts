@@ -18,6 +18,17 @@ export function isFunction(object: Node): boolean {
   ].includes(object && object.type);
 }
 
+export function isStrictModeFunction(object: Node): boolean {
+  ok(isFunction(object));
+
+  return (
+    object.body.type === "BlockStatement" &&
+    object.body.body[0] &&
+    object.body.body[0].type === "ExpressionStatement" &&
+    object.body.body[0].directive === "use strict"
+  );
+}
+
 /**
  * The function context where the object is.
  *

@@ -39,7 +39,7 @@ import Transform from "./transform";
 import { isInsideType } from "../util/compare";
 import { choice, shuffle } from "../util/random";
 import { ComputeProbabilityMap } from "../probability";
-import { reservedIdentifiers } from "../constants";
+import { predictableFunctionTag, reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
 import Template from "../templates/template";
 
@@ -221,7 +221,10 @@ export default class Dispatcher extends Transform {
             this.getPlaceholder() + "_dispatcher_" + this.count + "_payload";
 
           var dispatcherFnName =
-            this.getPlaceholder() + "_dispatcher_" + this.count;
+            this.getPlaceholder() +
+            "_dispatcher_" +
+            this.count +
+            predictableFunctionTag;
 
           this.log(dispatcherFnName, set);
           this.count++;
@@ -253,6 +256,8 @@ export default class Dispatcher extends Transform {
                     expression: false,
                     type: "FunctionExpression",
                     id: null,
+                    params: [],
+                    [predictableFunctionTag]: true,
                   };
                   this.addComment(functionExpression, name);
 
@@ -272,48 +277,6 @@ export default class Dispatcher extends Transform {
                     );
 
                     prepend(def.body, variableDeclaration);
-
-                    // replace params with random identifiers
-                    var args = [0, 1, 2].map((x) => this.getPlaceholder());
-                    functionExpression.params = args.map((x) => Identifier(x));
-
-                    var deadCode = choice(["fakeReturn", "ifStatement"]);
-
-                    switch (deadCode) {
-                      case "fakeReturn":
-                        // Dead code...
-                        var ifStatement = IfStatement(
-                          UnaryExpression("!", Identifier(args[0])),
-                          [
-                            ReturnStatement(
-                              CallExpression(Identifier(args[1]), [
-                                ThisExpression(),
-                                Identifier(args[2]),
-                              ])
-                            ),
-                          ],
-                          null
-                        );
-
-                        body.unshift(ifStatement);
-                        break;
-
-                      case "ifStatement":
-                        var test = LogicalExpression(
-                          "||",
-                          Identifier(args[0]),
-                          AssignmentExpression(
-                            "=",
-                            Identifier(args[1]),
-                            CallExpression(Identifier(args[2]), [])
-                          )
-                        );
-                        def.body = BlockStatement([
-                          IfStatement(test, [...body], null),
-                          ReturnStatement(Identifier(args[1])),
-                        ]);
-                        break;
-                    }
                   }
 
                   // For logging purposes
@@ -423,7 +386,7 @@ export default class Dispatcher extends Transform {
                                     Identifier("call"),
                                     false
                                   ),
-                                  [ThisExpression(), Literal(gen.generate())]
+                                  [ThisExpression()]
                                 )
                               ),
                             ]
@@ -439,7 +402,7 @@ export default class Dispatcher extends Transform {
                     AssignmentExpression(
                       "=",
                       Identifier(returnProp),
-                      CallExpression(getAccessor(), [Literal(gen.generate())])
+                      CallExpression(getAccessor(), [])
                     )
                   ),
                 ]

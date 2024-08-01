@@ -74,19 +74,52 @@ export function isDirective(object: Node, parents: Node[]) {
   return parents[dIndex].expression == (parents[dIndex - 1] || object);
 }
 
+export function isModuleSource(object: Node, parents: Node[]) {
+  if (!parents[0]) {
+    return false;
+  }
+
+  if (parents[0].type == "ImportDeclaration" && parents[0].source == object) {
+    return true;
+  }
+
+  if (parents[0].type == "ImportExpression" && parents[0].source == object) {
+    return true;
+  }
+
+  if (
+    parents[1] &&
+    parents[1].type == "CallExpression" &&
+    parents[1].arguments[0] === object &&
+    parents[1].callee.type == "Identifier"
+  ) {
+    if (
+      parents[1].callee.name == "require" ||
+      parents[1].callee.name == "import"
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function isMoveable(object: Node, parents: Node[]) {
+  return !isDirective(object, parents) && !isModuleSource(object, parents);
+}
+
 export function isIndependent(object: Node, parents: Node[]) {
   if (object.type == "Literal") {
     return true;
   }
 
-  var parent = parents[0];
-
   if (object.type == "Identifier") {
-    var set = new Set(["null", "undefined"]);
-    if (set.has(object.name)) {
+    if (primitiveIdentifiers.has(object.name)) {
       return true;
     }
-    if (parent.type == "Property") {
+
+    var parent = parents[0];
+    if (parent && parent.type == "Property") {
       if (!parent.computed && parent.key == object) {
         return true;
       }
@@ -105,6 +138,7 @@ export function isIndependent(object: Node, parents: Node[]) {
       if (object != $object) {
         if (!Array.isArray($object) && !isIndependent($object, $parents)) {
           allowIt = false;
+          return "EXIT";
         }
       }
     });
