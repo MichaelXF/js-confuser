@@ -88,3 +88,9 @@ export const placeholderVariablePrefix = "__p_";
  * -  Never called with extraneous parameters
  */
 export const predictableFunctionTag = "__JS_PREDICT__";
+
+/**
+ * Tels the obfuscator this function is critical for the Obfuscated code.
+ * -  Example: string decryption function
+ */
+export const criticalFunctionTag = "__JS_CRITICAL__";

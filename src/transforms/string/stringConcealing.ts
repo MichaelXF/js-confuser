@@ -24,10 +24,14 @@ import {
   getRandomString,
 } from "../../util/random";
 import Transform from "../transform";
-import Encoding from "./encoding";
+import {
+  EncodingImplementations,
+  createEncodingImplementation,
+  hasAllEncodings,
+} from "./encoding";
 import { ComputeProbabilityMap } from "../../probability";
 import { BufferToStringTemplate } from "../../templates/bufferToString";
-import { predictableFunctionTag } from "../../constants";
+import { criticalFunctionTag, predictableFunctionTag } from "../../constants";
 
 export default class StringConcealing extends Transform {
   arrayExpression: Node;
@@ -40,15 +44,12 @@ export default class StringConcealing extends Transform {
   encoding: { [type: string]: string } = Object.create(null);
   gen: ReturnType<Transform["getGenerator"]>;
 
-  hasAllEncodings: boolean;
-
   constructor(o) {
     super(o, ObfuscateOrder.StringConcealing);
 
     this.set = new Set();
     this.index = Object.create(null);
     this.arrayExpression = ArrayExpression([]);
-    this.hasAllEncodings = false;
     this.gen = this.getGenerator();
 
     // Pad array with useless strings
@@ -78,13 +79,16 @@ export default class StringConcealing extends Transform {
     );
 
     Object.keys(this.encoding).forEach((type) => {
-      var { template } = Encoding[type];
-      var decodeFn = this.getPlaceholder();
+      var { template } = EncodingImplementations[type];
+      var decodeFn = this.getPlaceholder() + criticalFunctionTag;
       var getterFn = this.encoding[type];
 
       append(
         tree,
-        template.single({ name: decodeFn, bufferToString: bufferToStringName })
+        template.single({
+          __fnName__: decodeFn,
+          __bufferToString__: bufferToStringName,
+        })
       );
 
       append(
@@ -166,37 +170,36 @@ export default class StringConcealing extends Transform {
         return;
       }
 
-      var types = Object.keys(this.encoding);
+      var encodingIdentity = choice(Object.keys(EncodingImplementations));
 
-      var type = choice(types);
-      if (!type || (!this.hasAllEncodings && chance(10))) {
-        var allowed = Object.keys(Encoding).filter(
-          (type) => !this.encoding[type]
-        );
-
-        if (!allowed.length) {
-          this.hasAllEncodings = true;
-        } else {
-          var random = choice(allowed);
-          type = random;
-
-          this.encoding[random] = this.getPlaceholder();
-        }
+      if (
+        !encodingIdentity ||
+        (!hasAllEncodings() &&
+          chance(25 / Object.keys(EncodingImplementations).length))
+      ) {
+        encodingIdentity = createEncodingImplementation().identity;
       }
 
-      var fnName = this.encoding[type];
-      var encoder = Encoding[type];
-
-      // The decode function must return correct result
-      var encoded = encoder.encode(object.value);
-      if (encoder.decode(encoded) != object.value) {
-        this.ignore.add(object.value);
-        this.warn(type, object.value.slice(0, 100));
-        return;
+      if (!this.encoding[encodingIdentity]) {
+        this.encoding[encodingIdentity] =
+          this.getPlaceholder() + predictableFunctionTag;
       }
+
+      var fnName = this.encoding[encodingIdentity];
+      var encodingImplementation = EncodingImplementations[encodingIdentity];
 
       var index = -1;
       if (!this.set.has(object.value)) {
+        // The decode function must return correct result
+        var encoded = encodingImplementation.encode(object.value);
+        if (encodingImplementation.decode(encoded) !== object.value) {
+          this.ignore.add(object.value);
+          this.warn(encodingIdentity, object.value.slice(0, 100));
+          delete EncodingImplementations[encodingIdentity];
+
+          return;
+        }
+
         this.arrayExpression.elements.push(Literal(encoded));
         index = this.arrayExpression.elements.length - 1;
         this.index[object.value] = [index, fnName];

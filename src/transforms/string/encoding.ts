@@ -1,16 +1,47 @@
-import Template from "../../templates/template";
+import Template, { ITemplate } from "../../templates/template";
+import { choice, shuffle } from "../../util/random";
 
-const Encoding: {
-  [encoding_name: string]: {
-    encode: (s) => string;
-    decode: (s) => string;
-    template: ReturnType<typeof Template>;
-  };
-} = {
-  base91: {
+/**
+ * Defines an encoding implementation the Obfuscator
+ */
+interface EncodingImplementation {
+  identity: string;
+
+  encode(s): string;
+  decode(s): string;
+  template: ITemplate;
+}
+
+let _hasAllEncodings = false;
+export function hasAllEncodings() {
+  return _hasAllEncodings;
+}
+
+export function createEncodingImplementation(): EncodingImplementation {
+  if (_hasAllEncodings) {
+    return EncodingImplementations[
+      choice(Object.keys(EncodingImplementations))
+    ];
+  }
+
+  // create base91 encoding
+  let strTable =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"';
+
+  // shuffle table
+  strTable = shuffle(strTable.split("")).join("");
+
+  let identity = "base91_" + strTable;
+
+  if (EncodingImplementations.hasOwnProperty(identity)) {
+    _hasAllEncodings = true;
+    return EncodingImplementations[identity];
+  }
+
+  var encodingImplementation = {
+    identity,
     encode(str) {
-      const table =
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"';
+      const table = strTable;
 
       const raw = Buffer.from(str, "utf-8");
       const len = raw.length;
@@ -45,8 +76,7 @@ const Encoding: {
       return ret;
     },
     decode(str) {
-      const table =
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"';
+      const table = strTable;
 
       const raw = "" + (str || "");
       const len = raw.length;
@@ -81,45 +111,51 @@ const Encoding: {
       return Buffer.from(ret).toString("utf-8");
     },
     template: Template(`  
-      function {name}(str){
-        const table =
-          'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_\`{|}~"';
-
-        const raw = "" + (str || "");
-        const len = raw.length;
-        const ret = [];
-
-        let b = 0;
-        let n = 0;
-        let v = -1;
-
-        for (let i = 0; i < len; i++) {
-          const p = table.indexOf(raw[i]);
-          if (p === -1) continue;
-          if (v < 0) {
-            v = p;
-          } else {
-            v += p * 91;
-            b |= v << n;
-            n += (v & 8191) > 88 ? 13 : 14;
-            do {
-              ret.push(b & 0xff);
-              b >>= 8;
-              n -= 8;
-            } while (n > 7);
-            v = -1;
+        function {__fnName__}(str){
+          const table = '${strTable}';
+  
+          const raw = "" + (str || "");
+          const len = raw.length;
+          const ret = [];
+  
+          let b = 0;
+          let n = 0;
+          let v = -1;
+  
+          for (let i = 0; i < len; i++) {
+            const p = table.indexOf(raw[i]);
+            if (p === -1) continue;
+            if (v < 0) {
+              v = p;
+            } else {
+              v += p * 91;
+              b |= v << n;
+              n += (v & 8191) > 88 ? 13 : 14;
+              do {
+                ret.push(b & 0xff);
+                b >>= 8;
+                n -= 8;
+              } while (n > 7);
+              v = -1;
+            }
           }
+  
+          if (v > -1) {
+            ret.push((b | (v << n)) & 0xff);
+          }
+  
+          return {__bufferToString__}(ret);
         }
+      `).ignoreMissingVariables(),
+  };
 
-        if (v > -1) {
-          ret.push((b | (v << n)) & 0xff);
-        }
+  EncodingImplementations[identity] = encodingImplementation;
+  return encodingImplementation;
+}
 
-        return {bufferToString}(ret);
-      }
-    `),
-  },
-
+export const EncodingImplementations: {
+  [encodingIdentity: string]: EncodingImplementation;
+} = {
   /* ascii85: { This implementation is flaky and causes decoding errors 
     encode(a) {
       var b, c, d, e, f, g, h, i, j, k;
@@ -209,5 +245,3 @@ const Encoding: {
     `),
   }, */
 };
-
-export default Encoding;

@@ -187,29 +187,6 @@ qFaI6S();
 
 Renames top-level variables, turn this off for web-related scripts. Enabled by default. (`true/false`)
 
-```js
-// Output (Same input from above)
-var twoSum = function (Oc4nmjB, Fk3nptX) {
-  var on_KnCm = {};
-  var lqAauc = Oc4nmjB["length"];
-  for (var mALijp8 = 0; mALijp8 < lqAauc; mALijp8++) {
-    if (Oc4nmjB[mALijp8] in on_KnCm) {
-      return [on_KnCm[Oc4nmjB[mALijp8]], mALijp8];
-    }
-    on_KnCm[Fk3nptX - Oc4nmjB[mALijp8]] = mALijp8;
-  }
-  return [-1, -1];
-};
-var test = function () {
-  var y5ySeZ = [2, 7, 11, 15];
-  var gHYMOm = 9;
-  var aAdj3v = [0, 1];
-  var GnLVHX = twoSum(y5ySeZ, gHYMOm);
-  !(ok(GnLVHX[0] === aAdj3v[0]), ok(GnLVHX[1] === aAdj3v[1]));
-};
-test();
-```
-
 ### `identifierGenerator`
 
 Determines how variables are renamed.
@@ -394,7 +371,10 @@ yAt1T_y(-93)["log"]("Hello World");
 ```
 
 ### `stringCompression`
+
 String Compression uses LZW's compression algorithm to compress strings. (`true/false/0-1`)
+
+Use a number to control the percentage of strings.
 
 `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
 

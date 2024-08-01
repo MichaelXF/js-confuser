@@ -1,17 +1,23 @@
 # `1.7.2`
 Updates
 
-- Fixed [#131](https://github.com/MichaelXF/js-confuser/issues/131)
-- - __dirname is no longer changed by Global Concealing
+- `Anti Tooling` & `Expression Obfuscation` improvements
+- - No longer expanded by [webcrack](https://github.com/j4k0xb/webcrack), [synchrony](https://github.com/relative/synchrony) & [REstringer](https://github.com/PerimeterX/restringer)
 
-- Fixed [#106](https://github.com/MichaelXF/js-confuser/issues/106)
-- - Final fix for const variables for Object Extraction
+- `String Concealing` improvements
+- - Randomizes the charset for each obfuscation - Defeating [JSConfuser-String-Decryptor](https://github.com/0v41n/JSConfuser-String-Decryptor)
+
+- `Moved Declarations` improvements
+- - Now moves some variables as unused parameters on certain functions
 
 - Fixed [#96](https://github.com/MichaelXF/js-confuser/issues/96)
-- - Remove hardcoded limits on String Concealing, String Compression, and Duplicate Literals Removal
+- - Removed hardcoded limits on `String Concealing`, `String Compression`, and `Duplicate Literals Removal`
 
-- Moved Declarations improvements
-- - Now changes some variables to unused parameters on certain functions
+- Fixed [#106](https://github.com/MichaelXF/js-confuser/issues/106)
+- - Final fix with const variables for `Object Extraction`
+
+- Fixed [#131](https://github.com/MichaelXF/js-confuser/issues/131)
+- - __dirname is no longer changed by `Global Concealing`
 
 - Minor improvements
 - - Preserve Strict Mode behaviors

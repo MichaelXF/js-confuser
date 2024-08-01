@@ -14,6 +14,10 @@ export interface ITemplate {
 
   single(variables?: { [name: string]: string | number }): Node;
 
+  variables(variables): ITemplate;
+
+  ignoreMissingVariables(): ITemplate;
+
   templates: string[];
   source: string;
 }
@@ -22,9 +26,10 @@ export default function Template(...templates: string[]): ITemplate {
   ok(templates.length);
 
   var requiredVariables = new Set<string>();
+  var providedVariables = {};
   var defaultVariables: { [key: string]: string } = Object.create(null);
 
-  var matches = templates[0].match(/{[$A-z0-9]+}/g);
+  var matches = templates[0].match(/{[$A-z0-9_]+}/g);
   if (matches !== null) {
     matches.forEach((variable) => {
       var name = variable.slice(1, -1);
@@ -44,22 +49,27 @@ export default function Template(...templates: string[]): ITemplate {
   function fill(
     variables: { [name: string]: string | number } = Object.create(null)
   ) {
+    var userVariables = { ...providedVariables, ...variables };
+
     // Validate all variables were passed in
     for (var requiredVariable of requiredVariables) {
-      if (typeof variables[requiredVariable] === "undefined") {
+      if (typeof userVariables[requiredVariable] === "undefined") {
         throw new Error(
           templates[0] +
             " missing variable: " +
             requiredVariable +
             " from " +
-            JSON.stringify(variables)
+            JSON.stringify(userVariables)
         );
       }
     }
 
     var template = choice(templates);
     var output = template;
-    var allVariables = { ...defaultVariables, ...variables };
+    var allVariables = {
+      ...defaultVariables,
+      ...userVariables,
+    };
 
     Object.keys(allVariables).forEach((name) => {
       var bracketName = "{" + name.replace("$", "\\$") + "}";
@@ -82,7 +92,10 @@ export default function Template(...templates: string[]): ITemplate {
     } catch (e) {
       console.error(e);
       console.error(template);
-      throw new Error("Template failed to parse: " + output);
+      console.error({ ...providedVariables, ...variables });
+      throw new Error(
+        "Template failed to parse: OUTPUT= " + output + " SOURCE= " + template
+      );
     }
   }
 
@@ -91,11 +104,23 @@ export default function Template(...templates: string[]): ITemplate {
     return nodes[0];
   }
 
+  function variables(newVariables) {
+    Object.assign(providedVariables, newVariables);
+    return obj;
+  }
+
+  function ignoreMissingVariables() {
+    requiredVariables.clear();
+    return obj;
+  }
+
   var obj: ITemplate = {
     fill,
     compile,
     single,
     templates,
+    variables,
+    ignoreMissingVariables,
     source: templates[0],
   };
 
