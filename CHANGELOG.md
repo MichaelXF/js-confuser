@@ -5,7 +5,9 @@ Updates
 - - No longer expanded by [webcrack](https://github.com/j4k0xb/webcrack), [synchrony](https://github.com/relative/synchrony) & [REstringer](https://github.com/PerimeterX/restringer)
 
 - `String Concealing` improvements
-- - Randomizes the charset for each obfuscation - Defeating [JSConfuser-String-Decryptor](https://github.com/0v41n/JSConfuser-String-Decryptor)
+- - Randomizes the charset for each obfuscation
+- - Place multiple decryption functions throughout the code
+- - These changes aim to defeat [JSConfuser-String-Decryptor](https://github.com/0v41n/JSConfuser-String-Decryptor) and any other RegEx-based decoders
 
 - `Moved Declarations` improvements
 - - Now moves some variables as unused parameters on certain functions
@@ -21,7 +23,7 @@ Updates
 
 - Minor improvements
 - - Preserve Strict Mode behaviors
-- - Preserve indirect vs direct [`eval`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval) use
+- - Preserve indirect vs. direct [`eval`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval) use
 
 # `1.7.1`
 Updates

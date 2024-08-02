@@ -4,7 +4,7 @@ import { choice, shuffle } from "../../util/random";
 /**
  * Defines an encoding implementation the Obfuscator
  */
-interface EncodingImplementation {
+export interface EncodingImplementation {
   identity: string;
 
   encode(s): string;

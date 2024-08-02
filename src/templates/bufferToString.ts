@@ -1,38 +1,51 @@
-import { placeholderVariablePrefix } from "../constants";
+import {
+  placeholderVariablePrefix,
+  predictableFunctionTag,
+} from "../constants";
 import Template from "./template";
 
 export const GetGlobalTemplate = Template(`
-  function CFG__getGlobalThis(){
+  function ${placeholderVariablePrefix}CFG__getGlobalThis${predictableFunctionTag}(){
     return globalThis
   }
 
-  function CFG__getGlobal(){
+  function ${placeholderVariablePrefix}CFG__getGlobal${predictableFunctionTag}(){
     return global
   }
 
-  function CFG__getWindow(){
+  function ${placeholderVariablePrefix}CFG__getWindow${predictableFunctionTag}(){
     return window
   }
 
-  function CFG__getThisFunction(){
-    new Function("return this")()
+  function ${placeholderVariablePrefix}CFG__getThisFunction${predictableFunctionTag}(){
+    return new Function("return this")()
   }
 
-  function {getGlobalFnName}(){
-    var array = [
-      CFG__getGlobalThis,
-      CFG__getGlobal,
-      CFG__getWindow,
-      CFG__getThisFunction
-    ]
+  function {getGlobalFnName}(array = [
+    ${placeholderVariablePrefix}CFG__getGlobalThis${predictableFunctionTag},
+    ${placeholderVariablePrefix}CFG__getGlobal${predictableFunctionTag},
+    ${placeholderVariablePrefix}CFG__getWindow${predictableFunctionTag},
+    ${placeholderVariablePrefix}CFG__getThisFunction${predictableFunctionTag}
+  ]){
+    var bestMatch
+    var itemsToSearch = []
+    try {
+      bestMatch = Object
+      itemsToSearch["push"](("")["__proto__"]["constructor"]["name"])
+    } catch(e) {
 
-    for(var i = 0; i < array.length; i++) {
+    }
+    A: for(var i = 0; i < array["length"]; i++) {
       try {
-        return array[i]()
+        bestMatch = array[i]()
+        for(var j = 0; j < itemsToSearch["length"]; j++) {
+          if(typeof bestMatch[itemsToSearch[j]] === "undefined") continue A;
+        }
+        return bestMatch
       } catch(e) {}
     }
 
-		return this;
+		return bestMatch || this;
   }
 `);
 
