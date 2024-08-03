@@ -648,9 +648,8 @@ function getAreaOfCircle(radius) {
 }
 
 // Output
-function getAreaOfCircle(yLu5YB1) {
-  var eUf7Wle, XVYH4D;
-  var F8QuPL = Math["PI"];
+function getAreaOfCircle(yLu5YB1, eUf7Wle, XVYH4D, F8QuPL) {
+  F8QuPL = Math["PI"];
   typeof ((eUf7Wle = Math["pow"](yLu5YB1, 2)), (XVYH4D = F8QuPL * eUf7Wle));
   return XVYH4D;
 }

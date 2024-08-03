@@ -66,6 +66,7 @@ export default class MovedDeclarations extends Transform {
         ((predictableFunction.id &&
           predictableFunction.id.name.includes(predictableFunctionTag)) ||
           predictableFunction[predictableFunctionTag]) && // Must have predictableFunctionTag in the name, or on object
+        predictableFunction[predictableFunctionTag] !== false && // If === false, the function is deemed not predictable
         predictableFunction.params.length < 1000 && // Max 1,000 parameters
         !predictableFunction.params.find((x) => x.type === "RestElement") && // Cannot add parameters after spread operator
         !(

@@ -12,6 +12,10 @@ Updates
 - `Moved Declarations` improvements
 - - Now moves some variables as unused parameters on certain functions
 
+- `RGF` improvements
+- - More likely to transform functions containing functions
+- - Preserve `function.length` property
+
 - Fixed [#96](https://github.com/MichaelXF/js-confuser/issues/96)
 - - Removed hardcoded limits on `String Concealing`, `String Compression`, and `Duplicate Literals Removal`
 

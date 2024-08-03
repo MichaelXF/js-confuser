@@ -112,18 +112,18 @@ export function createEncodingImplementation(): EncodingImplementation {
     },
     template: Template(`  
         function {__fnName__}(str){
-          const table = '${strTable}';
+          var table = '${strTable}';
   
-          const raw = "" + (str || "");
-          const len = raw.length;
-          const ret = [];
+          var raw = "" + (str || "");
+          var len = raw.length;
+          var ret = [];
   
-          let b = 0;
-          let n = 0;
-          let v = -1;
+          var b = 0;
+          var n = 0;
+          var v = -1;
   
-          for (let i = 0; i < len; i++) {
-            const p = table.indexOf(raw[i]);
+          for (var i = 0; i < len; i++) {
+            var p = table.indexOf(raw[i]);
             if (p === -1) continue;
             if (v < 0) {
               v = p;
