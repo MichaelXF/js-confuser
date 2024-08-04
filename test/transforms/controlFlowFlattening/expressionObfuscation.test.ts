@@ -1,4 +1,10 @@
+import { criticalFunctionTag } from "../../../src/constants";
 import JsConfuser from "../../../src/index";
+
+// Enable Control Flow Flattening's 'Expression Obfuscation' but skips all CFF switch transformations
+function fakeEnabled() {
+  return false;
+}
 
 test("Variant #1: Join expressions in a sequence expression", async () => {
   var output = await JsConfuser(
@@ -6,10 +12,10 @@ test("Variant #1: Join expressions in a sequence expression", async () => {
   TEST_OUTPUT=0;
   TEST_OUTPUT++;
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: fakeEnabled }
   );
 
-  expect(output).toContain("(TEST_OUTPUT=0,TEST_OUTPUT++");
+  expect(output).toContain("TEST_OUTPUT=0,TEST_OUTPUT++");
 
   var TEST_OUTPUT;
   eval(output);
@@ -25,10 +31,10 @@ test("Variant #2: If Statement", async () => {
     TEST_OUTPUT++;
   }
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: fakeEnabled }
   );
 
-  expect(output).toContain("if(TEST_OUTPUT=0,true)");
+  expect(output).toContain("TEST_OUTPUT=0,true");
 
   var TEST_OUTPUT;
   eval(output);
@@ -44,10 +50,10 @@ test("Variant #3: ForStatement (Variable Declaration initializer)", async () => 
     TEST_OUTPUT++;
   }
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: fakeEnabled }
   );
 
-  expect(output).toContain("for(var i=(TEST_OUTPUT=0,0)");
+  expect(output).toContain("TEST_OUTPUT=0,0");
 
   var TEST_OUTPUT;
   eval(output);
@@ -63,10 +69,10 @@ test("Variant #4: ForStatement (Assignment expression initializer)", async () =>
     TEST_OUTPUT++;
   }
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: fakeEnabled }
   );
 
-  expect(output).toContain("for(i=(TEST_OUTPUT=0,0)");
+  expect(output).toContain("TEST_OUTPUT=0,0");
 
   var TEST_OUTPUT, i;
   eval(output);
@@ -83,10 +89,10 @@ test("Variant #5: Return statement", async () => {
   }
   fn();
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: fakeEnabled }
   );
 
-  expect(output).toContain("return TEST_OUTPUT=10,'Value'}");
+  expect(output).toContain("TEST_OUTPUT=10,'Value'");
 
   var TEST_OUTPUT;
   eval(output);
@@ -103,10 +109,10 @@ test("Variant #6: Return statement (no argument)", async () => {
   }
   fn();
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: fakeEnabled }
   );
 
-  expect(output).toContain("return TEST_OUTPUT=10,undefined}");
+  expect(output).toContain("TEST_OUTPUT=10,undefined");
 
   var TEST_OUTPUT;
   eval(output);
@@ -127,10 +133,10 @@ test("Variant #7: Throw statement", async () => {
 
   }
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: fakeEnabled }
   );
 
-  expect(output).toContain("throw TEST_OUTPUT='Correct Value',new Error");
+  expect(output).toContain("TEST_OUTPUT='Correct Value',new Error");
 
   var TEST_OUTPUT;
   eval(output);
@@ -144,10 +150,10 @@ test("Variant #8: Variable declaration", async () => {
   TEST_OUTPUT = "Correct Value";
   var x = 1, y = 2;
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: fakeEnabled }
   );
 
-  expect(output).toContain("var x=(TEST_OUTPUT='Correct Value',1)");
+  expect(output).toContain("(TEST_OUTPUT='Correct Value'");
 
   var TEST_OUTPUT;
   eval(output);
@@ -161,13 +167,26 @@ test("Variant #9: Variable declaration (no initializer)", async () => {
   TEST_OUTPUT = "Correct Value";
   var x,y;
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: fakeEnabled }
   );
 
-  expect(output).toContain("var x=(TEST_OUTPUT='Correct Value',undefined)");
+  expect(output).toContain(`(TEST_OUTPUT='Correct Value',undefined)`);
 
   var TEST_OUTPUT;
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #10: Use function call", async () => {
+  var output = await JsConfuser(
+    `
+  TEST_OUTPUT = "Correct Value";
+  var x,y;
+  `,
+    { target: "node", controlFlowFlattening: fakeEnabled }
+  );
+
+  expect(output).toContain("function");
+  expect(output).toContain(criticalFunctionTag);
 });

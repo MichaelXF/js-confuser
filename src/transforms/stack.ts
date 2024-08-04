@@ -1,7 +1,7 @@
 import { ok } from "assert";
 import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
-import Template from "../templates/template";
+import Template, { ITemplate } from "../templates/template";
 import { walk } from "../traverse";
 import {
   AssignmentExpression,
@@ -16,6 +16,8 @@ import {
   RestElement,
   ReturnStatement,
   SequenceExpression,
+  VariableDeclaration,
+  VariableDeclarator,
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
 import {
@@ -32,6 +34,7 @@ import { chance, choice, getRandomInteger } from "../util/random";
 import Transform from "./transform";
 import { noRenameVariablePrefix } from "../constants";
 import { FunctionLengthTemplate } from "../templates/functionLength";
+import { ObjectDefineProperty } from "../templates/globals";
 
 export default class Stack extends Transform {
   mangledExpressionsMade: number;
@@ -497,12 +500,18 @@ export default class Stack extends Transform {
         Template(`${stackName}["length"] = ${startingSize}`).single()
       );
 
-      if (originalFunctionLength !== 0) {
+      if (this.options.preserveFunctionLength && originalFunctionLength !== 0) {
         if (!this.functionLengthName) {
           this.functionLengthName = this.getPlaceholder();
           prepend(
             parents[parents.length - 1] || object,
-            FunctionLengthTemplate.single({ name: this.functionLengthName })
+            FunctionLengthTemplate.single({
+              name: this.functionLengthName,
+              ObjectDefineProperty: this.createInitVariable(
+                ObjectDefineProperty,
+                parents
+              ),
+            })
           );
         }
 

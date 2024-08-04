@@ -1,13 +1,16 @@
 import { compileJsSync } from "../compiler";
-import { reservedIdentifiers } from "../constants";
+import { predictableFunctionTag, reservedIdentifiers } from "../constants";
 import Obfuscator from "../obfuscator";
 import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
+import { FunctionLengthTemplate } from "../templates/functionLength";
+import { ObjectDefineProperty } from "../templates/globals";
 import { walk } from "../traverse";
 import {
   ArrayExpression,
   BlockStatement,
   CallExpression,
+  ExpressionStatement,
   Identifier,
   Literal,
   MemberExpression,
@@ -19,7 +22,11 @@ import {
   VariableDeclarator,
 } from "../util/gen";
 import { getIdentifierInfo } from "../util/identifiers";
-import { prepend, getDefiningContext } from "../util/insert";
+import {
+  prepend,
+  getDefiningContext,
+  computeFunctionLength,
+} from "../util/insert";
 import Integrity from "./lock/integrity";
 import Transform from "./transform";
 
@@ -37,6 +44,16 @@ export default class RGF extends Transform {
   arrayExpressionElements: Node[];
   // The name of the array holding all the `new Function` expressions
   arrayExpressionName: string;
+
+  functionLengthName: string;
+
+  getFunctionLengthName(parents: Node[]) {
+    if (!this.functionLengthName) {
+      this.functionLengthName = this.getPlaceholder();
+    }
+
+    return this.functionLengthName;
+  }
 
   constructor(o) {
     super(o, ObfuscateOrder.RGF);
@@ -58,6 +75,19 @@ export default class RGF extends Transform {
             ArrayExpression(this.arrayExpressionElements)
           )
         )
+      );
+    }
+
+    // The function.length helper function must be placed last
+    if (this.functionLengthName) {
+      prepend(
+        tree,
+        FunctionLengthTemplate.single({
+          name: this.functionLengthName,
+          ObjectDefineProperty: this.createInitVariable(ObjectDefineProperty, [
+            tree,
+          ]),
+        })
       );
     }
   }
@@ -141,6 +171,7 @@ export default class RGF extends Transform {
       walk(object, parents, (o, p) => {
         if (
           o.type === "Identifier" &&
+          o.name !== this.arrayExpressionName &&
           !reservedIdentifiers.has(o.name) &&
           !this.options.globalVariables.has(o.name)
         ) {
@@ -226,9 +257,26 @@ export default class RGF extends Transform {
         generator: false,
       };
 
+      // The new program will look like this
+      // new Function(`
+      //  var rgf_array = this[0]
+      //  function greet(message){
+      //      console.log(message)
+      //  }
+      //  return greet.apply(this[1], arguments)
+      // `)
+      //
+      // And called like
+      // f.apply([ rgf_array, this ], arguments)
       var tree = {
         type: "Program",
         body: [
+          VariableDeclaration(
+            VariableDeclarator(
+              this.arrayExpressionName,
+              MemberExpression(ThisExpression(), Literal(0))
+            )
+          ),
           embeddedFunction,
           ReturnStatement(
             CallExpression(
@@ -237,7 +285,10 @@ export default class RGF extends Transform {
                 Literal("apply"),
                 true
               ),
-              [ThisExpression(), Identifier("arguments")]
+              [
+                MemberExpression(ThisExpression(), Literal(1)),
+                Identifier("arguments"),
+              ]
             )
           ),
         ],
@@ -261,11 +312,13 @@ export default class RGF extends Transform {
       this.arrayExpressionElements.push(newFunctionExpression);
 
       // The member expression to retrieve this function
-      var memberExpression = MemberExpression(
+      var memberExpression: Node = MemberExpression(
         Identifier(this.arrayExpressionName),
         Literal(newFunctionExpressionIndex),
         true
       );
+
+      var originalFunctionLength = computeFunctionLength(object.params);
 
       // Replace based on type
 
@@ -276,19 +329,55 @@ export default class RGF extends Transform {
           ReturnStatement(
             CallExpression(
               MemberExpression(memberExpression, Literal("apply"), true),
-              [ThisExpression(), Identifier("arguments")]
+              [
+                ArrayExpression([
+                  Identifier(this.arrayExpressionName),
+                  ThisExpression(),
+                ]),
+                Identifier("arguments"),
+              ]
             )
           ),
         ]);
 
         // The parameters are no longer needed ('arguments' is used to capture them)
         object.params = [];
+
+        // The function is no longer guaranteed to not have extraneous parameters passed in
+        object[predictableFunctionTag] = false;
+
+        if (
+          this.options.preserveFunctionLength &&
+          originalFunctionLength !== 0
+        ) {
+          var body = parents[0] as unknown as Node[];
+
+          body.splice(
+            body.indexOf(object),
+            0,
+            ExpressionStatement(
+              CallExpression(Identifier(this.getFunctionLengthName(parents)), [
+                Identifier(object.id.name),
+                Literal(originalFunctionLength),
+              ])
+            )
+          );
+        }
         return;
       }
 
       // (2) Function Expression:
       // - Replace expression with member expression pointing to new function
       if (object.type === "FunctionExpression") {
+        if (
+          this.options.preserveFunctionLength &&
+          originalFunctionLength !== 0
+        ) {
+          memberExpression = CallExpression(
+            Identifier(this.getFunctionLengthName(parents)),
+            [memberExpression, Literal(originalFunctionLength)]
+          );
+        }
         this.replace(object, memberExpression);
         return;
       }

@@ -326,3 +326,53 @@ test("Variant #10: Configurable by custom function option", async () => {
   expect(TEST_OUTPUT_1).toStrictEqual(false);
   expect(TEST_OUTPUT_2).toStrictEqual(true);
 });
+
+test("Variant #11: Function containing function should both be changed", async function () {
+  var output = await JsConfuser(
+    `
+    function FunctionA(){
+      function FunctionB(){
+        var bVar = 10;
+        return bVar
+      }
+
+      var bFn = FunctionB;
+      var aVar = bFn();
+      return aVar + 1
+    }
+
+    TEST_OUTPUT = FunctionA();
+  `,
+    { target: "node", rgf: true }
+  );
+
+  // 2 means one Function changed, 3 means two Functions changed
+  expect(output.split("new Function").length).toStrictEqual(3);
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(11);
+});
+
+test("Variant #12: Preserve Function.length", async function () {
+  var output = await JsConfuser(
+    `
+  function myFunction(a,b,c,d = ""){ // Function.length = 3
+
+  }
+
+  myFunction()
+  TEST_OUTPUT = myFunction.length
+  `,
+    {
+      target: "node",
+      rgf: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(3);
+});

@@ -1,12 +1,11 @@
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import Template from "../../templates/template";
-import { isBlock } from "../../traverse";
-import { isDirective } from "../../util/compare";
+import { getBlock } from "../../traverse";
+import { isDirective, isModuleSource } from "../../util/compare";
 import {
   ArrayExpression,
   CallExpression,
-  FunctionExpression,
   Identifier,
   Literal,
   MemberExpression,
@@ -22,54 +21,36 @@ import {
   choice,
   getRandomInteger,
   getRandomString,
+  shuffle,
 } from "../../util/random";
 import Transform from "../transform";
-import Encoding from "./encoding";
+import {
+  EncodingImplementation,
+  EncodingImplementations,
+  createEncodingImplementation,
+  hasAllEncodings,
+} from "./encoding";
 import { ComputeProbabilityMap } from "../../probability";
 import { BufferToStringTemplate } from "../../templates/bufferToString";
+import { criticalFunctionTag, predictableFunctionTag } from "../../constants";
 
-export function isModuleSource(object: Node, parents: Node[]) {
-  if (!parents[0]) {
-    return false;
-  }
-
-  if (parents[0].type == "ImportDeclaration" && parents[0].source == object) {
-    return true;
-  }
-
-  if (parents[0].type == "ImportExpression" && parents[0].source == object) {
-    return true;
-  }
-
-  if (
-    parents[1] &&
-    parents[1].type == "CallExpression" &&
-    parents[1].arguments[0] === object &&
-    parents[1].callee.type == "Identifier"
-  ) {
-    if (
-      parents[1].callee.name == "require" ||
-      parents[1].callee.name == "import"
-    ) {
-      return true;
-    }
-  }
-
-  return false;
+interface FunctionObject {
+  block: Node;
+  fnName: string;
+  encodingImplementation: EncodingImplementation;
 }
 
 export default class StringConcealing extends Transform {
   arrayExpression: Node;
   set: Set<string>;
-  index: { [str: string]: [number, string] };
+  index: { [str: string]: [number, string, Node] }; // index, fnName, block
 
   arrayName = this.getPlaceholder();
   ignore = new Set<string>();
   variablesMade = 1;
-  encoding: { [type: string]: string } = Object.create(null);
   gen: ReturnType<Transform["getGenerator"]>;
 
-  hasAllEncodings: boolean;
+  functionObjects: FunctionObject[] = [];
 
   constructor(o) {
     super(o, ObfuscateOrder.StringConcealing);
@@ -77,84 +58,110 @@ export default class StringConcealing extends Transform {
     this.set = new Set();
     this.index = Object.create(null);
     this.arrayExpression = ArrayExpression([]);
-    this.hasAllEncodings = false;
     this.gen = this.getGenerator();
-
-    // Pad array with useless strings
-    var dead = getRandomInteger(5, 15);
-    for (var i = 0; i < dead; i++) {
-      var str = getRandomString(getRandomInteger(5, 40));
-      var fn = this.transform(Literal(str), []);
-      if (fn) {
-        fn();
-      }
-    }
   }
 
   apply(tree) {
     super.apply(tree);
 
+    // Pad array with useless strings
+    var dead = getRandomInteger(5, 15);
+    for (var i = 0; i < dead; i++) {
+      var str = getRandomString(getRandomInteger(5, 40));
+      var fn = this.transform(Literal(str), [tree]);
+      if (fn) {
+        fn();
+      }
+    }
+
     var cacheName = this.getPlaceholder();
-    var bufferToStringName = this.getPlaceholder();
+    var bufferToStringName = this.getPlaceholder() + predictableFunctionTag;
 
     // This helper functions convert UInt8 Array to UTf-string
     prepend(
       tree,
-      ...BufferToStringTemplate.compile({ name: bufferToStringName })
+      ...BufferToStringTemplate.compile({
+        name: bufferToStringName,
+        getGlobalFnName: this.getPlaceholder() + predictableFunctionTag,
+      })
     );
 
-    Object.keys(this.encoding).forEach((type) => {
-      var { template } = Encoding[type];
-      var decodeFn = this.getPlaceholder();
-      var getterFn = this.encoding[type];
+    for (var functionObject of this.functionObjects) {
+      var {
+        block,
+        fnName: getterFnName,
+        encodingImplementation,
+      } = functionObject;
+
+      var decodeFn =
+        this.getPlaceholder() + predictableFunctionTag + criticalFunctionTag;
 
       append(
-        tree,
-        template.single({ name: decodeFn, bufferToString: bufferToStringName })
+        block,
+        encodingImplementation.template.single({
+          __fnName__: decodeFn,
+          __bufferToString__: bufferToStringName,
+        })
       );
+      // All these are fake and never ran
+      var ifStatements = Template(`if ( z == x ) {
+          return y[${cacheName}[z]] = ${getterFnName}(x, y);
+        }
+        if ( y ) {
+          [b, y] = [a(b), x || z]
+          return ${getterFnName}(x, b, z)
+        }
+        if ( z && a !== ${decodeFn} ) {
+          ${getterFnName} = ${decodeFn}
+          return ${getterFnName}(x, -1, z, a, b)
+        }
+        if ( a === ${getterFnName} ) {
+          ${decodeFn} = y
+          return ${decodeFn}(z)
+        }
+        if( a === undefined ) {
+          ${getterFnName} = b
+        }
+        if( z == a ) {
+          return y ? x[b[y]] : ${cacheName}[x] || (z=(b[x] || a), ${cacheName}[x] = z(${this.arrayName}[x]))
+        }
+        `).compile();
 
-      append(
-        tree,
+      // Not all fake if-statements are needed
+      ifStatements = ifStatements.filter(() => chance(50));
+
+      // This one is always used
+      ifStatements.push(
         Template(`
-            
-            function ${getterFn}(x, y, z, a = ${decodeFn}, b = ${cacheName}){
-              if ( z ) {
-                return y[${cacheName}[z]] = ${getterFn}(x, y);
-              } else if ( y ) {
-                [b, y] = [a(b), x || z]
-              }
-            
-              return y ? x[b[y]] : ${cacheName}[x] || (z=(b[x], a), ${cacheName}[x] = z(${this.arrayName}[x]))
-            }
-  
-            `).single()
+      if ( x !== y ) {
+        return b[x] || (b[x] = a(${this.arrayName}[x]))
+      }
+      `).single()
       );
-    });
 
-    var flowIntegrity = this.getPlaceholder();
+      shuffle(ifStatements);
+
+      var varDeclaration = Template(`
+      var ${getterFnName} = (x, y, z, a, b)=>{
+        if(typeof a === "undefined") {
+          a = ${decodeFn}
+        }
+        if(typeof b === "undefined") {
+          b = ${cacheName}
+        }
+      }
+      `).single();
+
+      varDeclaration.declarations[0].init.body.body.push(...ifStatements);
+
+      prepend(block, varDeclaration);
+    }
 
     prepend(
       tree,
       VariableDeclaration([
         VariableDeclarator(cacheName, ArrayExpression([])),
-        VariableDeclarator(flowIntegrity, Literal(0)),
-        VariableDeclarator(
-          this.arrayName,
-          CallExpression(
-            FunctionExpression(
-              [],
-              [
-                VariableDeclaration(
-                  VariableDeclarator("a", this.arrayExpression)
-                ),
-                Template(
-                  `return (${flowIntegrity} ? a["pop"]() : ${flowIntegrity}++, a)`
-                ).single(),
-              ]
-            ),
-            []
-          )
-        ),
+        VariableDeclarator(this.arrayName, this.arrayExpression),
       ])
     );
   }
@@ -192,48 +199,67 @@ export default class StringConcealing extends Transform {
         return;
       }
 
-      // HARD CODED LIMIT of 10,000 (after 1,000 elements)
-      if (this.set.size > 1000 && !chance(this.set.size / 100)) return;
+      var currentBlock = getBlock(object, parents);
 
-      var types = Object.keys(this.encoding);
+      // Find created functions
+      var functionObjects: FunctionObject[] = parents
+        .filter((node) => node.$stringConcealingFunctionObject)
+        .map((item) => item.$stringConcealingFunctionObject);
 
-      var type = choice(types);
-      if (!type || (!this.hasAllEncodings && chance(10))) {
-        var allowed = Object.keys(Encoding).filter(
-          (type) => !this.encoding[type]
-        );
+      // Choose random functionObject to use
+      var functionObject = choice(functionObjects);
 
-        if (!allowed.length) {
-          this.hasAllEncodings = true;
-        } else {
-          var random = choice(allowed);
-          type = random;
+      if (
+        !functionObject ||
+        (!hasAllEncodings() &&
+          chance(25 / this.functionObjects.length) &&
+          !currentBlock.$stringConcealingFunctionObject)
+      ) {
+        // No functions, create one
 
-          this.encoding[random] = this.getPlaceholder();
+        var newFunctionObject: FunctionObject = {
+          block: currentBlock,
+          encodingImplementation: createEncodingImplementation(),
+          fnName: this.getPlaceholder() + predictableFunctionTag,
+        };
+
+        this.functionObjects.push(newFunctionObject);
+        currentBlock.$stringConcealingFunctionObject = newFunctionObject;
+        functionObject = newFunctionObject;
+      }
+
+      var { fnName, encodingImplementation } = functionObject;
+
+      var index = -1;
+
+      // String already decoded?
+      if (this.set.has(object.value)) {
+        var row = this.index[object.value];
+        if (parents.includes(row[2])) {
+          [index, fnName] = row;
+          ok(typeof index === "number");
         }
       }
 
-      var fnName = this.encoding[type];
-      var encoder = Encoding[type];
+      if (index == -1) {
+        // The decode function must return correct result
+        var encoded = encodingImplementation.encode(object.value);
+        if (encodingImplementation.decode(encoded) !== object.value) {
+          this.ignore.add(object.value);
+          this.warn(
+            encodingImplementation.identity,
+            object.value.slice(0, 100)
+          );
+          delete EncodingImplementations[encodingImplementation.identity];
 
-      // The decode function must return correct result
-      var encoded = encoder.encode(object.value);
-      if (encoder.decode(encoded) != object.value) {
-        this.ignore.add(object.value);
-        this.warn(type, object.value.slice(0, 100));
-        return;
-      }
+          return;
+        }
 
-      var index = -1;
-      if (!this.set.has(object.value)) {
         this.arrayExpression.elements.push(Literal(encoded));
         index = this.arrayExpression.elements.length - 1;
-        this.index[object.value] = [index, fnName];
+        this.index[object.value] = [index, fnName, currentBlock];
 
         this.set.add(object.value);
-      } else {
-        [index, fnName] = this.index[object.value];
-        ok(typeof index === "number");
       }
 
       ok(index != -1, "index == -1");
@@ -269,7 +295,7 @@ export default class StringConcealing extends Transform {
 
         var constantReferenceType = choice(["variable", "array", "object"]);
 
-        var place = choice(parents.filter((node) => isBlock(node)));
+        var place = currentBlock;
         if (!place) {
           this.error(new Error("No lexical block to insert code"));
         }

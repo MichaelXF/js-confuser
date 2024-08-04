@@ -3,6 +3,12 @@ import { getBlock, isBlock } from "../traverse";
 import { Node } from "./gen";
 import { getIdentifierInfo, validateChain } from "./identifiers";
 
+export function isClass(object: Node): boolean {
+  return (
+    object.type === "ClassDeclaration" || object.type === "ClassExpression"
+  );
+}
+
 /**
  * - `FunctionDeclaration`
  * - `FunctionExpression`
@@ -16,6 +22,17 @@ export function isFunction(object: Node): boolean {
     "FunctionExpression",
     "ArrowFunctionExpression",
   ].includes(object && object.type);
+}
+
+export function isStrictModeFunction(object: Node): boolean {
+  ok(isFunction(object));
+
+  return (
+    object.body.type === "BlockStatement" &&
+    object.body.body[0] &&
+    object.body.body[0].type === "ExpressionStatement" &&
+    object.body.body[0].directive === "use strict"
+  );
 }
 
 /**

@@ -131,6 +131,8 @@ Converts output to ES5-compatible code. (`true/false`)
 
 Does not cover all cases such as Promises or Generator functions. Use [Babel](https://babel.dev/).
 
+[Learn more here.](https://github.com/MichaelXF/js-confuser/blob/master/docs/ES5.md)
+
 ### `renameVariables`
 
 Determines if variables should be renamed. (`true/false`)
@@ -184,29 +186,6 @@ qFaI6S();
 ### `renameGlobals`
 
 Renames top-level variables, turn this off for web-related scripts. Enabled by default. (`true/false`)
-
-```js
-// Output (Same input from above)
-var twoSum = function (Oc4nmjB, Fk3nptX) {
-  var on_KnCm = {};
-  var lqAauc = Oc4nmjB["length"];
-  for (var mALijp8 = 0; mALijp8 < lqAauc; mALijp8++) {
-    if (Oc4nmjB[mALijp8] in on_KnCm) {
-      return [on_KnCm[Oc4nmjB[mALijp8]], mALijp8];
-    }
-    on_KnCm[Fk3nptX - Oc4nmjB[mALijp8]] = mALijp8;
-  }
-  return [-1, -1];
-};
-var test = function () {
-  var y5ySeZ = [2, 7, 11, 15];
-  var gHYMOm = 9;
-  var aAdj3v = [0, 1];
-  var GnLVHX = twoSum(y5ySeZ, gHYMOm);
-  !(ok(GnLVHX[0] === aAdj3v[0]), ok(GnLVHX[1] === aAdj3v[1]));
-};
-test();
-```
 
 ### `identifierGenerator`
 
@@ -392,7 +371,10 @@ yAt1T_y(-93)["log"]("Hello World");
 ```
 
 ### `stringCompression`
+
 String Compression uses LZW's compression algorithm to compress strings. (`true/false/0-1`)
+
+Use a number to control the percentage of strings.
 
 `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
 
@@ -666,9 +648,8 @@ function getAreaOfCircle(radius) {
 }
 
 // Output
-function getAreaOfCircle(yLu5YB1) {
-  var eUf7Wle, XVYH4D;
-  var F8QuPL = Math["PI"];
+function getAreaOfCircle(yLu5YB1, eUf7Wle, XVYH4D, F8QuPL) {
+  F8QuPL = Math["PI"];
   typeof ((eUf7Wle = Math["pow"](yLu5YB1, 2)), (XVYH4D = F8QuPL * eUf7Wle));
   return XVYH4D;
 }
@@ -835,7 +816,11 @@ These features are experimental or a security concern.
   // experimental
   identifierGenerator: function(){
     return "myvar_" + (counter++);
-  }
+  },
+
+  // Modified functions will retain the correct `function.length` property.
+  // Enabled by default.
+  preserveFunctionLength: false
 }
 ```
 

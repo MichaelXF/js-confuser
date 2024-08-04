@@ -2,7 +2,7 @@ import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import { ComputeProbabilityMap } from "../../probability";
 import Template from "../../templates/template";
-import { isDirective } from "../../util/compare";
+import { isDirective, isModuleSource } from "../../util/compare";
 import {
   CallExpression,
   FunctionDeclaration,
@@ -16,8 +16,8 @@ import {
 } from "../../util/gen";
 import { append, prepend } from "../../util/insert";
 import Transform from "../transform";
-import { isModuleSource } from "./stringConcealing";
-import { chance } from "../../util/random";
+import { predictableFunctionTag } from "../../constants";
+
 function LZ_encode(c) {
   ok(c);
   var x = "charCodeAt",
@@ -94,7 +94,7 @@ export default class StringCompression extends Transform {
     this.map = new Map();
     this.ignore = new Set();
     this.string = "";
-    this.fnName = this.getPlaceholder();
+    this.fnName = this.getPlaceholder() + predictableFunctionTag;
   }
 
   apply(tree) {
@@ -107,7 +107,7 @@ export default class StringCompression extends Transform {
 
     var split = this.getPlaceholder();
     var decoder = this.getPlaceholder();
-    var getStringName = this.getPlaceholder();
+    var getStringName = this.getPlaceholder() + predictableFunctionTag; // Returns the string payload
 
     var encoded = LZ_encode(this.string);
     if (LZ_decode(encoded) !== this.string) {
@@ -209,9 +209,6 @@ export default class StringCompression extends Transform {
     ) {
       return;
     }
-
-    // HARD CODED LIMIT of 10,000 (after 1,000 elements)
-    if (this.map.size > 1000 && !chance(this.map.size / 100)) return;
 
     var index = this.map.get(object.value);
 

@@ -482,6 +482,8 @@ test("Variant #16: Handle const declarations", async () => {
     }
   );
 
+  expect(output).toContain("let");
+
   var TEST_OUTPUT;
   eval(output);
 

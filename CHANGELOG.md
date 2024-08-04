@@ -1,3 +1,41 @@
+# `1.7.2`
+Updates
+
+- `Anti Tooling` & `Expression Obfuscation` improvements
+- - No longer expanded by [webcrack](https://github.com/j4k0xb/webcrack), [synchrony](https://github.com/relative/synchrony) & [REstringer](https://github.com/PerimeterX/restringer)
+
+- `String Concealing` improvements
+- - Randomizes the charset for each obfuscation
+- - Place multiple decryption functions throughout the code
+- - These changes aim to defeat [JSConfuser-String-Decryptor](https://github.com/0v41n/JSConfuser-String-Decryptor) and any other RegEx-based decoders
+
+- `Moved Declarations` improvements
+- - Now moves some variables as unused parameters on certain functions
+
+- `RGF` improvements
+- - More likely to transform functions containing functions
+
+- Fixed [#96](https://github.com/MichaelXF/js-confuser/issues/96)
+- - Removed hardcoded limits on `String Concealing`, `String Compression`, and `Duplicate Literals Removal`
+
+- Fixed [#106](https://github.com/MichaelXF/js-confuser/issues/106)
+- - Final fix with const variables for `Object Extraction`
+
+- Fixed [#131](https://github.com/MichaelXF/js-confuser/issues/131)
+- - __dirname is no longer changed by `Global Concealing`
+
+**New Option**
+
+### `preserveFunctionLength`
+- Modified functions will retain the correct `function.length` property. (`true/false`)
+Enabled by default.
+
+Minor improvements
+- Preserve `function.length`
+- Preserve Strict Mode behaviors
+- Preserve indirect vs. direct [`eval`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval) use
+
+
 # `1.7.1`
 Updates
 

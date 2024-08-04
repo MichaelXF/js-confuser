@@ -29,6 +29,8 @@ import { walk, isBlock } from "../traverse";
 import { ok } from "assert";
 import { isLexicalScope } from "../util/scope";
 import Template from "../templates/template";
+import { ObjectDefineProperty } from "../templates/globals";
+import { getIdentifierInfo } from "../util/identifiers";
 
 /**
  * Basic transformations to reduce code size.
@@ -259,25 +261,34 @@ export default class Minify extends Transform {
             append(
               parents[parents.length - 1] || object,
               Template(`
-            function ${this.arrowFunctionName}(arrowFn, functionLength){
+            function ${this.arrowFunctionName}(arrowFn, functionLength = 0){
               var functionObject = function(){ return arrowFn(...arguments) };
 
-              Object["defineProperty"](functionObject, "length", {
-                "value": functionLength,
-                "configurable": true
-              });
-
-              return functionObject;
+              ${
+                this.options.preserveFunctionLength
+                  ? `return {ObjectDefineProperty}(functionObject, "length", {
+                  "value": functionLength,
+                  "configurable": true
+                });`
+                  : `return functionObject`
+              }
+           
             }
-            `).single()
+            `).single({
+                ObjectDefineProperty: this.options.preserveFunctionLength
+                  ? this.createInitVariable(ObjectDefineProperty, parents)
+                  : undefined,
+              })
             );
           }
 
           const wrap = (object: Node) => {
-            return CallExpression(Identifier(this.arrowFunctionName), [
-              clone(object),
-              Literal(computeFunctionLength(object.params)),
-            ]);
+            var args: Node[] = [clone(object)];
+            var fnLength = computeFunctionLength(object.params);
+            if (this.options.preserveFunctionLength && fnLength != 0) {
+              args.push(Literal(fnLength));
+            }
+            return CallExpression(Identifier(this.arrowFunctionName), args);
           };
 
           if (object.type == "FunctionExpression") {
@@ -619,6 +630,7 @@ export default class Minify extends Transform {
 
       if (
         object.id.type == "ObjectPattern" &&
+        object.init &&
         object.init.type == "ObjectExpression"
       ) {
         if (
@@ -673,6 +685,9 @@ export default class Minify extends Transform {
     }
     if (object.type == "Identifier") {
       return () => {
+        var info = getIdentifierInfo(object, parents);
+        if (info.spec.isDefined || info.spec.isModified) return;
+
         if (object.name == "undefined" && !isForInitialize(object, parents)) {
           this.replaceIdentifierOrLiteral(
             object,

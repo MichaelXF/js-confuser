@@ -94,8 +94,17 @@ export default class AntiClass extends Transform {
             first.expression.type == "CallExpression"
           ) {
             if (first.expression.callee.type == "Super") {
+              /// super(...args)
               superArguments = first.expression.arguments;
               value.body.body.shift();
+            } else if (
+              // F(super(...args))
+              first.expression.arguments[0] &&
+              first.expression.arguments[0].type === "CallExpression" &&
+              first.expression.arguments[0].callee.type === "Super"
+            ) {
+              superArguments = first.expression.arguments[0].arguments;
+              first.expression.arguments[0] = Identifier("undefined");
             }
           }
 
@@ -198,7 +207,7 @@ export default class AntiClass extends Transform {
       );
 
       if (superName) {
-        ok(superArguments, "Super class with no super arguments");
+        ok(superArguments, "Failed to find super() arguments");
 
         // save the super state
         virtualBody.unshift(

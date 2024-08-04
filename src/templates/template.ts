@@ -1,57 +1,103 @@
 import { Node } from "../util/gen";
 import { parseSnippet, parseSync } from "../parser";
+import { ok } from "assert";
+import { choice } from "../util/random";
+import { placeholderVariablePrefix } from "../constants";
 
 export interface ITemplate {
-  fill(variables?: { [name: string]: string | number }): string;
+  fill(variables?: { [name: string]: string | number }): {
+    output: string;
+    template: string;
+  };
 
   compile(variables?: { [name: string]: string | number }): Node[];
 
   single(variables?: { [name: string]: string | number }): Node;
 
+  variables(variables): ITemplate;
+
+  ignoreMissingVariables(): ITemplate;
+
+  templates: string[];
   source: string;
 }
 
-export default function Template(template: string): ITemplate {
-  var neededVariables = 0;
-  while (template.includes(`{$${neededVariables + 1}}`)) {
-    neededVariables++;
-  }
-  var vars = Object.create(null);
-  new Array(neededVariables + 1).fill(0).forEach((x, i) => {
-    vars["\\$" + i] = "temp_" + i;
-  });
+export default function Template(...templates: string[]): ITemplate {
+  ok(templates.length);
 
-  function fill(variables?: { [name: string]: string | number }): string {
-    if (!variables) {
-      variables = Object.create(null);
+  var requiredVariables = new Set<string>();
+  var providedVariables = {};
+  var defaultVariables: { [key: string]: string } = Object.create(null);
+
+  // This may picked up "$mb[pP`x]" from String Encoding function
+  // ignoreMissingVariables() prevents this
+  var matches = templates[0].match(/{[$A-z0-9_]+}/g);
+  if (matches !== null) {
+    matches.forEach((variable) => {
+      var name = variable.slice(1, -1);
+
+      // $ variables are for default variables
+      if (name.startsWith("$")) {
+        defaultVariables[name] =
+          placeholderVariablePrefix +
+          "td_" +
+          Object.keys(defaultVariables).length;
+      } else {
+        requiredVariables.add(name);
+      }
+    });
+  }
+
+  function fill(
+    variables: { [name: string]: string | number } = Object.create(null)
+  ) {
+    var userVariables = { ...providedVariables, ...variables };
+
+    // Validate all variables were passed in
+    for (var requiredVariable of requiredVariables) {
+      if (typeof userVariables[requiredVariable] === "undefined") {
+        throw new Error(
+          templates[0] +
+            " missing variable: " +
+            requiredVariable +
+            " from " +
+            JSON.stringify(userVariables)
+        );
+      }
     }
 
-    var cloned = template;
+    var template = choice(templates);
+    var output = template;
+    var allVariables = {
+      ...defaultVariables,
+      ...userVariables,
+    };
 
-    var keys = { ...variables, ...vars };
-
-    Object.keys(keys).forEach((name) => {
-      var bracketName = "{" + name + "}";
-      var value = keys[name] + "";
+    Object.keys(allVariables).forEach((name) => {
+      var bracketName = "{" + name.replace("$", "\\$") + "}";
+      var value = allVariables[name] + "";
 
       var reg = new RegExp(bracketName, "g");
 
-      cloned = cloned.replace(reg, value);
+      output = output.replace(reg, value);
     });
 
-    return cloned;
+    return { output, template };
   }
 
   function compile(variables: { [name: string]: string | number }): Node[] {
-    var code = fill(variables);
+    var { output, template } = fill(variables);
     try {
-      var program = parseSnippet(code);
+      var program = parseSnippet(output);
 
       return program.body;
     } catch (e) {
       console.error(e);
       console.error(template);
-      throw new Error("Template failed to parse");
+      console.error({ ...providedVariables, ...variables });
+      throw new Error(
+        "Template failed to parse: OUTPUT= " + output + " SOURCE= " + template
+      );
     }
   }
 
@@ -60,11 +106,25 @@ export default function Template(template: string): ITemplate {
     return nodes[0];
   }
 
+  function variables(newVariables) {
+    Object.assign(providedVariables, newVariables);
+    return obj;
+  }
+
+  function ignoreMissingVariables() {
+    defaultVariables = Object.create(null);
+    requiredVariables.clear();
+    return obj;
+  }
+
   var obj: ITemplate = {
     fill,
     compile,
     single,
-    source: template,
+    templates,
+    variables,
+    ignoreMissingVariables,
+    source: templates[0],
   };
 
   return obj;

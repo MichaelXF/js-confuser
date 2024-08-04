@@ -3,8 +3,7 @@ import { Node, Literal, BinaryExpression } from "../../util/gen";
 import { clone } from "../../util/insert";
 import { getRandomInteger, shuffle, splitIntoChunks } from "../../util/random";
 import { ObfuscateOrder } from "../../order";
-import { isModuleSource } from "./stringConcealing";
-import { isDirective } from "../../util/compare";
+import { isDirective, isModuleSource } from "../../util/compare";
 import { ok } from "assert";
 import { ComputeProbabilityMap } from "../../probability";
 

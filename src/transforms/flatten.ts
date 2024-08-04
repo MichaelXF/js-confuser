@@ -1,5 +1,9 @@
 import { ok } from "assert";
-import { noRenameVariablePrefix, reservedIdentifiers } from "../constants";
+import {
+  noRenameVariablePrefix,
+  predictableFunctionTag,
+  reservedIdentifiers,
+} from "../constants";
 import { ObfuscateOrder } from "../order";
 import { walk } from "../traverse";
 import {
@@ -35,6 +39,7 @@ import {
 import { shuffle } from "../util/random";
 import Transform from "./transform";
 import { FunctionLengthTemplate } from "../templates/functionLength";
+import { ObjectDefineProperty } from "../templates/globals";
 
 /**
  * Flatten takes functions and isolates them from their original scope, and brings it to the top level of the program.
@@ -235,7 +240,11 @@ export default class Flatten extends Transform {
         return;
       }
 
-      var newFnName = this.getPlaceholder() + "_flat_" + currentFnName;
+      var newFnName =
+        this.getPlaceholder() +
+        "_flat_" +
+        currentFnName +
+        predictableFunctionTag;
       var flatObjectName = this.getPlaceholder() + "_flat_object";
 
       const getFlatObjectMember = (propertyName: string) => {
@@ -498,15 +507,21 @@ export default class Flatten extends Transform {
       // Preserve function.length property
       var originalFunctionLength = computeFunctionLength(object.params);
 
-      object.params = [SpreadElement(Identifier(argumentsName))];
+      object.params = [RestElement(Identifier(argumentsName))];
 
-      if (originalFunctionLength !== 0) {
+      if (this.options.preserveFunctionLength && originalFunctionLength !== 0) {
         if (!this.functionLengthName) {
           this.functionLengthName = this.getPlaceholder();
 
           prepend(
             parents[parents.length - 1] || object,
-            FunctionLengthTemplate.single({ name: this.functionLengthName })
+            FunctionLengthTemplate.single({
+              name: this.functionLengthName,
+              ObjectDefineProperty: this.createInitVariable(
+                ObjectDefineProperty,
+                parents
+              ),
+            })
           );
         }
 

@@ -1,3 +1,4 @@
+import { predictableFunctionTag } from "../../../src/constants";
 import JsConfuser from "../../../src/index";
 
 test("Variant #1: Move variable 'y' to top", async () => {
@@ -211,4 +212,64 @@ test("Variant #9: Defined variable without an initializer", async () => {
   var TEST_OUTPUT;
   eval(output2);
   expect(TEST_OUTPUT).toStrictEqual(3);
+});
+
+test("Variant #10: Move parameters to predictable function", async () => {
+  var code = `
+  function testFunction${predictableFunctionTag}_FN(){
+    var values = [10,20,35,"40", null]
+    var parseIntKey = "parseInt"
+    var output = 0
+    var utils = {
+      get parser${predictableFunctionTag}(){
+        var fn = (value)=>{
+          return global[parseIntKey](value)
+        }
+        return fn
+      },
+
+      set setter_fn${predictableFunctionTag}(newValue){
+        var fakeVar
+      }
+    }
+    
+    class FakeClass {
+      constructor(){
+      }
+
+      get fakeGet${predictableFunctionTag}(){
+        var fakeVar
+      }
+    }
+
+    for(var value of values) {
+      switch(value){
+        case null:
+          break;
+
+        default:
+          var stringifiedValue = "" + value
+          var parsedValue = utils.parser${predictableFunctionTag}(stringifiedValue)
+          output += parsedValue;
+          break;
+      }
+    }
+
+    return output
+  }
+
+  TEST_OUTPUT = testFunction${predictableFunctionTag}_FN()
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    movedDeclarations: true,
+  });
+
+  expect(output).toContain("_FN(values");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(105);
 });

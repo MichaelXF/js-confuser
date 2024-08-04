@@ -46,11 +46,11 @@ export enum ObfuscateOrder {
 
   Minify = 28,
 
+  AntiTooling = 29,
+
   RenameVariables = 30,
 
   ES5 = 31,
-
-  AntiTooling = 34,
 
   Finalizer = 35,
 }

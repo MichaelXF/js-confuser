@@ -1,19 +1,59 @@
+import {
+  placeholderVariablePrefix,
+  predictableFunctionTag,
+} from "../constants";
 import Template from "./template";
 
-export const BufferToStringTemplate = Template(`
-  function __getGlobal(){
-    try {
-      return global||window|| ( new Function("return this") )();
-    } catch ( e ) {
-      try {
-        return this;
-      } catch ( e ) {
-        return {};
-      }
-    }
+export const GetGlobalTemplate = Template(`
+  function ${placeholderVariablePrefix}CFG__getGlobalThis${predictableFunctionTag}(){
+    return globalThis
   }
 
-  var __globalObject = __getGlobal() || {};
+  function ${placeholderVariablePrefix}CFG__getGlobal${predictableFunctionTag}(){
+    return global
+  }
+
+  function ${placeholderVariablePrefix}CFG__getWindow${predictableFunctionTag}(){
+    return window
+  }
+
+  function ${placeholderVariablePrefix}CFG__getThisFunction${predictableFunctionTag}(){
+    return new Function("return this")()
+  }
+
+  function {getGlobalFnName}(array = [
+    ${placeholderVariablePrefix}CFG__getGlobalThis${predictableFunctionTag},
+    ${placeholderVariablePrefix}CFG__getGlobal${predictableFunctionTag},
+    ${placeholderVariablePrefix}CFG__getWindow${predictableFunctionTag},
+    ${placeholderVariablePrefix}CFG__getThisFunction${predictableFunctionTag}
+  ]){
+    var bestMatch
+    var itemsToSearch = []
+    try {
+      bestMatch = Object
+      itemsToSearch["push"](("")["__proto__"]["constructor"]["name"])
+    } catch(e) {
+
+    }
+    A: for(var i = 0; i < array["length"]; i++) {
+      try {
+        bestMatch = array[i]()
+        for(var j = 0; j < itemsToSearch["length"]; j++) {
+          if(typeof bestMatch[itemsToSearch[j]] === "undefined") continue A;
+        }
+        return bestMatch
+      } catch(e) {}
+    }
+
+		return bestMatch || this;
+  }
+`);
+
+export const BufferToStringTemplate = Template(`
+
+  ${GetGlobalTemplate.source}
+
+  var __globalObject = {getGlobalFnName}() || {};
   var __TextDecoder = __globalObject["TextDecoder"];
   var __Uint8Array = __globalObject["Uint8Array"];
   var __Buffer = __globalObject["Buffer"];
@@ -63,6 +103,4 @@ export const BufferToStringTemplate = Template(`
       return utf8ArrayToStr(buffer);
     }
   }
-
-  
 `);

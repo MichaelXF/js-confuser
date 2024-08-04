@@ -211,6 +211,16 @@ test("Variant #11: Shorten 'undefined' to 'void 0'", async () => {
   });
 
   expect(output2).toContain("var x={[void 0]:1}");
+
+  var output3 = await JsConfuser(
+    `try { var undefined; (undefined) = true } catch(e) {}`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
+
+  eval(output3);
 });
 
 test("Variant #11: Shorten 'Infinity' to 1/0", async () => {
@@ -527,6 +537,33 @@ test("Variant #27: Preserve function.length property", async () => {
     function threeParameters(a,b,c,d = 1,{e},...f){};
 
     TEST_OUTPUT = oneParameter.length + twoParameters.length + threeParameters.length;
+  `,
+    { target: "node", minify: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(6);
+});
+
+// https://github.com/MichaelXF/js-confuser/issues/125
+test("Variant #28: Don't break destructuring assignment", async () => {
+  var output = await JsConfuser(
+    `
+    let objectSlice = [];
+    objectSlice.push({
+      a: 1,
+      b: 2,
+      c: 3,
+    })
+    for (let {
+      a,
+      b,
+      c
+    } of objectSlice) {
+      TEST_OUTPUT = a + b + c;
+    }
   `,
     { target: "node", minify: true }
   );

@@ -1,3 +1,4 @@
+import Template from "../src/templates/template";
 import { isIndependent } from "../src/util/compare";
 import {
   ArrayExpression,
@@ -17,9 +18,9 @@ describe("isIndependent", () => {
     ).toStrictEqual(false);
   });
 
-  it("should return true for reserved identifiers (null, undefined, etc)", () => {
+  it("should return true for reserved identifiers (undefined, NaN, etc)", () => {
     expect(
-      isIndependent(Identifier("null"), [{ type: "Program" }])
+      isIndependent(Identifier("undefined"), [{ type: "Program" }])
     ).toStrictEqual(true);
   });
 
@@ -40,5 +41,64 @@ describe("isIndependent", () => {
 
   it("should return false for everything else", () => {
     expect(isIndependent(FunctionExpression([], []), [])).toStrictEqual(false);
+  });
+
+  it("various cases", () => {
+    expect(
+      isIndependent(
+        Template(`({
+      x: 1,
+      y: 2,
+      z: 3,
+    })`).single().expression,
+        []
+      )
+    ).toStrictEqual(true);
+
+    expect(
+      isIndependent(
+        Template(`({
+      x: 1,
+      y: 2,
+      z: [3,4,5,6,7,"My String",undefined,null,NaN],
+    })`).single().expression,
+        []
+      )
+    ).toStrictEqual(true);
+
+    expect(
+      isIndependent(
+        Template(`({
+      x: 1,
+      y: 2,
+      z: 3,
+      _: function(){return value}
+    })`).single().expression,
+        []
+      )
+    ).toStrictEqual(false);
+
+    expect(
+      isIndependent(
+        Template(`({
+      x: 1,
+      y: 2,
+      z: 3,
+      _: [value]
+    })`).single().expression,
+        []
+      )
+    ).toStrictEqual(false);
+
+    expect(
+      isIndependent(
+        Template(`([
+          {
+            x: value
+          }
+        ])`).single().expression,
+        []
+      )
+    ).toStrictEqual(false);
   });
 });

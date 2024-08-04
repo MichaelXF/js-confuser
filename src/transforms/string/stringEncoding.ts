@@ -1,7 +1,6 @@
 import Transform from "../transform";
 import { choice } from "../../util/random";
-import { isDirective } from "../../util/compare";
-import { isModuleSource } from "./stringConcealing";
+import { isDirective, isModuleSource } from "../../util/compare";
 import { ComputeProbabilityMap } from "../../probability";
 import { Identifier } from "../../util/gen";
 

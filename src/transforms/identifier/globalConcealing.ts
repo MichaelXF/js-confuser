@@ -22,9 +22,10 @@ import {
 } from "../../util/gen";
 import { append, prepend } from "../../util/insert";
 import { chance, getRandomInteger } from "../../util/random";
-import { reservedIdentifiers } from "../../constants";
+import { predictableFunctionTag, reservedIdentifiers } from "../../constants";
 import { ComputeProbabilityMap } from "../../probability";
 import GlobalAnalysis from "./globalAnalysis";
+import { GetGlobalTemplate } from "../../templates/bufferToString";
 
 /**
  * Global Concealing hides global variables being accessed.
@@ -33,6 +34,7 @@ import GlobalAnalysis from "./globalAnalysis";
  */
 export default class GlobalConcealing extends Transform {
   globalAnalysis: GlobalAnalysis;
+  ignoreGlobals = new Set(["require", "__dirname", "eval"]);
 
   constructor(o) {
     super(o, ObfuscateOrder.GlobalConcealing);
@@ -52,7 +54,9 @@ export default class GlobalConcealing extends Transform {
         delete globals[del];
       });
 
-      delete globals["require"];
+      for (var varName of this.ignoreGlobals) {
+        delete globals[varName];
+      }
 
       reservedIdentifiers.forEach((x) => {
         delete globals[x];
@@ -69,55 +73,33 @@ export default class GlobalConcealing extends Transform {
       });
 
       if (Object.keys(globals).length > 0) {
-        var used = new Set();
+        var usedStates = new Set<number>();
 
         // Make getter function
 
         // holds "window" or "global"
         var globalVar = this.getPlaceholder();
 
-        // holds outermost "this"
-        var thisVar = this.getPlaceholder();
-
-        // "window" or "global" in node
-        var global =
-          this.options.globalVariables.values().next().value || "window";
-        var alternateGlobal = global === "window" ? "global" : "window";
-
-        var getGlobalVariableFnName = this.getPlaceholder();
-        var getThisVariableFnName = this.getPlaceholder();
+        var getGlobalVariableFnName =
+          this.getPlaceholder() + predictableFunctionTag;
 
         // Returns global variable or fall backs to `this`
-        var getGlobalVariableFn = Template(`
-        var ${getGlobalVariableFnName} = function(){
-          try {
-            return ${global} || ${alternateGlobal} || (new Function("return this"))();
-          } catch (e){
-            return ${getThisVariableFnName}["call"](this);
-          }
-        }`).single();
-
-        var getThisVariableFn = Template(`
-        var ${getThisVariableFnName} = function(){
-          try {
-            return this;
-          } catch (e){
-            return null;
-          }
-        }`).single();
+        var getGlobalVariableFn = GetGlobalTemplate.compile({
+          getGlobalFnName: getGlobalVariableFnName,
+        });
 
         // 2. Replace old accessors
-        var globalFn = this.getPlaceholder();
+        var globalFn = this.getPlaceholder() + predictableFunctionTag;
 
         var newNames: { [globalVarName: string]: number } = Object.create(null);
 
         Object.keys(globals).forEach((name) => {
           var locations: Location[] = globals[name];
-          var state;
+          var state: number;
           do {
-            state = getRandomInteger(-1000, 1000 + used.size);
-          } while (used.has(state));
-          used.add(state);
+            state = getRandomInteger(-1000, 1000 + usedStates.size);
+          } while (usedStates.has(state));
+          usedStates.add(state);
 
           newNames[name] = state;
 
@@ -136,10 +118,10 @@ export default class GlobalConcealing extends Transform {
             do {
               state = getRandomInteger(
                 0,
-                1000 + used.size + this.options.globalVariables.size * 100
+                1000 + usedStates.size + this.options.globalVariables.size * 100
               );
-            } while (used.has(state));
-            used.add(state);
+            } while (usedStates.has(state));
+            usedStates.add(state);
 
             newNames[name] = state;
           }
@@ -159,15 +141,7 @@ export default class GlobalConcealing extends Transform {
                 var code = newNames[name];
                 var body: Node[] = [
                   ReturnStatement(
-                    LogicalExpression(
-                      "||",
-                      MemberExpression(
-                        Identifier(globalVar),
-                        Literal(name),
-                        true
-                      ),
-                      MemberExpression(Identifier(thisVar), Literal(name), true)
-                    )
+                    MemberExpression(Identifier(globalVar), Literal(name), true)
                   ),
                 ];
                 if (chance(50)) {
@@ -180,7 +154,7 @@ export default class GlobalConcealing extends Transform {
                           "||",
                           Literal(name),
                           MemberExpression(
-                            Identifier(thisVar),
+                            Identifier(globalVar),
                             Literal(name),
                             true
                           )
@@ -195,18 +169,10 @@ export default class GlobalConcealing extends Transform {
               })
             ),
             ReturnStatement(
-              LogicalExpression(
-                "||",
-                MemberExpression(
-                  Identifier(globalVar),
-                  Identifier(returnName),
-                  true
-                ),
-                MemberExpression(
-                  Identifier(thisVar),
-                  Identifier(returnName),
-                  true
-                )
+              MemberExpression(
+                Identifier(globalVar),
+                Identifier(returnName),
+                true
               )
             ),
           ]
@@ -215,7 +181,7 @@ export default class GlobalConcealing extends Transform {
         var tempVar = this.getPlaceholder();
 
         var variableDeclaration = Template(`
-        var ${globalVar}, ${thisVar};
+        var ${globalVar};
         `).single();
 
         variableDeclaration.declarations.push(
@@ -226,11 +192,9 @@ export default class GlobalConcealing extends Transform {
                 FunctionExpression(
                   [],
                   [
-                    getGlobalVariableFn,
-                    getThisVariableFn,
-
+                    ...getGlobalVariableFn,
                     Template(
-                      `return ${thisVar} = ${getThisVariableFnName}["call"](this, ${globalFn}), ${globalVar} = ${getGlobalVariableFnName}["call"](this)`
+                      `return ${globalVar} = ${getGlobalVariableFnName}["call"](this)`
                     ).single(),
                   ]
                 ),

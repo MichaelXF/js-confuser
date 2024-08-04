@@ -51,3 +51,22 @@ test("Variant #3: Properly hide in default parameter, function expression", asyn
 
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/131
+test("Variant #4: Don't change __dirname", async function () {
+  var code = `
+  TEST_OUTPUT = __dirname;
+  `;
+
+  var output = await JsConfuser(code, {
+    target: "node",
+    globalConcealing: true,
+  });
+
+  expect(output).toContain("__dirname");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(typeof TEST_OUTPUT).toStrictEqual("string");
+});

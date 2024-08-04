@@ -16,15 +16,14 @@ import {
   ConditionalExpression,
 } from "../../util/gen";
 import { append, clone, prepend } from "../../util/insert";
-import { isDirective, isPrimitive } from "../../util/compare";
-
+import { isDirective, isModuleSource, isPrimitive } from "../../util/compare";
 import { ObfuscateOrder } from "../../order";
-import { isModuleSource } from "../string/stringConcealing";
 import { ComputeProbabilityMap } from "../../probability";
 import { ok } from "assert";
 import { chance, choice, getRandomInteger } from "../../util/random";
 import { getBlock } from "../../traverse";
 import { getIdentifierInfo } from "../../util/identifiers";
+import { predictableFunctionTag } from "../../constants";
 
 /**
  * [Duplicate Literals Removal](https://docs.jscrambler.com/code-integrity/documentation/transformations/duplicate-literals-removal) replaces duplicate literals with a variable name.
@@ -119,7 +118,7 @@ export default class DuplicateLiteralsRemoval extends Transform {
         ];
 
         // The function uses mangling to hide the index being accessed
-        var mangleCount = getRandomInteger(1, 10);
+        var mangleCount = getRandomInteger(1, 5);
         for (var i = 0; i < mangleCount; i++) {
           var operator = choice([">", "<"]);
           var compareValue = choice(indexRangeInclusive);
@@ -188,7 +187,7 @@ export default class DuplicateLiteralsRemoval extends Transform {
       var root = parents[parents.length - 1];
       var rootFunctionName = this.getPlaceholder() + "_dLR_0";
       this.functions.set(root, {
-        functionName: rootFunctionName,
+        functionName: rootFunctionName + predictableFunctionTag,
         indexShift: getRandomInteger(-100, 100),
       });
 
@@ -199,7 +198,10 @@ export default class DuplicateLiteralsRemoval extends Transform {
     var block = getBlock(object, parents);
     if (!this.functions.has(block) && chance(50 - this.functions.size)) {
       var newFunctionName =
-        this.getPlaceholder() + "_dLR_" + this.functions.size;
+        this.getPlaceholder() +
+        "_dLR_" +
+        this.functions.size +
+        predictableFunctionTag;
 
       this.functions.set(block, {
         functionName: newFunctionName,
@@ -224,7 +226,7 @@ export default class DuplicateLiteralsRemoval extends Transform {
     return () => {
       if (object.type === "Identifier") {
         var info = getIdentifierInfo(object, parents);
-        if (info.isLabel || info.spec.isDefined) return;
+        if (info.isLabel || info.spec.isDefined || info.spec.isModified) return;
       }
       if (object.regex) {
         return;
@@ -233,9 +235,6 @@ export default class DuplicateLiteralsRemoval extends Transform {
       if (!ComputeProbabilityMap(this.options.duplicateLiteralsRemoval)) {
         return;
       }
-
-      // HARD CODED LIMIT of 10,000 (after 1,000 elements)
-      if (this.map.size > 1000 && chance(this.map.size / 100)) return;
 
       if (
         this.arrayName &&

@@ -22,8 +22,8 @@
   "author": "MichaelXF",
   "license": "MIT",
   "dependencies": {
-    "acorn": "^8.10.0",
-    "escodegen": "^2.0.0"
+    "acorn": "^8.12.1",
+    "escodegen": "^2.1.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.17.6",
