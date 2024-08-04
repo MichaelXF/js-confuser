@@ -585,6 +585,15 @@ export interface ObfuscateOptions {
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   debugComments?: boolean;
+
+  /**
+   * ### `preserveFunctionLength`
+   *
+   * Modified functions will retain the correct `function.length` property. Enabled by default. (`true/false`)
+   *
+   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   */
+  preserveFunctionLength?: boolean;
 }
 
 const validProperties = new Set([
@@ -619,6 +628,7 @@ const validProperties = new Set([
   "verbose",
   "globalVariables",
   "debugComments",
+  "preserveFunctionLength",
 ]);
 
 const validOses = new Set(["windows", "linux", "osx", "ios", "android"]);
@@ -763,6 +773,9 @@ export async function correctOptions(
   }
   if (!options.hasOwnProperty("renameGlobals")) {
     options.renameGlobals = true; // RenameGlobals is on by default
+  }
+  if (!options.hasOwnProperty("preserveFunctionLength")) {
+    options.preserveFunctionLength = true; // preserveFunctionLength is on by default
   }
 
   if (options.globalVariables && !(options.globalVariables instanceof Set)) {

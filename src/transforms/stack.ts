@@ -500,7 +500,7 @@ export default class Stack extends Transform {
         Template(`${stackName}["length"] = ${startingSize}`).single()
       );
 
-      if (originalFunctionLength !== 0) {
+      if (this.options.preserveFunctionLength && originalFunctionLength !== 0) {
         if (!this.functionLengthName) {
           this.functionLengthName = this.getPlaceholder();
           prepend(

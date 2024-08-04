@@ -264,16 +264,20 @@ export default class Minify extends Transform {
             function ${this.arrowFunctionName}(arrowFn, functionLength = 0){
               var functionObject = function(){ return arrowFn(...arguments) };
 
-              return {ObjectDefineProperty}(functionObject, "length", {
-                "value": functionLength,
-                "configurable": true
-              });
+              ${
+                this.options.preserveFunctionLength
+                  ? `return {ObjectDefineProperty}(functionObject, "length", {
+                  "value": functionLength,
+                  "configurable": true
+                });`
+                  : `return functionObject`
+              }
+           
             }
             `).single({
-                ObjectDefineProperty: this.createInitVariable(
-                  ObjectDefineProperty,
-                  parents
-                ),
+                ObjectDefineProperty: this.options.preserveFunctionLength
+                  ? this.createInitVariable(ObjectDefineProperty, parents)
+                  : undefined,
               })
             );
           }
@@ -281,7 +285,7 @@ export default class Minify extends Transform {
           const wrap = (object: Node) => {
             var args: Node[] = [clone(object)];
             var fnLength = computeFunctionLength(object.params);
-            if (fnLength != 0) {
+            if (this.options.preserveFunctionLength && fnLength != 0) {
               args.push(Literal(fnLength));
             }
             return CallExpression(Identifier(this.arrowFunctionName), args);

@@ -346,7 +346,10 @@ export default class RGF extends Transform {
         // The function is no longer guaranteed to not have extraneous parameters passed in
         object[predictableFunctionTag] = false;
 
-        if (originalFunctionLength !== 0) {
+        if (
+          this.options.preserveFunctionLength &&
+          originalFunctionLength !== 0
+        ) {
           var body = parents[0] as unknown as Node[];
 
           body.splice(
@@ -366,7 +369,10 @@ export default class RGF extends Transform {
       // (2) Function Expression:
       // - Replace expression with member expression pointing to new function
       if (object.type === "FunctionExpression") {
-        if (originalFunctionLength !== 0) {
+        if (
+          this.options.preserveFunctionLength &&
+          originalFunctionLength !== 0
+        ) {
           memberExpression = CallExpression(
             Identifier(this.getFunctionLengthName(parents)),
             [memberExpression, Literal(originalFunctionLength)]

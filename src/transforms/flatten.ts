@@ -509,7 +509,7 @@ export default class Flatten extends Transform {
 
       object.params = [RestElement(Identifier(argumentsName))];
 
-      if (originalFunctionLength !== 0) {
+      if (this.options.preserveFunctionLength && originalFunctionLength !== 0) {
         if (!this.functionLengthName) {
           this.functionLengthName = this.getPlaceholder();
 
