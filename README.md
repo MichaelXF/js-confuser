@@ -816,7 +816,11 @@ These features are experimental or a security concern.
   // experimental
   identifierGenerator: function(){
     return "myvar_" + (counter++);
-  }
+  },
+
+  // Modified functions will retain the correct `function.length` property.
+  // Enabled by default.
+  preserveFunctionLength: false
 }
 ```
 

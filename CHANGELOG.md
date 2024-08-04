@@ -14,7 +14,6 @@ Updates
 
 - `RGF` improvements
 - - More likely to transform functions containing functions
-- - Preserve `function.length` property
 
 - Fixed [#96](https://github.com/MichaelXF/js-confuser/issues/96)
 - - Removed hardcoded limits on `String Concealing`, `String Compression`, and `Duplicate Literals Removal`
@@ -25,9 +24,17 @@ Updates
 - Fixed [#131](https://github.com/MichaelXF/js-confuser/issues/131)
 - - __dirname is no longer changed by `Global Concealing`
 
-- Minor improvements
-- - Preserve Strict Mode behaviors
-- - Preserve indirect vs. direct [`eval`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval) use
+**New Option**
+
+### `preserveFunctionLength`
+- Modified functions will retain the correct `function.length` property. (`true/false`)
+Enabled by default.
+
+Minor improvements
+- Preserve `function.length`
+- Preserve Strict Mode behaviors
+- Preserve indirect vs. direct [`eval`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval) use
+
 
 # `1.7.1`
 Updates

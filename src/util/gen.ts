@@ -532,16 +532,20 @@ export function AddComment(node: Node, text: string) {
   return node;
 }
 
+export function Super() {
+  return { type: "Super" };
+}
+
 export function MethodDefinition(
-  identifier: Node,
+  key: Node,
   functionExpression: Node,
   kind: "method" | "constructor" | "get" | "set",
-  isStatic = true,
+  isStatic = false,
   computed = false
 ) {
   return {
     type: "MethodDefinition",
-    key: identifier,
+    key: key,
     computed: computed,
     value: functionExpression,
     kind: kind,

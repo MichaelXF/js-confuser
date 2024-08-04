@@ -3,6 +3,12 @@ import { getBlock, isBlock } from "../traverse";
 import { Node } from "./gen";
 import { getIdentifierInfo, validateChain } from "./identifiers";
 
+export function isClass(object: Node): boolean {
+  return (
+    object.type === "ClassDeclaration" || object.type === "ClassExpression"
+  );
+}
+
 /**
  * - `FunctionDeclaration`
  * - `FunctionExpression`
