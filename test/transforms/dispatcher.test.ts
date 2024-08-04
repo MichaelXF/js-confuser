@@ -400,3 +400,58 @@ printX();
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+test("Variant #18: Preserve function.length property", async () => {
+  var output = await JsConfuser(
+    `
+  function myFunction1(){
+    // Function.length = 0
+  }
+  function myFunction2(a, b, c, d = "") {
+    // Function.length = 3
+  }
+  
+  myFunction1();
+  myFunction2();
+  TEST_OUTPUT_1 = myFunction1.length;
+  TEST_OUTPUT_2 = myFunction2.length;
+  
+  `,
+    { target: "node", dispatcher: true }
+  );
+
+  expect(output).toContain("dispatcher_0");
+
+  var TEST_OUTPUT_1, TEST_OUTPUT_2;
+  eval(output);
+
+  expect(TEST_OUTPUT_1).toStrictEqual(0);
+  expect(TEST_OUTPUT_2).toStrictEqual(3);
+});
+
+test("Variant #19: Lexically bound variables", async () => {
+  var output = await JsConfuser(
+    `
+  switch (true) {
+    case true:
+      let message = "Hello World";
+  
+      function logMessage() {
+        TEST_OUTPUT = message;
+      }
+  
+      logMessage();
+  }
+  `,
+    {
+      target: "node",
+      dispatcher: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
+});

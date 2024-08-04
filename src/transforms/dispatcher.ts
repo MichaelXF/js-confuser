@@ -34,6 +34,8 @@ import {
   isVarContext,
   prepend,
   append,
+  computeFunctionLength,
+  isFunction,
 } from "../util/insert";
 import Transform from "./transform";
 import { isInsideType } from "../util/compare";
@@ -42,6 +44,9 @@ import { ComputeProbabilityMap } from "../probability";
 import { predictableFunctionTag, reservedIdentifiers } from "../constants";
 import { ObfuscateOrder } from "../order";
 import Template from "../templates/template";
+import { FunctionLengthTemplate } from "../templates/functionLength";
+import { ObjectDefineProperty } from "../templates/globals";
+import { getLexicalScope } from "../util/scope";
 
 /**
  * A Dispatcher processes function calls. All the function declarations are brought into a dictionary.
@@ -72,10 +77,28 @@ export default class Dispatcher extends Transform {
   isDebug = false;
   count: number;
 
+  functionLengthName: string;
+
   constructor(o) {
     super(o, ObfuscateOrder.Dispatcher);
 
     this.count = 0;
+  }
+
+  apply(tree: Node): void {
+    super.apply(tree);
+
+    if (this.options.preserveFunctionLength && this.functionLengthName) {
+      prepend(
+        tree,
+        FunctionLengthTemplate.single({
+          name: this.functionLengthName,
+          ObjectDefineProperty: this.createInitVariable(ObjectDefineProperty, [
+            tree,
+          ]),
+        })
+      );
+    }
   }
 
   match(object: Node, parents: Node[]) {
@@ -113,6 +136,8 @@ export default class Dispatcher extends Transform {
           ? object
           : getVarContext(object, parents);
 
+        var lexicalScope = isFunction(context) ? context.body : context;
+
         walk(object, parents, (o: Node, p: Node[]) => {
           if (object == o) {
             // Fix 1
@@ -138,6 +163,15 @@ export default class Dispatcher extends Transform {
                 o.body.type != "BlockStatement"
               ) {
                 illegalFnNames.add(name);
+                return;
+              }
+
+              // Must defined in the same block as the current function being scanned
+              // Solves 'let' and 'class' declaration issue
+              var ls = getLexicalScope(o, p);
+              if (ls !== lexicalScope) {
+                illegalFnNames.add(name);
+                return;
               }
 
               // If dupe, no routing
@@ -217,6 +251,10 @@ export default class Dispatcher extends Transform {
 
         // Only make a dispatcher function if it caught any functions
         if (set.size > 0) {
+          if (!this.functionLengthName) {
+            this.functionLengthName = this.getPlaceholder();
+          }
+
           var payloadArg =
             this.getPlaceholder() + "_dispatcher_" + this.count + "_payload";
 
@@ -343,6 +381,48 @@ export default class Dispatcher extends Transform {
                 null
               ),
 
+              VariableDeclaration(
+                VariableDeclarator(
+                  Identifier("lengths"),
+                  ObjectExpression(
+                    !this.options.preserveFunctionLength
+                      ? []
+                      : shuffledKeys
+                          .map((name) => {
+                            var [def, defParents] = functionDeclarations[name];
+
+                            return {
+                              key: newFnNames[name],
+                              value: computeFunctionLength(def.params),
+                            };
+                          })
+                          .filter((item) => item.value !== 0)
+                          .map((item) =>
+                            Property(Literal(item.key), Literal(item.value))
+                          )
+                  )
+                )
+              ),
+
+              Template(`
+              function makeFn${predictableFunctionTag}(){
+                var fn = function(...args){
+                  ${payloadArg} = args;
+                  return ${mapName}[${x}].call(this)
+                }, a = lengths[${x}]
+
+                ${
+                  this.options.preserveFunctionLength
+                    ? `if(a){
+                    return ${this.functionLengthName}(fn, a)
+                  }`
+                    : ""
+                }
+                
+                return fn
+              }
+              `).single(),
+
               // Arg to get a function reference
               IfStatement(
                 BinaryExpression("==", Identifier(y), Literal(expectedGet)),
@@ -366,30 +446,9 @@ export default class Dispatcher extends Transform {
                             Identifier(x),
                             true
                           ),
-                          FunctionExpression(
-                            [RestElement(Identifier(getterArgName))],
-                            [
-                              // Arg setter
-                              ExpressionStatement(
-                                AssignmentExpression(
-                                  "=",
-                                  Identifier(payloadArg),
-                                  Identifier(getterArgName)
-                                )
-                              ),
-
-                              // Call fn & return
-                              ReturnStatement(
-                                CallExpression(
-                                  MemberExpression(
-                                    getAccessor(),
-                                    Identifier("call"),
-                                    false
-                                  ),
-                                  [ThisExpression()]
-                                )
-                              ),
-                            ]
+                          CallExpression(
+                            Identifier(`makeFn${predictableFunctionTag}`),
+                            []
                           )
                         )
                       )
