@@ -29,6 +29,8 @@ export default function Template(...templates: string[]): ITemplate {
   var providedVariables = {};
   var defaultVariables: { [key: string]: string } = Object.create(null);
 
+  // This may picked up "$mb[pP`x]" from String Encoding function
+  // ignoreMissingVariables() prevents this
   var matches = templates[0].match(/{[$A-z0-9_]+}/g);
   if (matches !== null) {
     matches.forEach((variable) => {
@@ -110,6 +112,7 @@ export default function Template(...templates: string[]): ITemplate {
   }
 
   function ignoreMissingVariables() {
+    defaultVariables = Object.create(null);
     requiredVariables.clear();
     return obj;
   }

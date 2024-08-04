@@ -32,12 +32,18 @@ test("Variant #1: Cash.js on High Preset (Strict Mode)", async () => {
     $: false,
   } as any;
   window.window = window;
+  global.window = window;
 
-  // writeFileSync(join(__dirname, "Cash.output.js"), output, {
-  //   encoding: "utf-8",
-  // });
+  try {
+    eval(output);
+  } catch (e) {
+    console.error(e);
+    writeFileSync("dev.output.js", output, {
+      encoding: "utf-8",
+    });
 
-  eval(output);
+    expect(true).toStrictEqual(false);
+  }
 
   expect(window).toHaveProperty("cash");
 });
