@@ -2,9 +2,31 @@ import {
   placeholderVariablePrefix,
   predictableFunctionTag,
 } from "../constants";
+import Transform from "../transforms/transform";
 import Template from "./template";
 
-export const GetGlobalTemplate = Template(`
+export const createGetGlobalTemplate = (t: Transform) => {
+  var options = t.options;
+  if (options.target.eval && !options.target.strictMode) {
+    return Template(`
+      function {getGlobalFnName}(){
+        var localVar = false;
+        eval("localVar = true")
+        if (!localVar) {
+          // while(1){} // TODO: Countermeasures call or better infinite loop
+          return {}
+        }
+    
+        const root = eval("this");
+        return root;
+      }
+    `);
+  }
+
+  return GetGlobalTemplate;
+};
+
+const GetGlobalTemplate = Template(`
   function ${placeholderVariablePrefix}CFG__getGlobalThis${predictableFunctionTag}(){
     return globalThis
   }
@@ -49,9 +71,10 @@ export const GetGlobalTemplate = Template(`
   }
 `);
 
-export const BufferToStringTemplate = Template(`
+export const createBufferToStringTemplate = (t: Transform) =>
+  Template(`
 
-  ${GetGlobalTemplate.source}
+  ${createGetGlobalTemplate(t).source}
 
   var __globalObject = {getGlobalFnName}() || {};
   var __TextDecoder = __globalObject["TextDecoder"];

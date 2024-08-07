@@ -166,7 +166,7 @@ export default class Lock extends Transform {
         );
 
       case "exit":
-        if (this.options.target == "browser") {
+        if (this.targetName == "browser") {
           return Template("document.documentElement.innerHTML = '';").compile();
         }
 
@@ -399,7 +399,7 @@ export default class Lock extends Transform {
               MemberExpression(navigatorUserAgent, Literal("match"), true),
               [Literal(agentMatcher.toLowerCase())]
             );
-            if (osName == "ios" && this.options.target === "browser") {
+            if (osName == "ios" && this.targetName === "browser") {
               if (!this.iosDetectFn) {
                 this.iosDetectFn = this.getPlaceholder();
                 prepend(
@@ -422,7 +422,7 @@ export default class Lock extends Transform {
               thisTest = CallExpression(Identifier(this.iosDetectFn), []);
             }
 
-            if (this.options.target === "node") {
+            if (this.targetName === "node") {
               var platformName =
                 { windows: "win32", osx: "darwin", ios: "darwin" }[osName] ||
                 osName;

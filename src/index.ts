@@ -39,7 +39,7 @@ export async function obfuscateAST(AST, options: ObfuscateOptions) {
 
   options = await correctOptions(options);
 
-  var obfuscator = new Obfuscator(options);
+  var obfuscator = new Obfuscator(options as any);
 
   await obfuscator.apply(AST);
 
@@ -70,7 +70,7 @@ var JsConfuser: IJsConfuser = async function (
 
   options.verbose && console.log("* Obfuscating...");
 
-  var obfuscator = new Obfuscator(options);
+  var obfuscator = new Obfuscator(options as any);
 
   await obfuscator.apply(tree);
 
@@ -96,7 +96,7 @@ export const debugTransformations: IJsConfuserDebugTransformations =
     var frames = [];
 
     var tree = parseSync(code);
-    var obfuscator = new Obfuscator(options);
+    var obfuscator = new Obfuscator(options as any);
 
     var time = Date.now();
 
@@ -141,7 +141,7 @@ export const debugObfuscation: IJsConfuserDebugObfuscation = async function (
 
   const parseTime = performance.now() - beforeParseTime;
 
-  var obfuscator = new Obfuscator(options);
+  var obfuscator = new Obfuscator(options as any);
   var totalTransforms = obfuscator.array.length;
 
   var transformationTimes = Object.create(null);

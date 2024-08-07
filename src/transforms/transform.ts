@@ -68,7 +68,7 @@ export default class Transform {
   /**
    * The user's options.
    */
-  options: ObfuscateOptions;
+  options: Obfuscator["options"];
 
   /**
    * Only required for top-level transformations.
@@ -86,6 +86,11 @@ export default class Transform {
   after: Transform[];
 
   initVariables = new Map<string, string>();
+
+  get targetName() {
+    ok(typeof this.options.target !== "string");
+    return this.options.target.name;
+  }
 
   constructor(obfuscator, priority: number = -1) {
     ok(obfuscator instanceof Obfuscator, "obfuscator should be an Obfuscator");

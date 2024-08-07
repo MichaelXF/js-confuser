@@ -1,3 +1,11 @@
+# `1.7.3`
+Monkeypatching Protections
+
+This update focus around defeating monkeypatching tampering. Securing your local and global variable connections ensure reverse engineers can't hack/mod your code.
+
+- Fix [#134](https://github.com/MichaelXF/js-confuser/issues/134)
+- - Detect tampering to the Global Object
+
 # `1.7.2`
 Updates
 

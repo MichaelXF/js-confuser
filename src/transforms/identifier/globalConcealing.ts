@@ -25,7 +25,7 @@ import { chance, getRandomInteger } from "../../util/random";
 import { predictableFunctionTag, reservedIdentifiers } from "../../constants";
 import { ComputeProbabilityMap } from "../../probability";
 import GlobalAnalysis from "./globalAnalysis";
-import { GetGlobalTemplate } from "../../templates/bufferToString";
+import { createGetGlobalTemplate } from "../../templates/bufferToString";
 
 /**
  * Global Concealing hides global variables being accessed.
@@ -84,7 +84,7 @@ export default class GlobalConcealing extends Transform {
           this.getPlaceholder() + predictableFunctionTag;
 
         // Returns global variable or fall backs to `this`
-        var getGlobalVariableFn = GetGlobalTemplate.compile({
+        var getGlobalVariableFn = createGetGlobalTemplate(this).compile({
           getGlobalFnName: getGlobalVariableFnName,
         });
 

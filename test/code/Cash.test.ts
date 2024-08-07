@@ -6,7 +6,7 @@ var CASH_JS = readFileSync(join(__dirname, "./Cash.src.js"), "utf-8");
 
 test("Variant #1: Cash.js on High Preset (Strict Mode)", async () => {
   var output = await JsConfuser(CASH_JS, {
-    target: "browser",
+    target: "node",
     preset: "high",
   });
 
@@ -33,6 +33,9 @@ test("Variant #1: Cash.js on High Preset (Strict Mode)", async () => {
   } as any;
   window.window = window;
   global.window = window;
+  for (var key in window) {
+    global[key] = window[key];
+  }
 
   try {
     eval(output);

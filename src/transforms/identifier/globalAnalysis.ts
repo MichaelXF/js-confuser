@@ -45,6 +45,17 @@ export default class GlobalAnalysis extends Transform {
 
     // Cannot be defined or overridden
     if (info.spec.isDefined || info.spec.isModified) {
+      if (info.spec.isModified) {
+        // Only direct overwrites should be considered
+        // Changing object properties is allowed
+        if (
+          parents[0].type === "MemberExpression" &&
+          parents[0].object === object
+        ) {
+          return;
+        }
+      }
+
       delete this.globals[object.name];
 
       this.notGlobals.add(object.name);

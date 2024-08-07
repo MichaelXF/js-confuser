@@ -31,7 +31,7 @@ import {
   hasAllEncodings,
 } from "./encoding";
 import { ComputeProbabilityMap } from "../../probability";
-import { BufferToStringTemplate } from "../../templates/bufferToString";
+import { createBufferToStringTemplate } from "../../templates/bufferToString";
 import { criticalFunctionTag, predictableFunctionTag } from "../../constants";
 
 interface FunctionObject {
@@ -80,7 +80,7 @@ export default class StringConcealing extends Transform {
     // This helper functions convert UInt8 Array to UTf-string
     prepend(
       tree,
-      ...BufferToStringTemplate.compile({
+      ...createBufferToStringTemplate(this).compile({
         name: bufferToStringName,
         getGlobalFnName: this.getPlaceholder() + predictableFunctionTag,
       })

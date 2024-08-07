@@ -2,6 +2,14 @@ import { ok } from "assert";
 import presets from "./presets";
 import { ProbabilityMap } from "./probability";
 
+export type TargetString = "node" | "browser";
+
+export interface TargetOption {
+  name: TargetString;
+  eval?: boolean;
+  strictMode?: boolean;
+}
+
 export interface ObfuscateOptions {
   /**
    * ### `preset`
@@ -28,9 +36,22 @@ export interface ObfuscateOptions {
    * 1. `"node"`
    * 2. `"browser"`
    *
+   * You can also provide a custom target object:
+   *
+   * ```js
+   * {
+   *   name: "browser", // or "node"
+   *   eval: true, // Is eval allowed in the target environment
+   *   strictMode: false // Is the target environment in strict mode
+   * }
+   * ```
+   *
+   * For backwards compatibility, you can also provide a string value of `"node"` or `"browser"`.
+   * However, `eval` will be assumed disabled and `strictMode` as ambiguous.
+   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  target: "node" | "browser";
+  target: TargetOption | TargetString;
 
   /**
    * ### `indent`
@@ -664,8 +685,12 @@ export function validateOptions(options: ObfuscateOptions) {
     options.target,
     "Missing options.target option (required, must one the following: 'browser' or 'node')"
   );
+
+  var targetName =
+    typeof options.target === "string" ? options.target : options.target.name;
+
   ok(
-    ["browser", "node"].includes(options.target),
+    ["browser", "node"].includes(targetName),
     `'${options.target}' is not a valid target mode`
   );
 
@@ -676,7 +701,7 @@ export function validateOptions(options: ObfuscateOptions) {
   });
 
   if (
-    options.target === "node" &&
+    targetName === "node" &&
     options.lock &&
     options.lock.browserLock &&
     options.lock.browserLock.length
@@ -778,6 +803,14 @@ export async function correctOptions(
     options.preserveFunctionLength = true; // preserveFunctionLength is on by default
   }
 
+  if (typeof options.target === "string") {
+    options.target = {
+      name: options.target,
+      eval: false,
+      strictMode: undefined, // Ambiguous
+    };
+  }
+
   if (options.globalVariables && !(options.globalVariables instanceof Set)) {
     options.globalVariables = new Set(Object.keys(options.globalVariables));
   }
@@ -790,7 +823,7 @@ export async function correctOptions(
   if (!options.hasOwnProperty("globalVariables")) {
     options.globalVariables = new Set([]);
 
-    if (options.target == "browser") {
+    if (options.target.name == "browser") {
       // browser
       [
         "window",
