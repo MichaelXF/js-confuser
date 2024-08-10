@@ -260,7 +260,7 @@ export default class Minify extends Transform {
 
             append(
               parents[parents.length - 1] || object,
-              Template(`
+              new Template(`
             function ${this.arrowFunctionName}(arrowFn, functionLength = 0){
               var functionObject = function(){ return arrowFn(...arguments) };
 

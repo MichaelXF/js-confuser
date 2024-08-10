@@ -1,13 +1,14 @@
 import Template from "./template";
 
-export const CrashTemplate1 = Template(`
-var {var} = "a";
-while(1){
-    {var} = {var} += "a";
+export const CrashTemplate1 = new Template(`
+var {var} = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_\`{|}~"';
+while(true){
+    {var} += {var};
+    if(!{var}) break;
 }
 `);
 
-export const CrashTemplate2 = Template(`
+export const CrashTemplate2 = new Template(`
 while(true) {
     var {var} = 99;
     for({var} = 99; {var} == {var}; {var} *= {var}) {
@@ -21,7 +22,7 @@ while(true) {
     }
  };`);
 
-export const CrashTemplate3 = Template(`
+export const CrashTemplate3 = new Template(`
 try {
     function {$2}(y, x){
         return x;

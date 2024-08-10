@@ -33,6 +33,8 @@ import AntiDebug from "./antiDebug";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { isLoop, isValidIdentifier } from "../../util/compare";
 import { ok } from "assert";
+import { variableFunctionName } from "../../constants";
+import { IndexOfTemplate } from "../../templates/core";
 
 /**
  * Applies browser & date locks.
@@ -48,7 +50,29 @@ export default class Lock extends Transform {
    */
   counterMeasuresActivated: string;
 
+  /**
+   * The name of the native function that is used to check runtime calls for tampering
+   */
+  nativeFunctionName: string;
+
   made: number;
+
+  secureEval(sourceCode: string) {
+    var node = new Template(`
+      (function(){
+        let check = false;
+        eval(${this.jsConfuserVar("check")} + " = true")
+        if (!check) {
+            throw new Error("Eval was redefined")
+        }
+        return eval("REPLACE");
+    })()
+      `).single().expression;
+
+    node.callee.body.body[3].argument.arguments[0] = Literal(sourceCode);
+
+    return node;
+  }
 
   constructor(o) {
     super(o, ObfuscateOrder.Lock);
@@ -115,6 +139,44 @@ export default class Lock extends Transform {
     }
 
     super.apply(tree);
+
+    if (this.options.lock.tamperProtection) {
+      this.nativeFunctionName = this.getPlaceholder();
+      var nativeFunctionCheck = new Template(`
+        function ${this.nativeFunctionName}() {
+          {IndexOfTemplate}
+        
+          function checkFunction(fn){
+            if (indexOf("" + fn, '{ [native code] }') === -1
+            ||
+            typeof Object.getOwnPropertyDescriptor(fn) !== "undefined"
+            ) {
+              console.log(fn);
+              throw new Error('Tamper detected');
+            }
+          }
+
+          var args = arguments
+          if(args.length === 1) {
+            return checkFunction(args[0]);
+          } else if (args.length === 2) {
+            var object = args[0];
+            var property = args[1];
+
+            var fn = object[property];
+            checkFunction(fn);
+
+            return fn.bind(object);
+          }
+        }`).single({
+        IndexOfTemplate: IndexOfTemplate,
+      });
+
+      nativeFunctionCheck.$skipGlobalConcealing = true;
+      nativeFunctionCheck.$dispatcherSkip = true;
+
+      prepend(tree, nativeFunctionCheck);
+    }
   }
 
   getCounterMeasuresCode(object: Node, parents: Node[]): Node[] {
@@ -147,17 +209,17 @@ export default class Lock extends Transform {
                 Identifier(this.counterMeasuresActivated),
                 Literal(true)
               ),
-              CallExpression(Template(opt).single().expression, []),
+              CallExpression(new Template(opt).single().expression, []),
             ])
           )
         ),
       ];
     }
 
-    var type = choice(["crash", "exit"]);
+    var type = choice(["infiniteLoop"]);
 
     switch (type) {
-      case "crash":
+      case "infiniteLoop":
         var varName = this.getPlaceholder();
         return choice([CrashTemplate1, CrashTemplate2, CrashTemplate3]).compile(
           {
@@ -165,12 +227,8 @@ export default class Lock extends Transform {
           }
         );
 
-      case "exit":
-        if (this.targetName == "browser") {
-          return Template("document.documentElement.innerHTML = '';").compile();
-        }
-
-        return Template("process.exit()").compile();
+      default:
+        ok(false, "Invalid type");
     }
   }
 
@@ -281,7 +339,7 @@ export default class Lock extends Transform {
         case "selfDefending":
           // A very simple mechanism inspired from https://github.com/javascript-obfuscator/javascript-obfuscator/blob/master/src/custom-code-helpers/self-defending/templates/SelfDefendingNoEvalTemplate.ts
           // regExp checks for a newline, formatters add these
-          var callExpression = Template(
+          var callExpression = new Template(
             `
             (
               function(){
@@ -379,7 +437,7 @@ export default class Lock extends Transform {
           break;
 
         case "osLock":
-          var navigatorUserAgent = Template(
+          var navigatorUserAgent = new Template(
             `window.navigator.userAgent.toLowerCase()`
           ).single().expression;
 
@@ -399,12 +457,12 @@ export default class Lock extends Transform {
               MemberExpression(navigatorUserAgent, Literal("match"), true),
               [Literal(agentMatcher.toLowerCase())]
             );
-            if (osName == "ios" && this.targetName === "browser") {
+            if (osName == "ios" && this.options.target === "browser") {
               if (!this.iosDetectFn) {
                 this.iosDetectFn = this.getPlaceholder();
                 prepend(
                   parents[parents.length - 1] || object,
-                  Template(`function ${this.iosDetectFn}() {
+                  new Template(`function ${this.iosDetectFn}() {
                   return [
                     'iPad Simulator',
                     'iPhone Simulator',
@@ -422,11 +480,11 @@ export default class Lock extends Transform {
               thisTest = CallExpression(Identifier(this.iosDetectFn), []);
             }
 
-            if (this.targetName === "node") {
+            if (this.options.target === "node") {
               var platformName =
                 { windows: "win32", osx: "darwin", ios: "darwin" }[osName] ||
                 osName;
-              thisTest = Template(
+              thisTest = new Template(
                 `require('os').platform()==="${platformName}"`
               ).single().expression;
             }
@@ -443,7 +501,7 @@ export default class Lock extends Transform {
           break;
 
         case "browserLock":
-          var navigatorUserAgent = Template(
+          var navigatorUserAgent = new Template(
             `window.navigator.userAgent.toLowerCase()`
           ).single().expression;
 
@@ -462,7 +520,7 @@ export default class Lock extends Transform {
             );
 
             if (browserName === "safari") {
-              thisTest = Template(
+              thisTest = new Template(
                 `/^((?!chrome|android).)*safari/i.test(navigator.userAgent)`
               ).single().expression;
             }

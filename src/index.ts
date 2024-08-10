@@ -2,6 +2,7 @@ import compileJs, { compileJsSync } from "./compiler";
 import parseJS, { parseSync } from "./parser";
 import Obfuscator from "./obfuscator";
 import Transform from "./transforms/transform";
+import Template from "./templates/template";
 import { remove$Properties } from "./util/object";
 import presets from "./presets";
 
@@ -183,6 +184,7 @@ JsConfuser.debugTransformations = debugTransformations;
 JsConfuser.debugObfuscation = debugObfuscation;
 JsConfuser.Obfuscator = Obfuscator;
 JsConfuser.Transform = Transform;
+JsConfuser.Template = Template;
 
 if (typeof window !== "undefined") {
   window["JsConfuser"] = JsConfuser;
@@ -193,4 +195,4 @@ if (typeof global !== "undefined") {
 
 export default JsConfuser;
 
-export { presets, Obfuscator, Transform };
+export { presets, Obfuscator, Transform, Template };

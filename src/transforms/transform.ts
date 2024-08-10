@@ -12,7 +12,6 @@ import {
 } from "../util/random";
 import { ok } from "assert";
 import Obfuscator from "../obfuscator";
-import { ObfuscateOptions } from "../options";
 import { ComputeProbabilityMap } from "../probability";
 import {
   placeholderVariablePrefix,
@@ -20,8 +19,9 @@ import {
   reservedKeywords,
 } from "../constants";
 import { ObfuscateOrder } from "../order";
-import { ITemplate } from "../templates/template";
 import { prepend } from "../util/insert";
+import Lock from "./lock/lock";
+import Template from "../templates/template";
 
 /**
  * Base-class for all transformations.
@@ -87,11 +87,6 @@ export default class Transform {
 
   initVariables = new Map<string, string>();
 
-  get targetName() {
-    ok(typeof this.options.target !== "string");
-    return this.options.target.name;
-  }
-
   constructor(obfuscator, priority: number = -1) {
     ok(obfuscator instanceof Obfuscator, "obfuscator should be an Obfuscator");
 
@@ -111,6 +106,32 @@ export default class Transform {
     return (
       ObfuscateOrder[this.priority] || (this as any).__proto__.constructor.name
     );
+  }
+
+  /**
+   * Gets the `Lock` transformation.
+   */
+  get lockTransform(): Lock {
+    var transform = this.obfuscator.transforms["Lock"] as Lock;
+
+    ok(transform, "Lock transform not created");
+
+    return transform;
+  }
+
+  /**
+   * Wraps the given name with the `__JS_CONFUSER_VAR__` function call.
+   *
+   * If `Rename Variables` is disabled, the name is returned as-is.
+   * @param name
+   * @returns
+   */
+  jsConfuserVar(name: string) {
+    if (!this.obfuscator.transforms["RenameVariables"]) {
+      return `"${name}"`;
+    }
+
+    return `__JS_CONFUSER_VAR__(${name})`;
   }
 
   /**
@@ -350,7 +371,7 @@ export default class Transform {
     return identifier;
   }
 
-  createInitVariable = (value: ITemplate, parents: Node[]) => {
+  createInitVariable = (value: Template, parents: Node[]) => {
     var key = value.templates[0];
     if (this.initVariables.has(key)) {
       return this.initVariables.get(key);

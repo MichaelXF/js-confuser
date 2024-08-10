@@ -126,7 +126,7 @@ class AntiDestructuringParameters extends Transform {
             VariableDeclaration(
               VariableDeclarator(
                 arrayPattern,
-                Template(`Array.prototype.slice.call(arguments)`).single()
+                new Template(`Array.prototype.slice.call(arguments)`).single()
                   .expression
               )
             )

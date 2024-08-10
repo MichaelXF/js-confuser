@@ -7,14 +7,13 @@ import Template from "./template";
 
 export const createGetGlobalTemplate = (t: Transform) => {
   var options = t.options;
-  if (options.target.eval && !options.target.strictMode) {
-    return Template(`
+  if (options.lock?.tamperProtection) {
+    return new Template(`
       function {getGlobalFnName}(){
         var localVar = false;
-        eval("localVar = true")
+        eval(${t.jsConfuserVar("localVar")} + " = true")
         if (!localVar) {
-          // while(1){} // TODO: Countermeasures call or better infinite loop
-          return {}
+          countermeasures;
         }
     
         const root = eval("this");
@@ -26,7 +25,7 @@ export const createGetGlobalTemplate = (t: Transform) => {
   return GetGlobalTemplate;
 };
 
-const GetGlobalTemplate = Template(`
+const GetGlobalTemplate = new Template(`
   function ${placeholderVariablePrefix}CFG__getGlobalThis${predictableFunctionTag}(){
     return globalThis
   }
@@ -71,10 +70,8 @@ const GetGlobalTemplate = Template(`
   }
 `);
 
-export const createBufferToStringTemplate = (t: Transform) =>
-  Template(`
-
-  ${createGetGlobalTemplate(t).source}
+export const BufferToStringTemplate = new Template(`
+  {GetGlobalTemplate}
 
   var __globalObject = {getGlobalFnName}() || {};
   var __TextDecoder = __globalObject["TextDecoder"];

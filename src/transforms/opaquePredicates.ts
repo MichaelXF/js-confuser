@@ -146,7 +146,7 @@ export default class OpaquePredicates extends Transform {
                 Identifier(prop),
                 FunctionExpression(
                   [AssignmentPattern(Identifier(paramName), Literal("length"))],
-                  Template(`
+                  new Template(`
                   if ( !${this.predicateName}.${arrayProp}[0] ) {
                     ${this.predicateName}.${arrayProp}.push(${getRandomInteger(
                     -100,

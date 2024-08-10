@@ -2,14 +2,6 @@ import { ok } from "assert";
 import presets from "./presets";
 import { ProbabilityMap } from "./probability";
 
-export type TargetString = "node" | "browser";
-
-export interface TargetOption {
-  name: TargetString;
-  eval?: boolean;
-  strictMode?: boolean;
-}
-
 export interface ObfuscateOptions {
   /**
    * ### `preset`
@@ -36,22 +28,9 @@ export interface ObfuscateOptions {
    * 1. `"node"`
    * 2. `"browser"`
    *
-   * You can also provide a custom target object:
-   *
-   * ```js
-   * {
-   *   name: "browser", // or "node"
-   *   eval: true, // Is eval allowed in the target environment
-   *   strictMode: false // Is the target environment in strict mode
-   * }
-   * ```
-   *
-   * For backwards compatibility, you can also provide a string value of `"node"` or `"browser"`.
-   * However, `eval` will be assumed disabled and `strictMode` as ambiguous.
-   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  target: TargetOption | TargetString;
+  target: "node" | "browser";
 
   /**
    * ### `indent`
@@ -428,6 +407,17 @@ export interface ObfuscateOptions {
     context?: string[];
 
     /**
+     * ### `lock.tamperProtection`
+     *
+     * Tamper Protection safeguards the runtime behavior from being altered by JavaScript pitfalls. (`true/false`)
+     *
+     * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/TamperProtection.md).
+     *
+     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     */
+    tamperProtection?: boolean;
+
+    /**
      * ### `lock.startDate`
      *
      * When the program is first able to be used. (`number` or `Date`)
@@ -686,11 +676,8 @@ export function validateOptions(options: ObfuscateOptions) {
     "Missing options.target option (required, must one the following: 'browser' or 'node')"
   );
 
-  var targetName =
-    typeof options.target === "string" ? options.target : options.target.name;
-
   ok(
-    ["browser", "node"].includes(targetName),
+    ["browser", "node"].includes(options.target),
     `'${options.target}' is not a valid target mode`
   );
 
@@ -701,7 +688,7 @@ export function validateOptions(options: ObfuscateOptions) {
   });
 
   if (
-    targetName === "node" &&
+    options.target === "node" &&
     options.lock &&
     options.lock.browserLock &&
     options.lock.browserLock.length
@@ -803,27 +790,21 @@ export async function correctOptions(
     options.preserveFunctionLength = true; // preserveFunctionLength is on by default
   }
 
-  if (typeof options.target === "string") {
-    options.target = {
-      name: options.target,
-      eval: false,
-      strictMode: undefined, // Ambiguous
-    };
-  }
-
   if (options.globalVariables && !(options.globalVariables instanceof Set)) {
     options.globalVariables = new Set(Object.keys(options.globalVariables));
   }
 
-  if (options.lock && options.lock.selfDefending) {
-    options.compact = true; // self defending forcibly enables this
+  if (options.lock) {
+    if (options.lock.selfDefending) {
+      options.compact = true; // self defending forcibly enables this
+    }
   }
 
   // options.globalVariables outlines generic globals that should be present in the execution context
   if (!options.hasOwnProperty("globalVariables")) {
     options.globalVariables = new Set([]);
 
-    if (options.target.name == "browser") {
+    if (options.target == "browser") {
       // browser
       [
         "window",

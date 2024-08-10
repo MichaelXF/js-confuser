@@ -47,8 +47,9 @@ import {
 import { chance, choice, getRandomInteger, shuffle } from "../../util/random";
 import Transform from "../transform";
 import ExpressionObfuscation from "./expressionObfuscation";
-import { reservedIdentifiers } from "../../constants";
+import { reservedIdentifiers, variableFunctionName } from "../../constants";
 import { isDirective, isModuleSource } from "../../util/compare";
+import { isJSConfuserVar } from "../../util/guard";
 
 const flattenStructures = new Set([
   "IfStatement",
@@ -1366,7 +1367,7 @@ export default class ControlFlowFlattening extends Transform {
             VariableDeclaration(VariableDeclarator(tempVar, callExpression))
           );
 
-          const t = (str): Node => Template(str).single().expression;
+          const t = (str): Node => new Template(str).single().expression;
 
           newStatements.push(
             IfStatement(
@@ -1582,6 +1583,11 @@ export default class ControlFlowFlattening extends Transform {
                 info.spec.isModified ||
                 info.spec.isExported
               ) {
+                return;
+              }
+
+              // Ignore __JS_CONFUSER_VAR__()
+              if (isJSConfuserVar(p)) {
                 return;
               }
 
@@ -1896,7 +1902,8 @@ export default class ControlFlowFlattening extends Transform {
         shuffle(controlProperties);
       }
 
-      var discriminant = Template(`${stateVars.join("+")}`).single().expression;
+      var discriminant = new Template(`${stateVars.join("+")}`).single()
+        .expression;
 
       objectBody.length = 0;
       // Perverse position of import declarations

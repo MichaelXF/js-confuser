@@ -5,6 +5,7 @@ import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
 import { FunctionLengthTemplate } from "../templates/functionLength";
 import { ObjectDefineProperty } from "../templates/globals";
+import Template from "../templates/template";
 import { walk } from "../traverse";
 import {
   ArrayExpression,
@@ -67,15 +68,26 @@ export default class RGF extends Transform {
 
     // Only add the array if there were converted functions
     if (this.arrayExpressionElements.length > 0) {
-      prepend(
-        tree,
+      var nodes: Node[] = [
         VariableDeclaration(
           VariableDeclarator(
             Identifier(this.arrayExpressionName),
             ArrayExpression(this.arrayExpressionElements)
           )
-        )
-      );
+        ),
+      ];
+
+      if (this.options.lock?.tamperProtection) {
+        nodes.unshift(
+          ...Template(`
+            var check = false;
+            eval(${this.jsConfuserVar("check")} + "=true");
+            if(!check) throw new Error("Tampering detected");
+            `).compile()
+        );
+      }
+
+      prepend(tree, ...nodes);
     }
 
     // The function.length helper function must be placed last
@@ -301,9 +313,17 @@ export default class RGF extends Transform {
       var toString = compileJsSync(tree, obfuscator.options);
 
       // new Function(code)
-      var newFunctionExpression = NewExpression(Identifier("Function"), [
+      var newFunctionExpression: Node = NewExpression(Identifier("Function"), [
         Literal(toString),
       ]);
+
+      if (this.options.lock?.tamperProtection) {
+        // If tamper protection is enabled, wrap the function in an eval
+        var randomName = this.getGenerator("randomized").generate();
+        newFunctionExpression = CallExpression(Identifier("eval"), [
+          Literal(`function ${randomName}(){ ${toString} } ${randomName}`),
+        ]);
+      }
 
       // The index where this function is placed in the array
       var newFunctionExpressionIndex = this.arrayExpressionElements.length;

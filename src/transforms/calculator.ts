@@ -96,7 +96,7 @@ export default class Calculator extends Transform {
 
     prepend(
       tree,
-      Template(`function {name}(a){
+      new Template(`function {name}(a){
         a = {b} + ({b}=a, 0);
         return a;
       }`).single({ name: this.calculatorSetOpFn, b: this.calculatorOpVar })

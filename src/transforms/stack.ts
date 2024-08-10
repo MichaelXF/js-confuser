@@ -1,7 +1,7 @@
 import { ok } from "assert";
 import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
-import Template, { ITemplate } from "../templates/template";
+import Template from "../templates/template";
 import { walk } from "../traverse";
 import {
   AssignmentExpression,
@@ -35,6 +35,7 @@ import Transform from "./transform";
 import { noRenameVariablePrefix } from "../constants";
 import { FunctionLengthTemplate } from "../templates/functionLength";
 import { ObjectDefineProperty } from "../templates/globals";
+import { isJSConfuserVar } from "../util/guard";
 
 export default class Stack extends Transform {
   mangledExpressionsMade: number;
@@ -144,6 +145,11 @@ export default class Stack extends Transform {
           }
 
           if (o.name.startsWith(noRenameVariablePrefix)) {
+            illegal.add(o.name);
+          }
+
+          // Ignore __JS_CONFUSER_VAR__()
+          if (isJSConfuserVar(p)) {
             illegal.add(o.name);
           }
 
@@ -497,7 +503,7 @@ export default class Stack extends Transform {
       // Ensure the array is correct length
       prepend(
         object.body,
-        Template(`${stackName}["length"] = ${startingSize}`).single()
+        new Template(`${stackName}["length"] = ${startingSize}`).single()
       );
 
       if (this.options.preserveFunctionLength && originalFunctionLength !== 0) {

@@ -1,6 +1,6 @@
 ## `Countermeasures`
 
-[Countermeasures](https://docs.jscrambler.com/code-integrity/documentation/client-side-countermeasures) is a property on the `lock` object, determining the response to a triggered lock.
+Countermeasures is a property on the `lock` object, determining the response to a triggered lock.
 
 For instance, the `domainLock` determines the current domain is invalid.
 
@@ -21,12 +21,13 @@ For instance, the `domainLock` determines the current domain is invalid.
 
 ## Crash Process
 
-The default behavior is to crash the process. This depends on the `target` property.
+The default behavior is to crash the process This is done by an infinite loop to ensure the process becomes useless.
 
-- `node` -> `process.exit();`
-- `browser` -> `document.documentElement.innerHTML = '';`
-
-This is followed by an infinite loop as a fallback measure to ensure the process becomes useless.
+```js
+while(true) {
+  // ...
+}
+```
 
 ## Custom Callback
 

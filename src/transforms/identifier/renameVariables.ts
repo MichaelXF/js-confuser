@@ -1,7 +1,7 @@
 import { ok } from "assert";
 import { ObfuscateOrder } from "../../order";
 import { walk } from "../../traverse";
-import { Node } from "../../util/gen";
+import { Literal, Node } from "../../util/gen";
 import { getIdentifierInfo } from "../../util/identifiers";
 import {
   isVarContext,
@@ -15,6 +15,7 @@ import {
   noRenameVariablePrefix,
   placeholderVariablePrefix,
   reservedIdentifiers,
+  variableFunctionName,
 } from "../../constants";
 import { ComputeProbabilityMap } from "../../probability";
 import VariableAnalysis from "./variableAnalysis";
@@ -264,6 +265,20 @@ export default class RenameVariables extends Transform {
           parents[importSpecifierIndex].imported = clone(
             parents[importSpecifierIndex - 1] || object
           );
+        }
+      }
+
+      if (
+        parents[1] &&
+        parents[1].type === "CallExpression" &&
+        parents[1].arguments === parents[0]
+      ) {
+        if (
+          parents[1].callee.type === "Identifier" &&
+          parents[1].callee.name === variableFunctionName
+        ) {
+          this.replace(parents[1], Literal(newName));
+          return;
         }
       }
 

@@ -22,10 +22,15 @@ import {
 } from "../../util/gen";
 import { append, prepend } from "../../util/insert";
 import { chance, getRandomInteger } from "../../util/random";
-import { predictableFunctionTag, reservedIdentifiers } from "../../constants";
+import {
+  predictableFunctionTag,
+  reservedIdentifiers,
+  variableFunctionName,
+} from "../../constants";
 import { ComputeProbabilityMap } from "../../probability";
 import GlobalAnalysis from "./globalAnalysis";
 import { createGetGlobalTemplate } from "../../templates/bufferToString";
+import { isJSConfuserVar } from "../../util/guard";
 
 /**
  * Global Concealing hides global variables being accessed.
@@ -34,7 +39,12 @@ import { createGetGlobalTemplate } from "../../templates/bufferToString";
  */
 export default class GlobalConcealing extends Transform {
   globalAnalysis: GlobalAnalysis;
-  ignoreGlobals = new Set(["require", "__dirname", "eval"]);
+  ignoreGlobals = new Set([
+    "require",
+    "__dirname",
+    "eval",
+    variableFunctionName,
+  ]);
 
   constructor(o) {
     super(o, ObfuscateOrder.GlobalConcealing);
@@ -103,11 +113,53 @@ export default class GlobalConcealing extends Transform {
 
           newNames[name] = state;
 
-          locations.forEach(([node, parents]) => {
-            this.replace(
-              node,
-              CallExpression(Identifier(globalFn), [Literal(state)])
-            );
+          locations.forEach(([node, p]) => {
+            if (p.find((x) => x.$skipGlobalConcealing)) {
+              return;
+            }
+
+            var newExpression = CallExpression(Identifier(globalFn), [
+              Literal(state),
+            ]);
+
+            this.replace(node, newExpression);
+
+            if (
+              this.options.lock?.tamperProtection &&
+              this.lockTransform.nativeFunctionName
+            ) {
+              var isMemberExpression = false;
+              while (p[0]?.type === "MemberExpression") {
+                p = p.slice(1);
+                isMemberExpression = true;
+
+                // Uncomment to do only one level of MemberExpression
+                // break;
+              }
+              var callExpression = p[0];
+
+              if (callExpression.type === "CallExpression") {
+                if (isMemberExpression) {
+                  callExpression.callee = CallExpression(
+                    Identifier(this.lockTransform.nativeFunctionName),
+                    [
+                      callExpression.callee.object,
+                      callExpression.callee.computed
+                        ? callExpression.callee.property
+                        : Literal(
+                            callExpression.callee.property.name ||
+                              callExpression.callee.property.value
+                          ),
+                    ]
+                  );
+                } else {
+                  callExpression.callee = CallExpression(
+                    Identifier(this.lockTransform.nativeFunctionName),
+                    [{ ...callExpression.callee }]
+                  );
+                }
+              }
+            }
           });
         });
 
@@ -180,7 +232,7 @@ export default class GlobalConcealing extends Transform {
 
         var tempVar = this.getPlaceholder();
 
-        var variableDeclaration = Template(`
+        var variableDeclaration = new Template(`
         var ${globalVar};
         `).single();
 
@@ -193,7 +245,7 @@ export default class GlobalConcealing extends Transform {
                   [],
                   [
                     ...getGlobalVariableFn,
-                    Template(
+                    new Template(
                       `return ${globalVar} = ${getGlobalVariableFnName}["call"](this)`
                     ).single(),
                   ]

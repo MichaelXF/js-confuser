@@ -46,8 +46,10 @@ export default class AntiClass extends Transform {
       var thisName = "this" + this.getPlaceholder();
 
       // self this
-      virtualBody.push(Template(`var ${thisName} = this;`).single());
-      virtualBody.push(Template(`${thisName}["constructor"] = null;`).single());
+      virtualBody.push(new Template(`var ${thisName} = this;`).single());
+      virtualBody.push(
+        new Template(`${thisName}["constructor"] = null;`).single()
+      );
       var superArguments;
       var superBody = [];
 
@@ -60,14 +62,14 @@ export default class AntiClass extends Transform {
 
       // getters/setters
       virtualBody.push(
-        Template(
+        new Template(
           `var ${virtualDescriptorsName} = {getters: {}, setters: {}}`
         ).single()
       );
 
       // getters/setters
       staticBody.push(
-        Template(
+        new Template(
           `var ${staticDescriptorsName} = {getters: {}, setters: {}}`
         ).single()
       );
@@ -169,7 +171,7 @@ export default class AntiClass extends Transform {
       });
 
       virtualBody.push(
-        Template(`
+        new Template(`
       [...Object.keys(${virtualDescriptorsName}.getters), ...Object.keys(${virtualDescriptorsName}.setters)].forEach(key=>{
   
         if( !${thisName}.hasOwnProperty(key) ) {
@@ -188,7 +190,7 @@ export default class AntiClass extends Transform {
       );
 
       staticBody.push(
-        Template(`
+        new Template(`
       [...Object.keys(${staticDescriptorsName}.getters), ...Object.keys(${staticDescriptorsName}.setters)].forEach(key=>{
   
         if( !${virtualName}.hasOwnProperty(key) ) {
@@ -211,7 +213,7 @@ export default class AntiClass extends Transform {
 
         // save the super state
         virtualBody.unshift(
-          Template(
+          new Template(
             `
             Object.keys(this).forEach(key=>{
               var descriptor = Object.getOwnPropertyDescriptor(this, key);
@@ -233,17 +235,17 @@ export default class AntiClass extends Transform {
           )
         );
 
-        virtualBody.unshift(Template(`var ${superName} = {}`).single());
+        virtualBody.unshift(new Template(`var ${superName} = {}`).single());
       }
 
       virtualBody.push(
-        Template(
+        new Template(
           `if(!this["constructor"]){this["constructor"] = ()=>{}};`
         ).single()
       );
       if (object.id && object.id.name) {
         virtualBody.push(
-          Template(`Object.defineProperty(this["constructor"], 'name', {
+          new Template(`Object.defineProperty(this["constructor"], 'name', {
           writable: true,
           configurable: true,
           value: '${object.id.name}'
@@ -251,7 +253,9 @@ export default class AntiClass extends Transform {
         );
       }
 
-      virtualBody.push(Template(`this["constructor"](...arguments)`).single());
+      virtualBody.push(
+        new Template(`this["constructor"](...arguments)`).single()
+      );
 
       var virtualFunction = FunctionExpression([], virtualBody);
 

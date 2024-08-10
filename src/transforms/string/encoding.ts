@@ -1,4 +1,4 @@
-import Template, { ITemplate } from "../../templates/template";
+import Template from "../../templates/template";
 import { choice, shuffle } from "../../util/random";
 
 /**
@@ -9,7 +9,7 @@ export interface EncodingImplementation {
 
   encode(s): string;
   decode(s): string;
-  template: ITemplate;
+  template: Template;
 }
 
 let _hasAllEncodings = false;
@@ -110,7 +110,7 @@ export function createEncodingImplementation(): EncodingImplementation {
 
       return Buffer.from(ret).toString("utf-8");
     },
-    template: Template(`  
+    template: new Template(`  
         function {__fnName__}(str){
           var table = '${strTable}';
   

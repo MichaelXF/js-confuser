@@ -1,10 +1,36 @@
 # `1.7.3`
-Monkeypatching Protections
+Tamper Protection
 
-This update focus around defeating monkeypatching tampering. Securing your local and global variable connections ensure reverse engineers can't hack/mod your code.
+New Lock Option:
+
+### `Tamper Protection`
+
+**⚠️ Tamper Protection requires eval and ran in a non-strict mode environment!**
+
+[Learn more here.](/docs/TamperProtection.md)
+
+- `Rename Variables` improvements
+
+```js
+// Input
+var name = "John Doe";
+eval("console.log(" + __JS_CONFUSER_VAR__(name) + ")");
+
+// Output
+var CA1HU0 = 'John Doe';
+eval('console.log(' + 'CA1HU0' + ')');
+```
+
+Obfuscated code now can access the renamed variable name mappings. The `__JS_CONFUSER_VAR__` function is completely removed during the obfuscation phase. 
+
+Even if `Rename Variables` is disabled, the `__JS_CONFUSER_VAR__` will be removed.
 
 - Fix [#134](https://github.com/MichaelXF/js-confuser/issues/134)
 - - Detect tampering to the Global Object
+
+- Added docs for [Rename Variables](/docs/RenameVariables.md) and [Template](/docs/Template.md).
+
+- The Template API is only used internally. However, upcoming changes to the `String Concealing` option will allow advanced user-defined encoding functions, exposing this API.
 
 # `1.7.2`
 Updates

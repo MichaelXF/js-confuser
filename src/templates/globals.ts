@@ -1,3 +1,3 @@
 import Template from "./template";
 
-export const ObjectDefineProperty = Template(`Object["defineProperty"]`);
+export const ObjectDefineProperty = new Template(`Object["defineProperty"]`);

@@ -12,7 +12,6 @@ import {
   CallExpression,
   BinaryExpression,
   FunctionDeclaration,
-  ThisExpression,
   ConditionalExpression,
 } from "../../util/gen";
 import { append, clone, prepend } from "../../util/insert";
@@ -94,10 +93,7 @@ export default class DuplicateLiteralsRemoval extends Transform {
         VariableDeclaration(
           VariableDeclarator(
             this.arrayName,
-            CallExpression(
-              MemberExpression(Identifier(getArrayFn), Literal("call"), true),
-              [ThisExpression()]
-            )
+            CallExpression(Identifier(getArrayFn), [])
           )
         )
       );

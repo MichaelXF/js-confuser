@@ -94,3 +94,8 @@ export const predictableFunctionTag = "__JS_PREDICT__";
  * -  Example: string decryption function
  */
 export const criticalFunctionTag = "__JS_CRITICAL__";
+
+/**
+ * Allows the user to grab the variable name of a renamed variable.
+ */
+export const variableFunctionName = "__JS_CONFUSER_VAR__";

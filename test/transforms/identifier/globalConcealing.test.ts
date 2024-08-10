@@ -93,66 +93,23 @@ test("Variant #5: Hide 'global' var, even if properties are modified", async () 
   expect((global as any).TEST_GLOBAL_VARIANT_5_OUTPUT).toStrictEqual(100);
 });
 
-test("Variant #6: Detect Eval tamper (no tamper)", async () => {
-  var code = `
-  global.TEST_OUTPUT = global.TEST_GLOBAL;
-  `;
+test("Variant #6: Preserve __JS_CONFUSER_VAR__", async () => {
+  // Covers both defined and undefined case
+  var output = await JsConfuser(
+    `
+    var TEST_VARIABLE
+    TEST_OUTPUT = [__JS_CONFUSER_VAR__(TEST_OUTER_VARIABLE), __JS_CONFUSER_VAR__(TEST_VARIABLE)];
+    `,
+    {
+      target: "node",
+      globalConcealing: true,
+    }
+  );
 
-  var output = await JsConfuser(code, {
-    target: {
-      name: "node",
-      eval: true,
-      strictMode: false,
-    },
-    globalConcealing: true,
-  });
+  expect(output).not.toContain("__JS_CONFUSER_VAR__");
 
-  var TEST_GLOBAL = {};
-  (global as any).TEST_GLOBAL = TEST_GLOBAL;
+  var TEST_OUTPUT;
+  eval(output);
 
-  // 'new Function' runs in non-strict mode
-  new Function(output)();
-
-  // Make reuse global variable as 'new Function' runs in isolated environment
-  var TEST_OUTPUT = (global as any).TEST_OUTPUT;
-
-  expect(TEST_OUTPUT).toStrictEqual(TEST_GLOBAL);
-});
-
-test("Variant #7: Detect Eval tamper (tampered)", async () => {
-  var code = `
-  global.TEST_GLOBAL_VARIANT_7_OUTPUT = global.TEST_GLOBAL_VARIANT_7;
-  `;
-
-  var output = await JsConfuser(code, {
-    target: {
-      name: "node",
-      eval: true,
-      strictMode: false,
-    },
-    globalConcealing: true,
-  });
-
-  // Inject 'eval' tamper code
-  output =
-    `var _eval = eval;
-  eval = (codeStr)=>( console.log(codeStr), _eval(codeStr) );
-  ` + output;
-
-  var TEST_GLOBAL_VARIANT_7 = {};
-  (global as any).TEST_GLOBAL_VARIANT_7 = TEST_GLOBAL_VARIANT_7;
-  var didError;
-
-  try {
-    // 'new Function' runs in non-strict mode
-    new Function(output)();
-  } catch (e) {
-    didError = true;
-  }
-
-  expect(didError).toStrictEqual(true);
-
-  // Ensure global variable was not affected
-  var TEST_OUTPUT = (global as any).TEST_GLOBAL_VARIANT_7_OUTPUT;
-  expect(TEST_OUTPUT).not.toStrictEqual(TEST_GLOBAL_VARIANT_7);
+  expect(TEST_OUTPUT).toStrictEqual(["TEST_OUTER_VARIABLE", "TEST_VARIABLE"]);
 });

@@ -1,5 +1,6 @@
 import Obfuscator from "./obfuscator";
 import { ObfuscateOptions } from "./options";
+import Template from "./templates/template";
 import Transform from "./transforms/transform";
 
 /**
@@ -21,6 +22,7 @@ export interface IJsConfuser {
 
   Transform: typeof Transform;
   Obfuscator: typeof Obfuscator;
+  Template: typeof Template;
 }
 
 /**

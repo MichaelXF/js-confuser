@@ -2,7 +2,7 @@ import { ok } from "assert";
 import { EventEmitter } from "events";
 import { Node } from "./util/gen";
 import traverse from "./traverse";
-import { ObfuscateOptions, TargetOption } from "./options";
+import { ObfuscateOptions } from "./options";
 import { ProbabilityMap, isProbabilityMapProbable } from "./probability";
 
 import Transform from "./transforms/transform";
@@ -45,9 +45,7 @@ export default class Obfuscator extends EventEmitter {
 
   totalPossibleTransforms: number;
 
-  constructor(
-    public options: Omit<ObfuscateOptions, "target"> & { target: TargetOption }
-  ) {
+  constructor(public options: ObfuscateOptions) {
     super();
 
     this.varCount = 0;

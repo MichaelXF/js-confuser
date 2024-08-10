@@ -42,7 +42,7 @@ function cyrb53(str, seed = 0) {
 }
 
 // In template form to be inserted into code
-const HashTemplate = Template(`
+const HashTemplate = new Template(`
 function {name}(str, seed) {
   var h1 = 0xdeadbeef ^ seed;
   var h2 = 0x41c6ce57 ^ seed;
@@ -57,7 +57,7 @@ function {name}(str, seed) {
 };`);
 
 // Math.imul polyfill for ES5
-const ImulTemplate = Template(`
+const ImulTemplate = new Template(`
 var {name} = Math.imul || function(opA, opB){
   opB |= 0; // ensure that opB is an integer. opA will automatically be coerced.
   // floating points give us 53 bits of precision to work with plus 1 sign bit
@@ -73,7 +73,7 @@ var {name} = Math.imul || function(opA, opB){
 };`);
 
 // Simple function that returns .toString() value with spaces replaced out
-const StringTemplate = Template(`
+const StringTemplate = new Template(`
   function {name}(x){
     return x.toString().replace(/ |\\n|;|,|\\{|\\}|\\(|\\)|\\.|\\[|\\]/g, "");
   }
@@ -231,9 +231,11 @@ export default class Integrity extends Transform {
         var ifStatement = IfStatement(
           BinaryExpression("==", Identifier(hashName), Literal(hash)),
           [
-            Template(`return {functionName}.apply(this, arguments)`).single({
-              functionName: functionName,
-            }),
+            new Template(`return {functionName}.apply(this, arguments)`).single(
+              {
+                functionName: functionName,
+              }
+            ),
           ]
         );
         if (

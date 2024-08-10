@@ -71,7 +71,7 @@ export default class AntiTemplate extends Transform {
 
           prepend(
             parents[parents.length - 1],
-            Template(`
+            new Template(`
           function {name}(arr, raw){
             arr.raw = raw;
             return arr;

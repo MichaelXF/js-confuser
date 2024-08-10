@@ -47,6 +47,7 @@ import Template from "../templates/template";
 import { FunctionLengthTemplate } from "../templates/functionLength";
 import { ObjectDefineProperty } from "../templates/globals";
 import { getLexicalScope } from "../util/scope";
+import { isJSConfuserVar } from "../util/guard";
 
 /**
  * A Dispatcher processes function calls. All the function declarations are brought into a dictionary.
@@ -214,6 +215,9 @@ export default class Dispatcher extends Transform {
             var info = getIdentifierInfo(o, p);
             if (!info.spec.isReferenced) {
               return;
+            }
+            if (isJSConfuserVar(p)) {
+              illegalFnNames.add(o.name);
             }
             if (info.spec.isDefined) {
               if (info.isFunctionDeclaration) {
@@ -404,7 +408,7 @@ export default class Dispatcher extends Transform {
                 )
               ),
 
-              Template(`
+              new Template(`
               function makeFn${predictableFunctionTag}(){
                 var fn = function(...args){
                   ${payloadArg} = args;
@@ -625,7 +629,7 @@ export default class Dispatcher extends Transform {
             VariableDeclaration(
               VariableDeclarator(
                 Identifier(cacheName),
-                Template(`Object.create(null)`).single().expression
+                new Template(`Object.create(null)`).single().expression
               )
             )
           );
