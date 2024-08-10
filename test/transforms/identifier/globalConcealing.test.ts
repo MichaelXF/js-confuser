@@ -113,3 +113,30 @@ test("Variant #6: Preserve __JS_CONFUSER_VAR__", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(["TEST_OUTER_VARIABLE", "TEST_VARIABLE"]);
 });
+
+test("Variant #7: Custom callback option", async () => {
+  var namesCollected: string[] = [];
+
+  var output = await JsConfuser(
+    `
+    expect(true).toStrictEqual(true);
+
+    TEST_OUTPUT = true;
+    `,
+    {
+      target: "node",
+      globalConcealing: (name) => {
+        namesCollected.push(name);
+        return false;
+      },
+    }
+  );
+
+  expect(namesCollected).toContain("expect");
+  expect(namesCollected).not.toContain("TEST_OUTPUT");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});

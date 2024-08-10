@@ -3,7 +3,7 @@ import Template from "./template";
 export const CrashTemplate1 = new Template(`
 var {var} = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_\`{|}~"';
 while(true){
-    {var} += {var};
+    {var} = {var};
     if(!{var}) break;
 }
 `);

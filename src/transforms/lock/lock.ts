@@ -57,21 +57,23 @@ export default class Lock extends Transform {
 
   made: number;
 
-  secureEval(sourceCode: string) {
-    var node = new Template(`
-      (function(){
-        let check = false;
-        eval(${this.jsConfuserVar("check")} + " = true")
-        if (!check) {
-            throw new Error("Eval was redefined")
-        }
-        return eval("REPLACE");
-    })()
-      `).single().expression;
+  shouldTransformNativeFunction(nameAndPropertyPath: string[]) {
+    if (!this.options.lock.tamperProtection) {
+      return false;
+    }
 
-    node.callee.body.body[3].argument.arguments[0] = Literal(sourceCode);
+    // TODO: Allow user to customize this behavior
+    var globalObject = typeof window !== "undefined" ? window : global;
+    var fn = globalObject;
+    for (var item of nameAndPropertyPath) {
+      fn = fn[item];
+      if (typeof fn === "undefined") return false;
+    }
 
-    return node;
+    var hasNativeCode =
+      typeof fn === "function" && ("" + fn).includes("[native code]");
+
+    return hasNativeCode;
   }
 
   constructor(o) {
@@ -141,7 +143,7 @@ export default class Lock extends Transform {
     super.apply(tree);
 
     if (this.options.lock.tamperProtection) {
-      this.nativeFunctionName = this.getPlaceholder();
+      this.nativeFunctionName = this.getPlaceholder() + "_lockNative";
       var nativeFunctionCheck = new Template(`
         function ${this.nativeFunctionName}() {
           {IndexOfTemplate}
@@ -149,11 +151,13 @@ export default class Lock extends Transform {
           function checkFunction(fn){
             if (indexOf("" + fn, '{ [native code] }') === -1
             ||
-            typeof Object.getOwnPropertyDescriptor(fn) !== "undefined"
+            typeof Object.getOwnPropertyDescriptor(fn, "toString") !== "undefined"
             ) {
-              console.log(fn);
-              throw new Error('Tamper detected');
+              {countermeasures}
+              return undefined
             }
+
+            return fn;
           }
 
           var args = arguments
@@ -164,12 +168,13 @@ export default class Lock extends Transform {
             var property = args[1];
 
             var fn = object[property];
-            checkFunction(fn);
+            fn = checkFunction(fn);
 
             return fn.bind(object);
           }
         }`).single({
         IndexOfTemplate: IndexOfTemplate,
+        countermeasures: this.getCounterMeasuresCode(tree, []),
       });
 
       nativeFunctionCheck.$skipGlobalConcealing = true;
@@ -216,20 +221,11 @@ export default class Lock extends Transform {
       ];
     }
 
-    var type = choice(["infiniteLoop"]);
-
-    switch (type) {
-      case "infiniteLoop":
-        var varName = this.getPlaceholder();
-        return choice([CrashTemplate1, CrashTemplate2, CrashTemplate3]).compile(
-          {
-            var: varName,
-          }
-        );
-
-      default:
-        ok(false, "Invalid type");
-    }
+    // Default fallback to infinite loop
+    var varName = this.getPlaceholder();
+    return choice([CrashTemplate1, CrashTemplate2, CrashTemplate3]).compile({
+      var: varName,
+    });
   }
 
   /**
