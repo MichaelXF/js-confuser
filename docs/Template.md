@@ -56,10 +56,10 @@ var functionDeclaration = Base64Template.single({
 });
 ```
 
-Here, the `getWindow` variable is passed as function that returns an AST subtree. This must be a `Node[]` array or another Template.
-Optionally, the function can be replaced with just the `Node[]` array or the Template if it's already computed.
+Here, the `getWindow` variable is passed as function that returns an AST subtree. This must be a `Node` object, `Node[]` array, or another Template.
+Optionally, the function can be replaced with the return value if it's already computed.
 
-When utilizing AST-interpolated variables, an additional traversal will need to be ran to replace these plain Identifiers into the `Node[]` array.
+When utilizing AST-interpolated variables, an additional traversal will need to be ran to replace the plain Identifier nodes.
 
 Regular string interpolation does not require an additional traversal.
 

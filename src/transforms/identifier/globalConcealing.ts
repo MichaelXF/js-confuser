@@ -94,7 +94,11 @@ export default class GlobalConcealing extends Transform {
           this.getPlaceholder() + predictableFunctionTag;
 
         // Returns global variable or fall backs to `this`
-        var getGlobalVariableFn = createGetGlobalTemplate(this).compile({
+        var getGlobalVariableFn = createGetGlobalTemplate(
+          this,
+          object,
+          parents
+        ).compile({
           getGlobalFnName: getGlobalVariableFnName,
         });
 
@@ -129,16 +133,43 @@ export default class GlobalConcealing extends Transform {
               this.lockTransform.nativeFunctionName
             ) {
               var isMemberExpression = false;
-              while (p[0]?.type === "MemberExpression") {
-                p = p.slice(1);
+              var nameAndPropertyPath = [name];
+              var callExpression: Node;
+
+              var index = 0;
+              do {
+                if (p[index].type === "CallExpression") {
+                  callExpression = p[index];
+                  break;
+                }
+
+                var memberExpression = p[index];
+                if (memberExpression.type !== "MemberExpression") return;
+                var property = memberExpression.property;
+                var stringValue =
+                  property.type === "Literal"
+                    ? property.value
+                    : property.computed
+                    ? null
+                    : property.type === "Identifier"
+                    ? property.name
+                    : null;
+
+                if (!stringValue) return;
+
                 isMemberExpression = true;
+                nameAndPropertyPath.push(stringValue);
+                index++;
+              } while (index < p.length);
 
-                // Uncomment to do only one level of MemberExpression
-                // break;
-              }
-              var callExpression = p[0];
+              if (
+                !this.lockTransform.shouldTransformNativeFunction(
+                  nameAndPropertyPath
+                )
+              )
+                return;
 
-              if (callExpression.type === "CallExpression") {
+              if (callExpression && callExpression.type === "CallExpression") {
                 if (isMemberExpression) {
                   callExpression.callee = CallExpression(
                     Identifier(this.lockTransform.nativeFunctionName),

@@ -86,7 +86,7 @@ export default class StringConcealing extends Transform {
       ...BufferToStringTemplate.compile({
         name: bufferToStringName,
         getGlobalFnName: this.getPlaceholder() + predictableFunctionTag,
-        GetGlobalTemplate: createGetGlobalTemplate(this),
+        GetGlobalTemplate: createGetGlobalTemplate(this, tree, []),
       })
     );
 

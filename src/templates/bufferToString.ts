@@ -3,23 +3,33 @@ import {
   predictableFunctionTag,
 } from "../constants";
 import Transform from "../transforms/transform";
+import { Node } from "../util/gen";
 import Template from "./template";
 
-export const createGetGlobalTemplate = (t: Transform) => {
-  var options = t.options;
+export const createGetGlobalTemplate = (
+  transform: Transform,
+  object: Node,
+  parents: Node[]
+) => {
+  var options = transform.options;
   if (options.lock?.tamperProtection) {
     return new Template(`
       function {getGlobalFnName}(){
         var localVar = false;
-        eval(${t.jsConfuserVar("localVar")} + " = true")
+        eval(${transform.jsConfuserVar("localVar")} + " = true")
         if (!localVar) {
-          countermeasures;
+          {countermeasures}
         }
     
         const root = eval("this");
         return root;
       }
-    `);
+    `).setDefaultVariables({
+      countermeasures: transform.lockTransform.getCounterMeasuresCode(
+        object,
+        parents
+      ),
+    });
   }
 
   return GetGlobalTemplate;

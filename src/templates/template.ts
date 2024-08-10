@@ -6,7 +6,12 @@ import { placeholderVariablePrefix } from "../constants";
 import traverse from "../traverse";
 
 export interface TemplateVariables {
-  [varName: string]: string | (() => Node[] | Template) | Node[] | Template;
+  [varName: string]:
+    | string
+    | (() => Node | Node[] | Template)
+    | Node
+    | Node[]
+    | Template;
 }
 
 /**
@@ -81,14 +86,12 @@ export default class Template {
     this.findRequiredVariables();
   }
 
-  setDefaultVariables(defaultVariables: { [key: string]: string }): this {
+  setDefaultVariables(defaultVariables: TemplateVariables): this {
     this.defaultVariables = defaultVariables;
     return this;
   }
 
   private findRequiredVariables() {
-    // This may picked up "$mb[pP`x]" from String Encoding function
-    // ignoreMissingVariables() prevents this
     var matches = this.templates[0].match(/{[$A-z0-9_]+}/g);
     if (matches !== null) {
       matches.forEach((variable) => {
@@ -105,12 +108,6 @@ export default class Template {
         }
       });
     }
-  }
-
-  ignoreMissingVariables(): this {
-    this.defaultVariables = Object.create(null);
-    this.requiredVariables.clear();
-    return this;
   }
 
   /**
@@ -163,36 +160,43 @@ export default class Template {
    * @param variables
    */
   private interpolateAST(ast: Node, variables: TemplateVariables) {
+    var allVariables = { ...this.defaultVariables, ...variables };
+
     var astNames = new Set(
-      Object.keys(variables).filter((name) => {
-        return typeof variables[name] !== "string";
+      Object.keys(allVariables).filter((name) => {
+        return typeof allVariables[name] !== "string";
       })
     );
 
     if (astNames.size === 0) return;
 
     traverse(ast, (o, p) => {
-      if (o.type === "Identifier" && variables[o.name]) {
+      if (o.type === "Identifier" && allVariables[o.name]) {
         return () => {
-          var value = variables[o.name];
+          var value = allVariables[o.name];
           ok(typeof value !== "string");
-
-          var expressionStatement: Node = p[0];
-          var body: Node[] = p[1] as any;
-
-          ok(expressionStatement.type === "ExpressionStatement");
-          ok(Array.isArray(body));
-
-          var index = body.indexOf(expressionStatement);
 
           var insertNodes = typeof value === "function" ? value() : value;
           if (insertNodes instanceof Template) {
-            insertNodes = insertNodes.compile(variables);
+            insertNodes = insertNodes.compile(allVariables);
           }
 
-          ok(Array.isArray(insertNodes), `${o.name} AST is not an array`);
+          if (!Array.isArray(insertNodes)) {
+            // Replace with expression
 
-          body.splice(index, 1, ...insertNodes);
+            Object.assign(o, insertNodes);
+          } else {
+            // Insert multiple statements/declarations
+            var expressionStatement: Node = p[0];
+            var body: Node[] = p[1] as any;
+
+            ok(expressionStatement.type === "ExpressionStatement");
+            ok(Array.isArray(body));
+
+            var index = body.indexOf(expressionStatement);
+
+            body.splice(index, 1, ...insertNodes);
+          }
         };
       }
     });
