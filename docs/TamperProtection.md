@@ -71,6 +71,10 @@ Eval loses it's local scope access when redefined by a monkey-patched function. 
 
 [Learn more about RGF](RGF.md).
 
+### Disallows Strict Mode
+
+Tamper Protection requires the script to run in non-strict mode. Detection of the script in Strict Mode will be considered tampering. You can control the tampering response using the `lock.countermeasures` option, as detailed in the next section.
+
 ### Tamper Detection
 
 If tampering is detected, the `lock.countermeasures` function will be invoked. If you don't provide a `lock.countermeasures` function, the default behavior is to crash the program.

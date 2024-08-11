@@ -268,3 +268,28 @@ describe("RGF", () => {
     expect(error).toBeTruthy(); // An error occurs because the RGF array was not initialized
   });
 });
+
+describe("Strict Mode", () => {
+  test("Variant #1: Disallow Strict Mode", async () => {
+    var output = await JsConfuser(
+      `
+      "use strict"; // Note: Jest testing environment is already in Strict Mode
+      function onTamperDetected(){
+        TEST_OUTPUT = true;
+      }
+      `,
+      {
+        target: "node",
+        lock: {
+          tamperProtection: true,
+          countermeasures: "onTamperDetected",
+        },
+      }
+    );
+
+    var TEST_OUTPUT;
+    eval(output);
+
+    expect(TEST_OUTPUT).toStrictEqual(true);
+  });
+});

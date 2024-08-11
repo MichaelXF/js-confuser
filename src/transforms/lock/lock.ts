@@ -144,6 +144,33 @@ export default class Lock extends Transform {
 
     if (this.options.lock.tamperProtection) {
       this.nativeFunctionName = this.getPlaceholder() + "_lockNative";
+
+      // Ensure program is not in strict mode
+      // Tamper Protection forces non-strict mode
+      prepend(
+        tree,
+        new Template(`
+        (function(){
+          function isStrictMode(){
+            try {
+              var arr = []
+              delete arr["length"]
+            } catch(e) {
+              return true;
+            }
+            return false;
+          }
+
+          if(isStrictMode()) {
+            {countermeasures}
+            ${this.nativeFunctionName} = undefined;
+          }
+        })()
+        `).single({
+          countermeasures: this.getCounterMeasuresCode(tree, []),
+        })
+      );
+
       var nativeFunctionCheck = new Template(`
         function ${this.nativeFunctionName}() {
           {IndexOfTemplate}
