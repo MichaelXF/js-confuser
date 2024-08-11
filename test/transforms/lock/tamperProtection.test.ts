@@ -189,3 +189,82 @@ describe("Global Concealing", () => {
     expect(TEST_OUTPUT).toStrictEqual(10);
   });
 });
+
+describe("RGF", () => {
+  test("Variant #1: Use Eval instead of new Function", async () => {
+    var output = await JsConfuser(
+      `
+      function myFunction1(){
+        TEST_OUTPUT_SET(true);
+      }
+
+      myFunction1();
+      `,
+      {
+        target: "node",
+        rgf: true,
+        lock: {
+          tamperProtection: true,
+        },
+        renameVariables: true,
+
+        // Allow RGF to transform 'myFunction1'
+        // Otherwise, RGF will skip 'myFunction1' as 'TEST_OUTPUT_SET' is an outside variable
+        globalVariables: new Set(["TEST_OUTPUT_SET"]),
+      }
+    );
+
+    expect(output).not.toContain(
+      "function myFunction1(){TEST_OUTPUT_SET(true)"
+    );
+    expect(output).toContain("eval");
+    expect(output).not.toContain("new Function");
+
+    var { TEST_OUTPUT, error } = evalInNonStrictMode(output);
+
+    expect(error).toBeNull();
+    expect(TEST_OUTPUT).toStrictEqual(true);
+  });
+
+  test("Variant #2: Detect Eval tamper", async () => {
+    var output = await JsConfuser(
+      `
+      function onTamperDetected(){
+        TEST_OUTPUT_SET("Correct Value");
+      }
+      function myFunction1(){
+        TEST_OUTPUT_SET("Function still called");
+      }
+
+      myFunction1();
+      `,
+      {
+        target: "node",
+        rgf: true,
+        lock: {
+          tamperProtection: true,
+          countermeasures: "onTamperDetected",
+        },
+        renameVariables: true,
+
+        // Allow RGF to transform 'myFunction1'
+        // Otherwise, RGF will skip 'myFunction1' as 'TEST_OUTPUT_SET' is an outside variable
+        globalVariables: new Set(["TEST_OUTPUT_SET"]),
+      }
+    );
+
+    expect(output).not.toContain("function myFunction1(){TEST_OUTPUT_SET(");
+    expect(output).toContain("eval");
+
+    // Inject 'eval' tamper code
+    output =
+      `var _eval = eval;
+       eval = (code)=>( TEST_OUTPUT_SET(code), console.log(code), _eval(code) );` +
+      output;
+
+    var { TEST_OUTPUT, error } = evalInNonStrictMode(output);
+
+    expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+    expect(error).toBeTruthy(); // An error occurs because the RGF array was not initialized
+  });
+});

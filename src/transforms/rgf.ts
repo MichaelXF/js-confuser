@@ -14,6 +14,7 @@ import {
   ExpressionStatement,
   Identifier,
   Literal,
+  LogicalExpression,
   MemberExpression,
   NewExpression,
   Node,
@@ -68,22 +69,38 @@ export default class RGF extends Transform {
 
     // Only add the array if there were converted functions
     if (this.arrayExpressionElements.length > 0) {
-      var nodes: Node[] = [
-        VariableDeclaration(
-          VariableDeclarator(
-            Identifier(this.arrayExpressionName),
-            ArrayExpression(this.arrayExpressionElements)
-          )
-        ),
-      ];
+      var variableDeclaration = VariableDeclaration(
+        VariableDeclarator(
+          Identifier(this.arrayExpressionName),
+          ArrayExpression(this.arrayExpressionElements)
+        )
+      );
+
+      var nodes: Node[] = [variableDeclaration];
 
       if (this.options.lock?.tamperProtection) {
+        // The name of the variable flag if eval is safe to use
+        var tamperProtectionCheckName = this.getPlaceholder() + "_rgfEvalCheck";
+
+        variableDeclaration.declarations[0].init = LogicalExpression(
+          "&&",
+          Identifier(tamperProtectionCheckName),
+          { ...variableDeclaration.declarations[0].init }
+        );
+
         nodes.unshift(
           ...new Template(`
-            var check = false;
-            eval(${this.jsConfuserVar("check")} + "=true");
-            if(!check) throw new Error("Tampering detected");
-            `).compile()
+            var ${tamperProtectionCheckName} = false;
+            eval(${this.jsConfuserVar(tamperProtectionCheckName)} + "=true");
+            if(!${tamperProtectionCheckName}) {
+              {countermeasures}
+            }
+            `).compile({
+            countermeasures: this.lockTransform.getCounterMeasuresCode(
+              tree,
+              []
+            ),
+          })
         );
       }
 
@@ -243,6 +260,7 @@ export default class RGF extends Transform {
       });
 
       if (obfuscator.options.lock) {
+        obfuscator.options.lock = { ...obfuscator.options.lock };
         delete obfuscator.options.lock.countermeasures;
 
         // Integrity will not recursively apply to RGF'd functions. This is intended.
