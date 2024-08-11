@@ -68,7 +68,7 @@ export default class Shuffle extends Transform {
   match(object, parents) {
     return (
       object.type == "ArrayExpression" &&
-      !parents.find((x) => x.$dispatcherSkip)
+      !parents.find((x) => x.$multiTransformSkip)
     );
   }
 

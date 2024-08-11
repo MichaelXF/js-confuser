@@ -177,8 +177,8 @@ export default class Lock extends Transform {
         countermeasures: this.getCounterMeasuresCode(tree, []),
       });
 
-      nativeFunctionCheck.$skipGlobalConcealing = true;
-      nativeFunctionCheck.$dispatcherSkip = true;
+      // $multiTransformSkip is used to prevent scoping between transformations
+      nativeFunctionCheck.$multiTransformSkip = true;
 
       prepend(tree, nativeFunctionCheck);
     }

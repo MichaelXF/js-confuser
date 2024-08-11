@@ -177,7 +177,7 @@ export default class StringConcealing extends Transform {
       object.value.length >= 3 &&
       !isModuleSource(object, parents) &&
       !isDirective(object, parents) //&&
-      /*!parents.find((x) => x.$dispatcherSkip)*/
+      /*!parents.find((x) => x.$multiTransformSkip)*/
     );
   }
 

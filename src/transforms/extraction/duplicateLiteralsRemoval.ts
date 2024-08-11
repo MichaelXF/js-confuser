@@ -165,7 +165,7 @@ export default class DuplicateLiteralsRemoval extends Transform {
       isPrimitive(object) &&
       !isDirective(object, parents) &&
       !isModuleSource(object, parents) &&
-      !parents.find((x) => x.$dispatcherSkip)
+      !parents.find((x) => x.$multiTransformSkip)
     );
   }
 

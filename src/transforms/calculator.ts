@@ -144,7 +144,9 @@ export default class Calculator extends Transform {
         return;
       }
       if (
-        parents.find((x) => x.$dispatcherSkip || x.type == "BinaryExpression")
+        parents.find(
+          (x) => x.$multiTransformSkip || x.type == "BinaryExpression"
+        )
       ) {
         return;
       }

@@ -118,7 +118,7 @@ export default class GlobalConcealing extends Transform {
           newNames[name] = state;
 
           locations.forEach(([node, p]) => {
-            if (p.find((x) => x.$skipGlobalConcealing)) {
+            if (p.find((x) => x.$multiTransformSkip)) {
               return;
             }
 

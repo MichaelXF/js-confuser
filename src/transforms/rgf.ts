@@ -79,7 +79,7 @@ export default class RGF extends Transform {
 
       if (this.options.lock?.tamperProtection) {
         nodes.unshift(
-          ...Template(`
+          ...new Template(`
             var check = false;
             eval(${this.jsConfuserVar("check")} + "=true");
             if(!check) throw new Error("Tampering detected");

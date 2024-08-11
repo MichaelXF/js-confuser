@@ -110,8 +110,8 @@ export default class Dispatcher extends Transform {
     return (
       isVarContext(object) &&
       object.type !== "ArrowFunctionExpression" &&
-      !object.$dispatcherSkip &&
-      !parents.find((x) => x.$dispatcherSkip)
+      !object.$multiTransformSkip &&
+      !parents.find((x) => x.$multiTransformSkip)
     );
   }
 
@@ -159,7 +159,7 @@ export default class Dispatcher extends Transform {
                 o.async ||
                 o.generator ||
                 p.find(
-                  (x) => x.$dispatcherSkip || x.type == "MethodDefinition"
+                  (x) => x.$multiTransformSkip || x.type == "MethodDefinition"
                 ) ||
                 o.body.type != "BlockStatement"
               ) {

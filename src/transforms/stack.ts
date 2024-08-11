@@ -53,7 +53,7 @@ export default class Stack extends Transform {
       isFunction(object) &&
       !object.params.find((x) => x.type !== "Identifier") &&
       object.body.type === "BlockStatement" &&
-      !parents.find((x) => x.$dispatcherSkip) &&
+      !parents.find((x) => x.$multiTransformSkip) &&
       !object.$requiresEval
     );
   }

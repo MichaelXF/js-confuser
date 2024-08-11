@@ -128,7 +128,7 @@ export default class Integrity extends Transform {
         var imulName = this.getPlaceholder();
         var imulVariableDeclaration = ImulTemplate.single({ name: imulName });
 
-        imulVariableDeclaration.$dispatcherSkip = true;
+        imulVariableDeclaration.$multiTransformSkip = true;
 
         this.imulFn = imulVariableDeclaration._hiddenId = Identifier(imulName);
         hashingUtils.push(imulVariableDeclaration);
@@ -141,7 +141,7 @@ export default class Integrity extends Transform {
         this.hashFn = hashFunctionDeclaration._hiddenId = Identifier(hashName);
         hashingUtils.push(hashFunctionDeclaration);
 
-        hashFunctionDeclaration.$dispatcherSkip = true;
+        hashFunctionDeclaration.$multiTransformSkip = true;
 
         var stringName = this.getPlaceholder();
         var stringFunctionDeclaration = StringTemplate.single({
@@ -151,7 +151,7 @@ export default class Integrity extends Transform {
           Identifier(stringName);
         hashingUtils.push(stringFunctionDeclaration);
 
-        stringFunctionDeclaration.$dispatcherSkip = true;
+        stringFunctionDeclaration.$multiTransformSkip = true;
 
         var functionExpression = FunctionExpression([], clone(object.body));
 
@@ -159,7 +159,7 @@ export default class Integrity extends Transform {
           ExpressionStatement(CallExpression(functionExpression, [])),
         ];
 
-        object.$dispatcherSkip = true;
+        object.$multiTransformSkip = true;
 
         object._hiddenHashingUtils = hashingUtils;
 
@@ -211,7 +211,7 @@ export default class Integrity extends Transform {
           params: object.params || [],
           body: object.body || BlockStatement([]),
           expression: false,
-          $dispatcherSkip: true,
+          $multiTransformSkip: true,
         };
 
         var toString = compileJsSync(functionDeclaration, this.options);

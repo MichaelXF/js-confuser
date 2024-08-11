@@ -589,7 +589,8 @@ export default class DeadCode extends Transform {
     return (
       isFunction(object) &&
       isBlock(object.body) &&
-      !parents.find((x) => x.$dispatcherSkip)
+      !object.$multiTransformSkip &&
+      !parents.find((x) => x.$multiTransformSkip)
     );
   }
 
