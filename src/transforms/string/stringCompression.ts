@@ -176,7 +176,8 @@ export default class StringCompression extends Transform {
       object.value &&
       object.value.length > 3 &&
       !isDirective(object, parents) &&
-      !isModuleSource(object, parents)
+      !isModuleSource(object, parents) &&
+      !parents.find((x) => x.$multiTransformSkip)
     );
   }
 

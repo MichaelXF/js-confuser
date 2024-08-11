@@ -155,9 +155,8 @@ export default class Lock extends Transform {
 
       // Ensure program is not in strict mode
       // Tamper Protection forces non-strict mode
-      prepend(
-        tree,
-        new Template(`
+
+      var strictModeCheck = new Template(`
         (function(){
           function isStrictMode(){
             try {
@@ -175,9 +174,13 @@ export default class Lock extends Transform {
           }
         })()
         `).single({
-          countermeasures: this.getCounterMeasuresCode(tree, []),
-        })
-      );
+        countermeasures: this.getCounterMeasuresCode(tree, []),
+      });
+
+      // $multiTransformSkip is used to prevent scoping between transformations
+      strictModeCheck.$multiTransformSkip = true;
+
+      prepend(tree, strictModeCheck);
 
       var nativeFunctionCheck = new Template(`
         function ${this.nativeFunctionName}() {
