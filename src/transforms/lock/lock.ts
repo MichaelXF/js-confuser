@@ -62,6 +62,14 @@ export default class Lock extends Transform {
       return false;
     }
 
+    if (
+      this.options.target === "browser" &&
+      nameAndPropertyPath.length === 1 &&
+      nameAndPropertyPath[0] === "fetch"
+    ) {
+      return true;
+    }
+
     // TODO: Allow user to customize this behavior
     var globalObject = typeof window !== "undefined" ? window : global;
     var fn = globalObject;
