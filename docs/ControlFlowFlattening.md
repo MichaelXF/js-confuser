@@ -593,7 +593,3 @@ Control Flow Flattening only applies to:
 
 - Blocks of 3 statements or more
 - Cannot use `let`/`const` in these blocks of code
-
-### See also
-
-- [Control Flow Flattening](ControlFlowFlattening.md)

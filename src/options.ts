@@ -146,7 +146,7 @@ export interface ObfuscateOptions {
    *
    * ⚠️ Significantly impacts performance, use sparingly!
    *
-   * [Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) hinders program comprehension by creating convoluted switch statements. (`true/false/0-1`)
+   * Control-flow Flattening hinders program comprehension by creating convoluted switch statements. (`true/false/0-1`)
    *
    * Use a number to control the percentage from 0 to 1.
    *
@@ -187,7 +187,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringConcealing`
    *
-   * [String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. (`true/false/0-1`)
+   * String Concealing involves encoding strings to conceal plain-text values. (`true/false/0-1`)
    *
    * `"console"` -> `decrypt('<~@rH7+Dert~>')`
    *
@@ -200,7 +200,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringEncoding`
    *
-   * [String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false/0-1`)
+   * String Encoding transforms a string into an encoded representation. (`true/false/0-1`)
    *
    * `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
    *
@@ -215,7 +215,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringSplitting`
    *
-   * [String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false/0-1`)
+   * String Splitting splits your strings into multiple expressions. (`true/false/0-1`)
    *
    * `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
    *
@@ -230,7 +230,7 @@ export interface ObfuscateOptions {
   /**
    * ### `duplicateLiteralsRemoval`
    *
-   * [Duplicate Literals Removal](https://docs.jscrambler.com/code-integrity/documentation/transformations/duplicate-literals-removal) replaces duplicate literals with a single variable name. (`true/false`)
+   * Duplicate Literals Removal replaces duplicate literals with a single variable name. (`true/false`)
    *
    * - Potency Medium
    * - Resilience Low

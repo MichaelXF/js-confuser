@@ -183,6 +183,8 @@ var qFaI6S = function () {
 qFaI6S();
 ```
 
+[Learn mode here.](https://github.com/MichaelXF/js-confuser/blob/master/docs/RenameVariables.md)
+
 ### `renameGlobals`
 
 Renames top-level variables, turn this off for web-related scripts. Enabled by default. (`true/false`)
@@ -389,6 +391,8 @@ Use a number to control the percentage of strings.
 ### `stringEncoding`
 
 String Encoding transforms a string into an encoded representation. (`true/false/0-1`)
+
+**⚠️ Warning: Significantly increases file size! It is not recommended for most use cases.**
 
 Use a number to control the percentage of strings.
 
