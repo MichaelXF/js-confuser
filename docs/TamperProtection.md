@@ -7,7 +7,7 @@ Tamper Protection safeguards the runtime behavior from being altered by JavaScri
 - **This can break your code.**
 - **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
 
-Option name: `tamperProtection`
+Option name: `lock.tamperProtection`
 
 Option values: `true/false`
 

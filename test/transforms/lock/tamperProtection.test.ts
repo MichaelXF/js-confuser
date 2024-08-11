@@ -166,4 +166,26 @@ describe("Global Concealing", () => {
       }
     );
   });
+
+  test("Variant #7: Protect native function Math.floor", async () => {
+    var output = await JsConfuser(
+      `
+      TEST_OUTPUT_SET(Math.floor(10.1));
+      `,
+      {
+        target: "node",
+        globalConcealing: (varName) => varName != "TEST_OUTPUT_SET",
+        lock: {
+          tamperProtection: true,
+        },
+      }
+    );
+
+    expect(output).not.toContain("Math['floor");
+
+    var { TEST_OUTPUT, error } = evalInNonStrictMode(output);
+
+    expect(error).toBeNull();
+    expect(TEST_OUTPUT).toStrictEqual(10);
+  });
 });

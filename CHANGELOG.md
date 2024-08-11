@@ -1,15 +1,25 @@
 # `1.7.3`
 Tamper Protection
 
-New Lock Option:
-
 ### `Tamper Protection`
+
+Tamper Protection safeguards the runtime behavior from being altered by JavaScript pitfalls. 
 
 **⚠️ Tamper Protection requires eval and ran in a non-strict mode environment!**
 
+- **This can break your code.**
+- **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
+
+Option name: `lock.tamperProtection`
+
+Option values: `true/false`
+
 [Learn more here.](/docs/TamperProtection.md)
 
-- `Rename Variables` improvements
+- `Rename Variables` improvements:
+
+- - New `__JS_CONFUSER_VAR__` function to access renamed variables. [Learn more here](/docs/RenameVariables.md).
+
 
 ```js
 // Input
@@ -21,16 +31,9 @@ var CA1HU0 = 'John Doe';
 eval('console.log(' + 'CA1HU0' + ')');
 ```
 
-Obfuscated code now can access the renamed variable name mappings. The `__JS_CONFUSER_VAR__` function is completely removed during the obfuscation phase. 
-
-Even if `Rename Variables` is disabled, the `__JS_CONFUSER_VAR__` will be removed.
 
 - Fix [#134](https://github.com/MichaelXF/js-confuser/issues/134)
-- - Detect tampering to the Global Object
-
-- Added docs for [Rename Variables](/docs/RenameVariables.md) and [Template](/docs/Template.md).
-
-- The Template API is only used internally. However, upcoming changes to the `String Concealing` option will allow advanced user-defined encoding functions, exposing this API.
+- - Detect tampering to the Global Object with the new `lock.tamperProtection` option.
 
 # `1.7.2`
 Updates

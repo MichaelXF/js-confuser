@@ -411,6 +411,11 @@ export interface ObfuscateOptions {
      *
      * Tamper Protection safeguards the runtime behavior from being altered by JavaScript pitfalls. (`true/false`)
      *
+     * **⚠️ Tamper Protection requires eval and ran in a non-strict mode environment!**
+     *
+     * - **This can break your code.**
+     * - **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
+     *
      * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/TamperProtection.md).
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
