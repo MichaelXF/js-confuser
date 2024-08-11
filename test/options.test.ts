@@ -75,6 +75,24 @@ describe("options", () => {
 
     expect(output).not.toContain("TEST_VARIABLE");
   });
+
+  test("Variant #7: Error on invalid lock option", async () => {
+    expect(
+      JsConfuser(`var TEST_VARIABLE;`, {
+        target: "node",
+        lock: "invalid",
+      } as any)
+    ).rejects.toThrow();
+
+    expect(
+      JsConfuser(`var TEST_VARIABLE;`, {
+        target: "node",
+        lock: {
+          invalidProperty: true,
+        },
+      } as any)
+    ).rejects.toThrow();
+  });
 });
 
 describe("options.preserveFunctionLength", () => {

@@ -647,6 +647,20 @@ const validProperties = new Set([
   "preserveFunctionLength",
 ]);
 
+const validLockProperties = new Set([
+  "selfDefending",
+  "antiDebug",
+  "context",
+  "tamperProtection",
+  "startDate",
+  "endDate",
+  "domainLock",
+  "osLock",
+  "browserLock",
+  "integrity",
+  "countermeasures",
+]);
+
 const validOses = new Set(["windows", "linux", "osx", "ios", "android"]);
 const validBrowsers = new Set([
   "firefox",
@@ -702,6 +716,13 @@ export function validateOptions(options: ObfuscateOptions) {
   }
 
   if (options.lock) {
+    ok(typeof options.lock === "object", "options.lock must be an object");
+    Object.keys(options.lock).forEach((key) => {
+      if (!validLockProperties.has(key)) {
+        throw new TypeError("Invalid lock option: '" + key + "'");
+      }
+    });
+
     // Validate browser-lock option
     if (
       options.lock.browserLock &&
