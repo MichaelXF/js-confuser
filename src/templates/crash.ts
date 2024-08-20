@@ -21,36 +21,3 @@ while(true) {
         {var}--
     }
  };`);
-
-export const CrashTemplate3 = new Template(`
-try {
-    function {$2}(y, x){
-        return x;
-      }
-      
-      var {$1} = {$2}(this, function () {
-        var {$3} = function () {
-            var regExp = {$3}
-                .constructor('return /" + this + "/')()
-                .constructor('^([^ ]+( +[^ ]+)+)+[^ ]}');
-            
-            return !regExp.call({$1});
-        };
-        
-        return {$3}();
-      });
-      
-      {$1}();
-} catch ( {$1}e ) {
-    while({$1}e ? {$1}e : !{$1}e){
-        var {$1}b;
-        var {$1}c = 0;
-        ({$1}e ? !{$1}e : {$1}e) ? (function({$1}e){
-            {$1}c = {$1}e ? 0 : !{$1}e ? 1 : 0;
-        })({$1}e) : {$1}b = 1;
-
-        if({$1}b&&{$1}c){break;}
-        if({$1}b){continue;}
-    }
-}
-`);

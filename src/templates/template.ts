@@ -99,10 +99,7 @@ export default class Template {
 
         // $ variables are for default variables
         if (name.startsWith("$")) {
-          this.defaultVariables[name] =
-            placeholderVariablePrefix +
-            "td_" +
-            Object.keys(this.defaultVariables).length;
+          throw new Error("Default variables are no longer supported.");
         } else {
           this.requiredVariables.add(name);
         }

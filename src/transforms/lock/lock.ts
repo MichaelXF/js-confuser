@@ -20,11 +20,7 @@ import {
 } from "../../util/gen";
 import traverse, { getBlock, isBlock } from "../../traverse";
 import { choice, getRandomInteger } from "../../util/random";
-import {
-  CrashTemplate1,
-  CrashTemplate2,
-  CrashTemplate3,
-} from "../../templates/crash";
+import { CrashTemplate1, CrashTemplate2 } from "../../templates/crash";
 import { getBlockBody, getVarContext, prepend } from "../../util/insert";
 import Template from "../../templates/template";
 import { ObfuscateOrder } from "../../order";
@@ -261,7 +257,7 @@ export default class Lock extends Transform {
 
     // Default fallback to infinite loop
     var varName = this.getPlaceholder();
-    return choice([CrashTemplate1, CrashTemplate2, CrashTemplate3]).compile({
+    return choice([CrashTemplate1, CrashTemplate2]).compile({
       var: varName,
     });
   }
