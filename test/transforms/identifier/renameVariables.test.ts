@@ -509,7 +509,14 @@ test.each(["hexadecimal", "mangled", "number", "zeroWidth"])(
       `
   var myVar1 = "Correct Value";
 
-  TEST_OUTPUT = myVar1;
+  function myFunction(myVar2){
+      myVar2 = myVar1;
+      let myVar3 = myVar2;
+      var myVar4 = myVar3;
+      return myVar4;
+  }
+
+  TEST_OUTPUT = myFunction();
   `,
       {
         target: "node",

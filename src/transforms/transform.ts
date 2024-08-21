@@ -8,7 +8,9 @@ import {
 import {
   alphabeticalGenerator,
   choice,
+  createZeroWidthGenerator,
   getRandomInteger,
+  shuffle,
 } from "../util/random";
 import { ok } from "assert";
 import Obfuscator from "../obfuscator";
@@ -86,6 +88,8 @@ export default class Transform {
   after: Transform[];
 
   initVariables = new Map<string, string>();
+
+  zeroWidthGenerator = createZeroWidthGenerator();
 
   constructor(obfuscator, priority: number = -1) {
     ok(obfuscator instanceof Obfuscator, "obfuscator should be an Obfuscator");
@@ -312,49 +316,7 @@ export default class Transform {
               return "var_" + count;
 
             case "zeroWidth":
-              var keyWords = [
-                "if",
-                "in",
-                "for",
-                "let",
-                "new",
-                "try",
-                "var",
-                "case",
-                "else",
-                "null",
-                "break",
-                "catch",
-                "class",
-                "const",
-                "super",
-                "throw",
-                "while",
-                "yield",
-                "delete",
-                "export",
-                "import",
-                "public",
-                "return",
-                "switch",
-                "default",
-                "finally",
-                "private",
-                "continue",
-                "debugger",
-                "function",
-                "arguments",
-                "protected",
-                "instanceof",
-                "function",
-                "await",
-                "async",
-              ];
-
-              var safe = "\u200C".repeat(count + 1);
-
-              var base = choice(keyWords) + safe;
-              return base;
+              return this.zeroWidthGenerator.generate();
           }
 
           throw new Error("Invalid 'identifierGenerator' mode: " + mode);

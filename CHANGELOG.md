@@ -16,6 +16,8 @@ Option values: `true/false`
 
 [Learn more here.](/docs/TamperProtection.md)
 
+---
+
 - `Rename Variables` improvements:
 
 - - New `__JS_CONFUSER_VAR__` function to access renamed variables. [Learn more here](/docs/RenameVariables.md).
@@ -31,9 +33,8 @@ var CA1HU0 = 'John Doe';
 eval('console.log(' + 'CA1HU0' + ')');
 ```
 
+- Improved the `Zero Width` identifier generator (Thanks @doctor8296!)
 
-- Fix [#134](https://github.com/MichaelXF/js-confuser/issues/134)
-- - Detect tampering to the Global Object with the new `lock.tamperProtection` option.
 
 # `1.7.2`
 Updates
