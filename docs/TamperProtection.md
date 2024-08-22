@@ -73,7 +73,7 @@ Eval loses it's local scope access when redefined by a monkey-patched function. 
 
 ### Custom Implementation
 
-You can provide a custom implementation for `lock.tamperProtection` to control which functions get changed.
+You can provide a custom implementation for `lock.tamperProtection` to control which functions get the native function check.
 
 ```js
 {

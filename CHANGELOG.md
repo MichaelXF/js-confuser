@@ -28,6 +28,8 @@ eval('console.log(' + 'CA1HU0' + ')');
 
 - Pad the `String Concealing` array with more fake strings
 
+- Improve `String Compression`
+
 - New Web UI sneak peak: https://new--confuser.netlify.app/
 
 

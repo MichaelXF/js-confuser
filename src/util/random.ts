@@ -63,7 +63,7 @@ export function splitIntoChunks(str: string, size: number) {
   ok(Math.floor(size) === size, "size must be integer");
 
   const numChunks = Math.ceil(str.length / size);
-  const chunks = new Array(numChunks);
+  const chunks: string[] = new Array(numChunks);
 
   for (let i = 0, o = 0; i < numChunks; ++i, o += size) {
     chunks[i] = str.substr(o, size);

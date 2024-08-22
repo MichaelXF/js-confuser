@@ -4,12 +4,18 @@ import { ComputeProbabilityMap } from "../../probability";
 import Template from "../../templates/template";
 import { isDirective, isModuleSource } from "../../util/compare";
 import {
+  AssignmentExpression,
+  BinaryExpression,
   CallExpression,
+  ExpressionStatement,
   FunctionDeclaration,
   FunctionExpression,
   Identifier,
+  IfStatement,
   Literal,
   MemberExpression,
+  ObjectExpression,
+  Property,
   ReturnStatement,
   VariableDeclaration,
   VariableDeclarator,
@@ -17,6 +23,14 @@ import {
 import { append, prepend } from "../../util/insert";
 import Transform from "../transform";
 import { predictableFunctionTag } from "../../constants";
+import {
+  chance,
+  choice,
+  getRandomFalseExpression,
+  getRandomInteger,
+  getRandomString,
+  splitIntoChunks,
+} from "../../util/random";
 
 function LZ_encode(c) {
   ok(c);
@@ -141,14 +155,71 @@ export default class StringCompression extends Transform {
       )
     );
 
-    append(
-      tree,
-      FunctionDeclaration(
-        getStringName,
-        [],
-        [ReturnStatement(Literal(encoded))]
-      )
+    var keys = new Set<string>();
+    var keysToMake = getRandomInteger(4, 14);
+    for (var i = 0; i < keysToMake; i++) {
+      keys.add(getRandomString(getRandomInteger(4, 14)));
+    }
+
+    var objectExpression = ObjectExpression(
+      Array.from(keys).map((key) => {
+        return Property(Literal(key), getRandomFalseExpression(), true);
+      })
     );
+
+    // Get string function
+    var getStringBody = [];
+    var splits = splitIntoChunks(
+      encoded,
+      Math.floor(encoded.length / getRandomInteger(3, 6))
+    );
+
+    getStringBody.push(
+      VariableDeclaration(VariableDeclarator("str", Literal(splits.shift())))
+    );
+
+    getStringBody.push(
+      VariableDeclaration(VariableDeclarator("objectToTest", objectExpression))
+    );
+
+    const addIfStatement = (testingFor, literalValueToBeAppended) => {
+      getStringBody.push(
+        IfStatement(
+          BinaryExpression(
+            "in",
+            Literal(testingFor),
+            Identifier("objectToTest")
+          ),
+          [
+            ExpressionStatement(
+              AssignmentExpression(
+                "+=",
+                Identifier("str"),
+                Literal(literalValueToBeAppended)
+              )
+            ),
+          ]
+        )
+      );
+    };
+
+    for (const split of splits) {
+      if (chance(50)) {
+        var fakeKey;
+        do {
+          fakeKey = getRandomString(getRandomInteger(4, 14));
+        } while (keys.has(fakeKey) || fakeKey in {});
+
+        addIfStatement(fakeKey, getRandomString(split.length));
+      }
+
+      addIfStatement(choice(Array.from(keys)), split);
+    }
+
+    // Return computed string
+    getStringBody.push(ReturnStatement(Identifier("str")));
+
+    append(tree, FunctionDeclaration(getStringName, [], getStringBody));
 
     append(
       tree,
