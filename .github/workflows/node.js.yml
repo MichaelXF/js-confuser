@@ -15,7 +15,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [14.15, 16.10, 18.0]
+        node-version: [14.15, 16.10, 18.0, 20.16]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
