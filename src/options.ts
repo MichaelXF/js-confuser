@@ -146,7 +146,7 @@ export interface ObfuscateOptions {
    *
    * ⚠️ Significantly impacts performance, use sparingly!
    *
-   * [Control-flow Flattening](https://docs.jscrambler.com/code-integrity/documentation/transformations/control-flow-flattening) hinders program comprehension by creating convoluted switch statements. (`true/false/0-1`)
+   * Control-flow Flattening hinders program comprehension by creating convoluted switch statements. (`true/false/0-1`)
    *
    * Use a number to control the percentage from 0 to 1.
    *
@@ -187,7 +187,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringConcealing`
    *
-   * [String Concealing](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-concealing) involves encoding strings to conceal plain-text values. (`true/false/0-1`)
+   * String Concealing involves encoding strings to conceal plain-text values. (`true/false/0-1`)
    *
    * `"console"` -> `decrypt('<~@rH7+Dert~>')`
    *
@@ -200,7 +200,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringEncoding`
    *
-   * [String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation. (`true/false/0-1`)
+   * String Encoding transforms a string into an encoded representation. (`true/false/0-1`)
    *
    * `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
    *
@@ -215,7 +215,7 @@ export interface ObfuscateOptions {
   /**
    * ### `stringSplitting`
    *
-   * [String Splitting](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-splitting) splits your strings into multiple expressions. (`true/false/0-1`)
+   * String Splitting splits your strings into multiple expressions. (`true/false/0-1`)
    *
    * `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
    *
@@ -230,7 +230,7 @@ export interface ObfuscateOptions {
   /**
    * ### `duplicateLiteralsRemoval`
    *
-   * [Duplicate Literals Removal](https://docs.jscrambler.com/code-integrity/documentation/transformations/duplicate-literals-removal) replaces duplicate literals with a single variable name. (`true/false`)
+   * Duplicate Literals Removal replaces duplicate literals with a single variable name. (`true/false`)
    *
    * - Potency Medium
    * - Resilience Low
@@ -405,6 +405,22 @@ export interface ObfuscateOptions {
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     context?: string[];
+
+    /**
+     * ### `lock.tamperProtection`
+     *
+     * Tamper Protection safeguards the runtime behavior from being altered by JavaScript pitfalls. (`true/false`)
+     *
+     * **⚠️ Tamper Protection requires eval and ran in a non-strict mode environment!**
+     *
+     * - **This can break your code.**
+     * - **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
+     *
+     * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/TamperProtection.md).
+     *
+     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     */
+    tamperProtection?: boolean | ((varName: string) => boolean);
 
     /**
      * ### `lock.startDate`
@@ -631,6 +647,20 @@ const validProperties = new Set([
   "preserveFunctionLength",
 ]);
 
+const validLockProperties = new Set([
+  "selfDefending",
+  "antiDebug",
+  "context",
+  "tamperProtection",
+  "startDate",
+  "endDate",
+  "domainLock",
+  "osLock",
+  "browserLock",
+  "integrity",
+  "countermeasures",
+]);
+
 const validOses = new Set(["windows", "linux", "osx", "ios", "android"]);
 const validBrowsers = new Set([
   "firefox",
@@ -664,6 +694,7 @@ export function validateOptions(options: ObfuscateOptions) {
     options.target,
     "Missing options.target option (required, must one the following: 'browser' or 'node')"
   );
+
   ok(
     ["browser", "node"].includes(options.target),
     `'${options.target}' is not a valid target mode`
@@ -685,6 +716,13 @@ export function validateOptions(options: ObfuscateOptions) {
   }
 
   if (options.lock) {
+    ok(typeof options.lock === "object", "options.lock must be an object");
+    Object.keys(options.lock).forEach((key) => {
+      if (!validLockProperties.has(key)) {
+        throw new TypeError("Invalid lock option: '" + key + "'");
+      }
+    });
+
     // Validate browser-lock option
     if (
       options.lock.browserLock &&
@@ -782,8 +820,10 @@ export async function correctOptions(
     options.globalVariables = new Set(Object.keys(options.globalVariables));
   }
 
-  if (options.lock && options.lock.selfDefending) {
-    options.compact = true; // self defending forcibly enables this
+  if (options.lock) {
+    if (options.lock.selfDefending) {
+      options.compact = true; // self defending forcibly enables this
+    }
   }
 
   // options.globalVariables outlines generic globals that should be present in the execution context

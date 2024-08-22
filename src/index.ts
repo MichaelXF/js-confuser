@@ -2,6 +2,7 @@ import compileJs, { compileJsSync } from "./compiler";
 import parseJS, { parseSync } from "./parser";
 import Obfuscator from "./obfuscator";
 import Transform from "./transforms/transform";
+import Template from "./templates/template";
 import { remove$Properties } from "./util/object";
 import presets from "./presets";
 
@@ -39,7 +40,7 @@ export async function obfuscateAST(AST, options: ObfuscateOptions) {
 
   options = await correctOptions(options);
 
-  var obfuscator = new Obfuscator(options);
+  var obfuscator = new Obfuscator(options as any);
 
   await obfuscator.apply(AST);
 
@@ -70,7 +71,7 @@ var JsConfuser: IJsConfuser = async function (
 
   options.verbose && console.log("* Obfuscating...");
 
-  var obfuscator = new Obfuscator(options);
+  var obfuscator = new Obfuscator(options as any);
 
   await obfuscator.apply(tree);
 
@@ -96,7 +97,7 @@ export const debugTransformations: IJsConfuserDebugTransformations =
     var frames = [];
 
     var tree = parseSync(code);
-    var obfuscator = new Obfuscator(options);
+    var obfuscator = new Obfuscator(options as any);
 
     var time = Date.now();
 
@@ -141,7 +142,7 @@ export const debugObfuscation: IJsConfuserDebugObfuscation = async function (
 
   const parseTime = performance.now() - beforeParseTime;
 
-  var obfuscator = new Obfuscator(options);
+  var obfuscator = new Obfuscator(options as any);
   var totalTransforms = obfuscator.array.length;
 
   var transformationTimes = Object.create(null);
@@ -183,6 +184,7 @@ JsConfuser.debugTransformations = debugTransformations;
 JsConfuser.debugObfuscation = debugObfuscation;
 JsConfuser.Obfuscator = Obfuscator;
 JsConfuser.Transform = Transform;
+JsConfuser.Template = Template;
 
 if (typeof window !== "undefined") {
   window["JsConfuser"] = JsConfuser;
@@ -193,4 +195,4 @@ if (typeof global !== "undefined") {
 
 export default JsConfuser;
 
-export { presets, Obfuscator, Transform };
+export { presets, Obfuscator, Transform, Template };

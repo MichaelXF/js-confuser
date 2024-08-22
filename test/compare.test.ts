@@ -46,7 +46,7 @@ describe("isIndependent", () => {
   it("various cases", () => {
     expect(
       isIndependent(
-        Template(`({
+        new Template(`({
       x: 1,
       y: 2,
       z: 3,
@@ -57,7 +57,7 @@ describe("isIndependent", () => {
 
     expect(
       isIndependent(
-        Template(`({
+        new Template(`({
       x: 1,
       y: 2,
       z: [3,4,5,6,7,"My String",undefined,null,NaN],
@@ -68,7 +68,7 @@ describe("isIndependent", () => {
 
     expect(
       isIndependent(
-        Template(`({
+        new Template(`({
       x: 1,
       y: 2,
       z: 3,
@@ -80,7 +80,7 @@ describe("isIndependent", () => {
 
     expect(
       isIndependent(
-        Template(`({
+        new Template(`({
       x: 1,
       y: 2,
       z: 3,
@@ -92,7 +92,7 @@ describe("isIndependent", () => {
 
     expect(
       isIndependent(
-        Template(`([
+        new Template(`([
           {
             x: value
           }

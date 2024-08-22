@@ -13,6 +13,7 @@ import { clone, getFunction } from "../util/insert";
 import { getIdentifierInfo } from "../util/identifiers";
 import { isLoop } from "../util/compare";
 import { ExitCallback, walk } from "../traverse";
+import { variableFunctionName } from "../constants";
 
 /**
  * Preparation arranges the user's code into an AST the obfuscator can easily transform.
@@ -47,6 +48,21 @@ export default class Preparation extends Transform {
     // ExplicitIdentifiers
     if (object.type === "Identifier") {
       return this.transformExplicitIdentifiers(object, parents);
+    }
+
+    // __JS_CONFUSER_VAR__ - Remove when Rename Variables is disabled
+    if (
+      object.type === "CallExpression" &&
+      object.callee.type === "Identifier" &&
+      object.callee.name === variableFunctionName
+    ) {
+      if (object.arguments[0].type === "Identifier") {
+        if (!this.obfuscator.transforms["RenameVariables"]) {
+          return () => {
+            this.replace(object, Literal(object.arguments[0].name));
+          };
+        }
+      }
     }
 
     // ExplicitDeclarations

@@ -14,7 +14,7 @@ import { prepend } from "../../util/insert";
 import { getBlock } from "../../traverse";
 import Template from "../../templates/template";
 
-var HelperFunctions = Template(
+var HelperFunctions = new Template(
   `
   function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) { symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); } keys.push.apply(keys, symbols); } return keys; }
 
@@ -187,7 +187,7 @@ export default class AntiES6Object extends Transform {
 
           prepend(
             parents[parents.length - 1] || block,
-            Template(`
+            new Template(`
             function {name}(base, computedProps, getters, setters){
 
               for ( var i = 0; i < computedProps.length; i++ ) {

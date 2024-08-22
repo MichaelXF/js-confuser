@@ -78,7 +78,7 @@ export default class OpaquePredicates extends Transform {
   match(object: Node, parents: Node[]) {
     return (
       (isTestExpression(object, parents) || object.type == "SwitchCase") &&
-      !parents.find((x) => x.$dispatcherSkip || x.type == "AwaitExpression")
+      !parents.find((x) => x.$multiTransformSkip || x.type == "AwaitExpression")
     );
   }
 
@@ -146,7 +146,7 @@ export default class OpaquePredicates extends Transform {
                 Identifier(prop),
                 FunctionExpression(
                   [AssignmentPattern(Identifier(paramName), Literal("length"))],
-                  Template(`
+                  new Template(`
                   if ( !${this.predicateName}.${arrayProp}[0] ) {
                     ${this.predicateName}.${arrayProp}.push(${getRandomInteger(
                     -100,

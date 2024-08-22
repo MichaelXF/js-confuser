@@ -63,7 +63,7 @@ export function splitIntoChunks(str: string, size: number) {
   ok(Math.floor(size) === size, "size must be integer");
 
   const numChunks = Math.ceil(str.length / size);
-  const chunks = new Array(numChunks);
+  const chunks: string[] = new Array(numChunks);
 
   for (let i = 0, o = 0; i < numChunks; ++i, o += size) {
     chunks[i] = str.substr(o, size);
@@ -138,4 +138,84 @@ export function alphabeticalGenerator(index: number) {
     name = "_";
   }
   return name;
+}
+
+export function createZeroWidthGenerator() {
+  var keywords = [
+    "if",
+    "in",
+    "for",
+    "let",
+    "new",
+    "try",
+    "var",
+    "case",
+    "else",
+    "null",
+    "break",
+    "catch",
+    "class",
+    "const",
+    "super",
+    "throw",
+    "while",
+    "yield",
+    "delete",
+    "export",
+    "import",
+    "public",
+    "return",
+    "switch",
+    "default",
+    "finally",
+    "private",
+    "continue",
+    "debugger",
+    "function",
+    "arguments",
+    "protected",
+    "instanceof",
+    "await",
+    "async",
+
+    // new key words and other fun stuff :P
+    "NaN",
+    "undefined",
+    "true",
+    "false",
+    "typeof",
+    "this",
+    "static",
+    "void",
+    "of",
+  ];
+
+  var maxSize = 0;
+  var currentKeyWordsArray: string[] = [];
+
+  function generateArray() {
+    var result = keywords
+      .map(
+        (keyWord) =>
+          keyWord + "\u200C".repeat(Math.max(maxSize - keyWord.length, 1))
+      )
+      .filter((craftedVariableName) => craftedVariableName.length == maxSize);
+
+    if (!result.length) {
+      ++maxSize;
+      return generateArray();
+    }
+
+    return shuffle(result);
+  }
+
+  function getNextVariable(): string {
+    if (!currentKeyWordsArray.length) {
+      ++maxSize;
+      currentKeyWordsArray = generateArray();
+    }
+    return currentKeyWordsArray.pop();
+  }
+
+  return { generate: getNextVariable };
 }

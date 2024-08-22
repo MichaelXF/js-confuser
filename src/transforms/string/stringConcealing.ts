@@ -31,7 +31,10 @@ import {
   hasAllEncodings,
 } from "./encoding";
 import { ComputeProbabilityMap } from "../../probability";
-import { BufferToStringTemplate } from "../../templates/bufferToString";
+import {
+  BufferToStringTemplate,
+  createGetGlobalTemplate,
+} from "../../templates/bufferToString";
 import { criticalFunctionTag, predictableFunctionTag } from "../../constants";
 
 interface FunctionObject {
@@ -65,7 +68,7 @@ export default class StringConcealing extends Transform {
     super.apply(tree);
 
     // Pad array with useless strings
-    var dead = getRandomInteger(5, 15);
+    var dead = getRandomInteger(50, 200);
     for (var i = 0; i < dead; i++) {
       var str = getRandomString(getRandomInteger(5, 40));
       var fn = this.transform(Literal(str), [tree]);
@@ -83,6 +86,7 @@ export default class StringConcealing extends Transform {
       ...BufferToStringTemplate.compile({
         name: bufferToStringName,
         getGlobalFnName: this.getPlaceholder() + predictableFunctionTag,
+        GetGlobalTemplate: createGetGlobalTemplate(this, tree, []),
       })
     );
 
@@ -104,7 +108,7 @@ export default class StringConcealing extends Transform {
         })
       );
       // All these are fake and never ran
-      var ifStatements = Template(`if ( z == x ) {
+      var ifStatements = new Template(`if ( z == x ) {
           return y[${cacheName}[z]] = ${getterFnName}(x, y);
         }
         if ( y ) {
@@ -132,7 +136,7 @@ export default class StringConcealing extends Transform {
 
       // This one is always used
       ifStatements.push(
-        Template(`
+        new Template(`
       if ( x !== y ) {
         return b[x] || (b[x] = a(${this.arrayName}[x]))
       }
@@ -141,7 +145,7 @@ export default class StringConcealing extends Transform {
 
       shuffle(ifStatements);
 
-      var varDeclaration = Template(`
+      var varDeclaration = new Template(`
       var ${getterFnName} = (x, y, z, a, b)=>{
         if(typeof a === "undefined") {
           a = ${decodeFn}
@@ -173,7 +177,7 @@ export default class StringConcealing extends Transform {
       object.value.length >= 3 &&
       !isModuleSource(object, parents) &&
       !isDirective(object, parents) //&&
-      /*!parents.find((x) => x.$dispatcherSkip)*/
+      /*!parents.find((x) => x.$multiTransformSkip)*/
     );
   }
 

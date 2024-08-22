@@ -1,3 +1,38 @@
+# `1.7.3`
+Tamper Protection
+
+### `Tamper Protection`
+
+Tamper Protection safeguards the runtime behavior from being altered by JavaScript pitfalls. 
+
+[Learn more here.](/docs/TamperProtection.md)
+
+---
+
+- Rename Variables improvements:
+
+- A new exposed function, `__JS_CONFUSER_VAR__`, can be used to access renamed variables. [Learn more here](/docs/RenameVariables.md).
+
+
+```js
+// Input
+var name = "John Doe";
+eval("console.log(" + __JS_CONFUSER_VAR__(name) + ")");
+
+// Output
+var CA1HU0 = 'John Doe';
+eval('console.log(' + 'CA1HU0' + ')');
+```
+
+- Improved the `Zero Width` identifier generator (Thanks @doctor8296!)
+
+- Pad the `String Concealing` array with more fake strings
+
+- Improve `String Compression`
+
+- New Web UI sneak peak: https://new--confuser.netlify.app/
+
+
 # `1.7.2`
 Updates
 

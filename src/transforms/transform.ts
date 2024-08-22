@@ -8,11 +8,12 @@ import {
 import {
   alphabeticalGenerator,
   choice,
+  createZeroWidthGenerator,
   getRandomInteger,
+  shuffle,
 } from "../util/random";
 import { ok } from "assert";
 import Obfuscator from "../obfuscator";
-import { ObfuscateOptions } from "../options";
 import { ComputeProbabilityMap } from "../probability";
 import {
   placeholderVariablePrefix,
@@ -20,8 +21,9 @@ import {
   reservedKeywords,
 } from "../constants";
 import { ObfuscateOrder } from "../order";
-import { ITemplate } from "../templates/template";
 import { prepend } from "../util/insert";
+import Lock from "./lock/lock";
+import Template from "../templates/template";
 
 /**
  * Base-class for all transformations.
@@ -68,7 +70,7 @@ export default class Transform {
   /**
    * The user's options.
    */
-  options: ObfuscateOptions;
+  options: Obfuscator["options"];
 
   /**
    * Only required for top-level transformations.
@@ -86,6 +88,8 @@ export default class Transform {
   after: Transform[];
 
   initVariables = new Map<string, string>();
+
+  zeroWidthGenerator = createZeroWidthGenerator();
 
   constructor(obfuscator, priority: number = -1) {
     ok(obfuscator instanceof Obfuscator, "obfuscator should be an Obfuscator");
@@ -106,6 +110,32 @@ export default class Transform {
     return (
       ObfuscateOrder[this.priority] || (this as any).__proto__.constructor.name
     );
+  }
+
+  /**
+   * Gets the `Lock` transformation.
+   */
+  get lockTransform(): Lock {
+    var transform = this.obfuscator.transforms["Lock"] as Lock;
+
+    ok(transform, "Lock transform not created");
+
+    return transform;
+  }
+
+  /**
+   * Wraps the given name with the `__JS_CONFUSER_VAR__` function call.
+   *
+   * If `Rename Variables` is disabled, the name is returned as-is.
+   * @param name
+   * @returns
+   */
+  jsConfuserVar(name: string) {
+    if (!this.obfuscator.transforms["RenameVariables"]) {
+      return `"${name}"`;
+    }
+
+    return `__JS_CONFUSER_VAR__(${name})`;
   }
 
   /**
@@ -286,49 +316,7 @@ export default class Transform {
               return "var_" + count;
 
             case "zeroWidth":
-              var keyWords = [
-                "if",
-                "in",
-                "for",
-                "let",
-                "new",
-                "try",
-                "var",
-                "case",
-                "else",
-                "null",
-                "break",
-                "catch",
-                "class",
-                "const",
-                "super",
-                "throw",
-                "while",
-                "yield",
-                "delete",
-                "export",
-                "import",
-                "public",
-                "return",
-                "switch",
-                "default",
-                "finally",
-                "private",
-                "continue",
-                "debugger",
-                "function",
-                "arguments",
-                "protected",
-                "instanceof",
-                "function",
-                "await",
-                "async",
-              ];
-
-              var safe = "\u200C".repeat(count + 1);
-
-              var base = choice(keyWords) + safe;
-              return base;
+              return this.zeroWidthGenerator.generate();
           }
 
           throw new Error("Invalid 'identifierGenerator' mode: " + mode);
@@ -345,7 +333,7 @@ export default class Transform {
     return identifier;
   }
 
-  createInitVariable = (value: ITemplate, parents: Node[]) => {
+  createInitVariable = (value: Template, parents: Node[]) => {
     var key = value.templates[0];
     if (this.initVariables.has(key)) {
       return this.initVariables.get(key);

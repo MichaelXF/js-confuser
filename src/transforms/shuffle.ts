@@ -37,7 +37,7 @@ var Hash = function (s) {
   return ~~String(a).slice(0, 3);
 };
 
-var HashTemplate = Template(
+var HashTemplate = new Template(
   `
   var {name} = function(arr) {
     var s = arr.map(x=>x+"").join(''), a = 1, c = 0, h, o;
@@ -68,7 +68,7 @@ export default class Shuffle extends Transform {
   match(object, parents) {
     return (
       object.type == "ArrayExpression" &&
-      !parents.find((x) => x.$dispatcherSkip)
+      !parents.find((x) => x.$multiTransformSkip)
     );
   }
 
@@ -168,7 +168,7 @@ export default class Shuffle extends Transform {
         if (mode !== "hash") {
           var varPrefix = this.getPlaceholder();
           code.push(
-            Template(`
+            new Template(`
             for ( var ${varPrefix}x = 16; ${varPrefix}x%4 === 0; ${varPrefix}x++) {
               var ${varPrefix}z = 0;
               ${

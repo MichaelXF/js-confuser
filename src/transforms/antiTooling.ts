@@ -24,7 +24,7 @@ export default class AntiTooling extends Transform {
     if (typeof this.fnName === "string") {
       prepend(
         tree,
-        Template(`
+        new Template(`
       function {fnName}(){
       }
       `).single({ fnName: this.fnName })

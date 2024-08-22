@@ -122,3 +122,5 @@ ES6.output.js
 .vscode/
 
 src/dev.ts
+
+.DS_Store

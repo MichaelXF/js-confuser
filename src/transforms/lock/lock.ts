@@ -20,11 +20,7 @@ import {
 } from "../../util/gen";
 import traverse, { getBlock, isBlock } from "../../traverse";
 import { choice, getRandomInteger } from "../../util/random";
-import {
-  CrashTemplate1,
-  CrashTemplate2,
-  CrashTemplate3,
-} from "../../templates/crash";
+import { CrashTemplate1, CrashTemplate2 } from "../../templates/crash";
 import { getBlockBody, getVarContext, prepend } from "../../util/insert";
 import Template from "../../templates/template";
 import { ObfuscateOrder } from "../../order";
@@ -33,6 +29,8 @@ import AntiDebug from "./antiDebug";
 import { getIdentifierInfo } from "../../util/identifiers";
 import { isLoop, isValidIdentifier } from "../../util/compare";
 import { ok } from "assert";
+import { variableFunctionName } from "../../constants";
+import { IndexOfTemplate } from "../../templates/core";
 
 /**
  * Applies browser & date locks.
@@ -48,7 +46,43 @@ export default class Lock extends Transform {
    */
   counterMeasuresActivated: string;
 
+  /**
+   * The name of the native function that is used to check runtime calls for tampering
+   */
+  nativeFunctionName: string;
+
   made: number;
+
+  shouldTransformNativeFunction(nameAndPropertyPath: string[]) {
+    if (!this.options.lock.tamperProtection) {
+      return false;
+    }
+
+    if (typeof this.options.lock.tamperProtection === "function") {
+      return this.options.lock.tamperProtection(nameAndPropertyPath.join("."));
+    }
+
+    if (
+      this.options.target === "browser" &&
+      nameAndPropertyPath.length === 1 &&
+      nameAndPropertyPath[0] === "fetch"
+    ) {
+      return true;
+    }
+
+    // TODO: Allow user to customize this behavior
+    var globalObject = typeof window !== "undefined" ? window : global;
+    var fn = globalObject;
+    for (var item of nameAndPropertyPath) {
+      fn = fn[item];
+      if (typeof fn === "undefined") return false;
+    }
+
+    var hasNativeCode =
+      typeof fn === "function" && ("" + fn).includes("[native code]");
+
+    return hasNativeCode;
+  }
 
   constructor(o) {
     super(o, ObfuscateOrder.Lock);
@@ -115,6 +149,77 @@ export default class Lock extends Transform {
     }
 
     super.apply(tree);
+
+    if (this.options.lock.tamperProtection) {
+      this.nativeFunctionName = this.getPlaceholder() + "_lockNative";
+
+      // Ensure program is not in strict mode
+      // Tamper Protection forces non-strict mode
+
+      var strictModeCheck = new Template(`
+        (function(){
+          function isStrictMode(){
+            try {
+              var arr = []
+              delete arr["length"]
+            } catch(e) {
+              return true;
+            }
+            return false;
+          }
+
+          if(isStrictMode()) {
+            {countermeasures}
+            ${this.nativeFunctionName} = undefined;
+          }
+        })()
+        `).single({
+        countermeasures: this.getCounterMeasuresCode(tree, []),
+      });
+
+      // $multiTransformSkip is used to prevent scoping between transformations
+      strictModeCheck.$multiTransformSkip = true;
+
+      prepend(tree, strictModeCheck);
+
+      var nativeFunctionCheck = new Template(`
+        function ${this.nativeFunctionName}() {
+          {IndexOfTemplate}
+        
+          function checkFunction(fn){
+            if (indexOf("" + fn, '{ [native code] }') === -1
+            ||
+            typeof Object.getOwnPropertyDescriptor(fn, "toString") !== "undefined"
+            ) {
+              {countermeasures}
+              return undefined
+            }
+
+            return fn;
+          }
+
+          var args = arguments
+          if(args.length === 1) {
+            return checkFunction(args[0]);
+          } else if (args.length === 2) {
+            var object = args[0];
+            var property = args[1];
+
+            var fn = object[property];
+            fn = checkFunction(fn);
+
+            return fn.bind(object);
+          }
+        }`).single({
+        IndexOfTemplate: IndexOfTemplate,
+        countermeasures: this.getCounterMeasuresCode(tree, []),
+      });
+
+      // $multiTransformSkip is used to prevent scoping between transformations
+      nativeFunctionCheck.$multiTransformSkip = true;
+
+      prepend(tree, nativeFunctionCheck);
+    }
   }
 
   getCounterMeasuresCode(object: Node, parents: Node[]): Node[] {
@@ -147,31 +252,18 @@ export default class Lock extends Transform {
                 Identifier(this.counterMeasuresActivated),
                 Literal(true)
               ),
-              CallExpression(Template(opt).single().expression, []),
+              CallExpression(new Template(opt).single().expression, []),
             ])
           )
         ),
       ];
     }
 
-    var type = choice(["crash", "exit"]);
-
-    switch (type) {
-      case "crash":
-        var varName = this.getPlaceholder();
-        return choice([CrashTemplate1, CrashTemplate2, CrashTemplate3]).compile(
-          {
-            var: varName,
-          }
-        );
-
-      case "exit":
-        if (this.options.target == "browser") {
-          return Template("document.documentElement.innerHTML = '';").compile();
-        }
-
-        return Template("process.exit()").compile();
-    }
+    // Default fallback to infinite loop
+    var varName = this.getPlaceholder();
+    return choice([CrashTemplate1, CrashTemplate2]).compile({
+      var: varName,
+    });
   }
 
   /**
@@ -281,7 +373,7 @@ export default class Lock extends Transform {
         case "selfDefending":
           // A very simple mechanism inspired from https://github.com/javascript-obfuscator/javascript-obfuscator/blob/master/src/custom-code-helpers/self-defending/templates/SelfDefendingNoEvalTemplate.ts
           // regExp checks for a newline, formatters add these
-          var callExpression = Template(
+          var callExpression = new Template(
             `
             (
               function(){
@@ -379,7 +471,7 @@ export default class Lock extends Transform {
           break;
 
         case "osLock":
-          var navigatorUserAgent = Template(
+          var navigatorUserAgent = new Template(
             `window.navigator.userAgent.toLowerCase()`
           ).single().expression;
 
@@ -404,7 +496,7 @@ export default class Lock extends Transform {
                 this.iosDetectFn = this.getPlaceholder();
                 prepend(
                   parents[parents.length - 1] || object,
-                  Template(`function ${this.iosDetectFn}() {
+                  new Template(`function ${this.iosDetectFn}() {
                   return [
                     'iPad Simulator',
                     'iPhone Simulator',
@@ -426,7 +518,7 @@ export default class Lock extends Transform {
               var platformName =
                 { windows: "win32", osx: "darwin", ios: "darwin" }[osName] ||
                 osName;
-              thisTest = Template(
+              thisTest = new Template(
                 `require('os').platform()==="${platformName}"`
               ).single().expression;
             }
@@ -443,7 +535,7 @@ export default class Lock extends Transform {
           break;
 
         case "browserLock":
-          var navigatorUserAgent = Template(
+          var navigatorUserAgent = new Template(
             `window.navigator.userAgent.toLowerCase()`
           ).single().expression;
 
@@ -462,7 +554,7 @@ export default class Lock extends Transform {
             );
 
             if (browserName === "safari") {
-              thisTest = Template(
+              thisTest = new Template(
                 `/^((?!chrome|android).)*safari/i.test(navigator.userAgent)`
               ).single().expression;
             }

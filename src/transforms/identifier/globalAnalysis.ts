@@ -1,5 +1,6 @@
 import { reservedKeywords } from "../../constants";
 import { Location, Node } from "../../util/gen";
+import { isJSConfuserVar } from "../../util/guard";
 import { getIdentifierInfo } from "../../util/identifiers";
 import Transform from "../transform";
 
@@ -43,10 +44,26 @@ export default class GlobalAnalysis extends Transform {
       return;
     }
 
+    if (isJSConfuserVar(parents)) {
+      delete this.globals[object.name];
+      this.notGlobals.add(object.name);
+      return;
+    }
+
     // Cannot be defined or overridden
     if (info.spec.isDefined || info.spec.isModified) {
-      delete this.globals[object.name];
+      if (info.spec.isModified) {
+        // Only direct overwrites should be considered
+        // Changing object properties is allowed
+        if (
+          parents[0].type === "MemberExpression" &&
+          parents[0].object === object
+        ) {
+          return;
+        }
+      }
 
+      delete this.globals[object.name];
       this.notGlobals.add(object.name);
       return;
     }

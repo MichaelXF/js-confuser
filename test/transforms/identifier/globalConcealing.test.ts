@@ -70,3 +70,73 @@ test("Variant #4: Don't change __dirname", async function () {
 
   expect(typeof TEST_OUTPUT).toStrictEqual("string");
 });
+
+test("Variant #5: Hide 'global' var, even if properties are modified", async () => {
+  var output = await JsConfuser(
+    `
+    TEST_GLOBAL_VARIANT_5_OUTPUT = global.TEST_GLOBAL_VARIANT_5_INPUT * 2;
+    `,
+    { target: "node", globalConcealing: true }
+  );
+
+  // Input should get transformed
+  expect(output).not.toContain("global['TEST_GLOBAL_VARIANT_5_INPUT");
+
+  // TEST_GLOBAL_VARIANT_5_OUTPUT should stay the same
+  expect(output).not.toContain("global['TEST_GLOBAL_VARIANT_5_OUTPUT");
+
+  (global as any).TEST_GLOBAL_VARIANT_5_INPUT = 50;
+  (global as any).TEST_GLOBAL_VARIANT_5_OUTPUT = 100;
+
+  eval(output);
+
+  expect((global as any).TEST_GLOBAL_VARIANT_5_OUTPUT).toStrictEqual(100);
+});
+
+test("Variant #6: Preserve __JS_CONFUSER_VAR__", async () => {
+  // Covers both defined and undefined case
+  var output = await JsConfuser(
+    `
+    var TEST_VARIABLE
+    TEST_OUTPUT = [__JS_CONFUSER_VAR__(TEST_OUTER_VARIABLE), __JS_CONFUSER_VAR__(TEST_VARIABLE)];
+    `,
+    {
+      target: "node",
+      globalConcealing: true,
+    }
+  );
+
+  expect(output).not.toContain("__JS_CONFUSER_VAR__");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(["TEST_OUTER_VARIABLE", "TEST_VARIABLE"]);
+});
+
+test("Variant #7: Custom callback option", async () => {
+  var namesCollected: string[] = [];
+
+  var output = await JsConfuser(
+    `
+    expect(true).toStrictEqual(true);
+
+    TEST_OUTPUT = true;
+    `,
+    {
+      target: "node",
+      globalConcealing: (name) => {
+        namesCollected.push(name);
+        return false;
+      },
+    }
+  );
+
+  expect(namesCollected).toContain("expect");
+  expect(namesCollected).not.toContain("TEST_OUTPUT");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});

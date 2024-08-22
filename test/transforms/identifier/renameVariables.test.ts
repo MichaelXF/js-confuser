@@ -509,7 +509,14 @@ test.each(["hexadecimal", "mangled", "number", "zeroWidth"])(
       `
   var myVar1 = "Correct Value";
 
-  TEST_OUTPUT = myVar1;
+  function myFunction(myVar2){
+      myVar2 = myVar1;
+      let myVar3 = myVar2;
+      var myVar4 = myVar3;
+      return myVar4;
+  }
+
+  TEST_OUTPUT = myFunction();
   `,
       {
         target: "node",
@@ -613,6 +620,73 @@ test("Variant #25: Reference catch parameter", async () => {
   `,
     { target: "node", renameVariables: true }
   );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #26: Transform __JS_CONFUSER_VAR__ to access variable mappings", async () => {
+  var output = await JsConfuser(
+    `
+  var myVar1 = "Incorrect Value";
+
+  function myFunction(){
+    var myVar1 = "Correct Value";
+    TEST_OUTPUT =  eval( __JS_CONFUSER_VAR__(myVar1) );
+  }
+  
+  myFunction();
+  `,
+    { target: "node", renameVariables: true }
+  );
+
+  expect(output).not.toContain("myVar1");
+  expect(output).not.toContain("__JS_CONFUSER_VAR__");
+
+  var TEST_OUTPUT;
+
+  eval(output);
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #27: Transform __JS_CONFUSER_VAR__ even when Rename Variables is disabled", async () => {
+  var output = await JsConfuser(
+    `
+  var name = "John Doe";
+  TEST_OUTPUT = __JS_CONFUSER_VAR__(name);
+  `,
+    { target: "node", renameVariables: false }
+  );
+
+  expect(output).not.toContain("__JS_CONFUSER_VAR__");
+
+  var TEST_OUTPUT;
+
+  eval(output);
+  expect(TEST_OUTPUT).toStrictEqual("name");
+});
+
+test("Variant #28: Transform __JS_CONFUSER_VAR__ on High Preset", async () => {
+  var output = await JsConfuser(
+    `
+    function myFunction(){
+      var a
+      var b
+      var c
+
+      return "Correct Value"
+    }
+    TEST_OUTPUT = eval(__JS_CONFUSER_VAR__(myFunction) + "()");
+    `,
+    {
+      target: "node",
+      preset: "high",
+    }
+  );
+
+  expect(output).not.toContain("__JS_CONFUSER_VAR__");
 
   var TEST_OUTPUT;
   eval(output);

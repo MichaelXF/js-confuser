@@ -417,3 +417,8 @@ RGF only applies to:
 - Cannot be async / generator function
 - Cannot rely on outside-scoped variables
 - Cannot use `this`, `arguments`, or `eval`
+
+### See also
+
+- [Control Flow Flattening](./ControlFlowFlattening.md)
+- [Tamper Protection](./TamperProtection.md)

@@ -183,6 +183,8 @@ var qFaI6S = function () {
 qFaI6S();
 ```
 
+[Learn mode here.](https://github.com/MichaelXF/js-confuser/blob/master/docs/RenameVariables.md)
+
 ### `renameGlobals`
 
 Renames top-level variables, turn this off for web-related scripts. Enabled by default. (`true/false`)
@@ -390,6 +392,8 @@ Use a number to control the percentage of strings.
 
 String Encoding transforms a string into an encoded representation. (`true/false/0-1`)
 
+**⚠️ Warning: Significantly increases file size! It is not recommended for most use cases.**
+
 Use a number to control the percentage of strings.
 
 `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
@@ -577,9 +581,16 @@ Creates a calculator function to handle arithmetic and logical expressions. (`tr
 
 Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false/0-1`)
 
-### `lock.context`
+### `lock.tamperProtection`
 
-Properties that must be present on the `window` object (or `global` for NodeJS). (`string[]`)
+Tamper Protection safeguards the runtime behavior from being altered by JavaScript pitfalls. (`true/false`)
+
+**⚠️ Tamper Protection requires eval and ran in a non-strict mode environment!**
+
+- **This can break your code.**
+- **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
+
+[Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/TamperProtection.md).
 
 ### `lock.startDate`
 
@@ -629,9 +640,13 @@ Integrity ensures the source code is unchanged. (`true/false/0-1`)
 
 A custom callback function to invoke when a lock is triggered. (`string/false`)
 
-[Learn more about the countermeasures function](https://github.com/MichaelXF/js-confuser/blob/master/docs/Countermeasures.md).
+[Learn more here.](https://github.com/MichaelXF/js-confuser/blob/master/docs/Countermeasures.md)
 
 Otherwise, the obfuscator falls back to crashing the process.
+
+### `lock.context`
+
+Properties that must be present on the `window` object (or `global` for NodeJS). (`string[]`)
 
 ### `movedDeclarations`
 
@@ -785,6 +800,7 @@ You must enable locks yourself, and configure them to your needs.
   lock: {
     integrity: true,
     selfDefending: true,
+    tamperProtection: true,
     domainLock: ["mywebsite.com"],
     osLock: ["windows", "linux"],
     browserLock: ["firefox"],
@@ -813,7 +829,7 @@ These features are experimental or a security concern.
   // set to false for web-related scripts
   renameGlobals: false,
 
-  // experimental
+  // custom implementation
   identifierGenerator: function(){
     return "myvar_" + (counter++);
   },

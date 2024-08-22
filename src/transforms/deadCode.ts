@@ -3,19 +3,24 @@ import { ComputeProbabilityMap } from "../probability";
 import Template from "../templates/template";
 import { isBlock } from "../traverse";
 import {
+  AssignmentExpression,
+  BinaryExpression,
+  ExpressionStatement,
   Identifier,
   IfStatement,
   Literal,
+  MemberExpression,
   Node,
+  ObjectExpression,
   VariableDeclaration,
   VariableDeclarator,
 } from "../util/gen";
 import { getBlockBody, isFunction, prepend } from "../util/insert";
-import { choice, getRandomInteger } from "../util/random";
+import { chance, choice, getRandomInteger } from "../util/random";
 import Transform from "./transform";
 
 const templates = [
-  Template(`
+  new Template(`
   function curCSS( elem, name, computed ) {
     var ret;
   
@@ -36,7 +41,7 @@ const templates = [
       ret + "" :
       ret;
   }`),
-  Template(`
+  new Template(`
   function Example() {
     var state = redacted.useState(false);
     return x(
@@ -49,7 +54,7 @@ const templates = [
     );
   }`),
 
-  Template(`
+  new Template(`
   const path = require('path');
 const { version } = require('../../package');
 const { version: dashboardPluginVersion } = require('@redacted/enterprise-plugin/package');
@@ -60,7 +65,7 @@ const resolveLocalRedactedPath = require('./resolve-local-redacted-path');
 
 const redactedPath = path.resolve(__dirname, '../redacted.js');`),
 
-  Template(`
+  new Template(`
 module.exports = async (resolveLocalRedactedPath = ()=>{throw new Error("No redacted path provided")}) => {
   const cliParams = new Set(process.argv.slice(2));
   if (!cliParams.has('--version')) {
@@ -76,7 +81,7 @@ module.exports = async (resolveLocalRedactedPath = ()=>{throw new Error("No reda
 
   return true;
 };`),
-  Template(`
+  new Template(`
 function setCookie(cname, cvalue, exdays) {
   var d = new Date();
   d.setTime(d.getTime() + (exdays*24*60*60*1000));
@@ -84,7 +89,7 @@ function setCookie(cname, cvalue, exdays) {
   document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
 }`),
 
-  Template(`function getCookie(cname) {
+  new Template(`function getCookie(cname) {
   var name = cname + "=";
   var decodedCookie = decodeURIComponent(document.cookie);
   var ca = decodedCookie.split(';');
@@ -100,7 +105,7 @@ function setCookie(cname, cvalue, exdays) {
   return "";
 }`),
 
-  Template(`function getLocalStorageValue(key, cb){
+  new Template(`function getLocalStorageValue(key, cb){
     if ( typeof key !== "string" ) {
       throw new Error("Invalid data key provided (not type string)")
     }
@@ -116,7 +121,7 @@ function setCookie(cname, cvalue, exdays) {
 
     cb(null, value)
   }`),
-  Template(`
+  new Template(`
   
     var __ = "(c=ak(<~F$VU'9f)~><&85dBPL-module/from";
     var s = "q:function(){var ad=ad=>b(ad-29);if(!T.r[(typeof ab==ad(123)?";
@@ -124,7 +129,7 @@ function setCookie(cname, cvalue, exdays) {
 
     __.match(s + g);
   `),
-  Template(`
+  new Template(`
   function vec_pack(vec) {
     return vec[1] * 67108864 + (vec[0] < 0 ? 33554432 | vec[0] : vec[0]);
   }
@@ -161,7 +166,7 @@ function setCookie(cname, cvalue, exdays) {
   console.log(vec_unpack(e)); // [4, 8]
   console.log(vec_unpack(f)); // [2, 4]
   `),
-  Template(`
+  new Template(`
   function buildCharacterMap(str) {
     const characterMap = {};
   
@@ -222,7 +227,7 @@ function setCookie(cname, cvalue, exdays) {
     getHeightBalanced,
   };
   `),
-  Template(`
+  new Template(`
   function ListNode(){}
   var addTwoNumbers = function(l1, l2) {
     var carry = 0;
@@ -245,7 +250,7 @@ function setCookie(cname, cvalue, exdays) {
 
   console.log(addTwoNumbers)
   `),
-  Template(`
+  new Template(`
   var threeSum = function(nums) {
     var len = nums.length;
     var res = [];
@@ -274,7 +279,7 @@ function setCookie(cname, cvalue, exdays) {
   };
   console.log(threeSum)
   `),
-  Template(`
+  new Template(`
   var combinationSum2 = function(candidates, target) {
     var res = [];
     var len = candidates.length;
@@ -298,7 +303,7 @@ function setCookie(cname, cvalue, exdays) {
 
   console.log(combinationSum2);
   `),
-  Template(`
+  new Template(`
   var isScramble = function(s1, s2) {
     return helper({}, s1, s2);
   };
@@ -339,7 +344,7 @@ function setCookie(cname, cvalue, exdays) {
 
   console.log(isScramble);
   `),
-  Template(`
+  new Template(`
   var candy = function(ratings) {
     var len = ratings.length;
     var res = [];
@@ -356,7 +361,7 @@ function setCookie(cname, cvalue, exdays) {
   
   console.log(candy)
   `),
-  Template(`
+  new Template(`
   var maxPoints = function(points) {
     var max = 0;
     var map = {};
@@ -387,7 +392,7 @@ function setCookie(cname, cvalue, exdays) {
   
   console.log(maxPoints)
   `),
-  Template(`
+  new Template(`
   var maximumGap = function(nums) {
     var len = nums.length;
     if (len < 2) return 0;
@@ -421,7 +426,7 @@ function setCookie(cname, cvalue, exdays) {
 
   console.log(maximumGap);
   `),
-  Template(`
+  new Template(`
   var LRUCache = function(capacity) {
     this.capacity = capacity;
     this.length = 0;
@@ -488,7 +493,7 @@ function setCookie(cname, cvalue, exdays) {
 
   console.log(LRUCache);
   `),
-  Template(`
+  new Template(`
   var isInterleave = function(s1, s2, s3) {
     var dp = {};
     if (s3.length !== s1.length + s2.length) return false;
@@ -516,7 +521,7 @@ function setCookie(cname, cvalue, exdays) {
 
   console.log(isInterleave);
   `),
-  Template(`
+  new Template(`
   var solveNQueens = function(n) {
     var res = [];
     if (n === 1 || n >= 4) dfs(res, [], n, 0);
@@ -571,6 +576,9 @@ function setCookie(cname, cvalue, exdays) {
 export default class DeadCode extends Transform {
   made: number;
 
+  compareObjectName: string;
+  gen = this.getGenerator("randomized");
+
   constructor(o) {
     super(o, ObfuscateOrder.DeadCode);
 
@@ -581,7 +589,8 @@ export default class DeadCode extends Transform {
     return (
       isFunction(object) &&
       isBlock(object.body) &&
-      !parents.find((x) => x.$dispatcherSkip)
+      !object.$multiTransformSkip &&
+      !parents.find((x) => x.$multiTransformSkip)
     );
   }
 
@@ -608,17 +617,56 @@ export default class DeadCode extends Transform {
 
       var index = getRandomInteger(safeOffset, body.length);
 
+      if (!this.compareObjectName) {
+        this.compareObjectName = this.getPlaceholder();
+
+        prepend(
+          parents[parents.length - 1] || object,
+          VariableDeclaration(
+            VariableDeclarator(
+              this.compareObjectName,
+              new Template(`Object["create"](null)`).single().expression
+            )
+          )
+        );
+      }
+
       var name = this.getPlaceholder();
       var variableDeclaration = VariableDeclaration(
-        VariableDeclarator(name, Literal(false))
+        VariableDeclarator(
+          name,
+          BinaryExpression(
+            "in",
+            Literal(this.gen.generate()),
+            Identifier(this.compareObjectName)
+          )
+        )
       );
 
-      var template;
+      var template: Template;
       do {
         template = choice(templates);
-      } while (this.options.es5 && template.source.includes("async"));
+      } while (this.options.es5 && template.templates[0].includes("async"));
 
-      var ifStatement = IfStatement(Identifier(name), template.compile(), null);
+      var nodes = template.compile();
+
+      if (chance(50)) {
+        nodes.unshift(
+          ExpressionStatement(
+            AssignmentExpression(
+              "=",
+              MemberExpression(
+                Identifier(this.compareObjectName),
+                Literal(this.gen.generate()),
+                true
+              ),
+              Literal(this.gen.generate())
+            )
+          )
+        );
+      }
+
+      var ifStatement = IfStatement(Identifier(name), nodes, null);
 
       body.splice(index, 0, ifStatement);
 

@@ -26,7 +26,7 @@ export default class ExpressionObfuscation extends Transform {
     if (typeof this.fnName === "string") {
       prepend(
         tree,
-        Template(`
+        new Template(`
         function {fnName}(...args){
           return args[args["length"] - 1]
         }

@@ -16,7 +16,7 @@ import { getRandomInteger } from "../../util/random";
 import Transform from "../transform";
 import Lock from "./lock";
 
-var DevToolsDetection = Template(
+var DevToolsDetection = new Template(
   `
   try {
     if ( setInterval ) {
@@ -52,7 +52,7 @@ export default class AntiDebug extends Transform {
       fnName,
       [],
       [
-        ...Template(`
+        ...new Template(`
       var ${startTimeName} = new Date();
       debugger;
       var ${endTimeName} = new Date();

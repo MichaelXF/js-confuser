@@ -5,7 +5,7 @@ import Template from "./template";
  *
  * Source: https://vanillajstoolkit.com/polyfills/
  */
-export const ES5Template = Template(`
+export const ES5Template = new Template(`
 if (!Array.prototype.forEach) {
   Array.prototype.forEach = function forEach (callback, thisArg) {
     if (typeof callback !== 'function') {

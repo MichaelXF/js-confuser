@@ -5,6 +5,7 @@ import { ObfuscateOrder } from "../order";
 import { ComputeProbabilityMap } from "../probability";
 import { FunctionLengthTemplate } from "../templates/functionLength";
 import { ObjectDefineProperty } from "../templates/globals";
+import Template from "../templates/template";
 import { walk } from "../traverse";
 import {
   ArrayExpression,
@@ -13,6 +14,7 @@ import {
   ExpressionStatement,
   Identifier,
   Literal,
+  LogicalExpression,
   MemberExpression,
   NewExpression,
   Node,
@@ -67,15 +69,42 @@ export default class RGF extends Transform {
 
     // Only add the array if there were converted functions
     if (this.arrayExpressionElements.length > 0) {
-      prepend(
-        tree,
-        VariableDeclaration(
-          VariableDeclarator(
-            Identifier(this.arrayExpressionName),
-            ArrayExpression(this.arrayExpressionElements)
-          )
+      var variableDeclaration = VariableDeclaration(
+        VariableDeclarator(
+          Identifier(this.arrayExpressionName),
+          ArrayExpression(this.arrayExpressionElements)
         )
       );
+
+      var nodes: Node[] = [variableDeclaration];
+
+      if (this.options.lock?.tamperProtection) {
+        // The name of the variable flag if eval is safe to use
+        var tamperProtectionCheckName = this.getPlaceholder() + "_rgfEvalCheck";
+
+        variableDeclaration.declarations[0].init = LogicalExpression(
+          "&&",
+          Identifier(tamperProtectionCheckName),
+          { ...variableDeclaration.declarations[0].init }
+        );
+
+        nodes.unshift(
+          ...new Template(`
+            var ${tamperProtectionCheckName} = false;
+            eval(${this.jsConfuserVar(tamperProtectionCheckName)} + "=true");
+            if(!${tamperProtectionCheckName}) {
+              {countermeasures}
+            }
+            `).compile({
+            countermeasures: this.lockTransform.getCounterMeasuresCode(
+              tree,
+              []
+            ),
+          })
+        );
+      }
+
+      prepend(tree, ...nodes);
     }
 
     // The function.length helper function must be placed last
@@ -231,6 +260,7 @@ export default class RGF extends Transform {
       });
 
       if (obfuscator.options.lock) {
+        obfuscator.options.lock = { ...obfuscator.options.lock };
         delete obfuscator.options.lock.countermeasures;
 
         // Integrity will not recursively apply to RGF'd functions. This is intended.
@@ -301,9 +331,17 @@ export default class RGF extends Transform {
       var toString = compileJsSync(tree, obfuscator.options);
 
       // new Function(code)
-      var newFunctionExpression = NewExpression(Identifier("Function"), [
+      var newFunctionExpression: Node = NewExpression(Identifier("Function"), [
         Literal(toString),
       ]);
+
+      if (this.options.lock?.tamperProtection) {
+        // If tamper protection is enabled, wrap the function in an eval
+        var randomName = this.getGenerator("randomized").generate();
+        newFunctionExpression = CallExpression(Identifier("eval"), [
+          Literal(`function ${randomName}(){ ${toString} } ${randomName}`),
+        ]);
+      }
 
       // The index where this function is placed in the array
       var newFunctionExpressionIndex = this.arrayExpressionElements.length;

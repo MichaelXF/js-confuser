@@ -3,7 +3,7 @@ import Template from "./template";
 /**
  * Helper function to set `function.length` property.
  */
-export const FunctionLengthTemplate = Template(
+export const FunctionLengthTemplate = new Template(
   `
 function {name}(functionObject, functionLength){
   {ObjectDefineProperty}(functionObject, "length", {

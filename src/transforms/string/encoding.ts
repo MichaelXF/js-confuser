@@ -1,4 +1,5 @@
-import Template, { ITemplate } from "../../templates/template";
+import Template from "../../templates/template";
+import { Literal } from "../../util/gen";
 import { choice, shuffle } from "../../util/random";
 
 /**
@@ -7,9 +8,9 @@ import { choice, shuffle } from "../../util/random";
 export interface EncodingImplementation {
   identity: string;
 
-  encode(s): string;
-  decode(s): string;
-  template: ITemplate;
+  encode(s: string): string;
+  decode(s: string): string;
+  template: Template;
 }
 
 let _hasAllEncodings = false;
@@ -110,9 +111,9 @@ export function createEncodingImplementation(): EncodingImplementation {
 
       return Buffer.from(ret).toString("utf-8");
     },
-    template: Template(`  
+    template: new Template(`  
         function {__fnName__}(str){
-          var table = '${strTable}';
+          var table = {__strTable__};
   
           var raw = "" + (str || "");
           var len = raw.length;
@@ -146,7 +147,9 @@ export function createEncodingImplementation(): EncodingImplementation {
   
           return {__bufferToString__}(ret);
         }
-      `).ignoreMissingVariables(),
+      `).setDefaultVariables({
+      __strTable__: Literal(strTable),
+    }),
   };
 
   EncodingImplementations[identity] = encodingImplementation;
