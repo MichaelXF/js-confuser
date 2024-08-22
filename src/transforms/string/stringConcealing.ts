@@ -68,7 +68,7 @@ export default class StringConcealing extends Transform {
     super.apply(tree);
 
     // Pad array with useless strings
-    var dead = getRandomInteger(5, 15);
+    var dead = getRandomInteger(50, 200);
     for (var i = 0; i < dead; i++) {
       var str = getRandomString(getRandomInteger(5, 40));
       var fn = this.transform(Literal(str), [tree]);
