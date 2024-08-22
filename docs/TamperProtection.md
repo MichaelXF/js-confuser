@@ -9,7 +9,7 @@ Tamper Protection safeguards the runtime behavior from being altered by JavaScri
 
 Option name: `lock.tamperProtection`
 
-Option values: `true/false`
+Option values: `true/false/Function`
 
 ### 1. Improves `Global Concealing`
 
@@ -70,6 +70,19 @@ const myFunction = eval("function abc(){}; abc");
 Eval loses it's local scope access when redefined by a monkey-patched function. This example ensures the concealed code cannot be inspected or behavior be changed.
 
 [Learn more about RGF](RGF.md).
+
+### Custom Implementation
+
+You can provide a custom implementation for `lock.tamperProtection` to control which functions get changed.
+
+```js
+{
+  target: "node",
+  lock: {
+    tamperProtection: (fnName) => fnName === "console.log"
+  }
+}
+```
 
 ### Disallows Strict Mode
 

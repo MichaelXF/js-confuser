@@ -420,7 +420,7 @@ export interface ObfuscateOptions {
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
-    tamperProtection?: boolean;
+    tamperProtection?: boolean | ((varName: string) => boolean);
 
     /**
      * ### `lock.startDate`

@@ -149,7 +149,7 @@ export default class GlobalConcealing extends Transform {
                 var stringValue =
                   property.type === "Literal"
                     ? property.value
-                    : property.computed
+                    : memberExpression.computed
                     ? null
                     : property.type === "Identifier"
                     ? property.name

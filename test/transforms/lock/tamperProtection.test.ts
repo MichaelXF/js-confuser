@@ -167,6 +167,47 @@ describe("Global Concealing", () => {
     );
   });
 
+  test("Variant #6: Custom implementation for lock.tamperProtection", async () => {
+    var foundNames = [];
+    var output = await JsConfuser(
+      `
+      fetch()
+      console.log()
+      shouldBeFound()
+      console["trace"]()
+      var NotFound = "NotFound"
+      console[NotFound]()
+
+      toString()
+
+      var shouldNotBeFound;
+
+      shouldNotBeFound()
+      `,
+      {
+        target: "node",
+        globalConcealing: true,
+        lock: {
+          tamperProtection: (fnName) => {
+            foundNames.push(fnName);
+
+            return false;
+          },
+        },
+      }
+    );
+
+    expect(foundNames).toContain("fetch");
+    expect(foundNames).toContain("console.log");
+    expect(foundNames).toContain("shouldBeFound");
+    expect(foundNames).toContain("console.trace");
+    expect(foundNames).toContain("toString");
+
+    expect(foundNames.join("")).not.toContain("NotFound");
+
+    expect(foundNames).not.toContain("shouldNotBeFound");
+  });
+
   test("Variant #7: Protect native function Math.floor", async () => {
     var output = await JsConfuser(
       `

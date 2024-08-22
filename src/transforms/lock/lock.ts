@@ -58,6 +58,10 @@ export default class Lock extends Transform {
       return false;
     }
 
+    if (typeof this.options.lock.tamperProtection === "function") {
+      return this.options.lock.tamperProtection(nameAndPropertyPath.join("."));
+    }
+
     if (
       this.options.target === "browser" &&
       nameAndPropertyPath.length === 1 &&

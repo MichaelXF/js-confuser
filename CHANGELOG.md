@@ -5,22 +5,13 @@ Tamper Protection
 
 Tamper Protection safeguards the runtime behavior from being altered by JavaScript pitfalls. 
 
-**⚠️ Tamper Protection requires eval and ran in a non-strict mode environment!**
-
-- **This can break your code.**
-- **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
-
-Option name: `lock.tamperProtection`
-
-Option values: `true/false`
-
 [Learn more here.](/docs/TamperProtection.md)
 
 ---
 
-- `Rename Variables` improvements:
+- Rename Variables improvements:
 
-- - New `__JS_CONFUSER_VAR__` function to access renamed variables. [Learn more here](/docs/RenameVariables.md).
+- A new exposed function, `__JS_CONFUSER_VAR__`, can be used to access renamed variables. [Learn more here](/docs/RenameVariables.md).
 
 
 ```js
@@ -34,6 +25,10 @@ eval('console.log(' + 'CA1HU0' + ')');
 ```
 
 - Improved the `Zero Width` identifier generator (Thanks @doctor8296!)
+
+- Pad the `String Concealing` array with more fake strings
+
+- New Web UI sneak peak: https://new--confuser.netlify.app/
 
 
 # `1.7.2`
