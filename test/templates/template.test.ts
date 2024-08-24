@@ -1,7 +1,4 @@
-import { compileJsSync } from "../../src/compiler";
-import { parseSnippet } from "../../src/parser";
 import Template from "../../src/templates/template";
-import { Literal } from "../../src/util/gen";
 
 describe("Template", () => {
   test("Variant #1: Error when invalid code passed in", () => {

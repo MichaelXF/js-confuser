@@ -1,8 +1,8 @@
-import Transform from "../transform";
-import { choice } from "../../util/random";
-import { isDirective, isModuleSource } from "../../util/compare";
-import { ComputeProbabilityMap } from "../../probability";
-import { Identifier } from "../../util/gen";
+import { PluginObj } from "@babel/core";
+import { PluginArg } from "../plugin";
+import * as t from "@babel/types";
+import { choice } from "../../utils/random-utils";
+import { computeProbabilityMap } from "../../probability";
 
 function pad(x: string, len: number): string {
   while (x.length < len) {
@@ -46,50 +46,33 @@ function toUnicodeRepresentation(str: string) {
   return escapedString;
 }
 
-/**
- * [String Encoding](https://docs.jscrambler.com/code-integrity/documentation/transformations/string-encoding) transforms a string into an encoded representation.
- *
- * - Potency Low
- * - Resilience Low
- * - Cost Low
- */
-export default class StringEncoding extends Transform {
-  constructor(o) {
-    super(o);
-  }
+export default ({ Plugin }: PluginArg): PluginObj => {
+  const me = Plugin("stringEncoding");
 
-  match(object, parents) {
-    return (
-      object.type == "Literal" &&
-      typeof object.value === "string" &&
-      object.value.length > 0 &&
-      !isModuleSource(object, parents) &&
-      !isDirective(object, parents)
-    );
-  }
+  return {
+    visitor: {
+      StringLiteral: {
+        exit(path) {
+          const { value } = path.node;
 
-  transform(object, parents) {
-    // Allow percentages
-    if (
-      !ComputeProbabilityMap(
-        this.options.stringEncoding,
-        (x) => x,
-        object.value
-      )
-    )
-      return;
+          // Allow percentages
+          if (
+            !computeProbabilityMap(me.options.stringEncoding, (x) => x, value)
+          )
+            return;
 
-    var type = choice(["hexadecimal", "unicode"]);
+          var type = choice(["hexadecimal", "unicode"]);
 
-    var escapedString = (
-      type == "hexadecimal" ? toHexRepresentation : toUnicodeRepresentation
-    )(object.value);
+          var escapedString = (
+            type == "hexadecimal"
+              ? toHexRepresentation
+              : toUnicodeRepresentation
+          )(value);
 
-    return () => {
-      if (object.type !== "Literal") return;
-
-      // ESCodeGen tries to escape backslashes, here is a work-around
-      this.replace(object, Identifier(`'${escapedString}'`));
-    };
-  }
-}
+          path.replaceWith(t.identifier(`'${escapedString}'`));
+          path.skip();
+        },
+      },
+    },
+  };
+};

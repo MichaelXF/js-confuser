@@ -1,360 +1,142 @@
-import Transform from "../transform";
-import { walk } from "../../traverse";
-import { Node, Location, Identifier, VariableDeclarator } from "../../util/gen";
-import { getVarContext, isVarContext } from "../../util/insert";
-import { ObfuscateOrder } from "../../order";
-import { getIdentifierInfo } from "../../util/identifiers";
-import { isValidIdentifier } from "../../util/compare";
-import { ComputeProbabilityMap } from "../../probability";
-import { ok } from "assert";
-import { isStringLiteral } from "../../util/guard";
+import * as babelTypes from "@babel/types";
+import { NodePath, PluginObj } from "@babel/core";
+import {
+  getMemberExpressionPropertyAsString,
+  getObjectPropertyAsString,
+  isComputedMemberExpression,
+} from "../../utils/ast-utils";
+import { PluginArg } from "../plugin";
 
-/**
- * Extracts keys out of an object if possible.
- * ```js
- * // Input
- * var utils = {
- *   isString: x=>typeof x === "string",
- *   isBoolean: x=>typeof x === "boolean"
- * }
- * if ( utils.isString("Hello") ) {
- *   ...
- * }
- *
- * // Output
- * var utils_isString = x=>typeof x === "string";
- * var utils_isBoolean = x=>typeof x === "boolean"
- *
- * if ( utils_isString("Hello") ) {
- *   ...
- * }
- * ```
- */
-export default class ObjectExtraction extends Transform {
-  constructor(o) {
-    super(o, ObfuscateOrder.ObjectExtraction);
+function isObjectSafeForExtraction(
+  path: NodePath<babelTypes.VariableDeclarator>
+): boolean {
+  const id = path.node.id;
+  babelTypes.assertIdentifier(id);
+  const identifierName = id.name;
+
+  const init = path.node.init;
+
+  // Check if the object is not re-assigned
+  const binding = path.scope.getBinding(identifierName);
+  if (!binding || binding.constantViolations.length > 0) {
+    return false;
   }
 
-  match(object: Node, parents: Node[]) {
-    return isVarContext(object);
+  var propertyNames = new Set<string>();
+
+  // Check all properties of the object
+  if (babelTypes.isObjectExpression(init)) {
+    for (const prop of init.properties) {
+      if (
+        babelTypes.isObjectMethod(prop) ||
+        babelTypes.isSpreadElement(prop) ||
+        (babelTypes.isObjectProperty(prop) &&
+          !babelTypes.isIdentifier(prop.key) &&
+          !babelTypes.isStringLiteral(prop.key)) ||
+        (babelTypes.isObjectProperty(prop) &&
+          babelTypes.isFunctionExpression(prop.value) &&
+          prop.value.body.body.some((node) =>
+            babelTypes.isThisExpression(node)
+          ))
+      ) {
+        return false;
+      }
+
+      var propertyKey = getObjectPropertyAsString(prop);
+      if (typeof propertyKey !== "string") {
+        return false;
+      }
+      propertyNames.add(propertyKey);
+    }
   }
 
-  transform(context: Node, contextParents: Node[]) {
-    // ObjectExpression Extractor
+  // Check all references to ensure they are safe
+  return binding.referencePaths.every((refPath) => {
+    const parent = refPath.parent;
 
-    return () => {
-      // First pass through to find the maps
-      var objectDefs: { [name: string]: Location } = Object.create(null);
-      var objectDefiningIdentifiers: { [name: string]: Location } =
-        Object.create(null);
+    // Referencing the object name by itself is not allowed
+    if (!babelTypes.isMemberExpression(parent)) {
+      return false;
+    }
 
-      var illegal = new Set<string>();
+    if (babelTypes.isCallExpression(parent.property)) {
+      return false;
+    }
 
-      walk(context, contextParents, (object: Node, parents: Node[]) => {
-        if (object.type == "ObjectExpression") {
-          // this.log(object, parents);
-          if (
-            parents[0].type == "VariableDeclarator" &&
-            parents[0].init == object &&
-            parents[0].id.type == "Identifier"
-          ) {
-            var name = parents[0].id.name;
-            if (name) {
-              if (getVarContext(object, parents) != context) {
-                illegal.add(name);
-                return;
+    var propertyName = getMemberExpressionPropertyAsString(parent);
+
+    if (typeof propertyName !== "string") {
+      return false;
+    }
+    return propertyNames.has(propertyName);
+  });
+}
+
+export default ({ Plugin }: PluginArg): PluginObj => {
+  const me = Plugin("objectExtraction");
+
+  return {
+    visitor: {
+      VariableDeclarator(path: NodePath<babelTypes.VariableDeclarator>) {
+        // Ensure the variable is an object literal and the object is not re-assigned
+        if (
+          babelTypes.isObjectExpression(path.node.init) &&
+          path.node.id.type === "Identifier" &&
+          isObjectSafeForExtraction(path)
+        ) {
+          const objectName = path.node.id.name;
+          const properties = path.node.init.properties;
+
+          // Extract each property and create a new variable for it
+          const extractedVariables = properties
+            .map((prop) => {
+              if (
+                babelTypes.isObjectProperty(prop) &&
+                (babelTypes.isIdentifier(prop.key) ||
+                  babelTypes.isStringLiteral(prop.key))
+              ) {
+                const propName = getObjectPropertyAsString(prop);
+
+                const newVarName = `${objectName}_${propName}`;
+                const newVarDeclaration = babelTypes.variableDeclarator(
+                  babelTypes.identifier(newVarName),
+                  prop.value as babelTypes.Expression
+                );
+
+                return newVarDeclaration;
               }
-              if (!object.properties.length) {
-                illegal.add(name);
-                return;
-              }
 
-              // duplicate name
-              if (objectDefiningIdentifiers[name]) {
-                illegal.add(name);
-                return;
-              }
+              return null;
+            })
+            .filter(Boolean);
 
-              // check for computed properties
-              // Change String literals to non-computed
-              object.properties.forEach((prop) => {
-                if (prop.computed && isStringLiteral(prop.key)) {
-                  prop.computed = false;
-                }
-              });
+          // Replace the original object with extracted variables
+          if (extractedVariables.length > 0) {
+            path.replaceWithMultiple(extractedVariables);
 
-              var nonInitOrComputed = object.properties.find(
-                (x) => x.kind !== "init" || x.computed
-              );
-
-              if (nonInitOrComputed) {
-                if (nonInitOrComputed.key) {
-                  this.log(
-                    name +
-                      " has non-init/computed property: " +
-                      nonInitOrComputed.key.name || nonInitOrComputed.key.value
-                  );
-                } else {
-                  this.log(
-                    name + " has spread-element or other type of property"
-                  );
-                }
-
-                illegal.add(name);
-                return;
-              } else {
-                var illegalName = object.properties
-                  .map((x) =>
-                    x.computed ? x.key.value : x.key.name || x.key.value
-                  )
-                  .find((x) => !x || !isValidIdentifier(x));
-
-                if (illegalName) {
-                  this.log(
-                    name + " has an illegal property '" + illegalName + "'"
-                  );
-                  illegal.add(name);
-                  return;
-                } else {
-                  var isIllegal = false;
-                  walk(object, parents, (o, p) => {
-                    if (o.type == "ThisExpression" || o.type == "Super") {
-                      isIllegal = true;
-                      return "EXIT";
-                    }
-                  });
-                  if (isIllegal) {
-                    illegal.add(name);
-                    return;
-                  }
-
-                  objectDefs[name] = [object, parents];
-                  objectDefiningIdentifiers[name] = [
-                    parents[0].id,
-                    [...parents],
-                  ];
-                }
-              }
+            var variableDeclaration =
+              path.parent as babelTypes.VariableDeclaration;
+            if (variableDeclaration.kind === "const") {
+              variableDeclaration.kind = "let";
             }
+
+            // Replace references to the object with the new variables
+            path.scope.traverse(path.scope.block, {
+              MemberExpression(
+                memberPath: NodePath<babelTypes.MemberExpression>
+              ) {
+                const propName = getMemberExpressionPropertyAsString(
+                  memberPath.node
+                );
+
+                const newVarName = `${objectName}_${propName}`;
+
+                memberPath.replaceWith(babelTypes.identifier(newVarName));
+              },
+            });
           }
         }
-      });
-
-      illegal.forEach((name) => {
-        delete objectDefs[name];
-        delete objectDefiningIdentifiers[name];
-      });
-
-      // this.log("object defs", objectDefs);
-      // huge map of changes
-      var objectDefChanges: {
-        [name: string]: { key: string; object: Node; parents: Node[] }[];
-      } = {};
-
-      if (Object.keys(objectDefs).length) {
-        // A second pass through is only required when extracting object keys
-
-        // Second pass through the exclude the dynamic map (counting keys, re-assigning)
-        walk(context, contextParents, (object: any, parents: Node[]) => {
-          if (object.type == "Identifier") {
-            var info = getIdentifierInfo(object, parents);
-            if (!info.spec.isReferenced) {
-              return;
-            }
-            var def = objectDefs[object.name];
-            if (def) {
-              var isIllegal = false;
-
-              if (info.spec.isDefined) {
-                if (objectDefiningIdentifiers[object.name][0] !== object) {
-                  this.log(object.name, "you can't redefine the object");
-                  isIllegal = true;
-                }
-              } else {
-                var isMemberExpression =
-                  parents[0].type == "MemberExpression" &&
-                  parents[0].object == object;
-
-                if (
-                  (parents.find((x) => x.type == "AssignmentExpression") &&
-                    !isMemberExpression) ||
-                  parents.find(
-                    (x) => x.type == "UnaryExpression" && x.operator == "delete"
-                  )
-                ) {
-                  this.log(object.name, "you can't re-assign the object");
-
-                  isIllegal = true;
-                } else if (isMemberExpression) {
-                  var key =
-                    parents[0].property.value || parents[0].property.name;
-
-                  if (
-                    parents[0].computed &&
-                    parents[0].property.type !== "Literal"
-                  ) {
-                    this.log(
-                      object.name,
-                      "object[expr] detected, only object['key'] is allowed"
-                    );
-
-                    isIllegal = true;
-                  } else if (
-                    !parents[0].computed &&
-                    parents[0].property.type !== "Identifier"
-                  ) {
-                    this.log(
-                      object.name,
-                      "object.<expr> detected, only object.key is allowed"
-                    );
-
-                    isIllegal = true;
-                  } else if (
-                    !key ||
-                    !def[0].properties.some(
-                      (x) => (x.key.value || x.key.name) == key
-                    )
-                  ) {
-                    // check if initialized property
-                    // not in initialized object.
-                    this.log(
-                      object.name,
-                      "not in initialized object.",
-                      def[0].properties,
-                      key
-                    );
-                    isIllegal = true;
-                  }
-
-                  if (!isIllegal && key) {
-                    // allowed.
-                    // start the array if first time
-                    if (!objectDefChanges[object.name]) {
-                      objectDefChanges[object.name] = [];
-                    }
-                    // add to array
-                    objectDefChanges[object.name].push({
-                      key: key,
-                      object: object,
-                      parents: parents,
-                    });
-                  }
-                } else {
-                  this.log(
-                    object.name,
-                    "you must access a property on the when referring to the identifier (accessors must be hard-coded literals), parent is " +
-                      parents[0].type
-                  );
-
-                  isIllegal = true;
-                }
-              }
-
-              if (isIllegal) {
-                // this is illegal, delete it from being moved and delete accessor changes from happening
-                this.log(object.name + " is illegal");
-                delete objectDefs[object.name];
-                delete objectDefChanges[object.name];
-              }
-            }
-          }
-        });
-
-        Object.keys(objectDefs).forEach((name) => {
-          if (
-            !ComputeProbabilityMap(
-              this.options.objectExtraction,
-              (x) => x,
-              name
-            )
-          ) {
-            //continue;
-            return;
-          }
-
-          var [object, parents] = objectDefs[name];
-          var declarator = parents[0];
-          var declaration = parents[2];
-
-          ok(declarator.type === "VariableDeclarator");
-          ok(declaration.type === "VariableDeclaration");
-
-          var properties = object.properties;
-          // change the prop names while extracting
-          var newPropNames: { [key: string]: string } = {};
-
-          var variableDeclarators = [];
-
-          properties.forEach((property: Node) => {
-            var keyName = property.key.name || property.key.value;
-
-            var nn = name + "_" + keyName;
-            newPropNames[keyName] = nn;
-
-            var v = property.value;
-
-            variableDeclarators.push(
-              VariableDeclarator(nn, this.addComment(v, `${name}.${keyName}`))
-            );
-          });
-
-          declaration.declarations.splice(
-            declaration.declarations.indexOf(declarator),
-            1,
-            ...variableDeclarators
-          );
-
-          // const can only be safely changed to let
-          if (declaration.kind === "const") {
-            declaration.kind = "let";
-          }
-
-          // update all identifiers that pointed to the old object
-          objectDefChanges[name] &&
-            objectDefChanges[name].forEach((change) => {
-              if (!change.key) {
-                this.error(new Error("key is undefined"));
-              }
-              if (newPropNames[change.key]) {
-                var memberExpression = change.parents[0];
-                if (memberExpression.type == "MemberExpression") {
-                  this.replace(
-                    memberExpression,
-                    this.addComment(
-                      Identifier(newPropNames[change.key]),
-                      `Original Accessor: ${name}.${change.key}`
-                    )
-                  );
-                } else {
-                  // Provide error with more information:
-                  console.log(memberExpression);
-                  this.error(
-                    new Error(
-                      `should be MemberExpression, found type=${memberExpression.type}`
-                    )
-                  );
-                }
-              } else {
-                console.log(objectDefChanges[name], newPropNames);
-                this.error(
-                  new Error(
-                    `"${change.key}" not found in [${Object.keys(
-                      newPropNames
-                    ).join(", ")}] while flattening ${name}.`
-                  )
-                );
-              }
-            });
-
-          this.log(
-            `Extracted ${
-              Object.keys(newPropNames).length
-            } properties from ${name}, affecting ${
-              Object.keys(objectDefChanges[name] || {}).length
-            } line(s) of code.`
-          );
-        });
-      }
-    };
-  }
-}
+      },
+    },
+  };
+};

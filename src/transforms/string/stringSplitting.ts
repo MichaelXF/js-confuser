@@ -1,86 +1,66 @@
-import Transform from "../transform";
-import { Node, Literal, BinaryExpression } from "../../util/gen";
-import { clone } from "../../util/insert";
-import { getRandomInteger, shuffle, splitIntoChunks } from "../../util/random";
-import { ObfuscateOrder } from "../../order";
-import { isDirective, isModuleSource } from "../../util/compare";
+import { PluginObj } from "@babel/core";
+import { PluginArg } from "../plugin";
+import { getRandomInteger, splitIntoChunks } from "../../utils/random-utils";
+import { computeProbabilityMap } from "../../probability";
+import { binaryExpression, stringLiteral } from "@babel/types";
 import { ok } from "assert";
-import { ComputeProbabilityMap } from "../../probability";
 
-export default class StringSplitting extends Transform {
-  joinPrototype: string;
-  strings: { [value: string]: string };
+export default ({ Plugin }: PluginArg): PluginObj => {
+  const me = Plugin("stringSplitting");
 
-  adders: Node[][];
-  vars: Node[];
+  return {
+    visitor: {
+      StringLiteral: {
+        exit(path) {
+          var object = path.node;
 
-  constructor(o) {
-    super(o, ObfuscateOrder.StringSplitting);
-
-    this.joinPrototype = null;
-    this.strings = Object.create(null);
-
-    this.adders = [];
-    this.vars = [];
-  }
-
-  match(object: Node, parents: Node[]) {
-    return (
-      object.type == "Literal" &&
-      typeof object.value === "string" &&
-      object.value.length >= 8 &&
-      !isModuleSource(object, parents) &&
-      !isDirective(object, parents)
-    );
-  }
-
-  transform(object: Node, parents: Node[]) {
-    return () => {
-      var size = Math.round(
-        Math.max(6, object.value.length / getRandomInteger(3, 8))
-      );
-      if (object.value.length <= size) {
-        return;
-      }
-
-      var chunks = splitIntoChunks(object.value, size);
-      if (!chunks || chunks.length <= 1) {
-        return;
-      }
-
-      if (
-        !ComputeProbabilityMap(
-          this.options.stringSplitting,
-          (x) => x,
-          object.value
-        )
-      ) {
-        return;
-      }
-
-      var binaryExpression;
-      var parent;
-      var last = chunks.pop();
-      chunks.forEach((chunk, i) => {
-        if (i == 0) {
-          parent = binaryExpression = BinaryExpression(
-            "+",
-            Literal(chunk),
-            Literal("")
+          var size = Math.round(
+            Math.max(6, object.value.length / getRandomInteger(3, 8))
           );
-        } else {
-          binaryExpression.left = BinaryExpression(
-            "+",
-            clone(binaryExpression.left),
-            Literal(chunk)
-          );
-          ok(binaryExpression);
-        }
-      });
+          if (object.value.length <= size) {
+            return;
+          }
 
-      parent.right = Literal(last);
+          var chunks = splitIntoChunks(object.value, size);
+          if (!chunks || chunks.length <= 1) {
+            return;
+          }
 
-      this.replaceIdentifierOrLiteral(object, parent, parents);
-    };
-  }
-}
+          if (
+            !computeProbabilityMap(
+              me.options.stringSplitting,
+              (x) => x,
+              object.value
+            )
+          ) {
+            return;
+          }
+
+          var binExpr;
+          var parent;
+          var last = chunks.pop();
+          chunks.forEach((chunk, i) => {
+            if (i == 0) {
+              parent = binExpr = binaryExpression(
+                "+",
+                stringLiteral(chunk),
+                stringLiteral("")
+              );
+            } else {
+              binExpr.left = binaryExpression(
+                "+",
+                { ...binExpr.left },
+                stringLiteral(chunk)
+              );
+              ok(binExpr);
+            }
+          });
+
+          parent.right = stringLiteral(last);
+
+          path.replaceWith(parent);
+        },
+      },
+    },
+  };
+};

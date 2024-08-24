@@ -1,5 +1,5 @@
 import { ok } from "assert";
-import { createObject } from "./util/object";
+import { createObject } from "./utils/object-utils";
 
 type Stringed<V> = (V extends string ? V : never) | "true" | "false";
 
@@ -29,7 +29,7 @@ export type ProbabilityMap<T> =
  * @param runner Custom function to determine return value
  * @param customFnArgs Args given to user-implemented function, such as a variable name.
  */
-export function ComputeProbabilityMap<T>(
+export function computeProbabilityMap<T>(
   map: ProbabilityMap<T>,
   runner: (mode?: T) => any = (x?: T) => x,
   ...customFnArgs: any[]

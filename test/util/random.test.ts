@@ -1,10 +1,8 @@
 import {
   alphabeticalGenerator,
   choice,
-  getRandomFalseExpression,
   getRandomString,
-  getRandomTrueExpression,
-} from "../../src/util/random";
+} from "../../src/utils/random-utils";
 
 const escodegen = require("escodegen");
 

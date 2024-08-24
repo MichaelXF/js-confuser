@@ -44,7 +44,7 @@ const highPreset: ObfuscateOptions = {
   renameVariables: true,
   renameGlobals: true,
   shuffle: { hash: 0.5, true: 0.5 },
-  stack: true,
+  variableMasking: true,
   stringConcealing: true,
   stringCompression: true,
   stringEncoding: true,
@@ -78,7 +78,7 @@ const mediumPreset: ObfuscateOptions = {
   renameVariables: true,
   renameGlobals: true,
   shuffle: true,
-  stack: 0.5,
+  variableMasking: 0.5,
   stringConcealing: true,
   stringSplitting: 0.25,
 };

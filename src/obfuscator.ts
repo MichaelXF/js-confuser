@@ -1,165 +1,133 @@
-import { ok } from "assert";
-import { EventEmitter } from "events";
-import { Node } from "./util/gen";
-import traverse from "./traverse";
 import { ObfuscateOptions } from "./options";
-import { ProbabilityMap, isProbabilityMapProbable } from "./probability";
+import * as babel from "@babel/core";
+import generate from "@babel/generator";
+import { PluginInstance } from "./transforms/plugin";
+import { ok } from "assert";
+import { applyDefaultsToOptions, validateOptions } from "./validateOptions";
 
-import Transform from "./transforms/transform";
+import preparation from "./transforms/preparation";
+import renameVariables from "./transforms/identifier/renameVariables";
+import variableMasking from "./transforms/variableMasking";
+import dispatcher from "./transforms/dispatcher";
+import duplicateLiteralsRemoval from "./transforms/extraction/duplicateLiteralsRemoval";
+import objectExtraction from "./transforms/extraction/objectExtraction";
+import globalConcealing from "./transforms/identifier/globalConcealing";
+import stringCompression from "./transforms/string/stringCompression";
+import deadCode from "./transforms/deadCode";
+import stringSplitting from "./transforms/string/stringSplitting";
+import shuffle from "./transforms/shuffle";
+import finalizer from "./transforms/finalizer";
+import {
+  ObfuscationResult,
+  ProfilerCallback,
+  ProfilerLog,
+} from "./obfuscationResult";
+import { isProbabilityMapProbable } from "./probability";
 
-import Preparation from "./transforms/preparation";
-import ObjectExtraction from "./transforms/extraction/objectExtraction";
-import Lock from "./transforms/lock/lock";
-import Dispatcher from "./transforms/dispatcher";
-import DeadCode from "./transforms/deadCode";
-import OpaquePredicates from "./transforms/opaquePredicates";
-import Calculator from "./transforms/calculator";
-import ControlFlowFlattening from "./transforms/controlFlowFlattening/controlFlowFlattening";
-import GlobalConcealing from "./transforms/identifier/globalConcealing";
-import StringSplitting from "./transforms/string/stringSplitting";
-import StringConcealing from "./transforms/string/stringConcealing";
-import StringCompression from "./transforms/string/stringCompression";
-import DuplicateLiteralsRemoval from "./transforms/extraction/duplicateLiteralsRemoval";
-import Shuffle from "./transforms/shuffle";
-import MovedDeclarations from "./transforms/identifier/movedDeclarations";
-import RenameVariables from "./transforms/identifier/renameVariables";
-import RenameLabels from "./transforms/renameLabels";
-import Minify from "./transforms/minify";
-import ES5 from "./transforms/es5/es5";
-import RGF from "./transforms/rgf";
-import Flatten from "./transforms/flatten";
-import Stack from "./transforms/stack";
-import AntiTooling from "./transforms/antiTooling";
-import Finalizer from "./transforms/finalizer";
+export default class Obfuscator {
+  plugins: babel.PluginObj[] = [];
+  options: ObfuscateOptions;
 
-/**
- * The parent transformation holding the `state`.
- */
-export default class Obfuscator extends EventEmitter {
-  varCount: number;
-  transforms: { [name: string]: Transform };
-  array: Transform[];
+  totalPossibleTransforms: number = 0;
 
-  state: "transform" | "eval" = "transform";
-  generated: Set<string>;
+  public constructor(userOptions: ObfuscateOptions) {
+    validateOptions(userOptions);
+    this.options = applyDefaultsToOptions({ ...userOptions });
 
-  totalPossibleTransforms: number;
+    const allPlugins = [];
 
-  constructor(public options: ObfuscateOptions) {
-    super();
+    const push = (probabilityMap, ...pluginFns) => {
+      this.totalPossibleTransforms += pluginFns.length;
+      if (!isProbabilityMapProbable(probabilityMap)) return;
 
-    this.varCount = 0;
-    this.transforms = Object.create(null);
-    this.generated = new Set();
-    this.totalPossibleTransforms = 0;
-
-    const test = <T>(map: ProbabilityMap<T>, ...transformers: any[]) => {
-      this.totalPossibleTransforms += transformers.length;
-
-      if (isProbabilityMapProbable(map)) {
-        // options.verbose && console.log("+ Added " + transformer.name);
-
-        transformers.forEach((Transformer) => this.push(new Transformer(this)));
-      } else {
-        // options.verbose && console.log("- Skipped adding " + transformer.name);
-      }
+      allPlugins.push(...pluginFns);
     };
 
-    // Optimization: Only add needed transformers. If a probability always return false, no need in running that extra code.
-    test(true, Preparation);
-    test(true, RenameLabels);
+    push(true, preparation);
+    push(this.options.deadCode, deadCode);
 
-    test(options.objectExtraction, ObjectExtraction);
-    test(options.flatten, Flatten);
-    test(options.rgf, RGF);
-    test(options.dispatcher, Dispatcher);
-    test(options.deadCode, DeadCode);
-    test(options.calculator, Calculator);
-    test(options.controlFlowFlattening, ControlFlowFlattening);
-    test(options.globalConcealing, GlobalConcealing);
-    test(options.opaquePredicates, OpaquePredicates);
-    test(options.stringSplitting, StringSplitting);
-    test(options.stringConcealing, StringConcealing);
-    test(options.stringCompression, StringCompression);
-    test(options.stack, Stack);
-    test(options.duplicateLiteralsRemoval, DuplicateLiteralsRemoval);
-    test(options.shuffle, Shuffle);
-    test(options.movedDeclarations, MovedDeclarations);
-    test(options.minify, Minify);
-    test(options.renameVariables, RenameVariables);
-    test(options.es5, ES5);
+    push(this.options.dispatcher, dispatcher);
+    push(this.options.duplicateLiteralsRemoval, duplicateLiteralsRemoval);
+    push(this.options.objectExtraction, objectExtraction);
+    push(this.options.globalConcealing, globalConcealing);
+    push(this.options.variableMasking, variableMasking);
+    push(this.options.renameVariables, renameVariables);
+    push(this.options.stringCompression, stringCompression);
+    push(this.options.stringSplitting, stringSplitting);
+    push(this.options.shuffle, shuffle);
 
-    test(true, AntiTooling);
-    test(true, Finalizer); // String Encoding, Hexadecimal Numbers, BigInt support is included
+    push(true, finalizer);
 
-    if (
-      options.lock &&
-      Object.keys(options.lock).filter((x) =>
-        x == "domainLock"
-          ? options.lock.domainLock && options.lock.domainLock.length
-          : options.lock[x]
-      ).length
-    ) {
-      test(true, Lock);
-    }
+    allPlugins.map((pluginFunction) => {
+      var pluginInstance: PluginInstance;
+      var plugin = pluginFunction({
+        Plugin: (name) => {
+          return (pluginInstance = new PluginInstance({ name }, this));
+        },
+      });
 
-    // Make array
-    this.array = Object.values(this.transforms);
+      ok(pluginInstance, "Plugin instance not created.");
 
-    // Sort transformations based on their priority
-    this.array.sort((a, b) => a.priority - b.priority);
+      this.plugins.push(plugin);
+    });
   }
 
-  push(transform: Transform) {
-    if (transform.className) {
-      ok(
-        !this.transforms[transform.className],
-        "Already have " + transform.className
-      );
-    }
-    this.transforms[transform.className] = transform;
-  }
+  obfuscateAST(
+    ast: babel.types.File,
+    profiler?: ProfilerCallback
+  ): babel.types.File {
+    for (var i = 0; i < this.plugins.length; i++) {
+      const plugin = this.plugins[i];
+      babel.traverse(ast, plugin.visitor as babel.Visitor);
 
-  resetState() {
-    this.varCount = 0;
-    this.generated = new Set();
-    this.state = "transform";
-  }
-
-  async apply(tree: Node, debugMode = false) {
-    ok(tree.type == "Program", "The root node must be type 'Program'");
-    ok(Array.isArray(tree.body), "The root's body property must be an array");
-    ok(Array.isArray(this.array));
-
-    this.resetState();
-
-    var completed = 0;
-    for (var transform of this.array) {
-      await transform.apply(tree);
-      completed++;
-
-      if (debugMode) {
-        this.emit("debug", transform.className, tree, completed);
+      if (profiler) {
+        profiler({
+          currentTransform: plugin.name,
+          currentTransformNumber: i,
+          nextTransform: this.plugins[i + 1]?.name,
+          totalTransforms: this.plugins.length,
+        });
       }
     }
 
-    if (this.options.verbose) {
-      console.log("-> Check for Eval Callbacks");
+    return ast;
+  }
+
+  async obfuscate(sourceCode: string): Promise<ObfuscationResult> {
+    // Parse the source code into an AST
+    let ast = this.parseCode(sourceCode);
+
+    this.obfuscateAST(ast);
+
+    // Generate the transformed code from the modified AST with comments removed and compacted output
+    const code = this.generateCode(ast);
+
+    if (code) {
+      return {
+        code: code,
+      };
+    } else {
+      throw new Error("Failed to obfuscate the code.");
     }
+  }
 
-    this.state = "eval";
-
-    // Find eval callbacks
-    traverse(tree, (o, p) => {
-      if (o.$eval) {
-        return () => {
-          o.$eval(o, p);
-        };
-      }
+  generateCode(ast: babel.types.File): string {
+    const { code } = generate(ast, {
+      comments: false, // Remove comments
+      compact: false, // Compact the output
     });
 
-    if (this.options.verbose) {
-      console.log("<- Done");
-    }
+    return code;
+  }
+
+  parseCode(sourceCode: string): babel.types.File {
+    // Parse the source code into an AST
+    let ast = babel.parseSync(sourceCode, {
+      sourceType: "unambiguous",
+      babelrc: false,
+      configFile: false,
+    });
+
+    return ast;
   }
 }

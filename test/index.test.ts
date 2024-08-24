@@ -1,7 +1,4 @@
-import JsConfuser, {
-  debugObfuscation,
-  debugTransformations,
-} from "../src/index";
+import JsConfuser, { obfuscateWithProfiler } from "../src/index";
 
 it("should be a function", async () => {
   expect(typeof JsConfuser).toBe("function");
@@ -195,40 +192,24 @@ describe("obfuscateAST", () => {
   });
 });
 
-describe("debugTransformations", () => {
-  test("Variant #1: Return array of objects containing `name`, `code`, and `ms` properties", async () => {
-    var frames = await debugTransformations(`console.log(1)`, {
-      target: "node",
-      preset: "low",
-    });
-
-    expect(Array.isArray(frames)).toStrictEqual(true);
-    expect(frames.length).toBeTruthy();
-
-    frames.forEach((frame) => {
-      expect(typeof frame.name).toStrictEqual("string");
-      expect(typeof frame.code).toStrictEqual("string");
-      expect(typeof frame.ms).toStrictEqual("number");
-    });
-  });
-});
-
 describe("debugObfuscation", () => {
   test("Variant #1: Return array of objects containing code, ms, and name properties", async () => {
     var called = false;
 
-    var callback = (name, complete, totalTransforms) => {
+    var callback = ({ name, complete, totalTransforms }) => {
       expect(typeof name).toStrictEqual("string");
       expect(typeof complete).toStrictEqual("number");
       expect(typeof totalTransforms).toStrictEqual("number");
 
       called = true;
     };
-    var output = await debugObfuscation(
+    var output = await JsConfuser.obfuscateWithProfiler(
       `console.log(1)`,
       { target: "node", preset: "low" },
-      callback,
-      require("perf_hooks").performance
+      {
+        callback,
+        performance: require("perf_hooks").performance,
+      }
     );
 
     expect(typeof output).toStrictEqual("object");

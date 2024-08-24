@@ -1,198 +1,51 @@
-import compileJs, { compileJsSync } from "./compiler";
-import parseJS, { parseSync } from "./parser";
+import * as babelTypes from "@babel/types";
 import Obfuscator from "./obfuscator";
-import Transform from "./transforms/transform";
-import Template from "./templates/template";
-import { remove$Properties } from "./util/object";
-import presets from "./presets";
+import { ObfuscateOptions } from "./options";
+import { ObfuscationResult, ProfilerCallback } from "./obfuscationResult";
 
-import * as assert from "assert";
-import { correctOptions, ObfuscateOptions, validateOptions } from "./options";
-import {
-  IJsConfuser,
-  IJsConfuserDebugObfuscation,
-  IJsConfuserDebugTransformations,
-} from "./types";
-
-/**
- * **JsConfuser**: Obfuscates JavaScript.
- * @param code - The code to be obfuscated.
- * @param options - An object of obfuscation options: `{preset: "medium", target: "browser"}`.
- */
-export async function obfuscate(code: string, options: ObfuscateOptions) {
-  return await JsConfuser(code, options);
-}
-
-/**
- * Obfuscates an [ESTree](https://github.com/estree/estree) compliant AST.
- *
- * **Note:** Mutates the object.
- *
- * @param AST - The [ESTree](https://github.com/estree/estree) compliant AST. This object will be mutated.
- * @param options - The obfuscation options.
- *
- * [See all settings here](https://github.com/MichaelXF/js-confuser#options)
- */
-export async function obfuscateAST(AST, options: ObfuscateOptions) {
-  assert.ok(typeof AST === "object", "AST must be type object");
-  assert.ok(AST.type == "Program", "AST.type must be equal to 'Program'");
-  validateOptions(options);
-
-  options = await correctOptions(options);
-
-  var obfuscator = new Obfuscator(options as any);
-
-  await obfuscator.apply(AST);
-
-  options.verbose && console.log("* Removing $ properties");
-
-  remove$Properties(AST);
-}
-
-/**
- * **JsConfuser**: Obfuscates JavaScript.
- * @param code - The code to be obfuscated.
- * @param options - An object of obfuscation options: `{preset: "medium", target: "browser"}`.
- */
-var JsConfuser: IJsConfuser = async function (
-  code: string,
+export async function obfuscate(
+  sourceCode: string,
   options: ObfuscateOptions
-): Promise<string> {
-  if (typeof code !== "string") {
-    throw new TypeError("code must be type string");
-  }
-  validateOptions(options);
+): Promise<ObfuscationResult> {
+  var obfuscator = new Obfuscator(options);
 
-  options = await correctOptions(options);
+  return obfuscator.obfuscate(sourceCode);
+}
 
-  options.verbose && console.log("* Parsing source code");
-
-  var tree = await parseJS(code);
-
-  options.verbose && console.log("* Obfuscating...");
-
-  var obfuscator = new Obfuscator(options as any);
-
-  await obfuscator.apply(tree);
-
-  options.verbose && console.log("* Removing $ properties");
-
-  remove$Properties(tree);
-
-  options.verbose && console.log("* Generating code");
-
-  var result = await compileJs(tree, options);
-
-  return result;
-} as any;
-
-export const debugTransformations: IJsConfuserDebugTransformations =
-  async function (
-    code: string,
-    options: ObfuscateOptions
-  ): Promise<{ name: string; code: string; ms: number }[]> {
-    validateOptions(options);
-    options = await correctOptions(options);
-
-    var frames = [];
-
-    var tree = parseSync(code);
-    var obfuscator = new Obfuscator(options as any);
-
-    var time = Date.now();
-
-    obfuscator.on("debug", (name: string, tree: Node) => {
-      frames.push({
-        name: name,
-        code: compileJsSync(tree, options),
-        ms: Date.now() - time,
-      });
-
-      time = Date.now();
-    });
-
-    await obfuscator.apply(tree, true);
-
-    return frames;
-  };
-
-/**
- * This method is used by the obfuscator website to display a progress bar and additional information
- * about the obfuscation.
- *
- * @param code - Source code to obfuscate
- * @param options - Options
- * @param callback - Progress callback, called after each transformation
- * @returns
- */
-export const debugObfuscation: IJsConfuserDebugObfuscation = async function (
-  code: string,
-  options: ObfuscateOptions,
-  callback: (name: string, complete: number, totalTransforms: number) => void,
-  performance: Performance
+export async function obfuscateAST(
+  ast: babelTypes.File,
+  options: ObfuscateOptions
 ) {
-  const startTime = performance.now();
+  var obfuscator = new Obfuscator(options);
 
-  validateOptions(options);
-  options = await correctOptions(options);
+  return obfuscator.obfuscateAST(ast);
+}
 
-  const beforeParseTime = performance.now();
+export async function obfuscateWithProfiler(
+  sourceCode: string,
+  options: ObfuscateOptions,
+  profiler: {
+    callback: ProfilerCallback;
+    performance: { now(): number };
+  }
+): Promise<ObfuscationResult> {
+  var obfuscator = new Obfuscator(options);
 
-  var tree = parseSync(code);
+  var ast = obfuscator.parseCode(sourceCode);
 
-  const parseTime = performance.now() - beforeParseTime;
+  ast = obfuscator.obfuscateAST(ast, profiler.callback);
 
-  var obfuscator = new Obfuscator(options as any);
-  var totalTransforms = obfuscator.array.length;
-
-  var transformationTimes = Object.create(null);
-  var currentTransformTime = performance.now();
-
-  obfuscator.on("debug", (name: string, tree: Node, i: number) => {
-    var nowTime = performance.now();
-    transformationTimes[name] = nowTime - currentTransformTime;
-    currentTransformTime = nowTime;
-
-    callback(name, i, totalTransforms);
-  });
-
-  await obfuscator.apply(tree, true);
-
-  const beforeCompileTime = performance.now();
-
-  var output = await compileJs(tree, options);
-
-  const compileTime = performance.now() - beforeCompileTime;
-
-  const endTime = performance.now();
+  var code = obfuscator.generateCode(ast);
 
   return {
-    obfuscated: output,
-    transformationTimes: transformationTimes,
-    obfuscationTime: endTime - startTime,
-    parseTime: parseTime,
-    compileTime: compileTime,
-    totalTransforms: totalTransforms,
-    totalPossibleTransforms: obfuscator.totalPossibleTransforms,
+    code: code,
   };
-};
-
-JsConfuser.obfuscate = obfuscate;
-JsConfuser.obfuscateAST = obfuscateAST;
-JsConfuser.presets = presets;
-JsConfuser.debugTransformations = debugTransformations;
-JsConfuser.debugObfuscation = debugObfuscation;
-JsConfuser.Obfuscator = Obfuscator;
-JsConfuser.Transform = Transform;
-JsConfuser.Template = Template;
-
-if (typeof window !== "undefined") {
-  window["JsConfuser"] = JsConfuser;
-}
-if (typeof global !== "undefined") {
-  global["JsConfuser"] = JsConfuser;
 }
 
-export default JsConfuser;
+const JSConfuser = Object.assign(obfuscate, {
+  obfuscate,
+  obfuscateAST,
+  obfuscateWithProfiler,
+});
 
-export { presets, Obfuscator, Transform, Template };
+export default JSConfuser;

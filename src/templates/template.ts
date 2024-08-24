@@ -1,82 +1,23 @@
-import { Node } from "../util/gen";
-import { parseSnippet, parseSync } from "../parser";
+import * as babelTypes from "@babel/types";
+import { parse } from "@babel/parser";
+import traverse from "@babel/traverse";
+import { NodePath } from "@babel/traverse";
 import { ok } from "assert";
-import { choice } from "../util/random";
-import { placeholderVariablePrefix } from "../constants";
-import traverse from "../traverse";
 
 export interface TemplateVariables {
   [varName: string]:
     | string
-    | (() => Node | Node[] | Template)
-    | Node
-    | Node[]
+    | number
+    | (() => babelTypes.Node | babelTypes.Node[] | Template)
+    | babelTypes.Node
+    | babelTypes.Node[]
     | Template;
 }
 
-/**
- * Templates provides an easy way to parse code snippets into AST subtrees.
- *
- * These AST subtrees can added to the obfuscated code, tailored with variable names.
- *
- * 1. Basic string interpolation
- *
- * ```js
- * var Base64Template = new Template(`
- * function {name}(str){
- *   return btoa(str)
- * }
- * `);
- *
- * var functionDeclaration = Base64Template.single({ name: "atob" });
- * ```
- *
- * 2. AST subtree insertion
- *
- * ```js
- * var Base64Template = new Template(`
- * function {name}(str){
- *   {getWindow}
- *
- *   return {getWindowName}btoa(str)
- * }`)
- *
- * var functionDeclaration = Base64Template.single({
- *  name: "atob",
- *  getWindowName: "newWindow",
- *  getWindow: () => {
- *    return acorn.parse("var newWindow = {}").body[0];
- *  }
- * });
- * ```
- *
- * Here, the `getWindow` variable is a function that returns an AST subtree. This must be a `Node[]` array or Template.
- * Optionally, the function can be replaced with just the `Node[]` array or Template if it's already computed.
- *
- * 3. Template subtree insertion
- *
- * ```js
- * var NewWindowTemplate = new Template(`
- *   var newWindow = {};
- * `);
- *
- * var Base64Template = new Template(`
- * function {name}(str){
- *   {NewWindowTemplate}
- *
- *   return newWindow.btoa(str)
- * }`)
- *
- * var functionDeclaration = Base64Template.single({
- *  name: "atob",
- *  NewWindowTemplate: NewWindowTemplate
- * });
- * ```
- */
 export default class Template {
-  templates: string[];
-  defaultVariables: TemplateVariables;
-  requiredVariables: Set<string>;
+  private templates: string[];
+  private defaultVariables: TemplateVariables;
+  private requiredVariables: Set<string>;
 
   constructor(...templates: string[]) {
     this.templates = templates;
@@ -92,14 +33,16 @@ export default class Template {
   }
 
   private findRequiredVariables() {
-    var matches = this.templates[0].match(/{[$A-z0-9_]+}/g);
+    const matches = this.templates[0].match(/{[$A-Za-z0-9_]+}/g);
     if (matches !== null) {
       matches.forEach((variable) => {
-        var name = variable.slice(1, -1);
+        const name = variable.slice(1, -1);
 
         // $ variables are for default variables
         if (name.startsWith("$")) {
-          throw new Error("Default variables are no longer supported.");
+          this.defaultVariables[name] = `td_${
+            Object.keys(this.defaultVariables).length
+          }`;
         } else {
           this.requiredVariables.add(name);
         }
@@ -107,124 +50,119 @@ export default class Template {
     }
   }
 
-  /**
-   * Interpolates the template with the given variables.
-   *
-   * Prepares the template string for AST parsing.
-   *
-   * @param variables
-   */
   private interpolateTemplate(variables: TemplateVariables = {}) {
-    var allVariables = { ...this.defaultVariables, ...variables };
+    const allVariables = { ...this.defaultVariables, ...variables };
 
-    // Validate all variables were passed in
-    for (var requiredVariable of this.requiredVariables) {
+    for (const requiredVariable of this.requiredVariables) {
       if (typeof allVariables[requiredVariable] === "undefined") {
         throw new Error(
-          this.templates[0] +
-            " missing variable: " +
-            requiredVariable +
-            " from " +
-            JSON.stringify(allVariables)
+          `${
+            this.templates[0]
+          } missing variable: ${requiredVariable} from ${JSON.stringify(
+            allVariables
+          )}`
         );
       }
     }
 
-    var template = choice(this.templates);
-    var output = template;
+    const template =
+      this.templates[Math.floor(Math.random() * this.templates.length)];
+    let output = template;
 
     Object.keys(allVariables).forEach((name) => {
-      var bracketName = "{" + name.replace("$", "\\$") + "}";
+      const bracketName = `{${name.replace("$", "\\$")}}`;
+      let value = allVariables[name] as string;
 
-      var value = allVariables[name] + "";
-      if (typeof allVariables[name] !== "string") {
+      if (this.isASTVariable(value)) {
         value = name;
       }
 
-      var reg = new RegExp(bracketName, "g");
-
+      const reg = new RegExp(bracketName, "g");
       output = output.replace(reg, value);
     });
 
     return { output, template };
   }
 
-  /**
-   * Finds the variables in the AST and replaces them with the given values.
-   *
-   * Note: Mutates the AST.
-   * @param ast
-   * @param variables
-   */
-  private interpolateAST(ast: Node, variables: TemplateVariables) {
-    var allVariables = { ...this.defaultVariables, ...variables };
+  private isASTVariable(variable: any): boolean {
+    return typeof variable !== "string" && typeof variable !== "number";
+  }
 
-    var astNames = new Set(
+  private interpolateAST(ast: babelTypes.Node, variables: TemplateVariables) {
+    const allVariables = { ...this.defaultVariables, ...variables };
+
+    const astNames = new Set(
       Object.keys(allVariables).filter((name) => {
-        return typeof allVariables[name] !== "string";
+        return this.isASTVariable(allVariables[name]);
       })
     );
 
     if (astNames.size === 0) return;
 
-    traverse(ast, (o, p) => {
-      if (o.type === "Identifier" && allVariables[o.name]) {
-        return () => {
-          var value = allVariables[o.name];
-          ok(typeof value !== "string");
-
-          var insertNodes = typeof value === "function" ? value() : value;
-          if (insertNodes instanceof Template) {
-            insertNodes = insertNodes.compile(allVariables);
+    traverse(ast, {
+      Identifier(path: NodePath<babelTypes.Identifier>) {
+        const name = path.node.name;
+        if (allVariables[name]) {
+          let value = allVariables[name];
+          if (typeof value === "function") {
+            value = value();
           }
 
-          if (!Array.isArray(insertNodes)) {
-            // Replace with expression
+          if (value instanceof Template) {
+            value = value.compile(allVariables);
+          }
 
-            Object.assign(o, insertNodes);
+          if (!Array.isArray(value)) {
+            path.replaceWith(value as babelTypes.Node);
           } else {
-            // Insert multiple statements/declarations
-            var expressionStatement: Node = p[0];
-            var body: Node[] = p[1] as any;
-
-            ok(expressionStatement.type === "ExpressionStatement");
-            ok(Array.isArray(body));
-
-            var index = body.indexOf(expressionStatement);
-
-            body.splice(index, 1, ...insertNodes);
+            path.replaceWithMultiple(value as babelTypes.Node[]);
           }
-        };
-      }
+        }
+      },
     });
   }
 
-  compile(variables: TemplateVariables = {}): Node[] {
-    var { output, template } = this.interpolateTemplate(variables);
+  compile(variables: TemplateVariables = {}): babelTypes.Statement[] {
+    const { output } = this.interpolateTemplate(variables);
 
-    var program: Node;
+    let file: babelTypes.File;
     try {
-      program = parseSnippet(output);
+      file = parse(output, { sourceType: "module" });
     } catch (e) {
-      throw new Error(output + "\n" + "Template failed to parse: " + e.message);
-    }
-
-    this.interpolateAST(program, variables);
-
-    return program.body;
-  }
-
-  single(variables: TemplateVariables = {}): Node {
-    var nodes = this.compile(variables);
-
-    if (nodes.length !== 1) {
-      nodes = nodes.filter((node) => node.type !== "EmptyStatement");
-      ok(
-        nodes.length === 1,
-        `Expected single node, got ${nodes.map((node) => node.type).join(", ")}`
+      throw new Error(
+        output + "\n" + "Template failed to parse: " + (e as Error).message
       );
     }
 
+    this.interpolateAST(file, variables);
+
+    return file.program.body;
+  }
+
+  single(variables: TemplateVariables = {}): babelTypes.Statement {
+    const nodes = this.compile(variables);
+
+    if (nodes.length !== 1) {
+      const filteredNodes = nodes.filter(
+        (node) => node.type !== "EmptyStatement"
+      );
+      ok(
+        filteredNodes.length === 1,
+        `Expected single node, got ${filteredNodes
+          .map((node) => node.type)
+          .join(", ")}`
+      );
+      return filteredNodes[0];
+    }
+
     return nodes[0];
+  }
+
+  expression(variables: TemplateVariables = {}): babelTypes.Expression {
+    const statement = this.single(variables);
+
+    babelTypes.assertExpressionStatement(statement);
+
+    return statement.expression;
   }
 }
