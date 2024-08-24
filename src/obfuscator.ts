@@ -28,7 +28,10 @@ import calculator from "./transforms/calculator";
 import { Order } from "./order";
 
 export default class Obfuscator {
-  plugins: babel.PluginObj[] = [];
+  plugins: {
+    plugin: babel.PluginObj;
+    pluginInstance: PluginInstance;
+  }[] = [];
   options: ObfuscateOptions;
 
   totalPossibleTransforms: number = 0;
@@ -84,11 +87,15 @@ export default class Obfuscator {
 
       ok(pluginInstance, "Plugin instance not created.");
 
-      plugin.order = pluginInstance.order;
-      this.plugins.push(plugin);
+      this.plugins.push({
+        plugin,
+        pluginInstance,
+      });
     });
 
-    this.plugins = this.plugins.sort((a, b) => a.order - b.order);
+    this.plugins = this.plugins.sort(
+      (a, b) => a.pluginInstance.order - b.pluginInstance.order
+    );
   }
 
   obfuscateAST(
@@ -96,14 +103,14 @@ export default class Obfuscator {
     profiler?: ProfilerCallback
   ): babel.types.File {
     for (var i = 0; i < this.plugins.length; i++) {
-      const plugin = this.plugins[i];
+      const { plugin, pluginInstance } = this.plugins[i];
       babel.traverse(ast, plugin.visitor as babel.Visitor);
 
       if (profiler) {
         profiler({
-          currentTransform: plugin.name,
+          currentTransform: pluginInstance.name,
           currentTransformNumber: i,
-          nextTransform: this.plugins[i + 1]?.name,
+          nextTransform: this.plugins[i + 1]?.pluginInstance?.name,
           totalTransforms: this.plugins.length,
         });
       }
