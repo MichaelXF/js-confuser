@@ -2,9 +2,10 @@ import { PluginObj } from "@babel/core";
 import { NodePath } from "@babel/traverse";
 import { PluginArg } from "./plugin";
 import * as t from "@babel/types";
+import { Order } from "../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("preparation");
+  const me = Plugin(Order.Preparation);
 
   return {
     visitor: {

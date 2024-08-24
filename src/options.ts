@@ -608,4 +608,6 @@ export interface ObfuscateOptions {
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   preserveFunctionLength?: boolean;
+
+  astScrambler?: boolean;
 }

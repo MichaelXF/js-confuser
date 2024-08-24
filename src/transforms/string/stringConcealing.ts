@@ -2,9 +2,10 @@ import * as t from "@babel/types";
 import { NodePath, PluginObj } from "@babel/core";
 import Template from "../../templates/template";
 import { PluginArg } from "../plugin";
+import { Order } from "../../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("stringConcealing");
+  const me = Plugin(Order.StringConcealing);
   var decoderName = "decoder";
 
   return {

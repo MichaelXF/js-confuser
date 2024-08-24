@@ -6,9 +6,10 @@ import {
 } from "../utils/ast-utils";
 import { PluginArg } from "./plugin";
 import { computeProbabilityMap } from "../probability";
+import { Order } from "../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("flatten");
+  const me = Plugin(Order.Flatten);
 
   function flattenFunction(
     path: NodePath<t.FunctionDeclaration | t.FunctionExpression>

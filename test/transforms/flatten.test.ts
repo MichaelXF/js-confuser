@@ -1,7 +1,7 @@
 import JsConfuser from "../../src/index";
 
 test("Variant #1: Function Declaration", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function myFunction(){
       return 10;
@@ -24,7 +24,7 @@ test("Variant #1: Function Declaration", async () => {
 });
 
 test("Variant #2: Function Expression", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var outsideVar = "Correct Value";
 
@@ -49,7 +49,7 @@ test("Variant #2: Function Expression", async () => {
 });
 
 test("Variant #3: Simple parameters", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function myFunction(x, y){
       TEST_OUTPUT = x + y;
@@ -72,7 +72,7 @@ test("Variant #3: Simple parameters", async () => {
 });
 
 test("Variant #4: Simple parameters nested", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function TEST_FUNCTION(x){
       function TEST_NESTED_FUNCTION(y){
@@ -98,7 +98,7 @@ test("Variant #4: Simple parameters nested", async () => {
 });
 
 test("Variant #5: Correct return values when nested", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function TEST_FUNCTION(){
       function TEST_NESTED_FUNCTION(){
@@ -124,7 +124,7 @@ test("Variant #5: Correct return values when nested", async () => {
 });
 
 test("Variant #6: Correct values when deeply nested", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function TEST_FUNCTION(x, y){
       function TEST_NESTED_FUNCTION(){
@@ -155,7 +155,7 @@ test("Variant #6: Correct values when deeply nested", async () => {
 });
 
 test("Variant #7: Correct values when modifying local variables", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function TEST_FUNCTION(x, y){
       var A = 0;
@@ -189,7 +189,7 @@ test("Variant #7: Correct values when modifying local variables", async () => {
 });
 
 test("Variant #8: Work with dispatcher", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function container(x){
       function nested(x){
@@ -219,7 +219,7 @@ test("Variant #8: Work with dispatcher", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/25
 test("Variant #9: Work with pattern-based assignment expressions", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var i = 0;
 
@@ -247,7 +247,7 @@ test("Variant #9: Work with pattern-based assignment expressions", async () => {
 });
 
 test("Variant #10: Async function", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     async function timeout(ms){
       return await new Promise((resolve, reject)=>{
@@ -291,7 +291,7 @@ test("Variant #10: Async function", async () => {
 });
 
 test("Variant #11: Work with properties", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var outsideVar = "Incorrect Value";
 
@@ -332,7 +332,7 @@ test("Variant #11: Work with properties", async () => {
 });
 
 test("Variant #12: Work with RGF enabled", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var outsideVar = "Correct Value";
 

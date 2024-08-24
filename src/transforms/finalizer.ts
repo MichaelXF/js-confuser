@@ -1,9 +1,10 @@
 import { PluginObj } from "@babel/core";
 import { PluginArg } from "./plugin";
 import * as t from "@babel/types";
+import { Order } from "../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("finalizer");
+  const me = Plugin(Order.Flatten);
 
   return {
     visitor: {

@@ -4,9 +4,10 @@ import { getRandomInteger, splitIntoChunks } from "../../utils/random-utils";
 import { computeProbabilityMap } from "../../probability";
 import { binaryExpression, stringLiteral } from "@babel/types";
 import { ok } from "assert";
+import { Order } from "../../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("stringSplitting");
+  const me = Plugin(Order.StringSplitting);
 
   return {
     visitor: {

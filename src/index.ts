@@ -42,7 +42,11 @@ export async function obfuscateWithProfiler(
   };
 }
 
-const JSConfuser = Object.assign(obfuscate, {
+var oldJSConfuser = async (sourceCode: string, options: ObfuscateOptions) => {
+  return (await obfuscate(sourceCode, options)).code;
+};
+
+const JSConfuser = Object.assign(oldJSConfuser, {
   obfuscate,
   obfuscateAST,
   obfuscateWithProfiler,

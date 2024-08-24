@@ -1,7 +1,7 @@
 import JsConfuser from "../../../src/index";
 
 it("add debugger statements", async () => {
-  var output = await JsConfuser.obfuscate("input(true)", {
+  var { code: output } = await JsConfuser.obfuscate("input(true)", {
     target: "node",
     lock: {
       antiDebug: true,
@@ -12,7 +12,7 @@ it("add debugger statements", async () => {
 });
 
 it("add a background interval", async () => {
-  var output = await JsConfuser.obfuscate("input(true)", {
+  var { code: output } = await JsConfuser.obfuscate("input(true)", {
     target: "node",
     lock: {
       antiDebug: true,
@@ -24,7 +24,7 @@ it("add a background interval", async () => {
 
 it("should place syntax-correct code", async () => {
   for (var i = 0; i < 25; i++) {
-    var output = await JsConfuser.obfuscate(
+    var { code: output } = await JsConfuser.obfuscate(
       `
     /**
     * GitHub: https://github.com/MichaelXF/js-confuser

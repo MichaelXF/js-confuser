@@ -35,6 +35,7 @@ const validProperties = new Set([
   "globalVariables",
   "debugComments",
   "preserveFunctionLength",
+  "astScrambler",
 ]);
 
 const validLockProperties = new Set([

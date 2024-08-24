@@ -16,7 +16,7 @@ describe("OSLock on target 'node'", () => {
     };
     require = newRequire;
 
-    var output = await JsConfuser.obfuscate(`TEST_VARIABLE = 1`, {
+    var { code: output } = await JsConfuser.obfuscate(`TEST_VARIABLE = 1`, {
       target: "node",
       lock: {
         osLock: ["linux"],
@@ -45,7 +45,7 @@ describe("OSLock on target 'node'", () => {
     };
     require = newRequire;
 
-    var output = await JsConfuser.obfuscate(
+    var { code: output } = await JsConfuser.obfuscate(
       `
     function caught(){
       TEST_VARIABLE = "caught"
@@ -81,7 +81,7 @@ describe("OSLock on target 'node'", () => {
     };
     require = newRequire;
 
-    var output = await JsConfuser.obfuscate(
+    var { code: output } = await JsConfuser.obfuscate(
       `
     function caught(){
       TEST_VARIABLE = "caught"
@@ -117,7 +117,7 @@ describe("OSLock on target 'node'", () => {
     };
     require = newRequire;
 
-    var output = await JsConfuser.obfuscate(
+    var { code: output } = await JsConfuser.obfuscate(
       `
     function caught(){
       TEST_VARIABLE = "caught";
@@ -153,7 +153,7 @@ describe("OSLock on target 'node'", () => {
     };
     require = newRequire;
 
-    var output = await JsConfuser.obfuscate(`TEST_VARIABLE = 1`, {
+    var { code: output } = await JsConfuser.obfuscate(`TEST_VARIABLE = 1`, {
       target: "node",
       lock: {
         osLock: ["osx"],
@@ -182,7 +182,7 @@ describe("OSLock on target 'node'", () => {
     };
     require = newRequire;
 
-    var output = await JsConfuser.obfuscate(
+    var { code: output } = await JsConfuser.obfuscate(
       `
     function caught(){
       TEST_VARIABLE = "caught";
@@ -214,7 +214,7 @@ describe("OSLock on target 'browser'", () => {
       },
     };
 
-    var output = await JsConfuser.obfuscate(`TEST_VARIABLE = 1`, {
+    var { code: output } = await JsConfuser.obfuscate(`TEST_VARIABLE = 1`, {
       target: "browser",
       lock: {
         osLock: ["linux"],
@@ -237,7 +237,7 @@ describe("OSLock on target 'browser'", () => {
       },
     };
 
-    var output = await JsConfuser.obfuscate(
+    var { code: output } = await JsConfuser.obfuscate(
       `
     function caught(){
       TEST_VARIABLE = "caught";
@@ -266,7 +266,7 @@ describe("OSLock on target 'browser'", () => {
       },
     };
 
-    var output = await JsConfuser.obfuscate(`TEST_VARIABLE = 1`, {
+    var { code: output } = await JsConfuser.obfuscate(`TEST_VARIABLE = 1`, {
       target: "browser",
       lock: {
         osLock: ["windows"],
@@ -289,7 +289,7 @@ describe("OSLock on target 'browser'", () => {
       },
     };
 
-    var output = await JsConfuser.obfuscate(
+    var { code: output } = await JsConfuser.obfuscate(
       `
     function caught(){
       TEST_VARIABLE = "caught";

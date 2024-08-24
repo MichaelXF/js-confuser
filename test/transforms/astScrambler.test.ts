@@ -4,7 +4,7 @@ import JsConfuser from "../../src/index";
 test("Variant #1: Don't break Symbols", async () => {
   if (typeof Symbol !== "undefined") {
     for (var i = 0; i < 6; i++) {
-      var output = await JsConfuser(
+      var { code: output } = await JsConfuser.obfuscate(
         `
   
       var sym1 = Symbol();
@@ -18,7 +18,7 @@ test("Variant #1: Don't break Symbols", async () => {
       TEST_OUTPUT = sym1;
     
       `,
-        { target: "node", renameVariables: true }
+        { target: "node", astScrambler: true, renameVariables: true }
       );
 
       var TEST_OUTPUT;
@@ -30,7 +30,7 @@ test("Variant #1: Don't break Symbols", async () => {
 });
 
 test("Variant #2: Join expressions into sequence expressions", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   TEST_OUTPUT = 0;
   TEST_OUTPUT++;
@@ -40,7 +40,7 @@ test("Variant #2: Join expressions into sequence expressions", async () => {
     TEST_OUTPUT *= 2;
   }
   `,
-    { target: "node", renameVariables: true }
+    { target: "node", astScrambler: true, renameVariables: true }
   );
 
   expect(output).toContain("(TEST_OUTPUT=0,TEST_OUTPUT++");

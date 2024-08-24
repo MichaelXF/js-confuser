@@ -84,7 +84,7 @@ it("should work with endDate and call countermeasures function", async () => {
 // });
 
 it("countermeasures function should still work even with renameVariables enabled", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     ` function countermeasures(){ input(true) } `,
     {
       target: "node",
@@ -110,7 +110,7 @@ it("countermeasures function should still work even with renameVariables enabled
 });
 
 it("should not call countermeasures when domainLock is correct", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     ` function countermeasures(){ input(true) } `,
     {
       target: "browser",
@@ -135,7 +135,7 @@ it("should not call countermeasures when domainLock is correct", async () => {
 });
 
 it("should call countermeasures when domain is different", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     ` function countermeasures(){ input(true) } `,
     {
       target: "browser",
@@ -160,7 +160,7 @@ it("should call countermeasures when domain is different", async () => {
 });
 
 it("should not call countermeasures when context is correct", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     ` function countermeasures(){ input(true) } `,
     {
       target: "node",
@@ -183,7 +183,7 @@ it("should not call countermeasures when context is correct", async () => {
 });
 
 it("should call countermeasures when context is different", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     ` function countermeasures(){ input(true) } `,
     {
       target: "node",

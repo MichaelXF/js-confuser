@@ -3,6 +3,7 @@ import { PluginArg } from "../plugin";
 import * as t from "@babel/types";
 import { choice } from "../../utils/random-utils";
 import { computeProbabilityMap } from "../../probability";
+import { Order } from "../../order";
 
 function pad(x: string, len: number): string {
   while (x.length < len) {
@@ -47,7 +48,7 @@ function toUnicodeRepresentation(str: string) {
 }
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("stringEncoding");
+  const me = Plugin(Order.Finalizer);
 
   return {
     visitor: {

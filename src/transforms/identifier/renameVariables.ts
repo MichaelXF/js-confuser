@@ -2,9 +2,10 @@ import { NodePath, PluginObj } from "@babel/core";
 import { Binding, Scope } from "@babel/traverse";
 import { PluginArg } from "../plugin";
 import * as t from "@babel/types";
+import { Order } from "../../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("renameVariables");
+  const me = Plugin(Order.RenameVariables);
 
   // Keep track of available names to reuse
   const availableNames: string[] = [];

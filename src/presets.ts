@@ -49,6 +49,7 @@ const highPreset: ObfuscateOptions = {
   stringCompression: true,
   stringEncoding: true,
   stringSplitting: 0.75,
+  astScrambler: true,
 
   // Use at own risk
   rgf: false,
@@ -81,6 +82,7 @@ const mediumPreset: ObfuscateOptions = {
   variableMasking: 0.5,
   stringConcealing: true,
   stringSplitting: 0.25,
+  astScrambler: true,
 };
 
 /**
@@ -106,6 +108,7 @@ const lowPreset: ObfuscateOptions = {
   renameVariables: true,
   renameGlobals: true,
   stringConcealing: true,
+  astScrambler: true,
 };
 
 /**

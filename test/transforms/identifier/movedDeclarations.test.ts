@@ -8,7 +8,7 @@ test("Variant #1: Move variable 'y' to top", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -30,7 +30,7 @@ test("Variant #2: Move variable 'y' and 'z' to top", async () => {
     TEST_VARIABLE = x + y + z;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -52,7 +52,7 @@ test("Variant #3: Don't move 'y' (destructuring)", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -77,7 +77,7 @@ test("Variant #4: Move 'y' (nested lexical scope)", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -99,7 +99,7 @@ test("Variant #5: Move 'y' (for statement initializer)", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -121,7 +121,7 @@ test("Variant #6: Move 'y' (for-in left-hand initializer)", async () => {
     TEST_VARIABLE = x + parseInt(y);
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -145,7 +145,7 @@ test("Variant #7: Don't move const or let variables", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });

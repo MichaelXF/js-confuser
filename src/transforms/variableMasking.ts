@@ -4,9 +4,10 @@ import { PluginArg } from "./plugin";
 import * as babelTypes from "@babel/types";
 import Template from "../templates/template";
 import { computeProbabilityMap } from "../probability";
+import { Order } from "../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("variableMasking");
+  const me = Plugin(Order.VariableMasking);
 
   const transformFunction = (path: NodePath<babelTypes.Function>) => {
     // Do not apply to getter/setter methods

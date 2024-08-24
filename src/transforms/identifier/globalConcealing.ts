@@ -3,9 +3,10 @@ import { NodePath, PluginObj } from "@babel/core";
 import { NameGen } from "../../utils/NameGen";
 import Template from "../../templates/template";
 import { PluginArg } from "../plugin";
+import { Order } from "../../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("globalConcealing");
+  const me = Plugin(Order.GlobalConcealing);
 
   var globalMapping = new Map<string, string>(),
     globalFnName = me.getPlaceholder() + "_getGlobal",

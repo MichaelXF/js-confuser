@@ -6,9 +6,10 @@ import Template from "../templates/template";
 import { ok } from "assert";
 import { chance, getRandomString } from "../utils/random-utils";
 import { computeProbabilityMap } from "../probability";
+import { Order } from "../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("dispatcher");
+  const me = Plugin(Order.Dispatcher);
 
   return {
     visitor: {

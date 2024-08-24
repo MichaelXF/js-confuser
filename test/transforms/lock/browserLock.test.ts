@@ -9,7 +9,7 @@ test("Variant #1: Chrome", async () => {
     },
   };
 
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function caught(){
     TEST_VARIABLE = "caught"
@@ -41,7 +41,7 @@ test(
       },
     };
 
-    var output = await JsConfuser.obfuscate(
+    var { code: output } = await JsConfuser.obfuscate(
       `
   function caught(){
     TEST_VARIABLE = "caught"
@@ -73,7 +73,7 @@ test("Variant #2: Firefox", async () => {
     },
   };
 
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function caught(){
     TEST_VARIABLE = "caught"
@@ -105,7 +105,7 @@ test(
       },
     };
 
-    var output = await JsConfuser.obfuscate(
+    var { code: output } = await JsConfuser.obfuscate(
       `
   function caught(){
     TEST_VARIABLE = "caught"

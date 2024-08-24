@@ -1,9 +1,10 @@
 import { PluginObj } from "@babel/core";
 import { PluginArg } from "../plugin";
 import * as t from "@babel/types";
+import { Order } from "../../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("stringCompression");
+  const me = Plugin(Order.StringCompression);
 
   return {
     visitor: {

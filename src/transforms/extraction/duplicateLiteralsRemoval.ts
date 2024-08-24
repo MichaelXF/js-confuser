@@ -2,6 +2,7 @@ import * as babel from "@babel/core";
 import * as babelTypes from "@babel/types";
 import { ok } from "assert";
 import { PluginArg } from "../plugin";
+import { Order } from "../../order";
 
 type LiteralValue = string | number | boolean;
 const createLiteral = (value: LiteralValue) => {
@@ -20,7 +21,7 @@ const createLiteral = (value: LiteralValue) => {
 };
 
 export default ({ Plugin }: PluginArg): babel.PluginObj => {
-  const me = Plugin("duplicateLiteralsRemoval");
+  const me = Plugin(Order.DuplicateLiteralsRemoval);
 
   return {
     visitor: {

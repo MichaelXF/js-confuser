@@ -2,11 +2,12 @@ import { PluginObj } from "@babel/core";
 import * as babelTypes from "@babel/types";
 import Obfuscator from "../obfuscator";
 import { getRandomString } from "../utils/random-utils";
+import { Order } from "../order";
 
 export type PluginFunction = (pluginArg: PluginArg) => PluginObj["visitor"];
 
 export type PluginArg = {
-  Plugin: (name: string) => PluginInstance;
+  Plugin: (order: Order) => PluginInstance;
 };
 
 export class PluginInstance {
@@ -17,6 +18,10 @@ export class PluginInstance {
 
   get name() {
     return this.pluginOptions.name || "unnamed";
+  }
+
+  get order() {
+    return this.pluginOptions.order;
   }
 
   get options() {

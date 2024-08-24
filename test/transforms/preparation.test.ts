@@ -1,7 +1,7 @@
 import JsConfuser from "../../src/index";
 
 test("Variant #1: Force Block Statements on If statements", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   if ( a ) b();
 
@@ -19,7 +19,7 @@ test("Variant #1: Force Block Statements on If statements", async () => {
 });
 
 test("Variant #2: Force Block Statements on Arrow functions", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   TEST_OUTPUT = ()=>true;
   `,
@@ -43,7 +43,7 @@ test("Variant #2: Force Block Statements on Arrow functions", async () => {
 });
 
 test("Variant #3: Force Block Statements on For loops", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   for(;;) forStatement();
   for(a in b) forInStatement();
@@ -62,7 +62,7 @@ test("Variant #3: Force Block Statements on For loops", async () => {
 });
 
 test("Variant #4: Force Block Statements on While loops/With statement", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   while(1) whileStatement();
   with(a) withStatement();
@@ -79,7 +79,7 @@ test("Variant #4: Force Block Statements on While loops/With statement", async (
 });
 
 test("Variant #5: Force object accessors to use strings instead", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   console.log("Hello World")
   `,
@@ -94,7 +94,7 @@ test("Variant #5: Force object accessors to use strings instead", async () => {
 });
 
 test("Variant #6: Force object property keys to use strings instead", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var myObject = {
     myKey: 1
@@ -111,7 +111,7 @@ test("Variant #6: Force object property keys to use strings instead", async () =
 });
 
 test("Variant #7: Force Variable declarations to be expanded", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var myVar1, myVar2, myVar3;
 

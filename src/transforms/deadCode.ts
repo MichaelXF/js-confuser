@@ -4,9 +4,10 @@ import { chance, choice } from "../utils/random-utils";
 import { blockStatement, booleanLiteral, ifStatement } from "@babel/types";
 import { deadCodeTemplates } from "../templates/deadCodeTemplates";
 import { computeProbabilityMap } from "../probability";
+import { Order } from "../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("deadCode");
+  const me = Plugin(Order.DeadCode);
   let created = 0;
 
   return {

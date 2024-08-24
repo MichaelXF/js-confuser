@@ -23,6 +23,9 @@ import {
   ProfilerLog,
 } from "./obfuscationResult";
 import { isProbabilityMapProbable } from "./probability";
+import astScrambler from "./transforms/astScrambler";
+import calculator from "./transforms/calculator";
+import { Order } from "./order";
 
 export default class Obfuscator {
   plugins: babel.PluginObj[] = [];
@@ -55,21 +58,37 @@ export default class Obfuscator {
     push(this.options.stringCompression, stringCompression);
     push(this.options.stringSplitting, stringSplitting);
     push(this.options.shuffle, shuffle);
+    push(this.options.astScrambler, astScrambler);
+    push(this.options.calculator, calculator);
 
     push(true, finalizer);
 
     allPlugins.map((pluginFunction) => {
       var pluginInstance: PluginInstance;
       var plugin = pluginFunction({
-        Plugin: (name) => {
-          return (pluginInstance = new PluginInstance({ name }, this));
+        Plugin: (nameOrOrder) => {
+          var pluginOptions;
+          if (typeof nameOrOrder === "string") {
+            pluginOptions = { name: nameOrOrder };
+          } else if (typeof nameOrOrder === "number") {
+            pluginOptions = { name: Order[nameOrOrder], order: nameOrOrder };
+          } else if (typeof nameOrOrder === "object" && nameOrOrder) {
+            pluginOptions = nameOrOrder;
+          } else {
+            ok(false);
+          }
+
+          return (pluginInstance = new PluginInstance(pluginOptions, this));
         },
       });
 
       ok(pluginInstance, "Plugin instance not created.");
 
+      plugin.order = pluginInstance.order;
       this.plugins.push(plugin);
     });
+
+    this.plugins = this.plugins.sort((a, b) => a.order - b.order);
   }
 
   obfuscateAST(
@@ -114,7 +133,7 @@ export default class Obfuscator {
   generateCode(ast: babel.types.File): string {
     const { code } = generate(ast, {
       comments: false, // Remove comments
-      compact: false, // Compact the output
+      compact: this.options.compact, // Compact the output
     });
 
     return code;

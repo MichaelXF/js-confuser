@@ -4,9 +4,10 @@ import * as t from "@babel/types";
 import { computeProbabilityMap } from "../probability";
 import { getRandomInteger } from "../utils/random-utils";
 import Template from "../templates/template";
+import { Order } from "../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("shuffle");
+  const me = Plugin(Order.Shuffle);
 
   return {
     visitor: {

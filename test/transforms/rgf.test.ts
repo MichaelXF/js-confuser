@@ -2,7 +2,7 @@ import { writeFileSync } from "fs";
 import JsConfuser from "../../src/index";
 
 test("Variant #1: Convert Function Declaration into 'new Function' code", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(a, b){
       return a + b;
@@ -25,7 +25,7 @@ test("Variant #1: Convert Function Declaration into 'new Function' code", async 
 });
 
 test("Variant #2: Convert Function Expression into 'new Function' code", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var addTwoNumbers = function(a, b){
       return a + b;
@@ -48,7 +48,7 @@ test("Variant #2: Convert Function Expression into 'new Function' code", async (
 });
 
 test("Variant #3: Convert functions that use global variables", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function floorNumber(num){
       return Math.floor(num);
@@ -71,7 +71,7 @@ test("Variant #3: Convert functions that use global variables", async () => {
 });
 
 test("Variant #4: Don't convert functions that rely on outside-scoped variables", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var _Math = Math;
 
@@ -96,7 +96,7 @@ test("Variant #4: Don't convert functions that rely on outside-scoped variables"
 });
 
 test("Variant #5: Don't convert functions that rely on outside-scoped variables (trap)", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var _Math = Math;
 
@@ -124,7 +124,7 @@ test("Variant #5: Don't convert functions that rely on outside-scoped variables 
 });
 
 test("Variant #6: Work on High Preset", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(a, b){
       return a + b;
@@ -146,7 +146,7 @@ test("Variant #6: Work on High Preset", async () => {
 });
 
 test("Variant #7: Don't convert arrow, async, or generator functions", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var arrowFunction = ()=>{};
     async function asyncFunction(){
@@ -173,7 +173,7 @@ test("Variant #7: Don't convert arrow, async, or generator functions", async () 
 });
 
 test("Variant #8: Modified Function", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(x,y){
       return x + y;
@@ -204,7 +204,7 @@ test("Variant #8: Modified Function", async () => {
 });
 
 test("Variant #8: Modified Function (non function value)", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(x,y){
       return x+y;
@@ -229,7 +229,7 @@ test("Variant #8: Modified Function (non function value)", async () => {
 });
 
 test("Variant #9: Work with Flatten on any function", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var outsideCounter = 0;
     var outsideFlag = false;

@@ -6,6 +6,7 @@ import {
   isComputedMemberExpression,
 } from "../../utils/ast-utils";
 import { PluginArg } from "../plugin";
+import { Order } from "../../order";
 
 function isObjectSafeForExtraction(
   path: NodePath<babelTypes.VariableDeclarator>
@@ -73,7 +74,7 @@ function isObjectSafeForExtraction(
 }
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin("objectExtraction");
+  const me = Plugin(Order.ObjectExtraction);
 
   return {
     visitor: {
