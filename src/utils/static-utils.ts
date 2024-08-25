@@ -1,5 +1,4 @@
 import * as t from "@babel/types";
-import { NodePath } from "@babel/traverse";
 
 // Function to check if a node is a static value
 export function isStaticValue(node: t.Node): boolean {

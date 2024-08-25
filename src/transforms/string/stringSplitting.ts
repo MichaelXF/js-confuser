@@ -1,5 +1,5 @@
 import { PluginObj } from "@babel/core";
-import { PluginArg } from "../plugin";
+import { PluginArg, PluginInstance } from "../plugin";
 import { getRandomInteger, splitIntoChunks } from "../../utils/random-utils";
 import { computeProbabilityMap } from "../../probability";
 import { binaryExpression, stringLiteral } from "@babel/types";

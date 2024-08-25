@@ -6,7 +6,7 @@ import { Order } from "../../order";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.StringConcealing);
-  var decoderName = "decoder";
+  var decoderName = me.getPlaceholder() + "_decoder";
 
   return {
     visitor: {

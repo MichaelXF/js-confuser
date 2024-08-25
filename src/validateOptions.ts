@@ -204,6 +204,9 @@ export function applyDefaultsToOptions(
   if (!options.hasOwnProperty("preserveFunctionLength")) {
     options.preserveFunctionLength = true; // preserveFunctionLength is on by default
   }
+  if (!options.hasOwnProperty("renameLabels")) {
+    options.renameLabels = true; // RenameLabels is on by default
+  }
 
   if (options.globalVariables && !(options.globalVariables instanceof Set)) {
     options.globalVariables = new Set(Object.keys(options.globalVariables));

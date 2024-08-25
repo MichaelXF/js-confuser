@@ -1,7 +1,7 @@
 import { writeFileSync } from "fs";
 import JsConfuser from "../../src/index";
 
-test("Variant #1: Convert Function Declaration into 'new Function' code", async () => {
+test("Variant #1: Convert Function Declaration into 'eval' code", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(a, b){
@@ -16,7 +16,7 @@ test("Variant #1: Convert Function Declaration into 'new Function' code", async 
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("_rgf_eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -24,7 +24,7 @@ test("Variant #1: Convert Function Declaration into 'new Function' code", async 
   expect(TEST_OUTPUT).toStrictEqual(15);
 });
 
-test("Variant #2: Convert Function Expression into 'new Function' code", async () => {
+test("Variant #2: Convert Function Expression into 'eval' code", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
     var addTwoNumbers = function(a, b){
@@ -39,7 +39,7 @@ test("Variant #2: Convert Function Expression into 'new Function' code", async (
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("_rgf_eval(");
 
   var TEST_OUTPUT;
   eval(output);
@@ -62,7 +62,7 @@ test("Variant #3: Convert functions that use global variables", async () => {
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -87,7 +87,7 @@ test("Variant #4: Don't convert functions that rely on outside-scoped variables"
     }
   );
 
-  expect(output).not.toContain("new Function");
+  expect(output).not.toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -115,7 +115,7 @@ test("Variant #5: Don't convert functions that rely on outside-scoped variables 
     }
   );
 
-  expect(output).not.toContain("new Function");
+  expect(output).not.toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -164,7 +164,7 @@ test("Variant #7: Don't convert arrow, async, or generator functions", async () 
     }
   );
 
-  expect(output).not.toContain("new Function");
+  expect(output).not.toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -195,7 +195,7 @@ test("Variant #8: Modified Function", async () => {
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -220,7 +220,7 @@ test("Variant #8: Modified Function (non function value)", async () => {
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -259,7 +259,7 @@ test("Variant #9: Work with Flatten on any function", async () => {
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -317,7 +317,7 @@ test("Variant #10: Configurable by custom function option", async () => {
     "rgfThisFunction",
     "doNotRgfThisFunction",
   ]);
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
   var TEST_OUTPUT_1;
   var TEST_OUTPUT_2;
@@ -347,7 +347,7 @@ test("Variant #11: Function containing function should both be changed", async f
   );
 
   // 2 means one Function changed, 3 means two Functions changed
-  expect(output.split("new Function").length).toStrictEqual(3);
+  expect(output.split("_rgf_eval(").length).toStrictEqual(3);
 
   var TEST_OUTPUT;
   eval(output);

@@ -1,7 +1,7 @@
 import { ObfuscateOptions } from "./options";
 import * as babel from "@babel/core";
 import generate from "@babel/generator";
-import { PluginInstance } from "./transforms/plugin";
+import { PluginFunction, PluginInstance } from "./transforms/plugin";
 import { ok } from "assert";
 import { applyDefaultsToOptions, validateOptions } from "./validateOptions";
 
@@ -27,6 +27,8 @@ import astScrambler from "./transforms/astScrambler";
 import calculator from "./transforms/calculator";
 import { Order } from "./order";
 import movedDeclarations from "./transforms/identifier/movedDeclarations";
+import renameLabels from "./transforms/renameLabels";
+import rgf from "./transforms/rgf";
 
 export default class Obfuscator {
   plugins: {
@@ -41,7 +43,7 @@ export default class Obfuscator {
     validateOptions(userOptions);
     this.options = applyDefaultsToOptions({ ...userOptions });
 
-    const allPlugins = [];
+    const allPlugins: PluginFunction[] = [];
 
     const push = (probabilityMap, ...pluginFns) => {
       this.totalPossibleTransforms += pluginFns.length;
@@ -65,6 +67,8 @@ export default class Obfuscator {
     push(this.options.astScrambler, astScrambler);
     push(this.options.calculator, calculator);
     push(this.options.movedDeclarations, movedDeclarations);
+    push(this.options.renameLabels, renameLabels);
+    push(this.options.rgf, rgf);
 
     push(true, finalizer);
 
@@ -87,7 +91,10 @@ export default class Obfuscator {
         },
       });
 
-      ok(pluginInstance, "Plugin instance not created.");
+      ok(
+        pluginInstance,
+        "Plugin instance not created: " + pluginFunction.toString()
+      );
 
       this.plugins.push({
         plugin,
@@ -100,16 +107,22 @@ export default class Obfuscator {
     );
   }
 
+  index: number = 0;
+
   obfuscateAST(
     ast: babel.types.File,
-    profiler?: ProfilerCallback
+    options?: {
+      profiler?: ProfilerCallback;
+      startIndex?: number;
+    }
   ): babel.types.File {
-    for (var i = 0; i < this.plugins.length; i++) {
+    for (var i = options?.startIndex || 0; i < this.plugins.length; i++) {
+      this.index = i;
       const { plugin, pluginInstance } = this.plugins[i];
       babel.traverse(ast, plugin.visitor as babel.Visitor);
 
-      if (profiler) {
-        profiler({
+      if (options?.profiler) {
+        options?.profiler({
           currentTransform: pluginInstance.name,
           currentTransformNumber: i,
           nextTransform: this.plugins[i + 1]?.pluginInstance?.name,
@@ -123,12 +136,12 @@ export default class Obfuscator {
 
   async obfuscate(sourceCode: string): Promise<ObfuscationResult> {
     // Parse the source code into an AST
-    let ast = this.parseCode(sourceCode);
+    let ast = Obfuscator.parseCode(sourceCode);
 
     this.obfuscateAST(ast);
 
     // Generate the transformed code from the modified AST with comments removed and compacted output
-    const code = this.generateCode(ast);
+    const code = Obfuscator.generateCode(ast, this.options);
 
     if (code) {
       return {
@@ -139,16 +152,34 @@ export default class Obfuscator {
     }
   }
 
-  generateCode(ast: babel.types.File): string {
+  static createDefaultInstance() {
+    return new Obfuscator({
+      target: "node",
+      renameLabels: true,
+    });
+  }
+
+  /**
+   * Generates code from an AST using `@babel/generator`
+   */
+  static generateCode<T extends babel.types.Node = babel.types.File>(
+    ast: T,
+    options?: ObfuscateOptions
+  ): string {
+    const compact = options ? options.compact : true;
+
     const { code } = generate(ast, {
       comments: false, // Remove comments
-      compact: this.options.compact, // Compact the output
+      compact: compact, // Compact the output
     });
 
     return code;
   }
 
-  parseCode(sourceCode: string): babel.types.File {
+  /**
+   * Parses the source code into an AST using `babel.parseSync`
+   */
+  static parseCode(sourceCode: string): babel.types.File {
     // Parse the source code into an AST
     let ast = babel.parseSync(sourceCode, {
       sourceType: "unambiguous",

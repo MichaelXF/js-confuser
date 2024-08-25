@@ -4,8 +4,6 @@ import {
   getRandomString,
 } from "../../src/utils/random-utils";
 
-const escodegen = require("escodegen");
-
 it("choice() should return a random element from an array", async () => {
   var sample = [10, 20, 30, 40, 50];
 

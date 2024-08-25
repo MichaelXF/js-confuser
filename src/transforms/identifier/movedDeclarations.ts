@@ -5,6 +5,12 @@ import { NodeSymbol, PREDICTABLE } from "../../constants";
 import * as t from "@babel/types";
 import { isStaticValue } from "../../utils/static-utils";
 
+/**
+ * Moved Declarations moves variables in two ways:
+ *
+ * 1) Move variables to top of the current block
+ * 2) Move variables as unused function parameters
+ */
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.MovedDeclarations);
 
@@ -13,6 +19,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       VariableDeclaration: {
         exit(path) {
           if (path.node.kind !== "var") return;
+          if (path.node.declarations.length !== 1) return;
 
           var insertionMethod = "variableDeclaration";
           var functionPath = path.findParent((path) =>
@@ -20,9 +27,15 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           ) as NodePath<t.Function>;
 
           if (functionPath && (functionPath.node as NodeSymbol)[PREDICTABLE]) {
-            var strictModeDirective = functionPath.node.body.directives.find(
-              (directive) => directive.value.value === "use strict"
-            );
+            // Check for "use strict" directive
+            // Strict mode disallows non-simple parameters
+            // So we can't move the declaration to the function parameters
+            var strictModeDirective: t.Directive;
+            if (t.isBlockStatement(functionPath.node.body)) {
+              strictModeDirective = functionPath.node.body.directives.find(
+                (directive) => directive.value.value === "use strict"
+              );
+            }
             if (!strictModeDirective) {
               insertionMethod = "functionParameter";
             }
@@ -41,6 +54,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             isDefinedAtTop = parentPath.get("body").indexOf(path) === 0;
           }
 
+          // Already at the top - nothing will change
           if (insertionMethod === "variableDeclaration" && isDefinedAtTop) {
             return;
           }
@@ -55,6 +69,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             defaultParamValue = value;
             path.remove();
           } else {
+            // For-in / For-of can only reference the variable name
             if (
               parentPath.isForInStatement() ||
               parentPath.isForOfStatement()

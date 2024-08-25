@@ -187,7 +187,7 @@ test("Variant #8: Work with 'use strict'", async () => {
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
 
-test("Variant #9: Defined variable without an initializer", async () => {
+test("Variant #9: Defined variable without an initializer + CFF + Duplicate Literals Removal", async () => {
   var code = `
   var x;
   x = 1;

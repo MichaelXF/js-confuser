@@ -21,7 +21,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
   return {
     visitor: {
-      ThisExpression: {
+      "ThisExpression|Super": {
         exit(path) {
           markFunctionUnsafe(path);
         },
@@ -86,6 +86,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (t.isClassPrivateProperty(path.node)) return;
 
           if (!path.node.computed && path.node.key.type === "Identifier") {
+            // Don't change constructor key
+            if (t.isClassMethod(path.node) && path.node.kind === "constructor")
+              return;
+
             path.node.key = t.stringLiteral(path.node.key.name);
             path.node.computed = true;
           }

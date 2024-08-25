@@ -1,9 +1,9 @@
 import JsConfuser from "../../../src/index";
 
-it("should split strings", async () => {
+test("Variant #1: Split strings", async () => {
   var code = `var TEST_STRING = "the brown dog jumped over the lazy fox."`;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringSplitting: true,
   });
@@ -11,10 +11,10 @@ it("should split strings", async () => {
   expect(output).not.toContain("the brown dog jumped over the lazy fox.");
 });
 
-it("should split strings and concatenate correctly", async () => {
+test("Variant #2: Split strings and concatenate correctly", async () => {
   var code = `input("the brown dog jumped over the lazy fox.")`;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringSplitting: true,
   });
@@ -31,7 +31,7 @@ it("should split strings and concatenate correctly", async () => {
   expect(value).toStrictEqual("the brown dog jumped over the lazy fox.");
 });
 
-it("should work on property keys", async () => {
+test("Variant #3: Work on property keys", async () => {
   var code = `
   var myObject = {
     myVeryLongStringThatShouldGetSplit: 100
@@ -40,7 +40,7 @@ it("should work on property keys", async () => {
   TEST_VAR = myObject.myVeryLongStringThatShouldGetSplit;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringSplitting: true,
   });
@@ -53,7 +53,7 @@ it("should work on property keys", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should work on class keys", async () => {
+test("Variant #4: Work on class keys", async () => {
   var code = `
   class MyClass {
     myVeryLongMethodName(){
@@ -66,7 +66,7 @@ it("should work on class keys", async () => {
   TEST_VAR = myObject.myVeryLongMethodName();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringSplitting: true,
   });
@@ -79,7 +79,7 @@ it("should work on class keys", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should not encode constructor key", async () => {
+test("Variant #5: Don't encode constructor key", async () => {
   var code = `
   class MyClass {
     constructor(){
@@ -90,7 +90,7 @@ it("should not encode constructor key", async () => {
   new MyClass();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringSplitting: true,
   });
@@ -101,15 +101,15 @@ it("should not encode constructor key", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should allow custom callback to exclude strings", async () => {
+test("Variant #6: Allow custom callback to exclude strings", async () => {
   var code = `
   var str1 = "-- Hello World --";
   var str2 = "-- This String Will Not Be Split --";
   var str3 = "-- This string Will Be Split --";
   `;
 
-  var strings = [];
-  var output = await JsConfuser(code, {
+  var strings: string[] = [];
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringSplitting: (str) => {
       strings.push(str);

@@ -14,7 +14,6 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const stringMap = new Map<string, number>();
 
           // Find all the strings
-
           programPath.traverse({
             StringLiteral: {
               exit: (path) => {

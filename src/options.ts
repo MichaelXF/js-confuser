@@ -75,6 +75,8 @@ export interface ObfuscateOptions {
    */
   es5?: boolean;
 
+  renameLabels?: ProbabilityMap<boolean>;
+
   /**
    * ### `renameVariables`
    *

@@ -2,6 +2,46 @@ import * as t from "@babel/types";
 import { NodePath } from "@babel/core";
 import { ok } from "assert";
 
+/**
+ * Retrieves a function name from debugging purposes.
+ * - Function Declaration / Expression
+ * - Variable Declaration
+ * - Object property / method
+ * - Class property / method
+ * @param path
+ * @returns
+ */
+export function getFunctionName(path: NodePath<t.Function>): string {
+  // Check function declaration/expression ID
+  if (
+    (t.isFunctionDeclaration(path.node) || t.isFunctionExpression(path.node)) &&
+    path.node.id
+  ) {
+    return path.node.id.name;
+  }
+
+  // Check for containing variable declaration
+  if (
+    path.parentPath.isVariableDeclarator() &&
+    t.isIdentifier(path.parentPath.node.id)
+  ) {
+    return path.parentPath.node.id.name;
+  }
+
+  if (path.isObjectMethod() || path.isClassMethod()) {
+    var property = getObjectPropertyAsString(path.node);
+    if (property) return property;
+  }
+
+  // Check for containing property in an object
+  if (path.parentPath.isObjectProperty() || path.parentPath.isClassProperty()) {
+    var property = getObjectPropertyAsString(path.parentPath.node);
+    if (property) return property;
+  }
+
+  return "anonymous";
+}
+
 export function getParentFunctionOrProgram(
   path: NodePath<any>
 ): NodePath<t.Function | t.Program> {
@@ -131,10 +171,16 @@ export function isComputedMemberExpression(
   return true;
 }
 
-export function getObjectPropertyAsString(property: t.ObjectMember): string {
-  t.assertObjectMember(property);
+export function getObjectPropertyAsString(
+  property: t.ObjectMember | t.ClassProperty | t.ClassMethod
+): string {
+  ok(
+    t.isObjectMember(property) ||
+      t.isClassProperty(property) ||
+      t.isClassMethod(property)
+  );
 
-  if (t.isIdentifier(property.key)) {
+  if (!property.computed && t.isIdentifier(property.key)) {
     return property.key.name;
   }
 

@@ -1,5 +1,5 @@
 import { PluginObj } from "@babel/core";
-import { PluginArg } from "../plugin";
+import { PluginArg, PluginInstance } from "../plugin";
 import * as t from "@babel/types";
 import { choice } from "../../utils/random-utils";
 import { computeProbabilityMap } from "../../probability";
@@ -47,9 +47,7 @@ function toUnicodeRepresentation(str: string) {
   return escapedString;
 }
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.Finalizer);
-
+export default (me: PluginInstance): PluginObj => {
   return {
     visitor: {
       StringLiteral: {

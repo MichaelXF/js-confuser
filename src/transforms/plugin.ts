@@ -1,10 +1,9 @@
 import { PluginObj } from "@babel/core";
-import * as babelTypes from "@babel/types";
 import Obfuscator from "../obfuscator";
 import { getRandomString } from "../utils/random-utils";
 import { Order } from "../order";
 
-export type PluginFunction = (pluginArg: PluginArg) => PluginObj["visitor"];
+export type PluginFunction = (pluginArg: PluginArg) => PluginObj;
 
 export type PluginArg = {
   Plugin: (order: Order) => PluginInstance;

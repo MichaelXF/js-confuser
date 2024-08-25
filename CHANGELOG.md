@@ -1,3 +1,10 @@
+# `2.0.0`
+2.0 Rewrite
+
+- New option `renameLabels` to control if/which labels get renamed. Previously enabled but was not configurable.
+
+- RGF no longers uses `new Function`
+
 # `1.7.3`
 Tamper Protection
 

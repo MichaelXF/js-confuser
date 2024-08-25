@@ -2,12 +2,18 @@ import { PluginObj } from "@babel/core";
 import { PluginArg } from "./plugin";
 import * as t from "@babel/types";
 import { Order } from "../order";
+import stringEncoding from "./string/stringEncoding";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Flatten);
+  const stringEncodingPlugin = stringEncoding(me);
 
   return {
     visitor: {
+      // String encoding
+      ...stringEncodingPlugin.visitor,
+
+      // Hexadecimal numbers
       NumberLiteral: {
         exit(path) {
           if (me.options.hexadecimalNumbers) {

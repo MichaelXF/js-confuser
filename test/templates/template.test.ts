@@ -1,4 +1,6 @@
+import Obfuscator from "../../src/obfuscator";
 import Template from "../../src/templates/template";
+import { stringLiteral } from "@babel/types";
 
 describe("Template", () => {
   test("Variant #1: Error when invalid code passed in", () => {
@@ -42,7 +44,7 @@ describe("Template", () => {
     expect(functionDeclaration.id.name).toStrictEqual("decodeBase64");
 
     // Generated code and check
-    var output = compileJsSync(functionDeclaration, {
+    var output = Obfuscator.generateCode(functionDeclaration, {
       target: "node",
       compact: true,
     });
@@ -62,7 +64,7 @@ describe("Template", () => {
     var functionDeclaration = Base64Template.single({
       name: "decodeBase64",
       getWindowName: "newWindow",
-      getWindow: parseSnippet("var newWindow = {}").body,
+      getWindow: Obfuscator.parseCode("var newWindow = {}").program.body,
     });
 
     expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
@@ -71,7 +73,7 @@ describe("Template", () => {
     );
 
     // Generated code and check
-    var output = compileJsSync(functionDeclaration, {
+    var output = Obfuscator.generateCode(functionDeclaration, {
       target: "node",
       compact: true,
     });
@@ -92,7 +94,7 @@ describe("Template", () => {
       name: "decodeBase64",
       getWindowName: "newWindow",
       getWindow: () => {
-        return parseSnippet("var newWindow = {}").body;
+        return Obfuscator.parseCode("var newWindow = {}").program.body;
       },
     });
 
@@ -102,7 +104,7 @@ describe("Template", () => {
     );
 
     // Generated code and check
-    var output = compileJsSync(functionDeclaration, {
+    var output = Obfuscator.generateCode(functionDeclaration, {
       target: "node",
       compact: true,
     });
@@ -134,7 +136,7 @@ describe("Template", () => {
     );
 
     // Generated code and check
-    var output = compileJsSync(functionDeclaration, {
+    var output = Obfuscator.generateCode(functionDeclaration, {
       target: "node",
       compact: true,
     });
@@ -166,7 +168,7 @@ describe("Template", () => {
     );
 
     // Generated code and check
-    var output = compileJsSync(functionDeclaration, {
+    var output = Obfuscator.generateCode(functionDeclaration, {
       target: "node",
       compact: true,
     });
@@ -183,13 +185,13 @@ describe("Template", () => {
 
     var functionDeclaration = Base64Template.single({
       name: "decodeBase64",
-      property: Literal("atob"),
+      property: stringLiteral("atob"),
     });
 
     expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
 
     // Generated code and check
-    var output = compileJsSync(functionDeclaration, {
+    var output = Obfuscator.generateCode(functionDeclaration, {
       target: "node",
       compact: true,
     });
@@ -205,13 +207,13 @@ describe("Template", () => {
 
     var functionDeclaration = Base64Template.single({
       name: "decodeBase64",
-      property: () => Literal("atob"),
+      property: () => stringLiteral("atob"),
     });
 
     expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
 
     // Generated code and check
-    var output = compileJsSync(functionDeclaration, {
+    var output = Obfuscator.generateCode(functionDeclaration, {
       target: "node",
       compact: true,
     });

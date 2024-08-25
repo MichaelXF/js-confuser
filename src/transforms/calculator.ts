@@ -40,6 +40,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                 const mapKey = "unaryExpression_" + operator;
                 let operatorKey = operatorsMap.get(mapKey);
+
+                // Add unary operator to the map if it doesn't exist
                 if (typeof operatorKey === "undefined") {
                   operatorKey = me.generateRandomIdentifier();
                   operatorsMap.set(mapKey, operatorKey);
@@ -63,6 +65,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                 const mapKey = "binaryExpression_" + operator;
                 let operatorKey = operatorsMap.get(mapKey);
+
+                // Add binary operator to the map if it doesn't exist
                 if (typeof operatorKey === "undefined") {
                   operatorKey = me.generateRandomIdentifier();
                   operatorsMap.set(mapKey, operatorKey);
