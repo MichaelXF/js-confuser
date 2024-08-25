@@ -1,6 +1,6 @@
 import JsConfuser from "../../src/index";
 
-it("should middleman function calls", async () => {
+test("Variant #1: Middleman function calls", async () => {
   var code = `
   
     function TEST_FUNCTION(arg){
@@ -10,7 +10,10 @@ it("should middleman function calls", async () => {
     TEST_FUNCTION(10);
   `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
 
   function input(x) {
     expect(x).toStrictEqual(10);
@@ -20,7 +23,7 @@ it("should middleman function calls", async () => {
   eval(output);
 });
 
-it("should not middleman functions relying on arguments identifier", async () => {
+test("Variant #2: Don't middleman functions relying on arguments identifier", async () => {
   var code = `
   
   function TEST_FUNCTION(){
@@ -30,12 +33,15 @@ it("should not middleman functions relying on arguments identifier", async () =>
   TEST_FUNCTION(10);
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
 
   expect(output).toContain("function TEST_FUNCTION(");
 });
 
-it("should not middleman functions relying on this identifier", async () => {
+test("Variant #3: Don't middleman functions relying on this identifier", async () => {
   var code = `
   
   function TEST_FUNCTION(){
@@ -45,12 +51,15 @@ it("should not middleman functions relying on this identifier", async () => {
   TEST_FUNCTION(10);
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
 
   expect(output).toContain("function TEST_FUNCTION(");
 });
 
-it("should work with nested functions", async () => {
+test("Variant #4: Work with nested functions", async () => {
   var code = `
   
   function TEST_FUNCTION(){
@@ -64,7 +73,10 @@ it("should work with nested functions", async () => {
   TEST_FUNCTION();
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
   function input(x) {
     expect(x).toStrictEqual(10);
   }
@@ -73,7 +85,7 @@ it("should work with nested functions", async () => {
   eval(output);
 });
 
-it("should work with nested functions and parameters", async () => {
+test("Variant #5: Work with nested functions and parameters", async () => {
   var code = `
   
   function TEST_FUNCTION(x){
@@ -87,7 +99,10 @@ it("should work with nested functions and parameters", async () => {
   TEST_FUNCTION(10);
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
   function input(x) {
     expect(x).toStrictEqual(10);
   }
@@ -96,7 +111,7 @@ it("should work with nested functions and parameters", async () => {
   eval(output);
 });
 
-it("should work with nested functions and return values", async () => {
+test("Variant #6: Work with nested functions and return values", async () => {
   var code = `
   
   function TEST_FUNCTION(){
@@ -110,7 +125,10 @@ it("should work with nested functions and return values", async () => {
   input(TEST_FUNCTION());
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
   function input(x) {
     expect(x).toStrictEqual(10);
   }
@@ -119,7 +137,7 @@ it("should work with nested functions and return values", async () => {
   eval(output);
 });
 
-it("should work with nested and sibling functions and return values", async () => {
+test("Variant #7: Work with nested and sibling functions and return values", async () => {
   var code = `
 
   function TEST_FUNCTION_2(){
@@ -137,7 +155,10 @@ it("should work with nested and sibling functions and return values", async () =
   input(TEST_FUNCTION());
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
   function input(x) {
     expect(x).toStrictEqual(10);
   }
@@ -146,7 +167,7 @@ it("should work with nested and sibling functions and return values", async () =
   eval(output);
 });
 
-it("should work with referencing the function itself", async () => {
+test("Variant #8: Work with referencing the function itself", async () => {
   var code = `
 
 
@@ -160,7 +181,10 @@ it("should work with referencing the function itself", async () => {
   input(fn(10));
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
   function input(x) {
     expect(x).toStrictEqual(10);
   }
@@ -169,7 +193,7 @@ it("should work with referencing the function itself", async () => {
   eval(output);
 });
 
-it("should work with the spread operator on arguments", async () => {
+test("Variant #9: Work with the spread operator on arguments", async () => {
   var code = `
 
   function TEST_FUNCTION(x, y, z){
@@ -179,7 +203,10 @@ it("should work with the spread operator on arguments", async () => {
   input(TEST_FUNCTION(...[2, 10, 8]));
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
   function input(x) {
     expect(x).toStrictEqual(20);
   }
@@ -188,7 +215,7 @@ it("should work with the spread operator on arguments", async () => {
   eval(output);
 });
 
-it("should work with the spread operator on parameters", async () => {
+test("Variant #10: Work with the spread operator on parameters", async () => {
   var code = `
 
 
@@ -200,7 +227,10 @@ it("should work with the spread operator on parameters", async () => {
   input(TEST_FUNCTION(2, 10, 8));
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
   function input(x) {
     expect(x).toStrictEqual(20);
   }
@@ -209,7 +239,7 @@ it("should work with the spread operator on parameters", async () => {
   eval(output);
 });
 
-it("should work with the spread operator on both arguments and parameters", async () => {
+test("Variant #11: Work with the spread operator on both arguments and parameters", async () => {
   var code = `
 
   
@@ -220,7 +250,10 @@ it("should work with the spread operator on both arguments and parameters", asyn
   input(TEST_FUNCTION(...[2, 10, 8]));
 `;
 
-  var output = await JsConfuser(code, { target: "browser", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    dispatcher: true,
+  });
   function input(x) {
     expect(x).toStrictEqual(20);
   }
@@ -229,7 +262,7 @@ it("should work with the spread operator on both arguments and parameters", asyn
   eval(output);
 });
 
-it("should work with Stack", async () => {
+test("Variant #12: Work with Variable Masking", async () => {
   var code = `
 
   function TEST_FUNCTION_2(){
@@ -248,10 +281,10 @@ it("should work with Stack", async () => {
   input(TEST_FUNCTION());
 `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     dispatcher: true,
-    stack: true,
+    variableMasking: true,
   });
 
   var value = "never_called";
@@ -265,7 +298,7 @@ it("should work with Stack", async () => {
   expect(value).toStrictEqual(10);
 });
 
-it("should work with Control Flow Flattening", async () => {
+test("Variant #13: Work with Control Flow Flattening", async () => {
   var code = `
 
   function TEST_FUNCTION_2(){
@@ -284,7 +317,7 @@ it("should work with Control Flow Flattening", async () => {
   input(TEST_FUNCTION());
 `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     dispatcher: true,
     controlFlowFlattening: true,
@@ -302,7 +335,7 @@ it("should work with Control Flow Flattening", async () => {
 });
 
 // https://github.com/MichaelXF/js-confuser/issues/26
-it("should apply to every level of the code", async () => {
+test("Variant #14: Apply to every level of the code", async () => {
   var code = `
   function OUTER(){
     function INNER(){
@@ -315,7 +348,10 @@ it("should apply to every level of the code", async () => {
   input(OUTER());
   `;
 
-  var output = await JsConfuser(code, { target: "node", dispatcher: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "node",
+    dispatcher: true,
+  });
 
   expect(output).not.toContain("OUTER");
   expect(output).not.toContain("INNER");
@@ -331,8 +367,8 @@ it("should apply to every level of the code", async () => {
 });
 
 // https://github.com/MichaelXF/js-confuser/issues/77
-it("should work with code that uses toString() function", async () => {
-  var output = await JsConfuser(
+test("Variant #15: Work with code that uses toString() function", async () => {
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(){
     
@@ -355,7 +391,7 @@ it("should work with code that uses toString() function", async () => {
 });
 
 test("Variant #16: Don't change functions that use 'eval'", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myEvalFunction(){
     return eval("1+1");
@@ -376,7 +412,7 @@ test("Variant #16: Don't change functions that use 'eval'", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/103
 test("Variant #17: Don't break default parameter, function expression", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var X = "Correct Value";
 
@@ -402,7 +438,7 @@ printX();
 });
 
 test("Variant #18: Preserve function.length property", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction1(){
     // Function.length = 0
@@ -430,7 +466,7 @@ test("Variant #18: Preserve function.length property", async () => {
 });
 
 test("Variant #19: Lexically bound variables", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   switch (true) {
     case true:

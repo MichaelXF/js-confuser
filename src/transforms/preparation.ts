@@ -3,12 +3,39 @@ import { NodePath } from "@babel/traverse";
 import { PluginArg } from "./plugin";
 import * as t from "@babel/types";
 import { Order } from "../order";
+import path from "path";
+import { NodeSymbol, UNSAFE } from "../constants";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Preparation);
 
+  const markFunctionUnsafe = (path: NodePath<t.Node>) => {
+    const functionScope = path.scope.getFunctionParent();
+    if (!functionScope) return;
+
+    const functionNode = functionScope.path.node;
+    if (!t.isFunction(functionNode)) return;
+
+    (functionNode as NodeSymbol)[UNSAFE] = true;
+  };
+
   return {
     visitor: {
+      ThisExpression: {
+        exit(path) {
+          markFunctionUnsafe(path);
+        },
+      },
+
+      ReferencedIdentifier: {
+        exit(path) {
+          const { name } = path.node;
+          if (["arguments", "eval"].includes(name)) {
+            markFunctionUnsafe(path);
+          }
+        },
+      },
+
       // console.log() -> console["log"]();
       MemberExpression: {
         exit(path) {

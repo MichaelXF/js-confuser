@@ -30,7 +30,7 @@ const validProperties = new Set([
   "movedDeclarations",
   "opaquePredicates",
   "shuffle",
-  "stack",
+  "variableMasking",
   "verbose",
   "globalVariables",
   "debugComments",

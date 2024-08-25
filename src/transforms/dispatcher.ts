@@ -7,16 +7,23 @@ import { ok } from "assert";
 import { chance, getRandomString } from "../utils/random-utils";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
+import { NodeSymbol, UNSAFE } from "../constants";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Dispatcher);
+  var dispatcherCounter = 0;
 
   return {
     visitor: {
-      Block: {
-        exit(blockPath: NodePath<t.Block>) {
+      "Program|Function": {
+        exit(_path) {
+          const blockPath = _path as NodePath<t.Program | t.Function>;
           // For testing
-          if (!blockPath.isProgram()) return;
+          // if (!blockPath.isProgram()) return;
+
+          var blockStatement: NodePath<t.Block> = blockPath.isProgram()
+            ? blockPath
+            : (blockPath.get("body") as NodePath<t.BlockStatement>);
 
           // Track functions and illegal ones
           // A function is illegal if:
@@ -44,7 +51,23 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   return;
                 }
 
+                // Do not apply to functions in nested scopes
+                if (path.parentPath !== blockStatement) {
+                  illegalNames.add(name);
+                  return;
+                }
+
                 if (functionPaths.has(name)) {
+                  illegalNames.add(name);
+                  return;
+                }
+
+                if (
+                  path.node.params.find(
+                    (x) => x.type === "AssignmentPattern"
+                  ) ||
+                  (path.node as NodeSymbol)[UNSAFE]
+                ) {
                   illegalNames.add(name);
                   return;
                 }
@@ -69,7 +92,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             return;
           }
 
-          const dispatcherName = me.getPlaceholder() + "_dispatcher";
+          const dispatcherName =
+            me.getPlaceholder() + "_dispatcher_" + dispatcherCounter++;
           const payloadName = me.getPlaceholder() + "_payload";
           const cacheName = me.getPlaceholder() + "_cache";
           const newNameMapping = new Map<string, string>();
@@ -83,7 +107,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           };
 
           for (var name of functionPaths.keys()) {
-            newNameMapping.set(name, "_" + name);
+            newNameMapping.set(name, getRandomString(6) /**  "_" + name */);
           }
 
           // Find identifiers calling/referencing the functions
@@ -97,6 +121,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 if (!fnPath) return;
 
                 var newName = newNameMapping.get(name);
+
+                // Do not replace if not referencing the actual function
+                if (path.scope.getBinding(name).path !== fnPath) {
+                  return;
+                }
 
                 const createDispatcherCall = (name, flagArg?) => {
                   var dispatcherArgs = [t.stringLiteral(name)];
@@ -226,22 +255,30 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             objectExpression,
           });
 
+          /**
+           * Prepends the node into the block. (And registers the declaration)
+           * @param node
+           */
+          function prepend(node: t.Statement) {
+            var p = blockStatement.unshiftContainer<any, any, any>(
+              "body",
+              node
+            );
+            blockStatement.scope.registerDeclaration(p[0]);
+          }
+
           // Insert the dispatcher function
-          var p = blockPath.unshiftContainer("body", dispatcher);
-          blockPath.scope.registerDeclaration(p[0]);
+          prepend(dispatcher);
 
           // Insert the payload variable
-          p = blockPath.unshiftContainer(
-            "body",
+          prepend(
             t.variableDeclaration("var", [
               t.variableDeclarator(t.identifier(payloadName)),
             ])
           );
-          blockPath.scope.registerDeclaration(p[0]);
 
           // Insert the cache variable
-          p = blockPath.unshiftContainer(
-            "body",
+          prepend(
             t.variableDeclaration("var", [
               t.variableDeclarator(
                 t.identifier(cacheName),
@@ -249,7 +286,6 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               ),
             ])
           );
-          blockPath.scope.registerDeclaration(p[0]);
 
           // Remove original functions
           for (let path of functionPaths.values()) {

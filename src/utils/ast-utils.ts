@@ -1,19 +1,33 @@
-import * as babelTypes from "@babel/types";
+import * as t from "@babel/types";
 import { NodePath } from "@babel/core";
+import { ok } from "assert";
+
+export function getParentFunctionOrProgram(
+  path: NodePath<any>
+): NodePath<t.Function | t.Program> {
+  // Find the nearest function-like parent
+  const functionOrProgramPath = path.findParent(
+    (parentPath) => parentPath.isFunction() || parentPath.isProgram()
+  );
+
+  return functionOrProgramPath as NodePath<t.Function>;
+
+  ok(false);
+}
 
 export function insertIntoNearestBlockScope(
   path: NodePath,
-  ...nodesToInsert: babelTypes.Statement[]
+  ...nodesToInsert: t.Statement[]
 ): NodePath[] {
   // Traverse up the AST until we find a BlockStatement or Program
   let targetPath: NodePath = path;
 
-  while (targetPath && !babelTypes.isProgram(targetPath.node)) {
+  while (targetPath && !t.isProgram(targetPath.node)) {
     targetPath = targetPath.parentPath;
   }
 
   // Ensure that we found a valid insertion point
-  if (babelTypes.isBlockStatement(targetPath.node)) {
+  if (t.isBlockStatement(targetPath.node)) {
     // Insert before the current statement within the found block
     return targetPath.insertBefore(nodesToInsert) as NodePath[];
   } else if (targetPath.isProgram()) {
@@ -27,7 +41,7 @@ export function insertIntoNearestBlockScope(
 }
 
 export function isReservedIdentifier(
-  node: babelTypes.Identifier | babelTypes.JSXIdentifier
+  node: t.Identifier | t.JSXIdentifier
 ): boolean {
   return (
     node.name === "arguments" || // Check for 'arguments'
@@ -35,9 +49,9 @@ export function isReservedIdentifier(
     node.name === "NaN" || // Check for 'NaN'
     node.name === "Infinity" || // Check for 'Infinity'
     node.name === "eval" || // Check for 'eval'
-    babelTypes.isThisExpression(node) || // Check for 'this'
-    babelTypes.isSuper(node) || // Check for 'super'
-    babelTypes.isMetaProperty(node) // Check for meta properties like 'new.target'
+    t.isThisExpression(node) || // Check for 'this'
+    t.isSuper(node) || // Check for 'super'
+    t.isMetaProperty(node) // Check for meta properties like 'new.target'
   );
 }
 
@@ -57,24 +71,22 @@ export function hasNestedBinding(path: NodePath, name: string): boolean {
   return found;
 }
 
-export function isModifiedIdentifier(
-  path: NodePath<babelTypes.Identifier>
-): boolean {
+export function isModifiedIdentifier(path: NodePath<t.Identifier>): boolean {
   const parent = path.parent;
 
   // Check if the identifier is on the left-hand side of an assignment
-  if (babelTypes.isAssignmentExpression(parent) && parent.left === path.node) {
+  if (t.isAssignmentExpression(parent) && parent.left === path.node) {
     return true;
   }
 
   // Check if the identifier is in an update expression (like i++)
-  if (babelTypes.isUpdateExpression(parent) && parent.argument === path.node) {
+  if (t.isUpdateExpression(parent) && parent.argument === path.node) {
     return true;
   }
 
   // Check if the identifier is being deleted
   if (
-    babelTypes.isUnaryExpression(parent) &&
+    t.isUnaryExpression(parent) &&
     parent.operator === "delete" &&
     parent.argument === path.node
   ) {
@@ -83,8 +95,7 @@ export function isModifiedIdentifier(
 
   // Check if the identifier is part of a destructuring pattern being assigned
   if (
-    (babelTypes.isObjectPattern(path.parent) ||
-      babelTypes.isArrayPattern(path.parent)) &&
+    (t.isObjectPattern(path.parent) || t.isArrayPattern(path.parent)) &&
     path.key === "elements"
   ) {
     return true;
@@ -100,22 +111,19 @@ export function isModifiedIdentifier(
  * @returns True if the MemberExpression is computed; false otherwise.
  */
 export function isComputedMemberExpression(
-  memberExpression: babelTypes.MemberExpression
+  memberExpression: t.MemberExpression
 ): boolean {
   const property = memberExpression.property;
 
   if (!memberExpression.computed) {
     // If the property is a non-computed identifier, it is not computed
-    if (babelTypes.isIdentifier(property)) {
+    if (t.isIdentifier(property)) {
       return false;
     }
   }
 
   // If the property is a computed literal (string or number), it is not computed
-  if (
-    babelTypes.isStringLiteral(property) ||
-    babelTypes.isNumericLiteral(property)
-  ) {
+  if (t.isStringLiteral(property) || t.isNumericLiteral(property)) {
     return false;
   }
 
@@ -123,20 +131,18 @@ export function isComputedMemberExpression(
   return true;
 }
 
-export function getObjectPropertyAsString(
-  property: babelTypes.ObjectMember
-): string {
-  babelTypes.assertObjectMember(property);
+export function getObjectPropertyAsString(property: t.ObjectMember): string {
+  t.assertObjectMember(property);
 
-  if (babelTypes.isIdentifier(property.key)) {
+  if (t.isIdentifier(property.key)) {
     return property.key.name;
   }
 
-  if (babelTypes.isStringLiteral(property.key)) {
+  if (t.isStringLiteral(property.key)) {
     return property.key.value;
   }
 
-  if (babelTypes.isNumericLiteral(property.key)) {
+  if (t.isNumericLiteral(property.key)) {
     return property.key.value.toString();
   }
 
@@ -150,21 +156,21 @@ export function getObjectPropertyAsString(
  * @returns The property as a string or null if it cannot be determined.
  */
 export function getMemberExpressionPropertyAsString(
-  member: babelTypes.MemberExpression
+  member: t.MemberExpression
 ): string | null {
-  babelTypes.assertMemberExpression(member);
+  t.assertMemberExpression(member);
 
   const property = member.property;
 
-  if (!member.computed && babelTypes.isIdentifier(property)) {
+  if (!member.computed && t.isIdentifier(property)) {
     return property.name;
   }
 
-  if (babelTypes.isStringLiteral(property)) {
+  if (t.isStringLiteral(property)) {
     return property.value;
   }
 
-  if (babelTypes.isNumericLiteral(property)) {
+  if (t.isNumericLiteral(property)) {
     return property.value.toString();
   }
 
