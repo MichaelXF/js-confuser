@@ -57,7 +57,7 @@ test("Variant #3: Don't move 'y' (destructuring)", async () => {
     movedDeclarations: true,
   });
 
-  expect(output).toContain("var [y]=[15];");
+  expect(output).toContain("var[y]=[15];");
 
   var TEST_VARIABLE;
   eval(output);
@@ -178,7 +178,8 @@ test("Variant #8: Work with 'use strict'", async () => {
   });
 
   // Ensure movedDeclarations applied and 'use strict' is still first
-  expect(output).toContain("function myFunction(){'use strict';var x;");
+  // x cannot be moved as a parameter as 'use strict' disallows non-simple parameters
+  expect(output).toContain("function myFunction(){'use strict';var x=1;");
 
   var TEST_OUTPUT;
   eval(output);

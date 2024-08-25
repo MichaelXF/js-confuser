@@ -4,16 +4,16 @@ import { PluginArg } from "./plugin";
 import * as t from "@babel/types";
 import { Order } from "../order";
 import path from "path";
-import { NodeSymbol, UNSAFE } from "../constants";
+import { NodeSymbol, PREDICTABLE, UNSAFE } from "../constants";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Preparation);
 
   const markFunctionUnsafe = (path: NodePath<t.Node>) => {
-    const functionScope = path.scope.getFunctionParent();
-    if (!functionScope) return;
+    const functionPath = path.findParent((path) => path.isFunction());
+    if (!functionPath) return;
 
-    const functionNode = functionScope.path.node;
+    const functionNode = functionPath.node;
     if (!t.isFunction(functionNode)) return;
 
     (functionNode as NodeSymbol)[UNSAFE] = true;
@@ -32,6 +32,38 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const { name } = path.node;
           if (["arguments", "eval"].includes(name)) {
             markFunctionUnsafe(path);
+          }
+        },
+      },
+
+      FunctionDeclaration: {
+        exit(path) {
+          // A function is 'predictable' if the parameter lengths are guaranteed to be known
+          // a(true) -> predictable
+          // (a || b)(true) -> unpredictable (Must be directly in a Call Expression)
+          // a(...args) -> unpredictable (Cannot use SpreadElement)
+
+          const { name } = path.node.id;
+
+          var binding = path.scope.getBinding(name);
+          var predictable = true;
+
+          for (var referencePath of binding.referencePaths) {
+            if (!referencePath.parentPath.isCallExpression()) {
+              predictable = false;
+              break;
+            }
+
+            for (var arg of referencePath.parentPath.get("arguments")) {
+              if (arg.isSpreadElement()) {
+                predictable = false;
+                break;
+              }
+            }
+          }
+
+          if (predictable) {
+            (path.node as NodeSymbol)[PREDICTABLE] = true;
           }
         },
       },

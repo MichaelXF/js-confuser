@@ -26,6 +26,7 @@ import { isProbabilityMapProbable } from "./probability";
 import astScrambler from "./transforms/astScrambler";
 import calculator from "./transforms/calculator";
 import { Order } from "./order";
+import movedDeclarations from "./transforms/identifier/movedDeclarations";
 
 export default class Obfuscator {
   plugins: {
@@ -63,6 +64,7 @@ export default class Obfuscator {
     push(this.options.shuffle, shuffle);
     push(this.options.astScrambler, astScrambler);
     push(this.options.calculator, calculator);
+    push(this.options.movedDeclarations, movedDeclarations);
 
     push(true, finalizer);
 
