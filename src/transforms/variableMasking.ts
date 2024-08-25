@@ -1,15 +1,16 @@
 import { PluginObj } from "@babel/core";
 import { NodePath } from "@babel/traverse";
 import { PluginArg } from "./plugin";
-import * as babelTypes from "@babel/types";
+import * as t from "@babel/types";
 import Template from "../templates/template";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
+import { NodeSymbol, UNSAFE } from "../constants";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.VariableMasking);
 
-  const transformFunction = (path: NodePath<babelTypes.Function>) => {
+  const transformFunction = (path: NodePath<t.Function>) => {
     // Do not apply to getter/setter methods
     if (path.isObjectMethod() && path.node.kind !== "method") {
       return;
@@ -26,9 +27,22 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     }
 
     // Do not apply to functions with rest parameters or destructuring
-    if (path.node.params.some((param) => !babelTypes.isIdentifier(param))) {
+    if (path.node.params.some((param) => !t.isIdentifier(param))) {
       return;
     }
+
+    // Do not apply to 'use strict' functions
+    if (
+      t.isBlockStatement(path.node.body) &&
+      path.node.body.directives.some(
+        (directive) => directive.value.value === "use strict"
+      )
+    ) {
+      return;
+    }
+
+    // Do not apply to functions marked unsafe
+    if ((path.node as NodeSymbol)[UNSAFE]) return;
 
     const functionName =
       ((path.isFunctionDeclaration() || path.isFunctionExpression()) &&
@@ -45,7 +59,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     const stackMap = new Map<string, number>();
 
     for (const param of path.node.params) {
-      stackMap.set((param as babelTypes.Identifier).name, 0);
+      stackMap.set((param as t.Identifier).name, 0);
     }
 
     path.traverse({
@@ -85,8 +99,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               stackName: stackName,
               stackIndex: stackIndex,
               value:
-                (binding.path.node as any).init ??
-                babelTypes.identifier("undefined"),
+                (binding.path.node as any).init ?? t.identifier("undefined"),
             })
           );
         }
@@ -117,9 +130,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       },
     });
 
-    path.node.params = [
-      babelTypes.restElement(babelTypes.identifier(stackName)),
-    ];
+    path.node.params = [t.restElement(t.identifier(stackName))];
 
     path.scope.registerBinding("param", path.get("params.0") as NodePath, path);
   };
@@ -127,7 +138,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
   return {
     visitor: {
       Function: {
-        exit(path: NodePath<babelTypes.Function>) {
+        exit(path: NodePath<t.Function>) {
           transformFunction(path);
         },
       },

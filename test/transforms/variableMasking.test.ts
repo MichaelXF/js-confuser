@@ -13,7 +13,7 @@ test("Variant #1: Replace all variables with array indexes (single variable)", a
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -40,7 +40,7 @@ test("Variant #2: Replace all variables with array indexes (multiple variables)"
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -66,7 +66,7 @@ test("Variant #3: Replace all variables with array indexes (uninitialized variab
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -91,7 +91,7 @@ test("Variant #4: Replace all variables with array indexes (parameters)", async 
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -121,7 +121,7 @@ test("Variant #5: Replace all variables with array indexes (nested function)", a
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -158,7 +158,7 @@ test("Variant #6: Replace all variables with array indexes (nested class)", asyn
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -184,7 +184,7 @@ test("Variant #7: Replace variables defined within the function, and not run if 
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -203,7 +203,7 @@ test("Variant #8: Work even when differing amount of arguments passed in", async
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -235,7 +235,7 @@ test("Variant #9: Replace all variables with array indexes (middle indexes use a
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -264,7 +264,7 @@ test("Variant #10: Guess execution order correctly (CallExpression, arguments ru
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -292,7 +292,7 @@ test("Variant #11: Guess execution order correctly (AssignmentExpression, right 
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -318,7 +318,7 @@ test("Variant #12: Should not entangle floats or NaN", async () => {
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -369,7 +369,7 @@ test("Variant #13: Correctly entangle property keys", async () => {
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -437,7 +437,7 @@ test("Variant #14: Correctly entangle method definition keys", async () => {
     `,
     {
       target: "node",
-      stack: true,
+      variableMasking: true,
     }
   );
 
@@ -467,7 +467,7 @@ test("Variant #15: Function with 'use strict' directive", async () => {
 
   useStrictFunction();
   `,
-    { target: "node", stack: true }
+    { target: "node", variableMasking: true }
   );
 
   // Stack will not apply to functions with 'use strict' directive
@@ -505,7 +505,7 @@ test("Variant #16: Function with 'this'", async () => {
 
   TEST_OUTPUT = stackFunction() === undefined;
   `,
-    { target: "node", stack: true }
+    { target: "node", variableMasking: true }
   );
 
   // Ensure stack applied
@@ -533,7 +533,7 @@ test("Variant #17: Syncing arguments parameter", async () => {
     
     syncingArguments("Incorrect Value");
   `,
-    { target: "node", stack: true }
+    { target: "node", variableMasking: true }
   );
 
   function evalNoStrictMode(evalCode) {
@@ -563,7 +563,7 @@ test("Variant #18: Preserve function.length property", async () => {
 
     TEST_OUTPUT = oneParameter.length + twoParameters.length + myObject.threeParameters.length;
   `,
-    { target: "node", stack: true }
+    { target: "node", variableMasking: true }
   );
 
   var TEST_OUTPUT;

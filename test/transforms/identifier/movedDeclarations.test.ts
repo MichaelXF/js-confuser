@@ -179,7 +179,7 @@ test("Variant #8: Work with 'use strict'", async () => {
 
   // Ensure movedDeclarations applied and 'use strict' is still first
   // x cannot be moved as a parameter as 'use strict' disallows non-simple parameters
-  expect(output).toContain("function myFunction(){'use strict';var x=1;");
+  expect(output).toContain('function myFunction(){"use strict";var x=1;');
 
   var TEST_OUTPUT;
   eval(output);

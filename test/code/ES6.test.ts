@@ -11,7 +11,7 @@ test.concurrent("Variant #1: ES6 code on High Preset", async () => {
   });
 
   // Ensure 'use strict' directive is preserved
-  expect(output.startsWith("'use strict'")).toStrictEqual(true);
+  expect(output.startsWith('"use strict"')).toStrictEqual(true);
 
   var ranAllTest = false;
   eval(output);
