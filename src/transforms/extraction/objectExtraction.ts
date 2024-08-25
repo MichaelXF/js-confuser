@@ -7,6 +7,7 @@ import {
 } from "../../utils/ast-utils";
 import { PluginArg } from "../plugin";
 import { Order } from "../../order";
+import { computeProbabilityMap } from "../../probability";
 
 function isObjectSafeForExtraction(
   path: NodePath<babelTypes.VariableDeclarator>
@@ -113,6 +114,17 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           // Replace the original object with extracted variables
           if (extractedVariables.length > 0) {
+            // Allow user to disable certain objects
+            if (
+              !computeProbabilityMap(
+                me.options.objectExtraction,
+                (x) => x,
+                objectName
+              )
+            ) {
+              return;
+            }
+
             path.replaceWithMultiple(extractedVariables);
 
             var variableDeclaration =

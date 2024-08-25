@@ -444,7 +444,7 @@ test("Variant #14: Not apply to objects with non-init properties (method, set, g
   });
 
   expect(output).toContain("TEST_OBJECT");
-  expect(output).toContain("set ");
+  expect(output).toContain("set[");
 });
 
 // https://github.com/MichaelXF/js-confuser/issues/78

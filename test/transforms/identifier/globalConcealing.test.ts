@@ -12,7 +12,7 @@ test("Variant #1: Hide global names (such as Math)", async () => {
 
   expect(output).not.toContain("Math.floor");
   expect(output).not.toContain("=Math");
-  expect(output).toContain("['Math']");
+  expect(output).toContain('["Math"]');
   expect(output).toContain("window");
 });
 
@@ -28,7 +28,7 @@ test("Variant #2: Do not hide modified identifiers", async () => {
     globalConcealing: true,
   });
 
-  expect(output).toContain("log'](Math)");
+  expect(output).toContain('log"](Math)');
 });
 
 test("Variant #3: Properly hide in default parameter, function expression", async () => {

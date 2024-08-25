@@ -139,7 +139,9 @@ export default class Template {
     return file.program.body;
   }
 
-  single(variables: TemplateVariables = {}): babelTypes.Statement {
+  single<T extends babelTypes.Node = babelTypes.Statement>(
+    variables: TemplateVariables = {}
+  ): T {
     const nodes = this.compile(variables);
 
     if (nodes.length !== 1) {
@@ -152,10 +154,10 @@ export default class Template {
           .map((node) => node.type)
           .join(", ")}`
       );
-      return filteredNodes[0];
+      return filteredNodes[0] as T;
     }
 
-    return nodes[0];
+    return nodes[0] as T;
   }
 
   expression(variables: TemplateVariables = {}): babelTypes.Expression {

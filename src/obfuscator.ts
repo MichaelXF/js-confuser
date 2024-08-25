@@ -152,6 +152,10 @@ export default class Obfuscator {
     }
   }
 
+  getPlugin(order: Order) {
+    return this.plugins.find((x) => x.pluginInstance.order === order);
+  }
+
   static createDefaultInstance() {
     return new Obfuscator({
       target: "node",
@@ -170,7 +174,7 @@ export default class Obfuscator {
 
     const { code } = generate(ast, {
       comments: false, // Remove comments
-      compact: compact, // Compact the output
+      minified: compact,
     });
 
     return code;

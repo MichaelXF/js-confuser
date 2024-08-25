@@ -1,4 +1,5 @@
 import JsConfuser, { obfuscateWithProfiler } from "../src/index";
+import { ProfilerLog } from "../src/obfuscationResult";
 
 it("should be a function", async () => {
   expect(typeof JsConfuser).toBe("function");
@@ -158,7 +159,7 @@ describe("obfuscateAST", () => {
     };
     var before = JSON.stringify(AST);
 
-    JsConfuser.obfuscateAST(AST, { target: "node", es5: true });
+    JsConfuser.obfuscateAST(AST as any, { target: "node", es5: true });
 
     var after = JSON.stringify(AST);
 
@@ -171,7 +172,7 @@ describe("obfuscateAST", () => {
 
   test("Variant #2: Error on invalid parameters", async () => {
     await expect(async () => {
-      return await JsConfuser.obfuscateAST("string", {
+      return await JsConfuser.obfuscateAST("string" as any, {
         target: "node",
         preset: "low",
       });
@@ -184,7 +185,7 @@ describe("obfuscateAST", () => {
         type: "NotProgram",
       };
 
-      return await JsConfuser.obfuscateAST(invalidAST, {
+      return await JsConfuser.obfuscateAST(invalidAST as any, {
         target: "node",
         preset: "low",
       });
@@ -192,18 +193,21 @@ describe("obfuscateAST", () => {
   });
 });
 
-describe("debugObfuscation", () => {
-  test("Variant #1: Return array of objects containing code, ms, and name properties", async () => {
+describe("obfuscateWithProfiler", () => {
+  test("Variant #1: Return Profile Data and notify the Profile Log callback", async () => {
     var called = false;
 
-    var callback = ({ name, complete, totalTransforms }) => {
-      expect(typeof name).toStrictEqual("string");
-      expect(typeof complete).toStrictEqual("number");
-      expect(typeof totalTransforms).toStrictEqual("number");
+    var callback = (log: ProfilerLog) => {
+      expect(typeof log.currentTransform).toStrictEqual("string");
+      expect(typeof log.currentTransformNumber).toStrictEqual("number");
+      expect(typeof log.totalTransforms).toStrictEqual("number");
+      if (typeof log.nextTransform !== "undefined") {
+        expect(typeof log.nextTransform).toStrictEqual("string");
+      }
 
       called = true;
     };
-    var output = await JsConfuser.obfuscateWithProfiler(
+    var { code, profileData } = await JsConfuser.obfuscateWithProfiler(
       `console.log(1)`,
       { target: "node", preset: "low" },
       {
@@ -212,19 +216,18 @@ describe("debugObfuscation", () => {
       }
     );
 
-    expect(typeof output).toStrictEqual("object");
-    expect(typeof output.obfuscated).toStrictEqual("string");
-    expect(typeof output.obfuscationTime).toStrictEqual("number");
-    expect(typeof output.compileTime).toStrictEqual("number");
-    expect(typeof output.parseTime).toStrictEqual("number");
-    expect(typeof output.totalPossibleTransforms).toStrictEqual("number");
-    expect(typeof output.totalTransforms).toStrictEqual("number");
-    expect(typeof output.transformationTimes).toStrictEqual("object");
-    expect(typeof output.transformationTimes.RenameVariables).toStrictEqual(
+    expect(typeof code).toStrictEqual("string");
+    expect(typeof profileData.obfuscationTime).toStrictEqual("number");
+    expect(typeof profileData.compileTime).toStrictEqual("number");
+    expect(typeof profileData.parseTime).toStrictEqual("number");
+    expect(typeof profileData.totalPossibleTransforms).toStrictEqual("number");
+    expect(typeof profileData.totalTransforms).toStrictEqual("number");
+    expect(typeof profileData.transformTimeMap).toStrictEqual("object");
+    expect(typeof profileData.transformTimeMap.RenameVariables).toStrictEqual(
       "number"
     );
 
-    eval(output.obfuscated);
+    eval(code);
     expect(called).toStrictEqual(true);
   });
 });

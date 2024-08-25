@@ -69,7 +69,7 @@ test("Variant #2: Preserve 'use strict' directive", async () => {
   });
 
   // Ensure 'use strict' was preversed
-  expect(output.startsWith("'use strict'")).toStrictEqual(true);
+  expect(output.startsWith('"use strict"')).toStrictEqual(true);
 
   // Ensure Dead code was added
   expect(output).toContain("if");

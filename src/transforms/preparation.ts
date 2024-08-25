@@ -4,7 +4,13 @@ import { PluginArg } from "./plugin";
 import * as t from "@babel/types";
 import { Order } from "../order";
 import path from "path";
-import { NodeSymbol, PREDICTABLE, UNSAFE } from "../constants";
+import {
+  NodeSymbol,
+  PREDICTABLE,
+  UNSAFE,
+  variableFunctionName,
+} from "../constants";
+import { ok } from "assert";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Preparation);
@@ -32,6 +38,23 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const { name } = path.node;
           if (["arguments", "eval"].includes(name)) {
             markFunctionUnsafe(path);
+          }
+
+          // When Rename Variables is disabled, __JS_CONFUSER_VAR__ must still be removed
+          if (
+            name === variableFunctionName &&
+            !me.obfuscator.getPlugin(Order.RenameVariables)
+          ) {
+            ok(
+              path.parentPath.isCallExpression(),
+              variableFunctionName + " must be directly called"
+            );
+
+            var argument = path.parentPath.node.arguments[0];
+            t.assertIdentifier(argument);
+
+            // Remove the variableFunctionName call
+            path.parentPath.replaceWith(t.stringLiteral(argument.name));
           }
         },
       },
@@ -102,7 +125,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (path.node.declarations.length > 1) {
             var extraDeclarations = path.node.declarations.slice(1);
             path.node.declarations.length = 1;
-            path.insertAfter(extraDeclarations);
+            path.insertAfter(
+              extraDeclarations.map((declaration) =>
+                t.variableDeclaration(path.node.kind, [declaration])
+              )
+            );
           }
         },
       },
@@ -138,20 +165,23 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
       // for() d() -> for() { d(); }
       // while(a) b() -> while(a) { b(); }
-      "ForStatement|ForInStatement|ForOfStatement|WhileStatement": {
-        exit(_path) {
-          var path = _path as NodePath<
-            | t.ForStatement
-            | t.ForInStatement
-            | t.ForOfStatement
-            | t.WhileStatement
-          >;
+      // with(a) b() -> with(a) { b(); }
+      "ForStatement|ForInStatement|ForOfStatement|WhileStatement|WithStatement":
+        {
+          exit(_path) {
+            var path = _path as NodePath<
+              | t.ForStatement
+              | t.ForInStatement
+              | t.ForOfStatement
+              | t.WhileStatement
+              | t.WithStatement
+            >;
 
-          if (path.node.body.type !== "BlockStatement") {
-            path.node.body = t.blockStatement([path.node.body]);
-          }
+            if (path.node.body.type !== "BlockStatement") {
+              path.node.body = t.blockStatement([path.node.body]);
+            }
+          },
         },
-      },
     },
   };
 };

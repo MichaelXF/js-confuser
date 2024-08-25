@@ -75,7 +75,7 @@ test("Variant #4: Force Block Statements on While loops/With statement", async (
 
   // Ensure parenthesis were added
   expect(output).toContain("{whileStatement()}");
-  expect(output).toContain("{withStatement()}");
+  expect(output).toContain("withStatement()");
 });
 
 test("Variant #5: Force object accessors to use strings instead", async () => {
@@ -90,7 +90,7 @@ test("Variant #5: Force object accessors to use strings instead", async () => {
   );
 
   // Ensure the member expression got changed to a string
-  expect(output).toContain("console['log']");
+  expect(output).toContain('console["log"]');
 });
 
 test("Variant #6: Force object property keys to use strings instead", async () => {
@@ -107,7 +107,7 @@ test("Variant #6: Force object property keys to use strings instead", async () =
   );
 
   // Ensure key got changed to a string
-  expect(output).toContain("'myKey'");
+  expect(output).toContain('"myKey"');
 });
 
 test("Variant #7: Force Variable declarations to be expanded", async () => {

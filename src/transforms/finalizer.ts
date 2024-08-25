@@ -19,6 +19,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (me.options.hexadecimalNumbers) {
             const { value } = path.node;
 
+            if (
+              Number.isNaN(value) ||
+              !Number.isFinite(value) ||
+              Math.floor(value) !== value
+            ) {
+              return;
+            }
+
             // Technically, a Literal will never be negative because it's supposed to be inside a UnaryExpression with a "-" operator.
             // This code handles it regardless
             var isNegative = value < 0;

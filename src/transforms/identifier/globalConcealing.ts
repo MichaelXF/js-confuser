@@ -4,6 +4,15 @@ import { NameGen } from "../../utils/NameGen";
 import Template from "../../templates/template";
 import { PluginArg } from "../plugin";
 import { Order } from "../../order";
+import { computeProbabilityMap } from "../../probability";
+import { variableFunctionName } from "../../constants";
+
+const ignoreGlobals = new Set([
+  "require",
+  "__dirname",
+  "eval",
+  variableFunctionName,
+]);
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.GlobalConcealing);
@@ -20,7 +29,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         var mappedKey = globalMapping.get(originalName);
 
         return t.switchCase(t.stringLiteral(mappedKey), [
-          t.returnStatement(t.identifier(originalName)),
+          t.returnStatement(
+            t.memberExpression(
+              t.identifier(globalVarName),
+              t.stringLiteral(originalName),
+              true
+            )
+          ),
         ]);
       });
 
@@ -69,6 +84,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       ReferencedIdentifier(path: NodePath<t.Identifier | t.JSXIdentifier>) {
         var identifierName = path.node.name;
 
+        if (ignoreGlobals.has(identifierName)) return;
+
         if (
           !path.scope.hasGlobal(identifierName) ||
           path.scope.hasOwnBinding(identifierName)
@@ -77,6 +94,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         }
         var mapping = globalMapping.get(identifierName);
         if (!mapping) {
+          // Allow user to disable custom global variables
+          if (
+            !computeProbabilityMap(
+              me.options.globalConcealing,
+              (x) => x,
+              identifierName
+            )
+          )
+            return;
+
           mapping = gen.generate();
           globalMapping.set(identifierName, mapping);
         }

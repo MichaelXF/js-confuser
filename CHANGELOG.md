@@ -5,6 +5,8 @@
 
 - RGF no longers uses `new Function`
 
+- Improved Moved Declaration's ability to move variables as unused function parameters
+
 # `1.7.3`
 Tamper Protection
 

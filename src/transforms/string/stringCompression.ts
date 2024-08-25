@@ -2,6 +2,7 @@ import { PluginObj } from "@babel/core";
 import { PluginArg } from "../plugin";
 import * as t from "@babel/types";
 import { Order } from "../../order";
+import { computeProbabilityMap } from "../../probability";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.StringCompression);
@@ -20,6 +21,17 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 const originalValue = path.node.value;
                 let index = stringMap.get(originalValue);
                 if (typeof index === "undefined") {
+                  // Allow user option to skip compression for certain strings
+                  if (
+                    !computeProbabilityMap(
+                      me.options.stringCompression,
+                      (x) => x,
+                      originalValue
+                    )
+                  ) {
+                    return;
+                  }
+
                   index = stringMap.size;
                   stringMap.set(originalValue, index);
                 }

@@ -1,6 +1,6 @@
 import Obfuscator from "../../src/obfuscator";
 import Template from "../../src/templates/template";
-import { stringLiteral } from "@babel/types";
+import * as t from "@babel/types";
 
 describe("Template", () => {
   test("Variant #1: Error when invalid code passed in", () => {
@@ -36,12 +36,12 @@ describe("Template", () => {
         return window.btoa(str)
       }`);
 
-    var functionDeclaration = Base64Template.single({
+    var functionDeclaration = Base64Template.single<t.FunctionDeclaration>({
       name: "decodeBase64",
     });
 
     expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
-    expect(functionDeclaration.id.name).toStrictEqual("decodeBase64");
+    expect(functionDeclaration.id!.name).toStrictEqual("decodeBase64");
 
     // Generated code and check
     var output = Obfuscator.generateCode(functionDeclaration, {
@@ -61,7 +61,7 @@ describe("Template", () => {
        return {getWindowName}.btoa(str)
      }`);
 
-    var functionDeclaration = Base64Template.single({
+    var functionDeclaration = Base64Template.single<t.FunctionDeclaration>({
       name: "decodeBase64",
       getWindowName: "newWindow",
       getWindow: Obfuscator.parseCode("var newWindow = {}").program.body,
@@ -90,7 +90,7 @@ describe("Template", () => {
        return {getWindowName}.btoa(str)
      }`);
 
-    var functionDeclaration = Base64Template.single({
+    var functionDeclaration = Base64Template.single<t.FunctionDeclaration>({
       name: "decodeBase64",
       getWindowName: "newWindow",
       getWindow: () => {
@@ -99,6 +99,7 @@ describe("Template", () => {
     });
 
     expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
+    expect(t.isBlockStatement(functionDeclaration.body)).toStrictEqual(true);
     expect(functionDeclaration.body.body[0].type).toStrictEqual(
       "VariableDeclaration"
     );
@@ -124,13 +125,14 @@ describe("Template", () => {
       return {NewWindowName}.btoa(str)
     }`);
 
-    var functionDeclaration = Base64Template.single({
+    var functionDeclaration = Base64Template.single<t.FunctionDeclaration>({
       name: "atob",
       NewWindowTemplate: NewWindowTemplate,
       NewWindowName: "newWindow",
     });
 
     expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
+    expect(t.isBlockStatement(functionDeclaration.body)).toStrictEqual(true);
     expect(functionDeclaration.body.body[0].type).toStrictEqual(
       "VariableDeclaration"
     );
@@ -156,7 +158,7 @@ describe("Template", () => {
       return {NewWindowName}.btoa(str)
     }`);
 
-    var functionDeclaration = Base64Template.single({
+    var functionDeclaration = Base64Template.single<t.FunctionDeclaration>({
       name: "atob",
       NewWindowTemplate: () => NewWindowTemplate,
       NewWindowName: "newWindow",
@@ -185,7 +187,7 @@ describe("Template", () => {
 
     var functionDeclaration = Base64Template.single({
       name: "decodeBase64",
-      property: stringLiteral("atob"),
+      property: t.stringLiteral("atob"),
     });
 
     expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
@@ -196,7 +198,7 @@ describe("Template", () => {
       compact: true,
     });
 
-    expect(output).toContain("return window['atob'](str)");
+    expect(output).toContain('return window["atob"](str)');
   });
 
   test("Variant #9: AST string replacement with Literal node (callback)", async () => {
@@ -207,7 +209,7 @@ describe("Template", () => {
 
     var functionDeclaration = Base64Template.single({
       name: "decodeBase64",
-      property: () => stringLiteral("atob"),
+      property: () => t.stringLiteral("atob"),
     });
 
     expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
@@ -218,6 +220,6 @@ describe("Template", () => {
       compact: true,
     });
 
-    expect(output).toContain("return window['atob'](str)");
+    expect(output).toContain('return window["atob"](str)');
   });
 });
