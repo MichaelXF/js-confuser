@@ -6,48 +6,40 @@ import Template from "../templates/template";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
 import { NodeSymbol, UNSAFE } from "../constants";
+import { getFunctionName } from "../utils/ast-utils";
+import { isFunctionStrictMode } from "../utils/function-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.VariableMasking);
 
-  const transformFunction = (path: NodePath<t.Function>) => {
+  const transformFunction = (fnPath: NodePath<t.Function>) => {
     // Do not apply to getter/setter methods
-    if (path.isObjectMethod() && path.node.kind !== "method") {
+    if (fnPath.isObjectMethod() && fnPath.node.kind !== "method") {
       return;
     }
 
     // Do not apply to class getters/setters
-    if (path.isClassMethod() && path.node.kind !== "method") {
+    if (fnPath.isClassMethod() && fnPath.node.kind !== "method") {
       return;
     }
 
     // Do not apply to async or generator functions
-    if (path.node.generator || path.node.async) {
+    if (fnPath.node.generator || fnPath.node.async) {
       return;
     }
 
     // Do not apply to functions with rest parameters or destructuring
-    if (path.node.params.some((param) => !t.isIdentifier(param))) {
+    if (fnPath.node.params.some((param) => !t.isIdentifier(param))) {
       return;
     }
 
     // Do not apply to 'use strict' functions
-    if (
-      t.isBlockStatement(path.node.body) &&
-      path.node.body.directives.some(
-        (directive) => directive.value.value === "use strict"
-      )
-    ) {
-      return;
-    }
+    if (isFunctionStrictMode(fnPath)) return;
 
     // Do not apply to functions marked unsafe
-    if ((path.node as NodeSymbol)[UNSAFE]) return;
+    if ((fnPath.node as NodeSymbol)[UNSAFE]) return;
 
-    const functionName =
-      ((path.isFunctionDeclaration() || path.isFunctionExpression()) &&
-        path.node.id?.name) ??
-      "anonymous";
+    const functionName = getFunctionName(fnPath);
 
     if (
       !computeProbabilityMap(me.options.variableMasking, (x) => x, functionName)
@@ -55,14 +47,15 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       return;
     }
 
-    const stackName = me.generateRandomIdentifier() + "_stack";
+    const stackName = me.generateRandomIdentifier() + "_varMask";
     const stackMap = new Map<string, number>();
+    let needsStack = false;
 
-    for (const param of path.node.params) {
-      stackMap.set((param as t.Identifier).name, 0);
+    for (const param of fnPath.node.params) {
+      stackMap.set((param as t.Identifier).name, stackMap.size);
     }
 
-    path.traverse({
+    fnPath.traverse({
       BindingIdentifier(identifierPath) {
         const binding = identifierPath.scope.getBinding(
           identifierPath.node.name
@@ -72,11 +65,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           return;
         }
 
-        if (binding.constantViolations.length > 0) {
+        if (binding.kind === "const" && binding.constantViolations.length > 0) {
           return;
         }
 
-        if (binding.scope !== path.scope) {
+        if (binding.scope !== fnPath.scope) {
           return;
         }
 
@@ -94,15 +87,45 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           stackIndex = stackMap.size;
           stackMap.set(identifierPath.node.name, stackIndex);
 
+          let value: t.Expression =
+            (binding.path.node as any).init ?? t.identifier("undefined");
+
+          needsStack = true;
           binding.path.parentPath.replaceWith(
             new Template(`{stackName}[{stackIndex}] = {value}`).single({
               stackName: stackName,
               stackIndex: stackIndex,
-              value:
-                (binding.path.node as any).init ?? t.identifier("undefined"),
+              value: value,
             })
           );
         }
+
+        binding.constantViolations.forEach((constantViolation) => {
+          switch (constantViolation.type) {
+            case "AssignmentExpression":
+            case "UpdateExpression":
+              // Find the Identifier that is being assigned to
+              // and replace it with the stack variable
+              constantViolation.traverse({
+                Identifier(path) {
+                  if (path.node.name === identifierPath.node.name) {
+                    path.replaceWith(
+                      new Template(`{stackName}[{stackIndex}]`).expression({
+                        stackName: stackName,
+                        stackIndex: stackIndex,
+                      })
+                    );
+                  }
+                },
+              });
+
+              break;
+            default:
+              throw new Error(
+                `Unsupported constant violation type: ${constantViolation.type}`
+              );
+          }
+        });
 
         binding.referencePaths.forEach((refPath) => {
           if (!refPath.isReferencedIdentifier()) return;
@@ -118,21 +141,42 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             return;
           }
 
-          refPath.replaceWith(
-            new Template(`{stackName}[{stackIndex}]`).single({
-              stackName: stackName,
-              stackIndex: stackIndex,
-            })
-          );
+          const memberExpression = new Template(
+            `{stackName}[{stackIndex}]`
+          ).expression<t.MemberExpression>({
+            stackName: stackName,
+            stackIndex: stackIndex,
+          });
+
+          needsStack = true;
+          if (
+            t.isCallExpression(refPath.parent) &&
+            refPath.parent.callee === refPath.node
+          ) {
+            refPath.parent.callee = t.memberExpression(
+              memberExpression,
+              t.stringLiteral("call"),
+              true
+            );
+            refPath.parent.arguments.unshift(t.thisExpression());
+          } else {
+            refPath.replaceWith(memberExpression);
+          }
         });
 
         identifierPath.scope.removeBinding(identifierPath.node.name);
       },
     });
 
-    path.node.params = [t.restElement(t.identifier(stackName))];
+    if (!needsStack) return;
 
-    path.scope.registerBinding("param", path.get("params.0") as NodePath, path);
+    fnPath.node.params = [t.restElement(t.identifier(stackName))];
+
+    fnPath.scope.registerBinding(
+      "param",
+      fnPath.get("params.0") as NodePath,
+      fnPath
+    );
   };
 
   return {

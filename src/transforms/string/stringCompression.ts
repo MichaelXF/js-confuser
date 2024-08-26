@@ -3,6 +3,7 @@ import { PluginArg } from "../plugin";
 import * as t from "@babel/types";
 import { Order } from "../../order";
 import { computeProbabilityMap } from "../../probability";
+import { ensureComputedExpression } from "../../utils/ast-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.StringCompression);
@@ -35,6 +36,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   index = stringMap.size;
                   stringMap.set(originalValue, index);
                 }
+
+                ensureComputedExpression(path);
 
                 path.replaceWith(
                   t.callExpression(t.identifier(stringFn), [

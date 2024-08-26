@@ -64,26 +64,12 @@ export interface ObfuscateOptions {
    */
   minify?: boolean;
 
-  /**
-   * ### `es5`
-   *
-   * Converts output to ES5-compatible code. (`true/false`)
-   *
-   * Does not cover all cases such as Promises or Generator functions. Use [Babel](https://babel.dev/).
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-   */
-  es5?: boolean;
-
   renameLabels?: ProbabilityMap<boolean>;
 
   /**
    * ### `renameVariables`
    *
    * Determines if variables should be renamed. (`true/false`)
-   * - Potency High
-   * - Resilience High
-   * - Cost Medium
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -150,10 +136,6 @@ export interface ObfuscateOptions {
    *
    * Use a number to control the percentage from 0 to 1.
    *
-   * - Potency High
-   * - Resilience High
-   * - Cost High
-   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   controlFlowFlattening?: ProbabilityMap<boolean>;
@@ -162,10 +144,6 @@ export interface ObfuscateOptions {
    * ### `globalConcealing`
    *
    * Global Concealing hides global variables being accessed. (`true/false`)
-   *
-   * - Potency Medium
-   * - Resilience High
-   * - Cost Low
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -178,9 +156,7 @@ export interface ObfuscateOptions {
    *
    * `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
    *
-   * - Potency High
-   * - Resilience Medium
-   * - Cost Medium
+   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   stringCompression?: ProbabilityMap<boolean>;
 
@@ -191,9 +167,7 @@ export interface ObfuscateOptions {
    *
    * `"console"` -> `decrypt('<~@rH7+Dert~>')`
    *
-   * - Potency High
-   * - Resilience Medium
-   * - Cost Medium
+   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   stringConcealing?: ProbabilityMap<boolean>;
 
@@ -203,10 +177,6 @@ export interface ObfuscateOptions {
    * String Encoding transforms a string into an encoded representation. (`true/false/0-1`)
    *
    * `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
-   *
-   * - Potency Low
-   * - Resilience Low
-   * - Cost Low
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -219,10 +189,6 @@ export interface ObfuscateOptions {
    *
    * `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
    *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Medium
-   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   stringSplitting?: ProbabilityMap<boolean>;
@@ -232,10 +198,6 @@ export interface ObfuscateOptions {
    *
    * Duplicate Literals Removal replaces duplicate literals with a single variable name. (`true/false`)
    *
-   * - Potency Medium
-   * - Resilience Low
-   * - Cost High
-   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   duplicateLiteralsRemoval?: ProbabilityMap<boolean>;
@@ -244,10 +206,6 @@ export interface ObfuscateOptions {
    * ### `dispatcher`
    *
    * Creates a middleman function to process function calls. (`true/false/0-1`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost High
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -285,10 +243,6 @@ export interface ObfuscateOptions {
    *
    * [Similar to Jscrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)
    *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
-   *
    * ```js
    * // Input
    * function add3(x, y, z){
@@ -308,10 +262,6 @@ export interface ObfuscateOptions {
    * ### `objectExtraction`
    *
    * Extracts object properties into separate variables. (`true/false`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
    *
    * ```js
    * // Input
@@ -340,10 +290,6 @@ export interface ObfuscateOptions {
    *
    * Brings independent declarations to the highest scope. (`true/false`)
    *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost High
-   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   flatten?: ProbabilityMap<boolean>;
@@ -355,10 +301,6 @@ export interface ObfuscateOptions {
    *
    * Use a number to control the percentage from 0 to 1.
    *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
-   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   deadCode?: ProbabilityMap<boolean>;
@@ -367,10 +309,6 @@ export interface ObfuscateOptions {
    * ### `calculator`
    *
    * Creates a calculator function to handle arithmetic and logical expressions. (`true/false/0-1`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -429,10 +367,6 @@ export interface ObfuscateOptions {
      *
      * Number should be in milliseconds.
      *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     startDate?: number | Date | false;
@@ -444,10 +378,6 @@ export interface ObfuscateOptions {
      *
      * Number should be in milliseconds.
      *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     endDate?: number | Date | false;
@@ -456,47 +386,9 @@ export interface ObfuscateOptions {
      * ### `lock.domainLock`
      * Array of regex strings that the `window.location.href` must follow. (`Regex[]` or `string[]`)
      *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     domainLock?: RegExp[] | string[] | false;
-
-    /**
-     * ### `lock.osLock`
-     * Array of operating-systems where the script is allowed to run. (`string[]`)
-     *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
-     * Allowed values: `"linux"`, `"windows"`, `"osx"`, `"android"`, `"ios"`
-     *
-     * Example: `["linux", "windows"]`
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-     */
-    osLock?: ("linux" | "windows" | "osx" | "android" | "ios")[] | false;
-
-    /**
-     * ### `lock.browserLock`
-     * Array of browsers where the script is allowed to run. (`string[]`)
-     *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
-     * Allowed values: `"firefox"`, `"chrome"`, `"iexplorer"`, `"edge"`, `"safari"`, `"opera"`
-     *
-     * Example: `["firefox", "chrome"]`
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-     */
-    browserLock?:
-      | ("firefox" | "chrome" | "iexplorer" | "edge" | "safari" | "opera")[]
-      | false;
 
     /**
      * ### `lock.integrity`
@@ -504,10 +396,6 @@ export interface ObfuscateOptions {
      * Integrity ensures the source code is unchanged. (`true/false/0-1`)
      *
      * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
-     *
-     * - Potency Medium
-     * - Resilience High
-     * - Cost High
      *
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
@@ -527,16 +415,49 @@ export interface ObfuscateOptions {
      * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     countermeasures?: string | boolean;
+
+    customLocks?: {
+      /**
+       * Template lock code that must contain:
+       *
+       * - `{countermeasures}`
+       *
+       * The countermeasures function will be invoked when the lock is triggered.
+       *
+       * ```js
+       * if(window.navigator.userAgent.includes('Chrome')){
+       *   {countermeasures}
+       * }
+       * ```
+       */
+      code: string;
+      percentagePerBlock: number;
+      maxCount: number;
+    }[];
   };
+
+  customStringEncodings?: {
+    /**
+     * Template string decoder that must contain:
+     *
+     * - `{fnName}`
+     *
+     * This function will be invoked by the obfuscated code to DECODE the string.
+     *
+     * ```js
+     * function {fnName}(str){
+     *   return Buffer.from(str, 'base64').toString('utf-8')
+     * }
+     * ```
+     */
+    code: string;
+    encode: (str: string) => string;
+  }[];
 
   /**
    * ### `movedDeclarations`
    *
    * Moves variable declarations to the top of the context. (`true/false`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
    *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
@@ -548,10 +469,6 @@ export interface ObfuscateOptions {
    * An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers
    * understanding your code. (`true/false`)
    *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
-   *
    * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   opaquePredicates?: ProbabilityMap<boolean>;
@@ -560,10 +477,6 @@ export interface ObfuscateOptions {
    * ### `shuffle`
    *
    * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false/0-1`)
-   *
-   * - Potency Medium
-   * - Resilience Low
-   * - Cost Low
    *
    * | Mode | Description |
    * | --- | --- |

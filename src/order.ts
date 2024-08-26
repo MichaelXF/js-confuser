@@ -50,7 +50,5 @@ export enum Order {
 
   RenameVariables = 30,
 
-  ES5 = 31,
-
   Finalizer = 35,
 }

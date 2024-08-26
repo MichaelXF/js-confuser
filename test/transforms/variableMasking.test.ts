@@ -240,7 +240,7 @@ test("Variant #9: Replace all variables with array indexes (middle indexes use a
   );
 
   expect(output).not.toContain("TEST_VARIABLE");
-  expect(output).toContain("]='Updated'");
+  expect(output).toContain(']="Updated"');
 
   var value = "never_called",
     input = (x) => (value = x);
@@ -509,7 +509,7 @@ test("Variant #16: Function with 'this'", async () => {
   );
 
   // Ensure stack applied
-  expect(output).toContain("_stack");
+  expect(output).toContain("_varMask");
 
   // Ensure 'thisFunction' was not changed by stack due to using 'this' keyword
   expect(output).toContain("function thisFunction");

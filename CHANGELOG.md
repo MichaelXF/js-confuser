@@ -7,6 +7,10 @@
 
 - Improved Moved Declaration's ability to move variables as unused function parameters
 
+- Removed ES5 option - Use Babel Instead
+
+- Removed Browser Lock and OS Lock - Use custom Locks instead
+
 # `1.7.3`
 Tamper Protection
 

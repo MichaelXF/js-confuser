@@ -30,6 +30,7 @@ import movedDeclarations from "./transforms/identifier/movedDeclarations";
 import renameLabels from "./transforms/renameLabels";
 import rgf from "./transforms/rgf";
 import flatten from "./transforms/flatten";
+import stringConcealing from "./transforms/string/stringConcealing";
 
 export default class Obfuscator {
   plugins: {
@@ -62,6 +63,7 @@ export default class Obfuscator {
     push(this.options.globalConcealing, globalConcealing);
     push(this.options.variableMasking, variableMasking);
     push(this.options.renameVariables, renameVariables);
+    push(this.options.stringConcealing, stringConcealing);
     push(this.options.stringCompression, stringCompression);
     push(this.options.stringSplitting, stringSplitting);
     push(this.options.shuffle, shuffle);
@@ -150,7 +152,7 @@ export default class Obfuscator {
         code: code,
       };
     } else {
-      throw new Error("Failed to obfuscate the code.");
+      throw new Error("Failed to generate code");
     }
   }
 

@@ -160,11 +160,13 @@ export default class Template {
     return nodes[0] as T;
   }
 
-  expression(variables: TemplateVariables = {}): babelTypes.Expression {
+  expression<T extends babelTypes.Expression>(
+    variables: TemplateVariables = {}
+  ): T {
     const statement = this.single(variables);
 
     babelTypes.assertExpressionStatement(statement);
 
-    return statement.expression;
+    return statement.expression as T;
   }
 }

@@ -159,7 +159,10 @@ describe("obfuscateAST", () => {
     };
     var before = JSON.stringify(AST);
 
-    JsConfuser.obfuscateAST(AST as any, { target: "node", es5: true });
+    JsConfuser.obfuscateAST(AST as any, {
+      target: "node",
+      renameVariables: true,
+    });
 
     var after = JSON.stringify(AST);
 

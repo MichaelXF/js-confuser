@@ -3,6 +3,34 @@ import { NodePath } from "@babel/core";
 import { ok } from "assert";
 
 /**
+ * Ensures a `String Literal` is 'computed' before replacing it with a more complex expression.
+ *
+ * ```js
+ * // Input
+ * {
+ *    "myToBeEncodedString": "value"
+ * }
+ *
+ * // Output
+ * {
+ *    ["myToBeEncodedString"]: "value"
+ * }
+ * ```
+ * @param path
+ */
+export function ensureComputedExpression(path: NodePath<t.StringLiteral>) {
+  if (
+    (t.isObjectMember(path.parent) ||
+      t.isClassMethod(path.parent) ||
+      t.isClassProperty(path.parent)) &&
+    path.parent.key === path.node &&
+    !path.parent.computed
+  ) {
+    path.parent.computed = true;
+  }
+}
+
+/**
  * Retrieves a function name from debugging purposes.
  * - Function Declaration / Expression
  * - Variable Declaration
@@ -40,6 +68,25 @@ export function getFunctionName(path: NodePath<t.Function>): string {
   }
 
   return "anonymous";
+}
+
+export function isModuleImport(path: NodePath<t.StringLiteral>) {
+  // Import Declaration
+  if (path.parentPath.isImportDeclaration()) {
+    return true;
+  }
+
+  // Dynamic Import / require() call
+  if (
+    t.isCallExpression(path.parent) &&
+    (t.isIdentifier(path.parent.callee, { name: "require" }) ||
+      t.isImport(path.parent.callee)) &&
+    path.node === path.parent.arguments[0]
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export function getParentFunctionOrProgram(

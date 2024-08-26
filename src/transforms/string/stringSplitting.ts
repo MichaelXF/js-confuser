@@ -5,6 +5,7 @@ import { computeProbabilityMap } from "../../probability";
 import { binaryExpression, stringLiteral } from "@babel/types";
 import { ok } from "assert";
 import { Order } from "../../order";
+import { ensureComputedExpression } from "../../utils/ast-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.StringSplitting);
@@ -58,6 +59,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           });
 
           parent.right = stringLiteral(last);
+
+          ensureComputedExpression(path);
 
           path.replaceWith(parent);
           path.skip();
