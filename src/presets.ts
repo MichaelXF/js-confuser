@@ -43,7 +43,7 @@ const highPreset: ObfuscateOptions = {
   opaquePredicates: 0.75,
   renameVariables: true,
   renameGlobals: true,
-  shuffle: { hash: 0.5, true: 0.5 },
+  shuffle: true,
   variableMasking: true,
   stringConcealing: true,
   stringCompression: true,

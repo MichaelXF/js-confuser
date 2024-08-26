@@ -11,6 +11,8 @@
 
 - Removed Browser Lock and OS Lock - Use custom Locks instead
 
+- Removed Shuffle Hash option
+
 # `1.7.3`
 Tamper Protection
 
