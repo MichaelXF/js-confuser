@@ -3,7 +3,6 @@ import { NodePath, PluginObj } from "@babel/core";
 import {
   getMemberExpressionPropertyAsString,
   getObjectPropertyAsString,
-  isComputedMemberExpression,
 } from "../../utils/ast-utils";
 import { PluginArg } from "../plugin";
 import { Order } from "../../order";

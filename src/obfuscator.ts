@@ -29,6 +29,7 @@ import { Order } from "./order";
 import movedDeclarations from "./transforms/identifier/movedDeclarations";
 import renameLabels from "./transforms/renameLabels";
 import rgf from "./transforms/rgf";
+import flatten from "./transforms/flatten";
 
 export default class Obfuscator {
   plugins: {
@@ -69,6 +70,7 @@ export default class Obfuscator {
     push(this.options.movedDeclarations, movedDeclarations);
     push(this.options.renameLabels, renameLabels);
     push(this.options.rgf, rgf);
+    push(this.options.flatten, flatten);
 
     push(true, finalizer);
 

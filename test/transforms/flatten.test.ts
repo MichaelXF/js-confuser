@@ -353,7 +353,7 @@ test("Variant #12: Work with RGF enabled", async () => {
   expect(output).toContain("_flat_myFunction");
 
   // Ensure RGF applied
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -518,7 +518,7 @@ test("Variant #17: Don't apply to generator functions", async () => {
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
 
-test("Variant #18: Redefined variable in nested scope", async () => {
+test("Variant #18: Redefined variable in nested scope + Rename Variables", async () => {
   var output = await JsConfuser(
     `
   (function (){

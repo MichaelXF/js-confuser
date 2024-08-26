@@ -62,7 +62,11 @@ export function insertIntoNearestBlockScope(
   // Traverse up the AST until we find a BlockStatement or Program
   let targetPath: NodePath = path;
 
-  while (targetPath && !t.isProgram(targetPath.node)) {
+  while (
+    targetPath &&
+    !t.isBlockStatement(targetPath.node) &&
+    !t.isProgram(targetPath.node)
+  ) {
     targetPath = targetPath.parentPath;
   }
 
@@ -109,66 +113,6 @@ export function hasNestedBinding(path: NodePath, name: string): boolean {
   });
 
   return found;
-}
-
-export function isModifiedIdentifier(path: NodePath<t.Identifier>): boolean {
-  const parent = path.parent;
-
-  // Check if the identifier is on the left-hand side of an assignment
-  if (t.isAssignmentExpression(parent) && parent.left === path.node) {
-    return true;
-  }
-
-  // Check if the identifier is in an update expression (like i++)
-  if (t.isUpdateExpression(parent) && parent.argument === path.node) {
-    return true;
-  }
-
-  // Check if the identifier is being deleted
-  if (
-    t.isUnaryExpression(parent) &&
-    parent.operator === "delete" &&
-    parent.argument === path.node
-  ) {
-    return true;
-  }
-
-  // Check if the identifier is part of a destructuring pattern being assigned
-  if (
-    (t.isObjectPattern(path.parent) || t.isArrayPattern(path.parent)) &&
-    path.key === "elements"
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Determines if the MemberExpression is computed.
- *
- * @param memberPath - The path of the MemberExpression node.
- * @returns True if the MemberExpression is computed; false otherwise.
- */
-export function isComputedMemberExpression(
-  memberExpression: t.MemberExpression
-): boolean {
-  const property = memberExpression.property;
-
-  if (!memberExpression.computed) {
-    // If the property is a non-computed identifier, it is not computed
-    if (t.isIdentifier(property)) {
-      return false;
-    }
-  }
-
-  // If the property is a computed literal (string or number), it is not computed
-  if (t.isStringLiteral(property) || t.isNumericLiteral(property)) {
-    return false;
-  }
-
-  // In all other cases, the property is computed
-  return true;
 }
 
 export function getObjectPropertyAsString(
