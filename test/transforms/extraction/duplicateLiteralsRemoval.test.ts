@@ -194,7 +194,7 @@ test("Variant #9: Undefined as variable name", async () => {
     { target: "node", duplicateLiteralsRemoval: true }
   );
 
-  expect(output).toContain("(undefined=");
+  expect(output).toContain("undefined=");
 
   eval(output);
 });

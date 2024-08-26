@@ -1,26 +1,33 @@
-import * as babel from "@babel/core";
-import * as babelTypes from "@babel/types";
+import { PluginObj } from "@babel/core";
+import * as t from "@babel/types";
 import { ok } from "assert";
 import { PluginArg } from "../plugin";
 import { Order } from "../../order";
 
-type LiteralValue = string | number | boolean;
+function fail(): never {
+  throw new Error("Assertion failed");
+}
+
+type LiteralValue = string | number | boolean | undefined | null;
 const createLiteral = (value: LiteralValue) => {
+  if (value === null) return t.nullLiteral();
+  if (value === undefined) return t.identifier("undefined");
+
   switch (typeof value) {
     case "string":
-      return babelTypes.stringLiteral(value);
+      return t.stringLiteral(value);
 
     case "number":
-      return babelTypes.numericLiteral(value);
+      return t.numericLiteral(value);
 
     case "boolean":
-      return babelTypes.booleanLiteral(value);
+      return t.booleanLiteral(value);
   }
 
   ok(false);
 };
 
-export default ({ Plugin }: PluginArg): babel.PluginObj => {
+export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.DuplicateLiteralsRemoval);
 
   return {
@@ -33,35 +40,59 @@ export default ({ Plugin }: PluginArg): babel.PluginObj => {
           const literalsMap = new Map<LiteralValue, number>();
           const firstTimeMap = new Map<
             LiteralValue,
-            babel.NodePath<babelTypes.Literal>
+            babel.NodePath<t.Literal | t.Identifier>
           >();
 
-          const arrayExpression = babelTypes.arrayExpression([]);
+          const arrayExpression = t.arrayExpression([]);
 
           const createMemberExpression = (index) => {
-            return babelTypes.memberExpression(
-              babelTypes.identifier(arrayName),
-              babelTypes.numericLiteral(index),
+            return t.memberExpression(
+              t.identifier(arrayName),
+              t.numericLiteral(index),
               true
             );
           };
 
           // Traverse through all nodes to find literals
           programPath.traverse({
-            Literal(literalPath) {
+            "Literal|Identifier"(_path) {
+              const literalPath = _path as babel.NodePath<
+                t.Literal | t.Identifier
+              >;
+
               let node = literalPath.node;
-              if (
-                babelTypes.isNullLiteral(node) ||
-                babelTypes.isRegExpLiteral(node) ||
-                babelTypes.isTemplateLiteral(node)
-              )
-                return;
-              const value = node.value;
+              var isUndefined = false;
+              if (literalPath.isIdentifier()) {
+                // Allow 'undefined' to be redefined
+                if (
+                  literalPath.scope.hasBinding(literalPath.node.name, {
+                    noGlobals: true,
+                  })
+                )
+                  return;
+
+                if (literalPath.node.name === "undefined") {
+                  isUndefined = true;
+                } else {
+                  return;
+                }
+              }
+              if (t.isRegExpLiteral(node) || t.isTemplateLiteral(node)) return;
+
+              const value: LiteralValue = isUndefined
+                ? undefined
+                : t.isNullLiteral(node)
+                ? null
+                : t.isLiteral(node)
+                ? node.value
+                : fail();
 
               if (
                 typeof value !== "string" &&
                 typeof value !== "number" &&
-                typeof value !== "boolean"
+                typeof value !== "boolean" &&
+                value !== null &&
+                value !== undefined
               ) {
                 return;
               }
@@ -101,15 +132,9 @@ export default ({ Plugin }: PluginArg): babel.PluginObj => {
           if (arrayExpression.elements.length === 0) return;
 
           // Create the literals array declaration
-          const itemsArrayDeclaration = babelTypes.variableDeclaration(
-            "const",
-            [
-              babelTypes.variableDeclarator(
-                babelTypes.identifier(arrayName),
-                arrayExpression
-              ),
-            ]
-          );
+          const itemsArrayDeclaration = t.variableDeclaration("const", [
+            t.variableDeclarator(t.identifier(arrayName), arrayExpression),
+          ]);
 
           // Insert the array at the top of the program body
           var path = programPath.unshiftContainer(
@@ -118,7 +143,6 @@ export default ({ Plugin }: PluginArg): babel.PluginObj => {
           )[0];
 
           programPath.scope.registerDeclaration(path);
-          console.log(programPath.scope.bindings[arrayName].identifier);
         },
       },
     },
