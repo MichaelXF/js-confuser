@@ -91,5 +91,5 @@ test("Variant #5: Preserve 'use strict' directive", async () => {
     preset: "high",
   });
 
-  expect(output.startsWith("'use strict'")).toStrictEqual(true);
+  expect(output.startsWith('"use strict"')).toStrictEqual(true);
 });

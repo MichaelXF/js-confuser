@@ -60,6 +60,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           parent.right = stringLiteral(last);
 
           path.replaceWith(parent);
+          path.skip();
         },
       },
     },

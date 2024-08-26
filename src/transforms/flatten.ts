@@ -40,6 +40,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       if (fnPath.node.kind !== "method") return;
     }
 
+    // Do not apply to arrow functions
+    if (t.isArrowFunctionExpression(fnPath.node)) return;
+    if (!t.isBlockStatement(fnPath.node.body)) return;
+
+    // Do not apply to non-simple parameter functions
+    if (fnPath.node.params.find((x) => !t.isIdentifier(x))) return;
+
     // Skip if marked as unsafe
     if ((fnPath.node as NodeSymbol)[UNSAFE]) return;
 
@@ -98,7 +105,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             return;
           }
 
-          var cursor = identifierPath;
+          var cursor: NodePath = identifierPath;
           var isDefinedWithin = false;
           do {
             if (cursor.scope === binding.scope) {
@@ -316,7 +323,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     (flattenedFunctionDeclaration as NodeSkip)[SKIP] = true;
 
     // Add the new flattened function at the top level
-    var program = fnPath.findParent((p) => p.isProgram());
+    var program = fnPath.findParent((p) =>
+      p.isProgram()
+    ) as NodePath<t.Program>;
     var p = program.unshiftContainer("body", flattenedFunctionDeclaration);
     program.scope.registerDeclaration(p[0]);
 
@@ -327,7 +336,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
   return {
     visitor: {
       Function: {
-        exit(path: NodePath<t.FunctionDeclaration>) {
+        exit(path: NodePath<t.Function>) {
           flattenFunction(path);
         },
       },

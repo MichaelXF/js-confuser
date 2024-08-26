@@ -87,7 +87,7 @@ it("should be configurable by custom function option", async () => {
   TEST_OUTPUT_3 = "My String 3";
   `;
 
-  var stringsFound = [];
+  var stringsFound: string[] = [];
 
   var output = await JsConfuser(code, {
     target: "node",
@@ -105,9 +105,9 @@ it("should be configurable by custom function option", async () => {
   expect(stringsFound).toContain("My String 3");
 
   // Ensure the strings got changed (except for "My String 2")
-  expect(output).not.toContain("TEST_OUTPUT_1='My String 1'");
-  expect(output).toContain("TEST_OUTPUT_2='My String 2'");
-  expect(output).not.toContain("TEST_OUTPUT_3='My String 3'");
+  expect(output).not.toContain('TEST_OUTPUT_1="My String 1"');
+  expect(output).toContain('TEST_OUTPUT_2="My String 2"');
+  expect(output).not.toContain('TEST_OUTPUT_3="My String 3"');
 
   // Make sure the code still works!
   var TEST_OUTPUT_1, TEST_OUTPUT_2, TEST_OUTPUT_3;

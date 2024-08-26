@@ -66,6 +66,9 @@ export default ({ Plugin }: PluginArg): babel.PluginObj => {
                 return;
               }
 
+              // Skip empty strings
+              if (typeof value === "string" && value.length === 0) return;
+
               var index = -1;
 
               if (literalsMap.has(value)) {

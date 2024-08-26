@@ -71,7 +71,7 @@ test("Variant #4: Do not remove empty strings", async () => {
     duplicateLiteralsRemoval: true,
   });
 
-  expect(output).toContain("'','','',''");
+  expect(output).toContain('"","","",""');
 
   var TEST_ARRAY;
 
