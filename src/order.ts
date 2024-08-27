@@ -8,9 +8,9 @@ export enum Order {
 
   Flatten = 2,
 
-  RGF = 3,
+  Lock = 3, // Includes Integrity & Anti Debug
 
-  Lock = 4, // Includes Integrity & Anti Debug
+  RGF = 4,
 
   Dispatcher = 6,
 

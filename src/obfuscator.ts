@@ -31,6 +31,7 @@ import renameLabels from "./transforms/renameLabels";
 import rgf from "./transforms/rgf";
 import flatten from "./transforms/flatten";
 import stringConcealing from "./transforms/string/stringConcealing";
+import lock from "./lock/lock";
 
 export default class Obfuscator {
   plugins: {
@@ -73,6 +74,7 @@ export default class Obfuscator {
     push(this.options.renameLabels, renameLabels);
     push(this.options.rgf, rgf);
     push(this.options.flatten, flatten);
+    push(this.options.lock, lock);
 
     push(true, finalizer);
 
@@ -120,9 +122,15 @@ export default class Obfuscator {
       startIndex?: number;
     }
   ): babel.types.File {
-    for (var i = options?.startIndex || 0; i < this.plugins.length; i++) {
+    for (let i = options?.startIndex || 0; i < this.plugins.length; i++) {
       this.index = i;
       const { plugin, pluginInstance } = this.plugins[i];
+      if (this.options.verbose) {
+        console.log(
+          `Applying ${pluginInstance.name} (${i + 1}/${this.plugins.length})`
+        );
+      }
+
       babel.traverse(ast, plugin.visitor as babel.Visitor);
 
       if (options?.profiler) {

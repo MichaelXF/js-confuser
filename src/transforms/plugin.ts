@@ -43,11 +43,11 @@ export class PluginInstance {
 
   warn(...messages: any[]) {
     if (this.options.verbose) {
-      console.warn(`[${this.name}]`, ...messages);
+      console.log(`WARN [${this.name}]`, ...messages);
     }
   }
 
-  error(...messages: any[]) {
+  error(...messages: any[]): never {
     throw new Error(`[${this.name}] ${messages.join(", ")}`);
   }
 }

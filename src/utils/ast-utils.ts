@@ -18,7 +18,7 @@ import { ok } from "assert";
  * ```
  * @param path
  */
-export function ensureComputedExpression(path: NodePath<t.StringLiteral>) {
+export function ensureComputedExpression(path: NodePath<t.Node>) {
   if (
     (t.isObjectMember(path.parent) ||
       t.isClassMethod(path.parent) ||

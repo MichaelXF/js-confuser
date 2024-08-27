@@ -1,4 +1,45 @@
 import { ProbabilityMap } from "./probability";
+import Template from "./templates/template";
+
+export interface CustomLock {
+  /**
+   * Template lock code that must contain:
+   *
+   * - `{countermeasures}`
+   *
+   * The countermeasures function will be invoked when the lock is triggered.
+   *
+   * ```js
+   * if(window.navigator.userAgent.includes('Chrome')){
+   *   {countermeasures}
+   * }
+   * ```
+   *
+   * Multiple templates can be passed a string array, a random one will be chosen each time.
+   */
+  code: string | string[] | Template;
+  percentagePerBlock: number;
+  maxCount?: number;
+  minCount?: number;
+}
+
+export interface CustomStringEncoding {
+  /**
+   * Template string decoder that must contain:
+   *
+   * - `{fnName}`
+   *
+   * This function will be invoked by the obfuscated code to DECODE the string.
+   *
+   * ```js
+   * function {fnName}(str){
+   *   return Buffer.from(str, 'base64').toString('utf-8')
+   * }
+   * ```
+   */
+  code: string;
+  encode: (str: string) => string;
+}
 
 export interface ObfuscateOptions {
   /**
@@ -13,8 +54,6 @@ export interface ObfuscateOptions {
    * | Low | 15/25 | 30% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/low.js) |
    *
    * You can extend each preset or all go without them entirely. (`"high"/"medium"/"low"`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   preset?: "high" | "medium" | "low" | false;
 
@@ -25,8 +64,6 @@ export interface ObfuscateOptions {
    *
    * 1. `"node"`
    * 2. `"browser"`
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   target: "node" | "browser";
 
@@ -34,8 +71,6 @@ export interface ObfuscateOptions {
    * ### `indent`
    *
    * Controls the indentation of the output.
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   indent?: 2 | 4 | "tabs";
 
@@ -43,8 +78,6 @@ export interface ObfuscateOptions {
    * ### `compact`
    *
    * Remove's whitespace from the final output. (`true/false`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   compact?: boolean;
 
@@ -59,8 +92,6 @@ export interface ObfuscateOptions {
    * ### `minify`
    *
    * Minifies redundant code. (`true/false`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   minify?: boolean;
 
@@ -70,8 +101,6 @@ export interface ObfuscateOptions {
    * ### `renameVariables`
    *
    * Determines if variables should be renamed. (`true/false`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   renameVariables?: ProbabilityMap<boolean>;
 
@@ -80,7 +109,6 @@ export interface ObfuscateOptions {
    *
    * Renames top-level variables, turn this off for web-related scripts. Enabled by default. (`true/false`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   renameGlobals?: ProbabilityMap<boolean>;
 
@@ -121,7 +149,6 @@ export interface ObfuscateOptions {
    *
    * JSConfuser tries to reuse names when possible, creating very potent code.
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   identifierGenerator?: ProbabilityMap<
     "hexadecimal" | "randomized" | "zeroWidth" | "mangled" | "number"
@@ -136,7 +163,6 @@ export interface ObfuscateOptions {
    *
    * Use a number to control the percentage from 0 to 1.
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   controlFlowFlattening?: ProbabilityMap<boolean>;
 
@@ -145,7 +171,6 @@ export interface ObfuscateOptions {
    *
    * Global Concealing hides global variables being accessed. (`true/false`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   globalConcealing?: ProbabilityMap<boolean>;
 
@@ -156,7 +181,6 @@ export interface ObfuscateOptions {
    *
    * `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   stringCompression?: ProbabilityMap<boolean>;
 
@@ -167,7 +191,6 @@ export interface ObfuscateOptions {
    *
    * `"console"` -> `decrypt('<~@rH7+Dert~>')`
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   stringConcealing?: ProbabilityMap<boolean>;
 
@@ -178,7 +201,6 @@ export interface ObfuscateOptions {
    *
    * `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   stringEncoding?: ProbabilityMap<boolean>;
 
@@ -189,7 +211,6 @@ export interface ObfuscateOptions {
    *
    * `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   stringSplitting?: ProbabilityMap<boolean>;
 
@@ -198,7 +219,6 @@ export interface ObfuscateOptions {
    *
    * Duplicate Literals Removal replaces duplicate literals with a single variable name. (`true/false`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   duplicateLiteralsRemoval?: ProbabilityMap<boolean>;
 
@@ -207,7 +227,6 @@ export interface ObfuscateOptions {
    *
    * Creates a middleman function to process function calls. (`true/false/0-1`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   dispatcher?: ProbabilityMap<boolean>;
 
@@ -232,7 +251,6 @@ export interface ObfuscateOptions {
    * var C6z0jyO=[new Function('a2Fjjl',"function OqNW8x(OqNW8x){console['log'](OqNW8x)}return OqNW8x(...Array.prototype.slice.call(arguments,1))")];(function(){return C6z0jyO[0](C6z0jyO,...arguments)}('Hello World'))
    * ```
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   rgf?: ProbabilityMap<boolean>;
 
@@ -281,7 +299,6 @@ export interface ObfuscateOptions {
    * }
    * ```
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   objectExtraction?: ProbabilityMap<boolean>;
 
@@ -290,7 +307,6 @@ export interface ObfuscateOptions {
    *
    * Brings independent declarations to the highest scope. (`true/false`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   flatten?: ProbabilityMap<boolean>;
 
@@ -301,7 +317,6 @@ export interface ObfuscateOptions {
    *
    * Use a number to control the percentage from 0 to 1.
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   deadCode?: ProbabilityMap<boolean>;
 
@@ -310,7 +325,6 @@ export interface ObfuscateOptions {
    *
    * Creates a calculator function to handle arithmetic and logical expressions. (`true/false/0-1`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   calculator?: ProbabilityMap<boolean>;
 
@@ -322,7 +336,6 @@ export interface ObfuscateOptions {
      *
      * [Identical to Obfuscator.io's Self Defending](https://github.com/javascript-obfuscator/javascript-obfuscator#selfdefending)
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     selfDefending?: boolean;
 
@@ -331,18 +344,8 @@ export interface ObfuscateOptions {
      *
      * Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false/0-1`)
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     antiDebug?: ProbabilityMap<boolean>;
-
-    /**
-     * ### `lock.context`
-     *
-     * Properties that must be present on the `window` object (or `global` for NodeJS). (`string[]`)
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-     */
-    context?: string[];
 
     /**
      * ### `lock.tamperProtection`
@@ -356,7 +359,6 @@ export interface ObfuscateOptions {
      *
      * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/TamperProtection.md).
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     tamperProtection?: boolean | ((varName: string) => boolean);
 
@@ -367,7 +369,6 @@ export interface ObfuscateOptions {
      *
      * Number should be in milliseconds.
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     startDate?: number | Date | false;
 
@@ -378,7 +379,6 @@ export interface ObfuscateOptions {
      *
      * Number should be in milliseconds.
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     endDate?: number | Date | false;
 
@@ -386,7 +386,6 @@ export interface ObfuscateOptions {
      * ### `lock.domainLock`
      * Array of regex strings that the `window.location.href` must follow. (`Regex[]` or `string[]`)
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     domainLock?: RegExp[] | string[] | false;
 
@@ -397,7 +396,6 @@ export interface ObfuscateOptions {
      *
      * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     integrity?: ProbabilityMap<boolean>;
 
@@ -412,54 +410,19 @@ export interface ObfuscateOptions {
      *
      * Otherwise, the obfuscator falls back to crashing the process.
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     countermeasures?: string | boolean;
 
-    customLocks?: {
-      /**
-       * Template lock code that must contain:
-       *
-       * - `{countermeasures}`
-       *
-       * The countermeasures function will be invoked when the lock is triggered.
-       *
-       * ```js
-       * if(window.navigator.userAgent.includes('Chrome')){
-       *   {countermeasures}
-       * }
-       * ```
-       */
-      code: string;
-      percentagePerBlock: number;
-      maxCount: number;
-    }[];
+    customLocks?: CustomLock[];
   };
 
-  customStringEncodings?: {
-    /**
-     * Template string decoder that must contain:
-     *
-     * - `{fnName}`
-     *
-     * This function will be invoked by the obfuscated code to DECODE the string.
-     *
-     * ```js
-     * function {fnName}(str){
-     *   return Buffer.from(str, 'base64').toString('utf-8')
-     * }
-     * ```
-     */
-    code: string;
-    encode: (str: string) => string;
-  }[];
+  customStringEncodings?: CustomStringEncoding[];
 
   /**
    * ### `movedDeclarations`
    *
    * Moves variable declarations to the top of the context. (`true/false`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   movedDeclarations?: ProbabilityMap<boolean>;
 
@@ -469,7 +432,6 @@ export interface ObfuscateOptions {
    * An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers
    * understanding your code. (`true/false`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   opaquePredicates?: ProbabilityMap<boolean>;
 
@@ -484,7 +446,6 @@ export interface ObfuscateOptions {
    * | `true`| Arrays are shifted *n* elements, unshifted at runtime |
    * | `false` | Feature disabled |
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   shuffle?: ProbabilityMap<boolean | "hash">;
 
@@ -493,7 +454,6 @@ export interface ObfuscateOptions {
    *
    * Enable logs to view the obfuscator's state. (`true/false`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   verbose?: boolean;
 
@@ -502,7 +462,6 @@ export interface ObfuscateOptions {
    *
    * Set of global variables. *Optional*. (`Set<string>`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   globalVariables?: Set<string>;
 
@@ -511,7 +470,6 @@ export interface ObfuscateOptions {
    *
    * Enable debug comments. (`true/false`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   debugComments?: boolean;
 
@@ -520,7 +478,6 @@ export interface ObfuscateOptions {
    *
    * Modified functions will retain the correct `function.length` property. Enabled by default. (`true/false`)
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   preserveFunctionLength?: boolean;
 

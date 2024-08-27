@@ -97,15 +97,6 @@ export function validateOptions(options: ObfuscateOptions) {
     }
   });
 
-  if (
-    options.target === "node" &&
-    options.lock &&
-    options.lock.browserLock &&
-    options.lock.browserLock.length
-  ) {
-    throw new TypeError('browserLock can only be used when target="browser"');
-  }
-
   if (options.lock) {
     ok(typeof options.lock === "object", "options.lock must be an object");
     Object.keys(options.lock).forEach((key) => {
@@ -114,41 +105,12 @@ export function validateOptions(options: ObfuscateOptions) {
       }
     });
 
-    // Validate browser-lock option
-    if (
-      options.lock.browserLock &&
-      typeof options.lock.browserLock !== "undefined"
-    ) {
-      ok(
-        Array.isArray(options.lock.browserLock),
-        "browserLock must be an array"
-      );
-      ok(
-        !options.lock.browserLock.find(
-          (browserName) => !validBrowsers.has(browserName)
-        ),
-        'Invalid browser name. Allowed: "firefox", "chrome", "iexplorer", "edge", "safari", "opera"'
-      );
-    }
-    // Validate os-lock option
-    if (options.lock.osLock && typeof options.lock.osLock !== "undefined") {
-      ok(Array.isArray(options.lock.osLock), "osLock must be an array");
-      ok(
-        !options.lock.osLock.find((osName) => !validOses.has(osName)),
-        'Invalid OS name. Allowed: "windows", "linux", "osx", "ios", "android"'
-      );
-    }
     // Validate domain-lock option
     if (
       options.lock.domainLock &&
       typeof options.lock.domainLock !== "undefined"
     ) {
       ok(Array.isArray(options.lock.domainLock), "domainLock must be an array");
-    }
-
-    // Validate context option
-    if (options.lock.context && typeof options.lock.context !== "undefined") {
-      ok(Array.isArray(options.lock.context), "context must be an array");
     }
 
     // Validate start-date option
@@ -215,6 +177,19 @@ export function applyDefaultsToOptions(
   if (options.lock) {
     if (options.lock.selfDefending) {
       options.compact = true; // self defending forcibly enables this
+    }
+
+    if (!options.lock.customLocks) {
+      options.lock.customLocks = [];
+    }
+
+    // Convert 'startDate' and 'endDate' to Dates
+    if (typeof options.lock.startDate === "number") {
+      options.lock.startDate = new Date(options.lock.startDate);
+    }
+
+    if (typeof options.lock.endDate === "number") {
+      options.lock.endDate = new Date(options.lock.endDate);
     }
   }
 
