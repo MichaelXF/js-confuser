@@ -8,6 +8,7 @@ import { Order } from "../order";
 import { NodeSymbol, UNSAFE } from "../constants";
 import { getFunctionName } from "../utils/ast-utils";
 import { isFunctionStrictMode } from "../utils/function-utils";
+import { ok } from "assert";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.VariableMasking);
@@ -60,111 +61,123 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         const binding = identifierPath.scope.getBinding(
           identifierPath.node.name
         );
+        if (!binding || binding.kind === "const") return;
 
-        if (!binding) {
+        if (binding.path.isIdentifier()) {
+          // Parameter check
+          if (
+            !fnPath.node.params.some(
+              (param) =>
+                t.isIdentifier(param) &&
+                param.name === (binding.path.node as t.Identifier).name
+            )
+          ) {
+            return;
+          }
+        } else if (binding.path.isVariableDeclarator()) {
+          if (binding.path.parentPath.node?.type !== "VariableDeclaration")
+            return;
+          if (binding.path.parentPath.node.declarations.length > 1) return;
+        } else {
           return;
         }
 
-        if (binding.kind === "const" && binding.constantViolations.length > 0) {
-          return;
-        }
-
-        if (binding.scope !== fnPath.scope) {
-          return;
-        }
+        needsStack = true;
 
         let stackIndex = stackMap.get(identifierPath.node.name);
-
         if (typeof stackIndex === "undefined") {
-          if (
-            !binding.path.isVariableDeclarator() ||
-            !binding.path.parentPath.isVariableDeclaration() ||
-            binding.path.parentPath.node.declarations.length !== 1
-          ) {
-            return;
-          }
-
           stackIndex = stackMap.size;
           stackMap.set(identifierPath.node.name, stackIndex);
-
-          let value: t.Expression =
-            (binding.path.node as any).init ?? t.identifier("undefined");
-
-          needsStack = true;
-          binding.path.parentPath.replaceWith(
-            new Template(`{stackName}[{stackIndex}] = {value}`).single({
-              stackName: stackName,
-              stackIndex: stackIndex,
-              value: value,
-            })
-          );
         }
 
-        binding.constantViolations.forEach((constantViolation) => {
-          switch (constantViolation.type) {
-            case "AssignmentExpression":
-            case "UpdateExpression":
-              // Find the Identifier that is being assigned to
-              // and replace it with the stack variable
-              constantViolation.traverse({
-                Identifier(path) {
-                  if (path.node.name === identifierPath.node.name) {
-                    path.replaceWith(
-                      new Template(`{stackName}[{stackIndex}]`).expression({
-                        stackName: stackName,
-                        stackIndex: stackIndex,
-                      })
-                    );
-                  }
-                },
-              });
+        const memberExpression = new Template(`
+          ${stackName}[${stackIndex}]
+          `).expression<t.MemberExpression>();
 
-              break;
-            default:
-              throw new Error(
-                `Unsupported constant violation type: ${constantViolation.type}`
-              );
-          }
-        });
-
-        binding.referencePaths.forEach((refPath) => {
-          if (!refPath.isReferencedIdentifier()) return;
+        binding.referencePaths.forEach((referencePath) => {
+          var callExpressionChild = referencePath;
 
           if (
-            refPath.getFunctionParent() !== binding.path.getFunctionParent()
+            callExpressionChild &&
+            callExpressionChild.parentPath?.isCallExpression() &&
+            callExpressionChild.parentPath.node.callee ===
+              callExpressionChild.node
           ) {
-            return;
-          }
-
-          const refBiding = refPath.scope.getBinding(refPath.node.name);
-          if (refBiding !== binding) {
-            return;
-          }
-
-          const memberExpression = new Template(
-            `{stackName}[{stackIndex}]`
-          ).expression<t.MemberExpression>({
-            stackName: stackName,
-            stackIndex: stackIndex,
-          });
-
-          needsStack = true;
-          if (
-            t.isCallExpression(refPath.parent) &&
-            refPath.parent.callee === refPath.node
-          ) {
-            refPath.parent.callee = t.memberExpression(
-              memberExpression,
-              t.stringLiteral("call"),
-              true
+            callExpressionChild.parentPath.replaceWith(
+              t.callExpression(
+                t.memberExpression(
+                  t.cloneNode(memberExpression),
+                  t.identifier("call")
+                ),
+                [
+                  t.thisExpression(),
+                  ...callExpressionChild.parentPath.node.arguments,
+                ]
+              )
             );
-            refPath.parent.arguments.unshift(t.thisExpression());
-          } else {
-            refPath.replaceWith(memberExpression);
+
+            return;
           }
+
+          referencePath.replaceWith(t.cloneNode(memberExpression));
         });
 
-        identifierPath.scope.removeBinding(identifierPath.node.name);
+        [binding.path, ...binding.constantViolations].forEach(
+          (constantViolation) => {
+            constantViolation.traverse({
+              Identifier(idPath) {
+                const cBinding = idPath.scope.getBinding(idPath.node.name);
+                if (cBinding !== binding) return;
+
+                var replacePath: NodePath = idPath;
+                var valueNode: t.Expression | null = null;
+
+                var forInOfChild = idPath.find(
+                  (p) =>
+                    p.parentPath?.isForInStatement() ||
+                    p.parentPath?.isForOfStatement()
+                );
+
+                var variableDeclarationChild = idPath.find((p) =>
+                  p.parentPath?.isVariableDeclarator()
+                );
+
+                if (
+                  variableDeclarationChild &&
+                  t.isVariableDeclarator(variableDeclarationChild.parent) &&
+                  variableDeclarationChild.parent.id ===
+                    variableDeclarationChild.node
+                ) {
+                  replacePath = variableDeclarationChild.parentPath.parentPath;
+                  valueNode =
+                    variableDeclarationChild.parent.init ||
+                    t.identifier("undefined");
+                }
+
+                if (
+                  forInOfChild &&
+                  (t.isForInStatement(forInOfChild.parent) ||
+                    t.isForOfStatement(forInOfChild.parent)) &&
+                  forInOfChild.parent.left === forInOfChild.node
+                ) {
+                  replacePath = forInOfChild;
+                  valueNode = null;
+                }
+
+                let replaceExpr: t.Node = t.cloneNode(memberExpression);
+                if (valueNode) {
+                  replaceExpr = t.assignmentExpression(
+                    "=",
+                    replaceExpr,
+                    valueNode
+                  );
+                }
+
+                replacePath.replaceWith(replaceExpr);
+              },
+            });
+          }
+        );
       },
     });
 

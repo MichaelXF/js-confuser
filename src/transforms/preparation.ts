@@ -123,13 +123,39 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       VariableDeclaration: {
         exit(path) {
           if (path.node.declarations.length > 1) {
-            var extraDeclarations = path.node.declarations.slice(1);
-            path.node.declarations.length = 1;
-            path.insertAfter(
-              extraDeclarations.map((declaration) =>
-                t.variableDeclaration(path.node.kind, [declaration])
-              )
-            );
+            // E.g. for (var i = 0, j = 1;;)
+            if (path.key === "init" && path.parentPath.isForStatement()) {
+              if (
+                !path.parentPath.node.test &&
+                !path.parentPath.node.update &&
+                path.node.kind === "var"
+              ) {
+                path.parentPath.insertBefore(
+                  path.node.declarations.map((declaration) =>
+                    t.variableDeclaration(path.node.kind, [declaration])
+                  )
+                );
+                path.remove();
+              }
+            } else {
+              if (path.parentPath.isExportNamedDeclaration()) {
+                path.parentPath.replaceWithMultiple(
+                  path.node.declarations.map((declaration) =>
+                    t.exportNamedDeclaration(
+                      t.variableDeclaration(path.node.kind, [declaration])
+                    )
+                  )
+                );
+              } else {
+                path.replaceWithMultiple(
+                  path.node.declarations.map((declaration) =>
+                    t.variableDeclaration(path.node.kind, [declaration])
+                  )
+                );
+
+                path.scope.crawl();
+              }
+            }
           }
         },
       },

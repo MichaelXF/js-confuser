@@ -496,11 +496,14 @@ test("Variant #16: Function with 'this'", async () => {
 
     var thisFunctionExpression2;
 
-    thisFunctionExpression2 = function(){
+    thisFunctionExpression2 = function(...args){
+      if(args.length !== 3) {
+        throw new Error("Invalid args passed in")
+      }
       return this;
     }
 
-    return thisFunctionDeclaration() || thisFunctionExpression1() || thisFunctionExpression2();
+    return thisFunctionDeclaration() || thisFunctionExpression1() || thisFunctionExpression2(1,...[2,3]);
   }
 
   TEST_OUTPUT = stackFunction() === undefined;
@@ -570,4 +573,66 @@ test("Variant #18: Preserve function.length property", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual(6);
+});
+
+test("Variant #19: For, For In/Of Statement", async () => {
+  var fnNames: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function declarationInitializer(){
+      var items = [1,2,3,4,5], output = 0;
+      for(var i1 = 0; i1 < items.length; i1++) {
+        output += items[i1]
+      }
+      for(var i2 in items) {
+        output += items[i2] * 2
+      }
+      for(var item of items) {
+        output += item * 2
+      }
+      return output;
+    }
+
+    function nonDeclarationInitializer(){
+      var items = [5,6,7,8,9,10], output = 0, i1, item;
+      for(i1 = 0; i1 < items.length; i1++) {
+        output += items[i1]
+      }
+      for(i1 in items) {
+        output += items[i1] * 2
+      }
+      for(item of items) {
+        output += item * 2
+      }
+      return output;
+    }
+
+    TEST_OUTPUT = declarationInitializer() + nonDeclarationInitializer();
+    `,
+    {
+      target: "node",
+      variableMasking: (fnName) => {
+        fnNames.push(fnName);
+        return true;
+      },
+    }
+  );
+
+  expect(fnNames).toStrictEqual([
+    "declarationInitializer",
+    "nonDeclarationInitializer",
+  ]);
+  expect(code).toContain("_varMask");
+
+  // Ensure local variables got replaced
+  expect(code).not.toContain("i1");
+  expect(code).not.toContain("i2");
+  expect(code).not.toContain("item");
+  expect(code).not.toContain("items");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(300);
 });
