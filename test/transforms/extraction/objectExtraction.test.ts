@@ -294,7 +294,6 @@ test("Variant #9: Not extract properties on objects when the variable gets reass
 
 test("Variant #10: Not extract properties on objects with methods referencing 'this'", async () => {
   var code = `
-    
     var TEST_OBJECT = {
       key: "value",
       getKey: function(){
