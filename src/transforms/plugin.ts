@@ -27,8 +27,12 @@ export class PluginInstance {
     return this.obfuscator.options;
   }
 
+  get globalState() {
+    return this.obfuscator.globalState;
+  }
+
   getPlaceholder(suffix = "") {
-    return "__p_" + getRandomString(6) + (suffix ? "_" + suffix : "");
+    return "__p_" + getRandomString(4) + (suffix ? "_" + suffix : "");
   }
 
   generateRandomIdentifier() {

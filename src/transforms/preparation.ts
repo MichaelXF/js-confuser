@@ -11,6 +11,7 @@ import {
   variableFunctionName,
 } from "../constants";
 import { ok } from "assert";
+import { getPatternIdentifierNames } from "../utils/ast-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Preparation);
@@ -147,13 +148,25 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   )
                 );
               } else {
-                path.replaceWithMultiple(
-                  path.node.declarations.map((declaration) =>
-                    t.variableDeclaration(path.node.kind, [declaration])
-                  )
-                );
+                path
+                  .replaceWithMultiple(
+                    path.node.declarations.map((declaration, i) => {
+                      var names = getPatternIdentifierNames(
+                        path.get("declarations")[i]
+                      );
+                      names.forEach((name) => {
+                        path.scope.removeBinding(name);
+                      });
 
-                path.scope.crawl();
+                      var newNode = t.variableDeclaration(path.node.kind, [
+                        declaration,
+                      ]);
+                      return newNode;
+                    })
+                  )
+                  .forEach((path) => {
+                    path.scope.registerDeclaration(path);
+                  });
               }
             }
           }

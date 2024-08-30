@@ -8,7 +8,7 @@ export enum Order {
 
   Flatten = 2,
 
-  Lock = 3, // Includes Integrity & Anti Debug
+  Lock = 3, // Includes Anti Debug
 
   RGF = 4,
 
@@ -19,8 +19,6 @@ export enum Order {
   Calculator = 9,
 
   ControlFlowFlattening = 10,
-
-  Eval = 11,
 
   GlobalConcealing = 12,
 
@@ -38,8 +36,6 @@ export enum Order {
 
   Shuffle = 24,
 
-  NameRecycling = 25,
-
   MovedDeclarations = 26,
 
   RenameLabels = 27,
@@ -51,4 +47,6 @@ export enum Order {
   RenameVariables = 30,
 
   Finalizer = 35,
+
+  Integrity = 36, // Must run last
 }

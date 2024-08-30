@@ -102,7 +102,7 @@ export default class Template {
     traverse(ast, {
       Identifier(path: NodePath<babelTypes.Identifier>) {
         const name = path.node.name;
-        if (allVariables[name]) {
+        if (astNames.has(name)) {
           let value = allVariables[name];
           if (typeof value === "function") {
             value = value();
@@ -127,7 +127,10 @@ export default class Template {
 
     let file: babelTypes.File;
     try {
-      file = parse(output, { sourceType: "module" });
+      file = parse(output, {
+        sourceType: "module",
+        allowReturnOutsideFunction: true,
+      });
     } catch (e) {
       throw new Error(
         output + "\n" + "Template failed to parse: " + (e as Error).message

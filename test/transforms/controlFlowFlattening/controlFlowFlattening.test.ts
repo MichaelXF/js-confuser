@@ -33,7 +33,7 @@ test("Variant #1: Obfuscate code and still execute in correct order", async () =
   expect(TEST_OUTPUT).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 });
 
-test("Variant #2: Obfuscate for loops", async () => {
+test("Variant #2: Properly handle for-loop", async () => {
   var code = `
     var array = [];
 
@@ -52,9 +52,6 @@ test("Variant #2: Obfuscate for loops", async () => {
   // Ensure Control Flow Flattening applied
   expect(output).toContain("while");
 
-  // Ensure the for statement got flattened
-  expect(output).not.toContain("for");
-
   // Ensure the output is the exact same
   var TEST_OUTPUT;
 
@@ -62,7 +59,7 @@ test("Variant #2: Obfuscate for loops", async () => {
   expect(TEST_OUTPUT).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 });
 
-test("Variant #3: Obfuscate while loops", async () => {
+test("Variant #3: Properly handle while-loop", async () => {
   var code = `
     var array = [];
     var i = 1;
@@ -81,7 +78,7 @@ test("Variant #3: Obfuscate while loops", async () => {
   });
 
   // Ensure Control Flow Flattening applied
-  expect(output).toContain("while");
+  expect(output).toContain("switch");
 
   // Ensure the output is the exact same
   var TEST_OUTPUT;
@@ -90,7 +87,7 @@ test("Variant #3: Obfuscate while loops", async () => {
   expect(TEST_OUTPUT).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 });
 
-test("Variant #4: Work with break statements", async () => {
+test("Variant #4: Properly handle break statements", async () => {
   var code = `
 
     var TEST_ARRAY = [];
@@ -121,7 +118,7 @@ test("Variant #4: Work with break statements", async () => {
   expect(TEST_OUTPUT).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 });
 
-test("Variant #5: Don't obfuscate code with `let` (Lexically bound variables)", async () => {
+test("Variant #5: Properly handle 'let' variables", async () => {
   var code = `
     let array = [];
 
@@ -144,8 +141,8 @@ test("Variant #5: Don't obfuscate code with `let` (Lexically bound variables)", 
     controlFlowFlattening: true,
   });
 
-  // Ensure Control Flow Flattening did NOT apply here
-  expect(output).not.toContain("while");
+  // Ensure Control Flow Flattening applied
+  expect(output).toContain("while");
 
   // Ensure the output is the exact same
   var TEST_OUTPUT;
@@ -154,7 +151,7 @@ test("Variant #5: Don't obfuscate code with `let` (Lexically bound variables)", 
   expect(TEST_OUTPUT).toStrictEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 });
 
-test("Variant #6: Don't obfuscate code with `let` (Lexically bound variables)", async () => {
+test("Variant #6: Properly handle 'let' in for-loops", async () => {
   var code = `
     var array=[];
     for ( let i =1; i <= 10; i++ ) {
@@ -169,8 +166,8 @@ test("Variant #6: Don't obfuscate code with `let` (Lexically bound variables)", 
     controlFlowFlattening: true,
   });
 
-  // Ensure Control Flow Flattening did NOT apply here
-  expect(output).not.toContain("while");
+  // Ensure Control Flow Flattening did applied
+  expect(output).toContain("while");
 
   // Ensure the output is the exact same
   var TEST_OUTPUT;
@@ -381,7 +378,7 @@ test("Variant #11: Flatten nested if statements", async () => {
   expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
 });
 
-test("Variant #12: Flatten nested for loops", async () => {
+test("Variant #12: Properly handle nested for loops", async () => {
   var output = await JsConfuser(
     `
     TEST_ARRAY = [];
@@ -407,8 +404,7 @@ test("Variant #12: Flatten nested for loops", async () => {
     }
   );
 
-  expect(output).not.toContain("for(var i)");
-  expect(output).not.toContain("for(var j)");
+  expect(output).toContain("switch");
 
   var TEST_ARRAY;
 
@@ -416,7 +412,7 @@ test("Variant #12: Flatten nested for loops", async () => {
   expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
 });
 
-test("Variant #13: Flatten nested while loops", async () => {
+test("Variant #13: Properly handle nested while-loops", async () => {
   var output = await JsConfuser(
     `
     TEST_ARRAY = [];
@@ -450,14 +446,13 @@ test("Variant #13: Flatten nested while loops", async () => {
 
   var TEST_ARRAY;
 
-  expect(output).not.toContain("while(i<0)");
-  expect(output).not.toContain("while(j<4)");
+  expect(output).toContain("switch");
 
   eval(output);
   expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
 });
 
-test("Variant #14: Flatten nested switch statements", async () => {
+test("Variant #14: Properly handle nested switch statements", async () => {
   var output = await JsConfuser(
     `
     TEST_ARRAY = [];
@@ -497,8 +492,7 @@ test("Variant #14: Flatten nested switch statements", async () => {
     }
   );
 
-  expect(output).not.toContain("switch(i");
-  expect(output).not.toContain("switch(j");
+  expect(output).toContain("while");
 
   var TEST_ARRAY;
 
@@ -575,7 +569,7 @@ test("Variant #17: Flatten with infinite for loop and break", async () => {
     }
   );
 
-  expect(output).not.toContain("for(;");
+  expect(output).toContain("while");
 
   var TEST_ARRAY;
 
@@ -652,7 +646,7 @@ test("Variant #21: Don't move Import Declarations", async () => {
 
   // Convert to runnable code
   output = output.replace(
-    `import{createHash}from'crypto';`,
+    `import{createHash}from"crypto";`,
     "const {createHash}=require('crypto');"
   );
 
@@ -776,7 +770,7 @@ test("Variant #24: Nested function-calls with labeled breaks/continues", async (
     controlFlowFlattening: true,
     renameVariables: true,
     identifierGenerator: "mangled",
-    stack: true,
+    variableMasking: true,
   });
 
   var TEST_OUTPUT;
@@ -969,7 +963,7 @@ test("Variant #29: Nested labeled break and continue statements with RGF enabled
   expect(TEST_OUTPUT).toStrictEqual(15);
 });
 
-test("Variant #30: Obfuscate switch statements", async () => {
+test("Variant #30: Properly handle switch statements", async () => {
   var output = await JsConfuser(
     `
   switch("DON'T CHANGE ME"){} // Empty switch for testing
@@ -1060,10 +1054,6 @@ test("Variant #30: Obfuscate switch statements", async () => {
 
   // Ensure Control Flow Flattening applied
   expect(output).toContain("while");
-
-  // Ensure switch-statements got changed
-  expect(output).not.toContain("switch(true)");
-  expect(output).not.toContain("switch(TEST_OUTPUT)");
 
   var TEST_OUTPUT;
   eval(output);

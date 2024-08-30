@@ -1,6 +1,6 @@
 import JsConfuser from "../../../src/index";
 
-it("should run correctly", async () => {
+test("Variant #1: Run correctly", async () => {
   var code = `
   function TEST_FUNCTION(){
     input_test1(true) 
@@ -9,7 +9,7 @@ it("should run correctly", async () => {
   TEST_FUNCTION();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     lock: { integrity: true, countermeasures: false },
   });
@@ -26,17 +26,16 @@ it("should run correctly", async () => {
   expect(value).toStrictEqual(true);
 });
 
-it("should not run when source code is modified", async () => {
+test("Variant #2: Don't run when source code is modified", async () => {
   var code = `
   function TEST_FUNCTION(){
     input("Hello World") 
   }
 
   TEST_FUNCTION();
-  
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     lock: { integrity: true, countermeasures: false },
   });
@@ -58,7 +57,7 @@ it("should not run when source code is modified", async () => {
   expect(value).toStrictEqual("never_called");
 });
 
-it("should run countermeasures function when changed", async () => {
+test("Variant #3: Run countermeasures function when changed", async () => {
   var code = `
   function TEST_FUNCTION(){
     input("The code was never changed") 
@@ -72,7 +71,7 @@ it("should run countermeasures function when changed", async () => {
   
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     lock: { integrity: true, countermeasures: "TEST_COUNTERMEASURES" },
   });
@@ -95,7 +94,7 @@ it("should run countermeasures function when changed", async () => {
   expect(value).toStrictEqual("countermeasures");
 });
 
-it("should error when countermeasures function doesn't exist", async () => {
+test("Variant #4: Error when countermeasures function doesn't exist", async () => {
   var code = `
   function TEST_FUNCTION(){
     input("The code was never changed") 
@@ -106,7 +105,7 @@ it("should error when countermeasures function doesn't exist", async () => {
 
   var errorCaught;
   try {
-    var output = await JsConfuser(code, {
+    var { code: output } = await JsConfuser.obfuscate(code, {
       target: "node",
       lock: { integrity: true, countermeasures: "TEST_COUNTERMEASURES" },
     });
@@ -121,14 +120,17 @@ it("should error when countermeasures function doesn't exist", async () => {
   expect(errorCaught.toString()).toContain("TEST_COUNTERMEASURES");
 });
 
-it("should work on High Preset", async () => {
-  var output = await JsConfuser(`TEST_OUTPUT = ("Hello World")`, {
-    target: "node",
-    preset: "high",
-    lock: {
-      integrity: true,
-    },
-  });
+test("Variant #5: Work on High Preset", async () => {
+  var { code: output } = await JsConfuser.obfuscate(
+    `TEST_OUTPUT = ("Hello World")`,
+    {
+      target: "node",
+      preset: "high",
+      lock: {
+        integrity: true,
+      },
+    }
+  );
 
   var TEST_OUTPUT;
   eval(output);
@@ -136,8 +138,8 @@ it("should work on High Preset", async () => {
   expect(TEST_OUTPUT).toStrictEqual("Hello World");
 });
 
-it("should work with RGF enabled", async () => {
-  var output = await JsConfuser(
+test("Variant #6: Work with RGF enabled", async () => {
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function getTestOutput(){
     return "Hello World";

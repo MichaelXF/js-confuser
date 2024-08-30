@@ -5,7 +5,7 @@ import { Order } from "../order";
 import stringEncoding from "./string/stringEncoding";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.Flatten);
+  const me = Plugin(Order.Finalizer);
   const stringEncodingPlugin = stringEncoding(me);
 
   return {

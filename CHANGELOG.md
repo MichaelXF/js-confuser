@@ -3,7 +3,7 @@
 
 - New option `renameLabels` to control if/which labels get renamed. Previously enabled but was not configurable.
 
-- RGF no longers uses `new Function`
+- RGF no longers uses `new Function` instead uses `eval`
 
 - Improved Moved Declaration's ability to move variables as unused function parameters
 
@@ -12,6 +12,8 @@
 - Removed Browser Lock and OS Lock - Use custom Locks instead
 
 - Removed Shuffle Hash option
+
+- Control Flow Flattening no longer flattens `For Statement`/`While Statement/`Do Statement` for performance reasons. It now applies to `FunctionDeclaration` and flattens functions.
 
 # `1.7.3`
 Tamper Protection

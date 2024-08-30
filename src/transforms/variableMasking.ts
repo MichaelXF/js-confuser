@@ -78,6 +78,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (binding.path.parentPath.node?.type !== "VariableDeclaration")
             return;
           if (binding.path.parentPath.node.declarations.length > 1) return;
+          if (!t.isIdentifier(binding.path.parentPath.node.declarations[0].id))
+            return;
         } else {
           return;
         }
@@ -125,7 +127,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         [binding.path, ...binding.constantViolations].forEach(
           (constantViolation) => {
             constantViolation.traverse({
-              Identifier(idPath) {
+              "ReferencedIdentifier|BindingIdentifier"(idPath) {
+                if (!idPath.isIdentifier()) return;
+
                 const cBinding = idPath.scope.getBinding(idPath.node.name);
                 if (cBinding !== binding) return;
 

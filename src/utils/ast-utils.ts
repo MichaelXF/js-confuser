@@ -2,6 +2,53 @@ import * as t from "@babel/types";
 import { NodePath } from "@babel/core";
 import { ok } from "assert";
 
+export function containsLexicallyBoundVariables(path: NodePath): boolean {
+  var foundLexicalDeclaration = false;
+
+  path.traverse({
+    VariableDeclaration(declarationPath) {
+      if (
+        declarationPath.node.kind === "let" ||
+        declarationPath.node.kind === "const"
+      ) {
+        foundLexicalDeclaration = true;
+        declarationPath.stop();
+      }
+    },
+
+    ClassDeclaration(declarationPath) {
+      foundLexicalDeclaration = true;
+      declarationPath.stop();
+    },
+  });
+
+  return foundLexicalDeclaration;
+}
+
+export function getPatternIdentifierNames(path: NodePath): string[] {
+  var names = new Set<string>();
+
+  var functionParent = path.find((parent) => parent.isFunction());
+
+  path.traverse({
+    BindingIdentifier: (bindingPath) => {
+      var bindingFunctionParent = bindingPath.find((parent) =>
+        parent.isFunction()
+      );
+      if (functionParent === bindingFunctionParent) {
+        names.add(bindingPath.node.name);
+      }
+    },
+  });
+
+  // Check if the path itself is a binding identifier
+  if (path.isBindingIdentifier()) {
+    names.add(path.node.name);
+  }
+
+  return Array.from(names);
+}
+
 /**
  * Ensures a `String Literal` is 'computed' before replacing it with a more complex expression.
  *

@@ -32,6 +32,10 @@ import rgf from "./transforms/rgf";
 import flatten from "./transforms/flatten";
 import stringConcealing from "./transforms/string/stringConcealing";
 import lock from "./lock/lock";
+import integrity from "./lock/integrity";
+import { Statement } from "@babel/types";
+import controlFlowFlattening from "./transforms/controlFlowFlattening";
+import variableConcealing from "./transforms/identifier/variableConcealing";
 
 export default class Obfuscator {
   plugins: {
@@ -41,6 +45,19 @@ export default class Obfuscator {
   options: ObfuscateOptions;
 
   totalPossibleTransforms: number = 0;
+
+  globalState = {
+    lock: {
+      integrity: {
+        hashFnName: "",
+        sensitivityRegex: / |\n|;|,|\{|\}|\(|\)|\.|\[|\]/g,
+      },
+
+      createCountermeasuresCode: (): Statement[] => {
+        throw new Error("Not implemented");
+      },
+    },
+  };
 
   public constructor(userOptions: ObfuscateOptions) {
     validateOptions(userOptions);
@@ -56,27 +73,32 @@ export default class Obfuscator {
     };
 
     push(true, preparation);
-    push(this.options.deadCode, deadCode);
-
-    push(this.options.dispatcher, dispatcher);
-    push(this.options.duplicateLiteralsRemoval, duplicateLiteralsRemoval);
     push(this.options.objectExtraction, objectExtraction);
-    push(this.options.globalConcealing, globalConcealing);
-    push(this.options.variableMasking, variableMasking);
-    push(this.options.renameVariables, renameVariables);
-    push(this.options.stringConcealing, stringConcealing);
-    push(this.options.stringCompression, stringCompression);
-    push(this.options.stringSplitting, stringSplitting);
-    push(this.options.shuffle, shuffle);
-    push(this.options.astScrambler, astScrambler);
-    push(this.options.calculator, calculator);
-    push(this.options.movedDeclarations, movedDeclarations);
-    push(this.options.renameLabels, renameLabels);
-    push(this.options.rgf, rgf);
     push(this.options.flatten, flatten);
     push(this.options.lock, lock);
+    push(this.options.rgf, rgf);
+    push(this.options.dispatcher, dispatcher);
+    push(this.options.deadCode, deadCode);
+    push(this.options.controlFlowFlattening, controlFlowFlattening);
+    push(this.options.calculator, calculator);
+    push(this.options.globalConcealing, globalConcealing);
+    // Opaque Predicates
+    push(this.options.stringSplitting, stringSplitting);
+    push(this.options.stringConcealing, stringConcealing);
+    push(this.options.stringCompression, stringCompression);
+    push(this.options.variableMasking, variableMasking);
+    push(this.options.duplicateLiteralsRemoval, duplicateLiteralsRemoval);
+    push(this.options.shuffle, shuffle);
+    push(this.options.movedDeclarations, movedDeclarations);
+    push(this.options.renameLabels, renameLabels);
+    // Minify
+    push(this.options.astScrambler, astScrambler);
+    push(this.options.renameVariables, renameVariables);
 
     push(true, finalizer);
+    push(this.options.lock?.integrity, integrity);
+
+    push(this.options.variableConcealing, variableConcealing);
 
     allPlugins.map((pluginFunction) => {
       var pluginInstance: PluginInstance;
@@ -173,6 +195,13 @@ export default class Obfuscator {
       target: "node",
       renameLabels: true,
     });
+  }
+
+  /**
+   * Calls `Obfuscator.generateCode` with the current instance options
+   */
+  generateCode<T extends babel.types.Node = babel.types.File>(ast: T): string {
+    return Obfuscator.generateCode(ast, this.options);
   }
 
   /**

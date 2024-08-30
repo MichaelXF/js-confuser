@@ -37,7 +37,7 @@ test("Variant #2: SelfDefending should not crash when unchanged", async () => {
   expect(TEST_CAUGHT).toStrictEqual(undefined);
 });
 
-test("Variant #2: SelfDefending should crash when changed", async () => {
+test("Variant #3: SelfDefending should crash when changed", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
   function caught(){
@@ -55,7 +55,7 @@ test("Variant #2: SelfDefending should crash when changed", async () => {
   );
 
   // Re-run through obfuscator without compact = new lines = crash should occur
-  var output2 = await JsConfuser.obfuscate(output, {
+  var { code: output2 } = await JsConfuser.obfuscate(output, {
     target: "node",
     compact: false,
   });

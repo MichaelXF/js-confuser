@@ -29,7 +29,7 @@ describe("Global Concealing", () => {
     global.TEST_GLOBAL_OUTPUT = global.TEST_GLOBAL;
     `;
 
-    var output = await JsConfuser(code, {
+    var { code: output } = await JsConfuser.obfuscate(code, {
       target: "node",
       globalConcealing: true,
       lock: {
@@ -56,7 +56,7 @@ describe("Global Concealing", () => {
     global.TEST_GLOBAL_VARIANT_7_OUTPUT = global.TEST_GLOBAL_VARIANT_7;
     `;
 
-    var output = await JsConfuser(code, {
+    var { code: output } = await JsConfuser.obfuscate(code, {
       target: "node",
       globalConcealing: (varName) => varName != "TEST_OUTPUT_SET",
       lock: {
@@ -87,7 +87,7 @@ describe("Global Concealing", () => {
     mockConsoleLog.toString = () => "{ [native code] }";
     (global as any).mockConsoleLog = mockConsoleLog;
 
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
       function onTamperDetected(){
         TEST_OUTPUT_SET(true);
@@ -122,7 +122,7 @@ describe("Global Concealing", () => {
     mockConsoleLog.toString = () => "[native code]";
     (global as any).mockConsoleLog = mockConsoleLog;
 
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
       function onTamperDetected(){
         TEST_OUTPUT_SET(true);
@@ -153,7 +153,7 @@ describe("Global Concealing", () => {
   });
 
   test("Variant #5: Native check on non-existent functions", async () => {
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
       a.b.c.d()
       `,
@@ -168,8 +168,8 @@ describe("Global Concealing", () => {
   });
 
   test("Variant #6: Custom implementation for lock.tamperProtection", async () => {
-    var foundNames = [];
-    var output = await JsConfuser(
+    var foundNames: string[] = [];
+    var { code: output } = await JsConfuser.obfuscate(
       `
       fetch()
       console.log()
@@ -209,7 +209,7 @@ describe("Global Concealing", () => {
   });
 
   test("Variant #7: Protect native function Math.floor", async () => {
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
       TEST_OUTPUT_SET(Math.floor(10.1));
       `,
@@ -233,7 +233,7 @@ describe("Global Concealing", () => {
 
 describe("RGF", () => {
   test("Variant #1: Use Eval instead of new Function", async () => {
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
       function myFunction1(){
         TEST_OUTPUT_SET(true);
@@ -268,7 +268,7 @@ describe("RGF", () => {
   });
 
   test("Variant #2: Detect Eval tamper", async () => {
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
       function onTamperDetected(){
         TEST_OUTPUT_SET("Correct Value");
@@ -312,7 +312,7 @@ describe("RGF", () => {
 
 describe("Strict Mode", () => {
   test("Variant #1: Disallow Strict Mode", async () => {
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
       "use strict"; // Note: Jest testing environment is already in Strict Mode
       function onTamperDetected(){

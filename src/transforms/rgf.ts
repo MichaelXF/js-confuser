@@ -56,6 +56,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (t.isArrowFunctionExpression(path.node)) return;
 
           const name = getFunctionName(path);
+          if (name === me.options.lock?.countermeasures) return;
+          me.log(name);
 
           if (!computeProbabilityMap(me.options.rgf, (x) => x, name)) return;
 
@@ -83,8 +85,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             me.log(
               "Skipping function " +
                 name +
-                " due to reference to outside variable",
-              path.node.loc
+                " due to reference to outside variable:" +
+                identifierPreventingTransform
             );
             return;
           }
@@ -141,28 +143,35 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           var index = rgfArrayExpression.elements.length;
           rgfArrayExpression.elements.push(functionExpression);
 
-          path.node.body = t.blockStatement([
-            t.returnStatement(
-              t.callExpression(
-                t.memberExpression(
-                  t.memberExpression(
-                    t.identifier(rgfArrayName),
-                    t.numericLiteral(index),
-                    true
-                  ),
-                  t.stringLiteral("apply"),
-                  true
+          // Params no longer needed, using 'arguments' instead
+          path.node.params = [];
+
+          path
+            .get("body")
+            .replaceWith(
+              t.blockStatement([
+                t.returnStatement(
+                  t.callExpression(
+                    t.memberExpression(
+                      t.memberExpression(
+                        t.identifier(rgfArrayName),
+                        t.numericLiteral(index),
+                        true
+                      ),
+                      t.stringLiteral("apply"),
+                      true
+                    ),
+                    [
+                      t.arrayExpression([
+                        t.identifier("this"),
+                        t.identifier(rgfArrayName),
+                      ]),
+                      t.identifier("arguments"),
+                    ]
+                  )
                 ),
-                [
-                  t.arrayExpression([
-                    t.identifier("this"),
-                    t.identifier(rgfArrayName),
-                  ]),
-                  t.identifier("arguments"),
-                ]
-              )
-            ),
-          ]);
+              ])
+            );
         },
       },
     },

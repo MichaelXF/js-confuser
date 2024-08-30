@@ -36,6 +36,7 @@ const validProperties = new Set([
   "debugComments",
   "preserveFunctionLength",
   "astScrambler",
+  "variableConcealing",
 ]);
 
 const validLockProperties = new Set([
@@ -50,16 +51,6 @@ const validLockProperties = new Set([
   "browserLock",
   "integrity",
   "countermeasures",
-]);
-
-const validOses = new Set(["windows", "linux", "osx", "ios", "android"]);
-const validBrowsers = new Set([
-  "firefox",
-  "chrome",
-  "iexplorer",
-  "edge",
-  "safari",
-  "opera",
 ]);
 
 export function validateOptions(options: ObfuscateOptions) {

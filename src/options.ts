@@ -408,7 +408,9 @@ export interface ObfuscateOptions {
      *
      * [Learn more about the rules of your countermeasures function](https://github.com/MichaelXF/js-confuser/blob/master/Countermeasures.md).
      *
-     * Otherwise, the obfuscator falls back to crashing the process.
+     * If no countermeasures function is provided (`undefined` or `true`), the obfuscator falls back to crashing the process.
+     *
+     * If `countermeasures` is `false`, no crash will occur.
      *
      */
     countermeasures?: string | boolean;
@@ -482,4 +484,6 @@ export interface ObfuscateOptions {
   preserveFunctionLength?: boolean;
 
   astScrambler?: boolean;
+
+  variableConcealing?: ProbabilityMap<boolean>;
 }

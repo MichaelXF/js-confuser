@@ -39,7 +39,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           var runtimeFn = me.getPlaceholder();
 
-          (path.scope.path as NodePath<t.Block>).unshiftContainer(
+          var program = path.find((p) => p.isProgram()) as NodePath<t.Program>;
+          program.unshiftContainer(
             "body",
             new Template(
               `

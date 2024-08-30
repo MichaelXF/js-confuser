@@ -83,11 +83,13 @@ test("Variant #4: Should work when countermeasures is variable declaration", asy
 
 // https://github.com/MichaelXF/js-confuser/issues/66
 test("Variant #5: Should work with RGF enabled", async () => {
-  await JsConfuser.obfuscate(
+  var { code } = await JsConfuser.obfuscate(
     `
   function myCountermeasuresFunction(){
 
   }
+
+  TEST_OUTPUT = true;
   `,
     {
       target: "node",
@@ -97,4 +99,9 @@ test("Variant #5: Should work with RGF enabled", async () => {
       rgf: true,
     }
   );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
 });
