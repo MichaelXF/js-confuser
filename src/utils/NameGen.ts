@@ -1,26 +1,67 @@
-import { alphabeticalGenerator, getRandomString } from "./random-utils";
+import { ok } from "assert";
+import { ObfuscateOptions } from "../options";
+import { alphabeticalGenerator, createZeroWidthGenerator } from "./gen-utils";
+import { choice, getRandomHexString, getRandomInteger } from "./random-utils";
 
 export class NameGen {
-  private mode: "mangled" | "randomized";
-  private generatedNames: Set<string>;
-  private mangledIndex: number;
+  private generatedNames = new Set<string>();
+  private counter = 1;
+  private zeroWidthGenerator = createZeroWidthGenerator();
 
-  constructor(mode: "mangled" | "randomized" = "randomized") {
-    this.mode = mode;
-    this.generatedNames = new Set<string>();
-    this.mangledIndex = 0;
+  constructor(
+    private identifierGenerator: ObfuscateOptions["identifierGenerator"] = "randomized"
+  ) {}
+
+  private attemptGenerate() {
+    if (typeof this.identifierGenerator === "function") {
+      var value = this.identifierGenerator();
+      ok(
+        typeof value === "string",
+        "Custom identifier generator must return a string"
+      );
+      return value;
+    }
+
+    const randomizedLength = getRandomInteger(6, 8);
+
+    switch (this.identifierGenerator) {
+      case "randomized":
+        var characters =
+          "_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".split("");
+        var numbers = "0123456789".split("");
+
+        var combined = [...characters, ...numbers];
+
+        var result = "";
+        for (var i = 0; i < randomizedLength; i++) {
+          result += choice(i == 0 ? characters : combined);
+        }
+        return result;
+
+      case "hexadecimal":
+        return "_0x" + getRandomHexString(randomizedLength);
+
+      case "mangled":
+        return alphabeticalGenerator(this.counter++);
+
+      case "number":
+        return "var_" + this.counter++;
+
+      case "zeroWidth":
+        return this.zeroWidthGenerator.generate();
+
+      default:
+        throw new Error(
+          "Invalid identifier generator mode: " + this.identifierGenerator
+        );
+    }
   }
 
   generate(): string {
     let name: string;
 
     do {
-      if (this.mode === "mangled") {
-        this.mangledIndex++;
-        name = alphabeticalGenerator(this.mangledIndex);
-      } else {
-        name = getRandomString(6); // Adjust length as needed
-      }
+      name = this.attemptGenerate();
     } while (this.generatedNames.has(name));
 
     this.generatedNames.add(name);

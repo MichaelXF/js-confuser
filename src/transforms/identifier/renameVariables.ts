@@ -1,57 +1,116 @@
 import { NodePath, PluginObj } from "@babel/core";
-import { Binding, Scope } from "@babel/traverse";
+import { Scope } from "@babel/traverse";
 import { PluginArg } from "../plugin";
 import * as t from "@babel/types";
 import { Order } from "../../order";
+import {
+  noRenameVariablePrefix,
+  placeholderVariablePrefix,
+  variableFunctionName,
+} from "../../constants";
+import { computeProbabilityMap } from "../../probability";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.RenameVariables);
+  let availableNames: string[] = [];
 
-  // Keep track of available names to reuse
-  const availableNames: string[] = [];
-
-  const generateNewName = (scope: Scope): string => {
-    let newName;
-
-    // Always generate a new name
-    newName = availableNames.pop() || me.generateRandomIdentifier();
-
-    // Ensure the new name isn't already used in the scope
-    while (scope.hasBinding(newName) || scope.hasGlobal(newName)) {
-      newName = me.generateRandomIdentifier();
-    }
-
-    return newName;
-  };
-
-  var renamedSet = new WeakSet<Binding>();
+  let renamedScopes = new Set<Scope>();
 
   return {
     visitor: {
-      Scopable: {
-        exit(path: NodePath<t.Scopable>) {
-          var createdNames = [];
-
-          Object.keys(path.scope.bindings).forEach((name) => {
-            me.log("Checking", name);
-
-            const binding = path.scope.bindings[name];
-            if (renamedSet.has(binding)) return;
-
-            const newName = generateNewName(path.scope);
-
-            me.log("Renaming", name, "to", newName);
-
-            path.scope.rename(name, newName);
-            renamedSet.add(binding);
-            if (name !== newName) {
-              createdNames.push(newName);
+      CallExpression: {
+        exit(path: NodePath<t.CallExpression>) {
+          if (
+            path.get("callee").isIdentifier({
+              name: variableFunctionName,
+            })
+          ) {
+            const [arg] = path.get("arguments");
+            if (arg.isIdentifier()) {
+              path.replaceWith(t.stringLiteral(arg.node.name));
             }
+          }
+        },
+      },
+
+      Scopable: {
+        enter(path: NodePath<t.Scopable>) {
+          const { scope } = path;
+          if (renamedScopes.has(scope)) {
+            return;
+          }
+          renamedScopes.add(scope);
+
+          var names = [];
+
+          // Collect all referenced identifiers in the current scope
+          const referencedIdentifiers = new Set();
+
+          path.traverse({
+            Identifier(innerPath) {
+              // Use Babel's built-in method to check if the identifier is a referenced variable
+              if (innerPath.isReferencedIdentifier()) {
+                const binding = innerPath.scope.getBinding(innerPath.node.name);
+
+                // If the binding exists and is not defined in the current scope, it is a reference
+                if (binding && binding.scope !== path.scope) {
+                  referencedIdentifiers.add(innerPath.node.name);
+                }
+              }
+            },
           });
 
-          me.log("Created names", createdNames);
+          var actuallyAvailableNames = availableNames.filter(
+            (x) => !referencedIdentifiers.has(x) && !scope.bindings[x]
+          );
 
-          availableNames.push(...createdNames);
+          const isGlobal = scope.path.isProgram();
+
+          for (var identifierName in scope.bindings) {
+            // __NO_JS_CONFUSER_RENAME__ prefix should not be renamed
+            if (identifierName.startsWith(noRenameVariablePrefix)) continue;
+
+            const isPlaceholder = identifierName.startsWith(
+              placeholderVariablePrefix
+            );
+
+            if (!isPlaceholder) {
+              // Global variables should be checked against user's options
+              if (isGlobal) {
+                if (
+                  !computeProbabilityMap(
+                    me.options.renameGlobals,
+                    (x) => x,
+                    identifierName
+                  )
+                )
+                  continue;
+              }
+
+              // Allow user to disable renaming certain variables
+              if (
+                !computeProbabilityMap(
+                  me.options.renameVariables,
+                  identifierName,
+                  isGlobal
+                )
+              )
+                continue;
+            }
+
+            let newName = actuallyAvailableNames.pop();
+
+            if (!newName) {
+              while (!newName || scope.hasGlobal(newName)) {
+                newName = me.obfuscator.nameGen.generate();
+              }
+              names.push(newName);
+            }
+
+            scope.rename(identifierName, newName);
+          }
+
+          availableNames.push(...names);
         },
       },
     },

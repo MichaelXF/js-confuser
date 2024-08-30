@@ -8,7 +8,6 @@ import { Order } from "../order";
 import { NodeSymbol, UNSAFE } from "../constants";
 import { getFunctionName } from "../utils/ast-utils";
 import { isFunctionStrictMode } from "../utils/function-utils";
-import { ok } from "assert";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.VariableMasking);
@@ -42,9 +41,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
     const functionName = getFunctionName(fnPath);
 
-    if (
-      !computeProbabilityMap(me.options.variableMasking, (x) => x, functionName)
-    ) {
+    if (!computeProbabilityMap(me.options.variableMasking, functionName)) {
       return;
     }
 
@@ -182,6 +179,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             });
           }
         );
+
+        identifierPath.scope.removeBinding(identifierPath.node.name);
       },
     });
 
@@ -189,11 +188,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
     fnPath.node.params = [t.restElement(t.identifier(stackName))];
 
-    fnPath.scope.registerBinding(
-      "param",
-      fnPath.get("params.0") as NodePath,
-      fnPath
-    );
+    fnPath.scope.registerBinding("param", fnPath.get("params")[0], fnPath);
   };
 
   return {

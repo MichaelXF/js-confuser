@@ -12,16 +12,18 @@ import {
 } from "../constants";
 import { ok } from "assert";
 import { getPatternIdentifierNames } from "../utils/ast-utils";
+import { isVariableFunctionIdentifier } from "../utils/function-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Preparation);
 
   const markFunctionUnsafe = (path: NodePath<t.Node>) => {
-    const functionPath = path.findParent((path) => path.isFunction());
+    const functionPath = path.findParent(
+      (path) => path.isFunction() || path.isProgram()
+    );
     if (!functionPath) return;
 
     const functionNode = functionPath.node;
-    if (!t.isFunction(functionNode)) return;
 
     (functionNode as NodeSymbol)[UNSAFE] = true;
   };
@@ -43,8 +45,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           // When Rename Variables is disabled, __JS_CONFUSER_VAR__ must still be removed
           if (
-            name === variableFunctionName &&
-            !me.obfuscator.getPlugin(Order.RenameVariables)
+            !me.obfuscator.getPlugin(Order.RenameVariables) &&
+            isVariableFunctionIdentifier(path)
           ) {
             ok(
               path.parentPath.isCallExpression(),
@@ -221,6 +223,49 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             }
           },
         },
+
+      // function a(param = ()=>b)
+      // _getB = ()=> ()=>b
+      // function a(param = _getB())
+      // Basically Babel scope.rename misses this edge case, so we need to manually handle it
+      // Here were essentially making the variables easier to understand
+      Function: {
+        exit(path) {
+          for (var param of path.get("params")) {
+            param.traverse({
+              "FunctionExpression|ArrowFunctionExpression"(_innerPath) {
+                let innerPath = _innerPath as NodePath<
+                  t.FunctionExpression | t.ArrowFunctionExpression
+                >;
+                const child = innerPath.find((path) =>
+                  path.parentPath?.isAssignmentPattern()
+                );
+
+                if (!child) return;
+
+                if (
+                  t.isAssignmentPattern(child.parent) &&
+                  child.parent.right === child.node
+                ) {
+                  var creatorName = me.getPlaceholder();
+                  path.insertBefore(
+                    t.variableDeclaration("const", [
+                      t.variableDeclarator(
+                        t.identifier(creatorName),
+                        t.arrowFunctionExpression([], innerPath.node, false)
+                      ),
+                    ])
+                  );
+
+                  innerPath.replaceWith(
+                    t.callExpression(t.identifier(creatorName), [])
+                  );
+                }
+              },
+            });
+          }
+        },
+      },
     },
   };
 };

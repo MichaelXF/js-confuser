@@ -36,6 +36,8 @@ import integrity from "./lock/integrity";
 import { Statement } from "@babel/types";
 import controlFlowFlattening from "./transforms/controlFlowFlattening";
 import variableConcealing from "./transforms/identifier/variableConcealing";
+import { NameGen } from "./utils/NameGen";
+import { assertScopeIntegrity } from "./utils/scope-utils";
 
 export default class Obfuscator {
   plugins: {
@@ -59,9 +61,15 @@ export default class Obfuscator {
     },
   };
 
+  /**
+   * The main Name Generator for `Rename Variables`
+   */
+  nameGen: NameGen;
+
   public constructor(userOptions: ObfuscateOptions) {
     validateOptions(userOptions);
     this.options = applyDefaultsToOptions({ ...userOptions });
+    this.nameGen = new NameGen(this.options.identifierGenerator);
 
     const allPlugins: PluginFunction[] = [];
 
@@ -154,6 +162,7 @@ export default class Obfuscator {
       }
 
       babel.traverse(ast, plugin.visitor as babel.Visitor);
+      assertScopeIntegrity(pluginInstance.name, ast);
 
       if (options?.profiler) {
         options?.profiler({

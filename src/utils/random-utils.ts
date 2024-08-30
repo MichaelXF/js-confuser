@@ -28,6 +28,20 @@ export function shuffle(array: any[]): any[] {
 }
 
 /**
+ * Returns a random hexadecimal string.
+ *
+ * @example getRandomHexString(6) => "CA96BF"
+ * @param length
+ * @returns
+ */
+export function getRandomHexString(length = 6) {
+  return [...Array(length)]
+    .map(() => Math.floor(Math.random() * 16).toString(16))
+    .join("")
+    .toUpperCase();
+}
+
+/**
  * Returns a random string.
  */
 export function getRandomString(length = 10) {
@@ -62,19 +76,4 @@ export function splitIntoChunks(str: string, size: number) {
   }
 
   return chunks;
-}
-
-export function alphabeticalGenerator(index: number) {
-  let name = "";
-  while (index > 0) {
-    var t = (index - 1) % 52;
-    var thisChar =
-      t >= 26 ? String.fromCharCode(65 + t - 26) : String.fromCharCode(97 + t);
-    name = thisChar + name;
-    index = ((index - t) / 52) | 0;
-  }
-  if (!name) {
-    name = "_";
-  }
-  return name;
 }

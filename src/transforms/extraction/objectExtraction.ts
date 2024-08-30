@@ -145,7 +145,6 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         if (
           !computeProbabilityMap(
             me.options.objectExtraction,
-            (x) => x,
             identifier.node.name
           )
         )

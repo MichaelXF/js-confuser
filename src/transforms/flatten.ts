@@ -55,7 +55,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       functionName = "anonymous";
     }
 
-    if (!computeProbabilityMap(me.options.flatten, (x) => x, functionName)) {
+    if (!computeProbabilityMap(me.options.flatten, functionName)) {
       return;
     }
 
@@ -318,6 +318,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     ]);
 
     fnPath.node.params = [t.restElement(t.identifier(argName))];
+
+    // Ensure updated parameter gets registered in the function scope
+    fnPath.scope.crawl();
     fnPath.skip();
 
     (flattenedFunctionDeclaration as NodeSkip)[SKIP] = true;
@@ -326,11 +329,19 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     var program = fnPath.findParent((p) =>
       p.isProgram()
     ) as NodePath<t.Program>;
-    var p = program.unshiftContainer("body", flattenedFunctionDeclaration);
-    program.scope.registerDeclaration(p[0]);
 
-    // p[0].scope.registerDeclaration(p[0].get("body.body.0"));
-    p[0].skip();
+    var newPath = program.unshiftContainer(
+      "body",
+      flattenedFunctionDeclaration
+    )[0];
+
+    // Register the new function declaration at the root scope
+    program.scope.registerDeclaration(newPath);
+
+    // Ensure parameters are registered in the new function scope
+    newPath.scope.crawl();
+
+    newPath.skip();
   }
 
   return {

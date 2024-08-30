@@ -102,7 +102,10 @@ export interface ObfuscateOptions {
    *
    * Determines if variables should be renamed. (`true/false`)
    */
-  renameVariables?: ProbabilityMap<boolean>;
+  renameVariables?: ProbabilityMap<
+    boolean,
+    (variableName: string, topLevel: boolean) => boolean
+  >;
 
   /**
    * ### `renameGlobals`
@@ -151,7 +154,8 @@ export interface ObfuscateOptions {
    *
    */
   identifierGenerator?: ProbabilityMap<
-    "hexadecimal" | "randomized" | "zeroWidth" | "mangled" | "number"
+    "hexadecimal" | "randomized" | "zeroWidth" | "mangled" | "number",
+    () => string
   >;
 
   /**
@@ -172,7 +176,7 @@ export interface ObfuscateOptions {
    * Global Concealing hides global variables being accessed. (`true/false`)
    *
    */
-  globalConcealing?: ProbabilityMap<boolean>;
+  globalConcealing?: ProbabilityMap<boolean, (globalName: string) => boolean>;
 
   /**
    * ### `stringCompression`
@@ -182,7 +186,7 @@ export interface ObfuscateOptions {
    * `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
    *
    */
-  stringCompression?: ProbabilityMap<boolean>;
+  stringCompression?: ProbabilityMap<boolean, (strValue: string) => boolean>;
 
   /**
    * ### `stringConcealing`
@@ -192,7 +196,7 @@ export interface ObfuscateOptions {
    * `"console"` -> `decrypt('<~@rH7+Dert~>')`
    *
    */
-  stringConcealing?: ProbabilityMap<boolean>;
+  stringConcealing?: ProbabilityMap<boolean, (strValue: string) => boolean>;
 
   /**
    * ### `stringEncoding`
@@ -202,7 +206,7 @@ export interface ObfuscateOptions {
    * `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
    *
    */
-  stringEncoding?: ProbabilityMap<boolean>;
+  stringEncoding?: ProbabilityMap<boolean, (strValue: string) => boolean>;
 
   /**
    * ### `stringSplitting`
@@ -212,7 +216,7 @@ export interface ObfuscateOptions {
    * `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
    *
    */
-  stringSplitting?: ProbabilityMap<boolean>;
+  stringSplitting?: ProbabilityMap<boolean, (strValue: string) => boolean>;
 
   /**
    * ### `duplicateLiteralsRemoval`
@@ -228,7 +232,7 @@ export interface ObfuscateOptions {
    * Creates a middleman function to process function calls. (`true/false/0-1`)
    *
    */
-  dispatcher?: ProbabilityMap<boolean>;
+  dispatcher?: ProbabilityMap<boolean, (fnName: string) => boolean>;
 
   /**
    * ### `rgf`
@@ -252,7 +256,7 @@ export interface ObfuscateOptions {
    * ```
    *
    */
-  rgf?: ProbabilityMap<boolean>;
+  rgf?: ProbabilityMap<boolean, (fnName: string) => boolean>;
 
   /**
    * ### `variableMasking`
@@ -274,7 +278,7 @@ export interface ObfuscateOptions {
    * };
    * ```
    */
-  variableMasking?: ProbabilityMap<boolean>;
+  variableMasking?: ProbabilityMap<boolean, (fnName: string) => boolean>;
 
   /**
    * ### `objectExtraction`
@@ -300,7 +304,7 @@ export interface ObfuscateOptions {
    * ```
    *
    */
-  objectExtraction?: ProbabilityMap<boolean>;
+  objectExtraction?: ProbabilityMap<boolean, (objectName: string) => boolean>;
 
   /**
    * ### `flatten`
@@ -308,7 +312,7 @@ export interface ObfuscateOptions {
    * Brings independent declarations to the highest scope. (`true/false`)
    *
    */
-  flatten?: ProbabilityMap<boolean>;
+  flatten?: ProbabilityMap<boolean, (fnName: string) => boolean>;
 
   /**
    * ### `deadCode`
@@ -397,7 +401,7 @@ export interface ObfuscateOptions {
      * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
      *
      */
-    integrity?: ProbabilityMap<boolean>;
+    integrity?: ProbabilityMap<boolean, (fnName: string) => boolean>;
 
     /**
      * ### `lock.countermeasures`

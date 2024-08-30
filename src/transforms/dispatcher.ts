@@ -8,6 +8,7 @@ import { chance, getRandomString } from "../utils/random-utils";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
 import { NodeSymbol, UNSAFE } from "../constants";
+import { isVariableFunctionIdentifier } from "../utils/function-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Dispatcher);
@@ -18,6 +19,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       "Program|Function": {
         exit(_path) {
           const blockPath = _path as NodePath<t.Program | t.Function>;
+
+          if ((blockPath.node as NodeSymbol)[UNSAFE]) return;
+
           // For testing
           // if (!blockPath.isProgram()) return;
 
@@ -57,7 +61,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   return;
                 }
 
-                if (functionPaths.has(name)) {
+                if (
+                  functionPaths.has(name) ||
+                  (path.node as NodeSymbol)[UNSAFE]
+                ) {
                   illegalNames.add(name);
                   return;
                 }
@@ -82,7 +89,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           }
 
           for (var name of functionPaths.keys()) {
-            if (!computeProbabilityMap(me.options.dispatcher, (x) => x, name)) {
+            if (!computeProbabilityMap(me.options.dispatcher, name)) {
               functionPaths.delete(name);
             }
           }
@@ -115,6 +122,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             ReferencedIdentifier: {
               exit(path: NodePath<t.Identifier | t.JSXIdentifier>) {
                 if (path.isJSX()) return;
+                if (isVariableFunctionIdentifier(path)) return;
                 const name = path.node.name;
 
                 var fnPath = functionPaths.get(name);

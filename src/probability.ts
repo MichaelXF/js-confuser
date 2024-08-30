@@ -14,14 +14,10 @@ type Stringed<V> = (V extends string ? V : never) | "true" | "false";
  * - **`{"mode1": 50, "mode2": 50}`** - enabled, each is divided based on total
  * - **`function(x){ return "custom_implementation" }`** - enabled, use specified function
  */
-export type ProbabilityMap<T> =
-  | false
-  | true
-  | number
-  | T
-  | T[]
-  | { [key in Stringed<T>]?: number }
-  | ((...params: any[]) => any);
+export type ProbabilityMap<
+  T,
+  F extends (...args: any[]) => any = (...args: any[]) => any // Default to a generic function
+> = false | true | number | T | T[] | { [key in Stringed<T>]?: number } | F;
 
 /**
  * Evaluates a ProbabilityMap.
@@ -29,27 +25,31 @@ export type ProbabilityMap<T> =
  * @param runner Custom function to determine return value
  * @param customFnArgs Args given to user-implemented function, such as a variable name.
  */
-export function computeProbabilityMap<T>(
-  map: ProbabilityMap<T>,
-  runner: (mode?: T) => any = (x?: T) => x,
-  ...customFnArgs: any[]
-): any {
+export function computeProbabilityMap<
+  T,
+  F extends (...args: any[]) => any = (...args: any[]) => any
+>(
+  map: ProbabilityMap<T, F>,
+  ...customImplementationArgs: F extends (...args: infer P) => any ? P : never
+): boolean | string {
   if (!map) {
-    return runner();
+    return false;
   }
   if (map === true || map === 1) {
-    return runner(true as any);
+    return true;
   }
   if (typeof map === "number") {
-    return runner((Math.random() < map) as any);
+    return Math.random() < map;
   }
 
   if (typeof map === "function") {
-    return (map as any)(...customFnArgs);
+    return (map as Function)(...customImplementationArgs);
   }
+
   if (typeof map === "string") {
-    return runner(map);
+    return map;
   }
+
   var asObject: { [mode: string]: number } = {};
   if (Array.isArray(map)) {
     map.forEach((x: any) => {
@@ -78,7 +78,7 @@ export function computeProbabilityMap<T>(
     count += x;
   });
 
-  return runner(winner);
+  return winner;
 }
 
 /**

@@ -83,7 +83,6 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 if (
                   !computeProbabilityMap(
                     me.options.stringConcealing,
-                    (x) => x,
                     originalValue
                   )
                 ) {
@@ -173,10 +172,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             name: bufferToStringName,
           });
 
-          programPath.unshiftContainer("body", bufferToString);
+          programPath
+            .unshiftContainer("body", bufferToString)
+            .forEach((path) => {
+              programPath.scope.registerDeclaration(path);
+            });
 
           // Create the string array
-          programPath.unshiftContainer(
+          var stringArrayPath = programPath.unshiftContainer(
             "body",
             t.variableDeclaration("var", [
               t.variableDeclarator(
@@ -186,7 +189,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 )
               ),
             ])
-          );
+          )[0];
+          programPath.scope.registerDeclaration(stringArrayPath);
 
           for (var block of blocks) {
             const { encodingImplementation, fnName } = (
@@ -208,10 +212,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               }
             `).single<t.FunctionDeclaration>();
 
-            block.unshiftContainer("body", [
+            var newPath = block.unshiftContainer("body", [
               ...decoder,
               retrieveFunctionDeclaration,
-            ]);
+            ])[0];
+            block.scope.registerDeclaration(newPath);
             block.skip();
           }
         },

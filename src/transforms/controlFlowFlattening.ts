@@ -692,6 +692,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               ])
             ),
           ];
+
+          // Register new declarations
+          for (var node of blockPath.get("body")) {
+            blockPath.scope.registerDeclaration(node);
+          }
         },
       },
     },

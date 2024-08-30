@@ -49,15 +49,24 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     );
   }
 
+  var inserting = true;
+
   return {
     visitor: {
       Program: {
         exit(programPath: NodePath<t.Program>) {
+          inserting = false;
+
           // Insert the getGlobal function at the top of the program body
           const getGlobalFunction = createGetGlobalFunction();
 
-          var p = programPath.unshiftContainer("body", getGlobalFunction);
-          var p2 = programPath.unshiftContainer(
+          var newPath = programPath.unshiftContainer(
+            "body",
+            getGlobalFunction
+          )[0];
+          programPath.scope.registerDeclaration(newPath);
+
+          var varPath = programPath.unshiftContainer(
             "body",
             new Template(`
             var {globalVarName} = (function (){
@@ -74,14 +83,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           })();
 
             `).compile({ globalVarName: globalVarName })
-          );
+          )[0];
 
-          // Skip transformation for the inserted getGlobal function
-          programPath.get("body")[0].stop();
-          programPath.get("body")[1].stop();
+          programPath.scope.registerDeclaration(varPath);
         },
       },
       ReferencedIdentifier(path: NodePath<t.Identifier | t.JSXIdentifier>) {
+        if (!inserting) return;
+
         var identifierName = path.node.name;
 
         if (ignoreGlobals.has(identifierName)) return;
@@ -96,11 +105,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         if (!mapping) {
           // Allow user to disable custom global variables
           if (
-            !computeProbabilityMap(
-              me.options.globalConcealing,
-              (x) => x,
-              identifierName
-            )
+            !computeProbabilityMap(me.options.globalConcealing, identifierName)
           )
             return;
 

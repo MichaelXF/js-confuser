@@ -3,7 +3,7 @@ import { ObfuscateOptions } from "../../../src/options";
 
 test("Variant #1: Rename variables properly", async () => {
   var code = "var TEST_VARIABLE = 1;";
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: true,
     renameGlobals: true,
@@ -20,7 +20,7 @@ test("Variant #2: Don't rename global accessors", async () => {
   success(TEST_VARIABLE); // success should not be renamed
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: true,
     renameGlobals: true,
@@ -51,7 +51,7 @@ test("Variant #3: Rename shadowed variables properly", async () => {
   run();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: true,
     renameGlobals: true,
@@ -75,7 +75,7 @@ test("Variant #4: Don't rename member properties", async () => {
     input(TEST_OBJECT.TEST_PROPERTY); // "TEST_PROPERTY" should not be renamed
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: true,
     renameGlobals: true,
@@ -102,7 +102,7 @@ test("Variant #5: Handle variable defined with let (1)", async () => {
     input(TEST_OBJECT.TEST_PROPERTY); // "TEST_PROPERTY" should not be renamed
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: true,
     renameGlobals: true,
@@ -130,7 +130,7 @@ test("Variant #6: Handle variable defined with let (2)", async () => {
 
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: true,
     renameGlobals: true,
@@ -158,7 +158,7 @@ test("Variant #7: Handle variable defined with let (3)", async () => {
 
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: true,
     renameGlobals: true,
@@ -180,16 +180,18 @@ test("Variant #7: Handle variable defined with let (3)", async () => {
   expect(value).toStrictEqual(100);
 });
 
-test("Variant #8: Don't rename null (reservedIdentifiers)", async () => {
+test("Variant #8: Don't rename undefined (reservedIdentifiers)", async () => {
   var code = `
-    input(null)
+    input(undefined)
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: true,
     renameGlobals: true,
   });
+
+  expect(output).toContain("undefined");
 
   var value = false;
   function input(valueIn) {
@@ -197,7 +199,7 @@ test("Variant #8: Don't rename null (reservedIdentifiers)", async () => {
   }
   eval(output);
 
-  expect(value).toStrictEqual(null);
+  expect(value).toStrictEqual(undefined);
 });
 
 test("Variant #9: Don't rename exported names", async () => {
@@ -207,7 +209,7 @@ test("Variant #9: Don't rename exported names", async () => {
     }
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: true,
     renameGlobals: true,
@@ -221,17 +223,22 @@ test("Variant #10: Call renameVariables callback properly (variables)", async ()
     var myVariable = 1;
   `;
 
-  var input = [];
+  var input: [string, boolean] | null = null;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameGlobals: true,
     renameVariables: (name, isTopLevel) => {
       input = [name, isTopLevel];
+      return false;
     },
   });
 
+  // Ensure custom implementation was called
   expect(input).toEqual(["myVariable", true]);
+
+  // Ensure myVariable was not renamed
+  expect(output).toContain("myVariable");
 });
 
 test("Variant #11: Call renameVariables callback properly (variables, nested)", async () => {
@@ -241,17 +248,23 @@ test("Variant #11: Call renameVariables callback properly (variables, nested)", 
     })();
   `;
 
-  var input = [];
+  var input: [string, boolean] | null = null;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameGlobals: true,
     renameVariables: (name, isTopLevel) => {
       input = [name, isTopLevel];
+
+      return true;
     },
   });
 
+  // Ensure custom implementation was called
   expect(input).toEqual(["myVariable", false]);
+
+  // Ensure myVariable was renamed
+  expect(output).not.toContain("myVariable");
 });
 
 test("Variant #12: Call renameVariables callback properly (function declaration)", async () => {
@@ -261,17 +274,23 @@ test("Variant #12: Call renameVariables callback properly (function declaration)
     }
   `;
 
-  var input = [];
+  var input: [string, boolean] | null = null;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameGlobals: true,
     renameVariables: (name, isTopLevel) => {
       input = [name, isTopLevel];
+
+      return true;
     },
   });
 
+  // Ensure custom implementation was called
   expect(input).toEqual(["myFunction", true]);
+
+  // Ensure myFunction was renamed
+  expect(output).not.toContain("myFunction");
 });
 
 test("Variant #13: Allow excluding custom variables from being renamed", async () => {
@@ -280,7 +299,7 @@ test("Variant #13: Allow excluding custom variables from being renamed", async (
     var myVariable2 = 1;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     renameVariables: (name, isTopLevel) => {
       return name !== "myVariable1";
@@ -310,7 +329,7 @@ test("Variant #14: should not break global variable references", async () => {
   myFunction("Hello World");
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     renameVariables: true,
     renameGlobals: true,
@@ -329,15 +348,17 @@ test("Variant #14: should not break global variable references", async () => {
   expect(value).toStrictEqual("Hello World");
 });
 
-test("Variant #15: Function parameter default value", async () => {
-  /**
-   * In this case `b` is a global variable,
-   *
-   * "mangled" names are a,b,c,d...
-   *
-   * therefore make sure `b` is NOT used as it breaks program
-   */
-  var code = `
+test.each<ObfuscateOptions["identifierGenerator"]>(["randomized", "mangled"])(
+  "Variant #15: Function parameter default value",
+  async (identifierGeneratorMode) => {
+    /**
+     * In this case `b` is a global variable,
+     *
+     * "mangled" names are a,b,c,d...
+     *
+     * therefore make sure `b` is NOT used as it breaks program
+     */
+    var code = `
    var a = "Filler Variables";
    var b = "Hello World";
    var c = "Another incorrect string";
@@ -355,22 +376,23 @@ test("Variant #15: Function parameter default value", async () => {
    myFunction();
    `;
 
-  var output = await JsConfuser(code, {
-    target: "node",
-    renameVariables: true,
-    renameGlobals: true,
-    identifierGenerator: "mangled",
-  });
+    var { code: output } = await JsConfuser.obfuscate(code, {
+      target: "node",
+      renameVariables: true,
+      renameGlobals: true,
+      identifierGenerator: identifierGeneratorMode,
+    });
 
-  var value;
-  function input(valueIn) {
-    value = valueIn;
+    var value;
+    function input(valueIn) {
+      value = valueIn;
+    }
+
+    eval(output);
+
+    expect(value).toStrictEqual("Hello World");
   }
-
-  eval(output);
-
-  expect(value).toStrictEqual("Hello World");
-});
+);
 
 // https://github.com/MichaelXF/js-confuser/issues/24
 test("Variant #16: Function with multiple parameters and a default value", async () => {
@@ -386,7 +408,7 @@ test("Variant #16: Function with multiple parameters and a default value", async
   FuncA();
    `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     renameVariables: true,
     renameGlobals: true,
@@ -411,7 +433,7 @@ test("Variant #17: Function parameter and lexical variable clash", async () => {
   }
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     renameVariables: true,
     renameGlobals: true,
@@ -429,7 +451,7 @@ test("Variant #18: Catch parameter and lexical variable clash", async () => {
   } 
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     renameVariables: true,
     renameGlobals: true,
@@ -440,7 +462,7 @@ test("Variant #18: Catch parameter and lexical variable clash", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/69
 test("Variant #19: Don't break Import Declarations", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   import { createHash } from 'node:crypto'
 
@@ -478,7 +500,7 @@ test("Variant #19: Don't break Import Declarations", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/80
 test("Variant #20: Don't break code with var and let variables in same scope", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function log(param) {
     let message = param;
@@ -502,10 +524,15 @@ test("Variant #20: Don't break code with var and let variables in same scope", a
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
 
-test.each(["hexadecimal", "mangled", "number", "zeroWidth"])(
+test.each<ObfuscateOptions["identifierGenerator"]>([
+  "hexadecimal",
+  "mangled",
+  "number",
+  "zeroWidth",
+])(
   "Variant #21: Work with custom identifierGenerator mode",
   async (identifierGeneratorMode) => {
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
   var myVar1 = "Correct Value";
 
@@ -521,8 +548,7 @@ test.each(["hexadecimal", "mangled", "number", "zeroWidth"])(
       {
         target: "node",
         renameVariables: true,
-        identifierGenerator:
-          identifierGeneratorMode as ObfuscateOptions["identifierGenerator"],
+        identifierGenerator: identifierGeneratorMode,
       }
     );
 
@@ -537,7 +563,7 @@ test.each(["hexadecimal", "mangled", "number", "zeroWidth"])(
 );
 
 test("Variant #22: Don't rename variables prefixed with '__NO_JS_CONFUSER_RENAME__'", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var myValue = "Correct Value";
 
@@ -566,7 +592,7 @@ test("Variant #22: Don't rename variables prefixed with '__NO_JS_CONFUSER_RENAME
 });
 
 test("Variant #23: Re-use previously generated names", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function log(message){
     TEST_OUTPUT = message;
@@ -591,7 +617,7 @@ test("Variant #23: Re-use previously generated names", async () => {
 });
 
 test("Variant #24: Reference function name with parameter", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(myFunction){
     myFunction.property = "Correct Value";
@@ -610,7 +636,7 @@ test("Variant #24: Reference function name with parameter", async () => {
 });
 
 test("Variant #25: Reference catch parameter", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   try {
     throw "Correct Value";
@@ -628,7 +654,7 @@ test("Variant #25: Reference catch parameter", async () => {
 });
 
 test("Variant #26: Transform __JS_CONFUSER_VAR__ to access variable mappings", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var myVar1 = "Incorrect Value";
 
@@ -652,7 +678,7 @@ test("Variant #26: Transform __JS_CONFUSER_VAR__ to access variable mappings", a
 });
 
 test("Variant #27: Transform __JS_CONFUSER_VAR__ even when Rename Variables is disabled", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var name = "John Doe";
   TEST_OUTPUT = __JS_CONFUSER_VAR__(name);
@@ -669,7 +695,7 @@ test("Variant #27: Transform __JS_CONFUSER_VAR__ even when Rename Variables is d
 });
 
 test("Variant #28: Transform __JS_CONFUSER_VAR__ on High Preset", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function myFunction(){
       var a

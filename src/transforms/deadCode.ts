@@ -1,10 +1,12 @@
 import { PluginObj } from "@babel/core";
 import { PluginArg } from "./plugin";
 import { chance, choice } from "../utils/random-utils";
-import { blockStatement, booleanLiteral, ifStatement } from "@babel/types";
 import { deadCodeTemplates } from "../templates/deadCodeTemplates";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
+import * as t from "@babel/types";
+import Template from "../templates/template";
+import { NameGen } from "../utils/NameGen";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.DeadCode);
@@ -28,10 +30,38 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           var template = choice(deadCodeTemplates);
           var nodes = template.compile();
 
-          path.unshiftContainer(
+          var containingFnName = me.getPlaceholder("dead_" + created);
+
+          var newPath = path.unshiftContainer(
             "body",
-            ifStatement(booleanLiteral(false), blockStatement([...nodes]))
+            t.functionDeclaration(
+              t.identifier(containingFnName),
+              [],
+              t.blockStatement([...nodes])
+            )
           );
+
+          // Overcomplicated way to get a random property name that doesn't exist on the Function
+          var randomProperty: string;
+          var nameGen = new NameGen("randomized");
+          function PrototypeCollision() {}
+
+          do {
+            randomProperty = nameGen.generate();
+          } while (
+            !randomProperty ||
+            PrototypeCollision[randomProperty] !== undefined
+          );
+
+          path.pushContainer(
+            "body",
+            new Template(`
+              if("${randomProperty}" in ${containingFnName}) {
+                ${containingFnName}()
+              }
+              `).single()
+          );
+
           path.stop();
         },
       },
