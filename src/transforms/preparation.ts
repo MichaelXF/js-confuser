@@ -248,14 +248,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   child.parent.right === child.node
                 ) {
                   var creatorName = me.getPlaceholder();
-                  path.insertBefore(
+                  var insertPath = path.insertBefore(
                     t.variableDeclaration("const", [
                       t.variableDeclarator(
                         t.identifier(creatorName),
                         t.arrowFunctionExpression([], innerPath.node, false)
                       ),
                     ])
-                  );
+                  )[0];
+
+                  path.scope.parent.registerDeclaration(insertPath);
 
                   innerPath.replaceWith(
                     t.callExpression(t.identifier(creatorName), [])

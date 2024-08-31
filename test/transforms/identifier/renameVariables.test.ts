@@ -697,10 +697,13 @@ test("Variant #27: Transform __JS_CONFUSER_VAR__ even when Rename Variables is d
 test("Variant #28: Transform __JS_CONFUSER_VAR__ on High Preset", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
+    var a;
+    var b;
+    var c;
     function myFunction(){
-      var a
-      var b
-      var c
+      var a;
+      var b;
+      var c;
 
       return "Correct Value"
     }

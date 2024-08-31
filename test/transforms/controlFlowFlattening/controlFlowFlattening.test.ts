@@ -1262,3 +1262,31 @@ test("Variant #35: Redefined function declaration + variable declaration", async
 
   expect(TEST_OUTPUT).toStrictEqual(["Bottom x", "Top x", "Nested x"]);
 });
+
+test("Variant #36: Preserve modified global", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var myVar = "Correct Value";
+    if(false) {
+      myVar = "Incorrect Value";
+    }
+    TEST_OUTPUT = myVar; // Test modified global (ensure not shadowed)
+
+    function scopedFunction(){ // Test inner function scope collision
+      var TEST_OUTPUT
+      TEST_OUTPUT = "Incorrect Value";
+    }
+
+    scopedFunction();
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

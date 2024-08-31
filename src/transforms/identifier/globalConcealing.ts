@@ -49,13 +49,78 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     );
   }
 
-  var inserting = true;
-
   return {
     visitor: {
       Program: {
         exit(programPath: NodePath<t.Program>) {
-          inserting = false;
+          var illegalGlobals = new Set<string>();
+          var pendingReplacements = new Map<string, NodePath[]>();
+
+          programPath.traverse({
+            "ReferencedIdentifier|BindingIdentifier"(_path) {
+              var identifierPath = _path as NodePath<t.Identifier>;
+              var identifierName = identifierPath.node.name;
+
+              if (
+                !identifierPath.scope.hasGlobal(identifierName) ||
+                identifierPath.scope.hasOwnBinding(identifierName)
+              ) {
+                return;
+              }
+
+              var assignmentChild = identifierPath.find((p) =>
+                p.parentPath?.isAssignmentExpression()
+              );
+              if (
+                assignmentChild &&
+                assignmentChild.parentPath.isAssignmentExpression() &&
+                assignmentChild.parent.left === assignmentChild.node
+              ) {
+                illegalGlobals.add(identifierName);
+                return;
+              }
+
+              if (ignoreGlobals.has(identifierName)) return;
+
+              if (!pendingReplacements.has(identifierName)) {
+                pendingReplacements.set(identifierName, [identifierPath]);
+              } else {
+                pendingReplacements.get(identifierName).push(identifierPath);
+              }
+            },
+          });
+
+          // Remove illegal globals
+          illegalGlobals.forEach((globalName) => {
+            pendingReplacements.delete(globalName);
+          });
+
+          for (var [globalName, paths] of pendingReplacements) {
+            var mapping = globalMapping.get(globalName);
+            if (!mapping) {
+              // Allow user to disable custom global variables
+              if (
+                !computeProbabilityMap(me.options.globalConcealing, globalName)
+              )
+                continue;
+
+              mapping = gen.generate();
+              globalMapping.set(globalName, mapping);
+            }
+
+            // Replace global reference with getGlobal("name")
+            const callExpression = t.callExpression(
+              t.identifier(globalFnName),
+              [t.stringLiteral(mapping)]
+            );
+
+            paths.forEach((path) => {
+              path.replaceWith(t.cloneNode(callExpression));
+            });
+          }
+
+          // No globals changed, no need to insert the getGlobal function
+          if (globalMapping.size === 0) return;
 
           // Insert the getGlobal function at the top of the program body
           const getGlobalFunction = createGetGlobalFunction();
@@ -87,39 +152,6 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           programPath.scope.registerDeclaration(varPath);
         },
-      },
-      ReferencedIdentifier(path: NodePath<t.Identifier | t.JSXIdentifier>) {
-        if (!inserting) return;
-
-        var identifierName = path.node.name;
-
-        if (ignoreGlobals.has(identifierName)) return;
-
-        if (
-          !path.scope.hasGlobal(identifierName) ||
-          path.scope.hasOwnBinding(identifierName)
-        ) {
-          return;
-        }
-        var mapping = globalMapping.get(identifierName);
-        if (!mapping) {
-          // Allow user to disable custom global variables
-          if (
-            !computeProbabilityMap(me.options.globalConcealing, identifierName)
-          )
-            return;
-
-          mapping = gen.generate();
-          globalMapping.set(identifierName, mapping);
-        }
-
-        // Replace global reference with getGlobal("name")
-        const callExpression = t.callExpression(t.identifier(globalFnName), [
-          t.stringLiteral(mapping),
-        ]);
-
-        path.replaceWith(callExpression);
-        path.skip();
       },
     },
   };

@@ -47,6 +47,7 @@ function compareScopes(beforeState, afterState, node) {
  */
 export function assertScopeIntegrity(pluginName: string, node: t.File) {
   const scopeStates = new WeakMap();
+  const seenNodes = new WeakSet();
 
   // Traverse to capture the initial state of all scopes
   let programPath: NodePath<t.Program> = null;
@@ -56,8 +57,22 @@ export function assertScopeIntegrity(pluginName: string, node: t.File) {
         programPath = path;
       }
 
+      if (seenNodes.has(path.node)) {
+        throw new Error(`Duplicate node found in AST ${path.node.type}`);
+      }
+      seenNodes.add(path.node);
+
       if (path.scope && Object.keys(path.scope.bindings).length > 0) {
         scopeStates.set(path.node, captureScopeState(path.scope));
+
+        for (var name in path.scope.bindings) {
+          const binding = path.scope.bindings[name];
+          if (!binding.path || !binding.path.node || binding.path.removed) {
+            throw new Error(
+              `Binding "${name}" was removed from the scope at node: ${path.node.type}`
+            );
+          }
+        }
       }
     },
   });

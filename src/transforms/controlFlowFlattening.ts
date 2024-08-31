@@ -150,7 +150,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           interface Metadata {
             label?: string;
-            type?: string;
+            type?: "goto";
           }
 
           interface NodeMetadata {
@@ -242,18 +242,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 } else {
                 }
 
-                currentBasicBlock.body.unshift(
-                  t.expressionStatement(
-                    t.assignmentExpression(
-                      "=",
-                      t.identifier(fnName),
-                      ControlStatement({
-                        type: "function",
-                        label: fnLabel,
-                      }).expression
-                    )
-                  )
-                );
+                var oldBasicBlock = currentBasicBlock;
 
                 var newBasicBlockOptions = { topLevel: false, fnLabel };
 
@@ -284,6 +273,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     nextLabel: afterPath,
                   },
                   options
+                );
+
+                oldBasicBlock.body.unshift(
+                  t.expressionStatement(
+                    t.assignmentExpression(
+                      "=",
+                      t.identifier(fnName),
+                      createBasicBlockFunctionExpression(fnLabel)
+                    )
+                  )
                 );
 
                 if (!isRedefined) {
@@ -471,10 +470,15 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 exit(path) {
                   if (path.findParent((p) => p.isFunction())) return;
 
-                  if (basicBlock.options.topLevel) {
-                    if (!callableMap.has(path.node.name)) {
-                      topLevelNames.add(path.node.name);
-                    }
+                  const binding = path.scope.getBinding(path.node.name);
+                  if (!binding) return;
+
+                  if (!basicBlock.options.topLevel) {
+                    return;
+                  }
+
+                  if (!callableMap.has(path.node.name)) {
+                    topLevelNames.add(path.node.name);
                   }
 
                   // Variable declaration -> Assignment expression
@@ -522,13 +526,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     ok(metadata);
 
                     const { label, type } = metadata;
-                    ok(["goto", "function"].includes(type));
+                    ok(["goto"].includes(type));
 
                     switch (type) {
-                      case "function":
-                        var node = createBasicBlockFunctionExpression(label);
-                        path.replaceWith(node);
-                        break;
                       case "goto":
                         const { stateValues: newStateValues } =
                           basicBlocks.get(label);

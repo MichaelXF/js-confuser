@@ -4,6 +4,7 @@ import { PluginArg } from "../plugin";
 import { NodeSymbol, PREDICTABLE } from "../../constants";
 import * as t from "@babel/types";
 import { isStaticValue } from "../../utils/static-utils";
+import { isFunctionStrictMode } from "../../utils/function-utils";
 
 /**
  * Moved Declarations moves variables in two ways:
@@ -26,17 +27,19 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             path.isFunction()
           ) as NodePath<t.Function>;
 
+          var allowDefaultParamValue = true;
+
           if (functionPath && (functionPath.node as NodeSymbol)[PREDICTABLE]) {
             // Check for "use strict" directive
             // Strict mode disallows non-simple parameters
             // So we can't move the declaration to the function parameters
-            var strictModeDirective: t.Directive;
-            if (t.isBlockStatement(functionPath.node.body)) {
-              strictModeDirective = functionPath.node.body.directives.find(
-                (directive) => directive.value.value === "use strict"
-              );
+            var isStrictMode = isFunctionStrictMode(functionPath);
+            if (!isStrictMode) {
+              allowDefaultParamValue = false;
             }
-            if (!strictModeDirective) {
+
+            // Cannot add variables after rest element
+            if (!functionPath.get("params").find((p) => p.isRestElement())) {
               insertionMethod = "functionParameter";
             }
           }
@@ -64,7 +67,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (
             insertionMethod === "functionParameter" &&
             isStatic &&
-            isDefinedAtTop
+            isDefinedAtTop &&
+            allowDefaultParamValue
           ) {
             defaultParamValue = value;
             path.remove();
@@ -89,11 +93,15 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           switch (insertionMethod) {
             case "functionParameter":
               var param: t.Pattern | t.Identifier = t.identifier(name);
-              if (defaultParamValue) {
+              if (allowDefaultParamValue && defaultParamValue) {
                 param = t.assignmentPattern(param, defaultParamValue);
               }
 
               functionPath.node.params.push(param);
+
+              var paramPath = functionPath.get("params").at(-1);
+
+              functionPath.scope.registerBinding("param", paramPath);
               break;
             case "variableDeclaration":
               var block = path.findParent((path) =>

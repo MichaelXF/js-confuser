@@ -58,7 +58,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         const binding = identifierPath.scope.getBinding(
           identifierPath.node.name
         );
-        if (!binding || binding.kind === "const") return;
+        if (!binding || binding.scope !== fnPath.scope) return;
 
         if (binding.path.isIdentifier()) {
           // Parameter check

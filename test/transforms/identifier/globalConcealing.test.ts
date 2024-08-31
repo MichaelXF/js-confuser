@@ -140,3 +140,33 @@ test("Variant #7: Custom callback option", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
+
+test("Variant #8: Don't change globals when modified", async () => {
+  var namesCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    TEST_OUTPUT = true;
+
+    function myFunction(){
+    }
+
+    // Reference TEST_OUTPUT
+    myFunction(TEST_OUTPUT)
+    `,
+    {
+      target: "node",
+      globalConcealing: (name) => {
+        namesCollected.push(name);
+        return true;
+      },
+    }
+  );
+
+  expect(namesCollected).not.toContain("TEST_OUTPUT");
+  var TEST_OUTPUT;
+
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
