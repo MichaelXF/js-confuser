@@ -203,7 +203,6 @@ test("Variant #3: Skip strings that fail to decode", async () => {
   expect(stringsCollected).toContain("Broken String");
 
   expect(code).not.toContain("Hello World!");
-  expect(code).toContain("");
   expect(code).toContain("Broken String");
 
   var TEST_OUTPUT;

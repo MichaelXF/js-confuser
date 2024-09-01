@@ -2,6 +2,23 @@ import * as t from "@babel/types";
 import { NodePath, PluginObj } from "@babel/core";
 import { PluginArg } from "./plugin";
 import { Order } from "../order";
+import { NameGen } from "../utils/NameGen";
+import { ok } from "assert";
+import { computeProbabilityMap } from "../probability";
+
+const LABEL = Symbol("label");
+
+interface LabelInterface {
+  label?: string;
+  renamed?: string;
+  removed: boolean;
+  required: boolean;
+  paths: NodePath<t.BreakStatement | t.ContinueStatement>[];
+}
+
+interface NodeLabel {
+  [LABEL]?: LabelInterface;
+}
 
 export default function ({ Plugin }: PluginArg): PluginObj {
   const me = Plugin(Order.RenameLabels);
@@ -9,71 +26,139 @@ export default function ({ Plugin }: PluginArg): PluginObj {
   return {
     visitor: {
       Program(path) {
-        const labelUsageMap = new Map<string, number>();
+        const allLabelInterfaces: LabelInterface[] = [];
 
         // First pass: Collect all label usages
         path.traverse({
           LabeledStatement(labelPath) {
-            const labelName = labelPath.node.label.name;
-            labelUsageMap.set(labelName, 0);
+            const labelInterface = {
+              label: labelPath.node.label.name,
+              removed: false,
+              required: false,
+              paths: [],
+            };
+            allLabelInterfaces.push(labelInterface);
+            (labelPath.node as NodeLabel)[LABEL] = labelInterface;
           },
-          BreakStatement(breakPath) {
-            if (breakPath.node.label) {
-              const labelName = breakPath.node.label.name;
-              labelUsageMap.set(
-                labelName,
-                (labelUsageMap.get(labelName) || 0) + 1
+          "BreakStatement|ContinueStatement"(_path) {
+            const path = _path as NodePath<
+              t.BreakStatement | t.ContinueStatement
+            >;
+
+            if (path.node.label) {
+              const labelName = path.node.label.name;
+              let targets: NodePath<
+                t.For | t.While | t.BlockStatement | t.SwitchStatement
+              >[] = [];
+
+              let onlySearchLoops = path.isContinueStatement();
+
+              let currentPath: NodePath = path;
+              while (currentPath) {
+                if (
+                  currentPath.isFor() ||
+                  currentPath.isWhile() ||
+                  currentPath.isSwitchStatement()
+                ) {
+                  targets.push(currentPath);
+                }
+
+                if (
+                  currentPath.isBlockStatement() &&
+                  currentPath.parentPath.isLabeledStatement()
+                ) {
+                  targets.push(currentPath);
+                }
+
+                currentPath = currentPath.parentPath;
+              }
+
+              const target = targets.find(
+                (label) =>
+                  label.parentPath &&
+                  label.parentPath.isLabeledStatement() &&
+                  label.parentPath.node.label.name === labelName
               );
-            }
-          },
-          ContinueStatement(continuePath) {
-            if (continuePath.node.label) {
-              const labelName = continuePath.node.label.name;
-              labelUsageMap.set(
-                labelName,
-                (labelUsageMap.get(labelName) || 0) + 1
-              );
+
+              if (onlySearchLoops) {
+                // Remove BlockStatements and SwitchStatements from the list of targets
+                // a continue statement only target loops
+                // This helps remove unnecessary labels when a continue is nested with a block statement
+                // ex: for-loop with if-statement continue
+                targets = targets.filter(
+                  (target) =>
+                    !target.isBlockStatement() && !target.isSwitchStatement()
+                );
+              }
+
+              ok(target);
+
+              const isRequired =
+                target.isBlockStatement() || targets[0] !== target;
+
+              const labelInterface = (target.parentPath.node as NodeLabel)[
+                LABEL
+              ];
+
+              if (isRequired) {
+                labelInterface.required = true;
+              } else {
+                // Label is not required here, remove it for this particular break/continue statement
+                path.node.label = null;
+              }
+
+              if (!labelInterface.paths) {
+                labelInterface.paths = [];
+              }
+              labelInterface.paths.push(path);
             }
           },
         });
 
-        // Generate short names for used labels
-        const labelNameMap = new Map<string, string>();
-        let labelCounter = 0;
-        labelUsageMap.forEach((usageCount, labelName) => {
-          if (usageCount > 0) {
-            labelNameMap.set(labelName, `L${labelCounter++}`);
+        const nameGen = new NameGen(me.options.identifierGenerator);
+
+        for (var labelInterface of allLabelInterfaces) {
+          const isRequired = labelInterface.required;
+          if (isRequired) {
+            var newName = labelInterface.label;
+            if (
+              computeProbabilityMap(
+                me.options.renameLabels,
+                labelInterface.label
+              )
+            ) {
+              newName = nameGen.generate();
+            }
+            labelInterface.renamed = newName;
+          } else {
+            labelInterface.removed = true;
           }
-        });
+        }
 
         // Second pass: Rename labels and remove unused ones
         path.traverse({
           LabeledStatement(labelPath) {
-            const labelName = labelPath.node.label.name;
-            if (labelUsageMap.get(labelName) === 0) {
-              labelPath.remove();
-            } else {
-              const newLabelName = labelNameMap.get(labelName);
-              if (newLabelName) {
-                labelPath.node.label.name = newLabelName;
+            const labelInterface = (labelPath.node as NodeLabel)[LABEL];
+            if (labelInterface) {
+              // Remove label but replace it with its body
+              if (labelInterface.removed) {
+                labelPath.replaceWith(labelPath.node.body);
               }
-            }
-          },
-          BreakStatement(breakPath) {
-            if (breakPath.node.label) {
-              const labelName = breakPath.node.label.name;
-              const newLabelName = labelNameMap.get(labelName);
-              if (newLabelName) {
-                breakPath.node.label.name = newLabelName;
+
+              // Else keep the label but rename it
+              if (typeof labelInterface.renamed === "string") {
+                labelPath.node.label.name = labelInterface.renamed;
               }
-            }
-          },
-          ContinueStatement(continuePath) {
-            if (continuePath.node.label) {
-              const labelName = continuePath.node.label.name;
-              const newLabelName = labelNameMap.get(labelName);
-              if (newLabelName) {
-                continuePath.node.label.name = newLabelName;
+
+              // Update all break/continue statements
+              for (var breakPath of labelInterface.paths) {
+                // Remove label from break/continue statement
+                if (labelInterface.removed) {
+                  breakPath.node.label = null;
+                } else {
+                  // Update label name
+                  breakPath.node.label = t.identifier(labelInterface.renamed);
+                }
               }
             }
           },

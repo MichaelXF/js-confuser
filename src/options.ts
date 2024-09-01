@@ -105,7 +105,7 @@ export interface ObfuscateOptions {
    */
   minify?: boolean;
 
-  renameLabels?: ProbabilityMap<boolean>;
+  renameLabels?: ProbabilityMap<boolean, (labelName: string) => boolean>;
 
   /**
    * ### `renameVariables`
