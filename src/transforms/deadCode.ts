@@ -53,7 +53,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             PrototypeCollision[randomProperty] !== undefined
           );
 
-          path.pushContainer(
+          path.unshiftContainer(
             "body",
             new Template(`
               if("${randomProperty}" in ${containingFnName}) {

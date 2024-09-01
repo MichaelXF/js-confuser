@@ -1,14 +1,14 @@
 import { NodePath, PluginObj } from "@babel/core";
-import { PluginArg } from "../transforms/plugin";
-import { Order } from "../order";
-import { chance, choice } from "../utils/random-utils";
-import Template from "../templates/template";
+import { PluginArg } from "../plugin";
+import { Order } from "../../order";
+import { chance, choice } from "../../utils/random-utils";
+import Template from "../../templates/template";
 import * as t from "@babel/types";
-import { CustomLock } from "../options";
-import { getParentFunctionOrProgram } from "../utils/ast-utils";
+import { CustomLock } from "../../options";
+import { getParentFunctionOrProgram } from "../../utils/ast-utils";
 import { INTEGRITY, NodeIntegrity } from "./integrity";
-import { HashTemplate } from "../templates/integrityTemplate";
-import { NodeSymbol, SKIP } from "../constants";
+import { HashTemplate } from "../../templates/integrityTemplate";
+import { NodeSymbol, SKIP } from "../../constants";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Lock);
@@ -225,7 +225,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 }
                 `).compile();
 
-            path.unshiftContainer("body", statements).forEach((p) => p.skip());
+            path.unshiftContainer("body", statements).forEach((p) => {
+              path.scope.registerDeclaration(p);
+              p.skip();
+            });
           }
 
           if (me.options.lock.integrity) {

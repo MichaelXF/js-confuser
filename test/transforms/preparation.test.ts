@@ -122,12 +122,16 @@ test("Variant #7: Force Variable declarations to be expanded", async () => {
   }
 
   {
-    var myBlockVar1;
-    var myBlockVar2;
-    var myBlockVar3;
+    var myBlockVar1,
+     myBlockVar2,
+     myBlockVar3;
   }
 
   if(true) var myIfVar1, myIfVar2, myIfVar3;
+
+  function myFunction(){
+    var myFunctionVar1, myFunctionVar2, myFunctionVar3;
+  }
   `,
     {
       target: "node",

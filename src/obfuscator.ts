@@ -31,13 +31,14 @@ import renameLabels from "./transforms/renameLabels";
 import rgf from "./transforms/rgf";
 import flatten from "./transforms/flatten";
 import stringConcealing from "./transforms/string/stringConcealing";
-import lock from "./lock/lock";
-import integrity from "./lock/integrity";
+import lock from "./transforms/lock/lock";
+import integrity from "./transforms/lock/integrity";
 import { Statement } from "@babel/types";
 import controlFlowFlattening from "./transforms/controlFlowFlattening";
 import variableConcealing from "./transforms/identifier/variableConcealing";
 import { NameGen } from "./utils/NameGen";
 import { assertScopeIntegrity } from "./utils/scope-utils";
+import opaquePredicates from "./transforms/opaquePredicates";
 
 export default class Obfuscator {
   plugins: {
@@ -90,7 +91,7 @@ export default class Obfuscator {
     push(this.options.controlFlowFlattening, controlFlowFlattening);
     push(this.options.calculator, calculator);
     push(this.options.globalConcealing, globalConcealing);
-    // Opaque Predicates
+    push(this.options.opaquePredicates, opaquePredicates);
     push(this.options.stringSplitting, stringSplitting);
     push(this.options.stringConcealing, stringConcealing);
     push(this.options.stringCompression, stringCompression);
@@ -149,10 +150,9 @@ export default class Obfuscator {
     ast: babel.types.File,
     options?: {
       profiler?: ProfilerCallback;
-      startIndex?: number;
     }
   ): babel.types.File {
-    for (let i = options?.startIndex || 0; i < this.plugins.length; i++) {
+    for (let i = 0; i < this.plugins.length; i++) {
       this.index = i;
       const { plugin, pluginInstance } = this.plugins[i];
       if (this.options.verbose) {
@@ -202,7 +202,7 @@ export default class Obfuscator {
   static createDefaultInstance() {
     return new Obfuscator({
       target: "node",
-      renameLabels: true,
+      compact: true,
     });
   }
 

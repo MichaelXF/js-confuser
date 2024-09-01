@@ -488,3 +488,41 @@ test("Variant #16: Handle const declarations", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(1);
 });
+
+test("Variant #17: Extract properties on objects in functions", async () => {
+  var namesCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function getUserName(){
+      var firstName = "John";
+      var lastName = "Doe";
+
+      var user = { firstName, lastName };
+
+      return user.firstName + " " + user.lastName;
+    }
+      
+    TEST_OUTPUT = getUserName();
+    `,
+    {
+      target: "node",
+      objectExtraction: (name) => {
+        namesCollected.push(name);
+        return true;
+      },
+    }
+  );
+
+  // Ensure object was visited
+  expect(namesCollected).toContain("user");
+
+  // Ensure object was changed
+  expect(code).toContain("user_firstName");
+
+  // Make sure results are correct
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("John Doe");
+});

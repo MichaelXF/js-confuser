@@ -1,10 +1,10 @@
 import { PluginObj } from "@babel/core";
-import { PluginArg } from "../transforms/plugin";
-import { Order } from "../order";
-import { getRandomInteger } from "../utils/random-utils";
-import { HashFunction } from "../templates/integrityTemplate";
+import { PluginArg } from "../plugin";
+import { Order } from "../../order";
+import { getRandomInteger } from "../../utils/random-utils";
+import { HashFunction } from "../../templates/integrityTemplate";
 import * as t from "@babel/types";
-import Template from "../templates/template";
+import Template from "../../templates/template";
 import { NodePath } from "@babel/traverse";
 
 export interface IntegrityInterface {

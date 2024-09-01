@@ -11,7 +11,10 @@ import {
   variableFunctionName,
 } from "../constants";
 import { ok } from "assert";
-import { getPatternIdentifierNames } from "../utils/ast-utils";
+import {
+  getParentFunctionOrProgram,
+  getPatternIdentifierNames,
+} from "../utils/ast-utils";
 import { isVariableFunctionIdentifier } from "../utils/function-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
@@ -166,8 +169,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                       return newNode;
                     })
                   )
-                  .forEach((path) => {
-                    path.scope.registerDeclaration(path);
+                  .forEach((newPath) => {
+                    if (newPath.node.kind === "var") {
+                      var functionOrProgram =
+                        getParentFunctionOrProgram(newPath);
+                      functionOrProgram.scope.registerDeclaration(newPath);
+                    }
+                    newPath.scope.registerDeclaration(newPath);
                   });
               }
             }

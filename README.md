@@ -53,19 +53,28 @@ var AF59rI,ZgbbeaU,WDgj3I,gpR2qG,Ox61sk,pTNPNpX;AF59rI=[60,17,25,416,22,23,83,26
 */
 ```
 
-## CLI Usage
-
-```shell
-<coming soon>
-```
-
 ## Documentation
 
 Read the [documentation](https://js-confuser.com/docs) for everything to know about JS-Confuser, including:
 
-- All the obfuscator options
-- API methods
-- Presets
+- [Getting Started](https://new--confuser.netlify.app/docs)
+
+- - [What is Obfuscation?](https://new--confuser.netlify.app/docs/getting-started/what-is-obfuscation)
+
+- - [Playground](https://new--confuser.netlify.app/docs/getting-started/playground)
+
+- - [Installation](https://new--confuser.netlify.app/docs/getting-started/installation)
+
+- - [Usage](https://new--confuser.netlify.app/docs/getting-started/usage)
+
+- - [FAQ](https://new--confuser.netlify.app/docs/getting-started/faq)
+
+- [Options](https://new--confuser.netlify.app/docs)
+
+- [Presets](https://new--confuser.netlify.app/docs)
+
+
+
 
 ## Bug report
 

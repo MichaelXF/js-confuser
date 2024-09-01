@@ -15,6 +15,8 @@
 
 - Control Flow Flattening no longer flattens `For Statement`/`While Statement/`Do Statement` for performance reasons. It now applies to `FunctionDeclaration` and flattens functions.
 
+- Removed `indent` option, `@babel/generator` does not allow customizing the indentation size. Use Prettier if you still wish for 4 space or tabs.
+
 # `1.7.3`
 Tamper Protection
 

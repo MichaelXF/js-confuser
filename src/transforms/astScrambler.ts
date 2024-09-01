@@ -3,6 +3,7 @@ import { PluginArg } from "./plugin";
 import * as t from "@babel/types";
 import { ok } from "assert";
 import { Order } from "../order";
+import { NodeSymbol, SKIP } from "../constants";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.AstScrambler);
@@ -50,7 +51,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           };
 
           for (var statement of container) {
-            if (t.isExpressionStatement(statement)) {
+            if (
+              t.isExpressionStatement(statement) &&
+              !(statement as NodeSymbol)[SKIP]
+            ) {
               if (t.isSequenceExpression(statement.expression)) {
                 expressions.push(...statement.expression.expressions);
               } else {

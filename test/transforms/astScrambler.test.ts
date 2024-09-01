@@ -50,3 +50,34 @@ test("Variant #2: Join expressions into sequence expressions", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(6);
 });
+
+test("Variant #3: Work with RGF", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function myFunction(){
+      var a,b,c;
+
+      a = 1;
+      b = 2;
+      c = 3;
+      return "Correct Value";
+    }
+
+    var a,b,c;
+
+    a = 1;
+    b = 2;
+    c = 3;
+    TEST_OUTPUT = myFunction();
+    `,
+    {
+      target: "node",
+      astScrambler: true,
+      rgf: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

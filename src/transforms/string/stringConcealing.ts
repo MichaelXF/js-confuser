@@ -4,11 +4,6 @@ import Template from "../../templates/template";
 import { PluginArg } from "../plugin";
 import { Order } from "../../order";
 import { computeProbabilityMap } from "../../probability";
-import {
-  createEncodingImplementation,
-  EncodingImplementation,
-  hasAllEncodings,
-} from "./encoding";
 import { ok } from "assert";
 import { BufferToStringTemplate } from "../../templates/bufferToStringTemplate";
 import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
@@ -18,12 +13,15 @@ import {
 } from "../../utils/ast-utils";
 import {
   chance,
+  choice,
   getRandomInteger,
   getRandomString,
 } from "../../utils/random-utils";
+import { CustomStringEncoding } from "../../options";
+import { createDefaultStringEncoding } from "./encoding";
 
 interface StringConcealingInterface {
-  encodingImplementation: EncodingImplementation;
+  encodingImplementation: CustomStringEncoding;
   fnName: string;
 }
 
@@ -40,16 +38,69 @@ export default ({ Plugin }: PluginArg): PluginObj => {
   const stringMap = new Map<string, number>();
   const stringArrayName = me.getPlaceholder() + "_array";
 
+  let encodingImplementations: { [identity: string]: CustomStringEncoding } =
+    Object.create(null);
+
+  let availableStringEncodings = me.options.customStringEncodings;
+
+  // If no custom encodings are provided, use the default encoding
+  if (!availableStringEncodings || availableStringEncodings.length === 0) {
+    availableStringEncodings = [createDefaultStringEncoding];
+  }
+
+  function hasAllEncodings() {
+    return availableStringEncodings.length === 0;
+  }
+
+  function createStringEncoding(): CustomStringEncoding {
+    var encodingIndex = getRandomInteger(0, availableStringEncodings.length);
+    var encoding = availableStringEncodings[encodingIndex];
+
+    if (typeof encoding === "function") {
+      encoding = encoding(encodingImplementations);
+
+      var duplicateIdentity =
+        typeof encoding.identity !== "undefined" &&
+        typeof encodingImplementations[encoding.identity] !== "undefined";
+
+      if (duplicateIdentity || encoding === null) {
+        // Null returned -> All encodings have been created
+        // Duplicate identity -> Most likely all encodings have been created
+
+        // No longer create new encodings using this function
+        availableStringEncodings = availableStringEncodings.filter(
+          (x) => x !== encoding
+        );
+
+        // Return a random encoding already made
+        encoding = choice(Object.values(encodingImplementations));
+        ok(encoding, "Failed to create main string encoding");
+      }
+    }
+
+    if (typeof encoding.identity === "undefined") {
+      encoding.identity = encodingIndex.toString();
+    }
+
+    if (typeof encoding.template === "undefined") {
+      encoding.template = new Template(encoding.code);
+    }
+
+    encodingImplementations[encoding.identity] = encoding;
+
+    return encoding;
+  }
+
   return {
     visitor: {
       Program: {
         exit(programPath: NodePath<t.Program>) {
-          let mainEncodingImplementation: EncodingImplementation;
+          let mainEncodingImplementation: CustomStringEncoding;
 
           // Create a main encoder function for the Program
           (programPath.node as NodeStringConcealing)[STRING_CONCEALING] = {
             encodingImplementation: (mainEncodingImplementation =
-              createEncodingImplementation()),
+              createStringEncoding()),
             fnName: me.getPlaceholder() + "_MAIN_STR",
           };
           blocks.push(programPath);
@@ -115,8 +166,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   // Ensure not to overwrite the previous encoders
                   if (!stringConcealingNode[STRING_CONCEALING]) {
                     // Create a new encoding function for this block
-                    const encodingImplementation =
-                      createEncodingImplementation();
+                    const encodingImplementation = createStringEncoding();
                     const fnName =
                       me.getPlaceholder() + "_STR_" + blocks.length;
 
@@ -139,6 +189,21 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   stringConcealingInterface.encodingImplementation.encode(
                     originalValue
                   );
+
+                // If a decoder function is provided, use it to validate each encoded string
+                if (
+                  typeof stringConcealingInterface.encodingImplementation
+                    .decode === "function"
+                ) {
+                  const decodedValue =
+                    stringConcealingInterface.encodingImplementation.decode(
+                      encodedValue
+                    );
+                  if (decodedValue !== originalValue) {
+                    return;
+                  }
+                }
+
                 let index = stringMap.get(encodedValue);
 
                 if (typeof index === "undefined") {
@@ -201,7 +266,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             // The decoder function
             const decoder = encodingImplementation.template.compile({
-              __fnName__: decodeFnName,
+              fnName: decodeFnName,
               __bufferToStringFunction__: bufferToStringName,
             });
 
@@ -212,12 +277,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               }
             `).single<t.FunctionDeclaration>();
 
-            var newPath = block.unshiftContainer("body", [
-              ...decoder,
-              retrieveFunctionDeclaration,
-            ])[0];
-            block.scope.registerDeclaration(newPath);
-            block.skip();
+            block
+              .unshiftContainer("body", [
+                ...decoder,
+                retrieveFunctionDeclaration,
+              ])
+              .forEach((path) => {
+                block.scope.registerDeclaration(path);
+              });
           }
         },
       },

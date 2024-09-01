@@ -12,6 +12,7 @@ const validProperties = new Set([
   "es5",
   "renameVariables",
   "renameGlobals",
+  "renameLabels",
   "identifierGenerator",
   "controlFlowFlattening",
   "globalConcealing",
@@ -37,6 +38,7 @@ const validProperties = new Set([
   "preserveFunctionLength",
   "astScrambler",
   "variableConcealing",
+  "customStringEncodings",
 ]);
 
 const validLockProperties = new Set([
@@ -51,6 +53,7 @@ const validLockProperties = new Set([
   "browserLock",
   "integrity",
   "countermeasures",
+  "customLocks",
 ]);
 
 export function validateOptions(options: ObfuscateOptions) {

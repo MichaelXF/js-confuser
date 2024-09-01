@@ -5,7 +5,7 @@ test("Variant #1: Hide global names (such as Math)", async () => {
   var TEST_RESULT = Math.floor(10.1);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     globalConcealing: true,
   });
@@ -23,7 +23,7 @@ test("Variant #2: Do not hide modified identifiers", async () => {
   console.log(Math);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     globalConcealing: true,
   });
@@ -32,7 +32,7 @@ test("Variant #2: Do not hide modified identifiers", async () => {
 });
 
 test("Variant #3: Properly hide in default parameter, function expression", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction( myParameter = function(){
     var myVariable = true;
@@ -58,7 +58,7 @@ test("Variant #4: Don't change __dirname", async function () {
   TEST_OUTPUT = __dirname;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     globalConcealing: true,
   });
@@ -72,7 +72,7 @@ test("Variant #4: Don't change __dirname", async function () {
 });
 
 test("Variant #5: Hide 'global' var, even if properties are modified", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     TEST_GLOBAL_VARIANT_5_OUTPUT = global.TEST_GLOBAL_VARIANT_5_INPUT * 2;
     `,
@@ -95,7 +95,7 @@ test("Variant #5: Hide 'global' var, even if properties are modified", async () 
 
 test("Variant #6: Preserve __JS_CONFUSER_VAR__", async () => {
   // Covers both defined and undefined case
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var TEST_VARIABLE
     TEST_OUTPUT = [__JS_CONFUSER_VAR__(TEST_OUTER_VARIABLE), __JS_CONFUSER_VAR__(TEST_VARIABLE)];
@@ -117,7 +117,7 @@ test("Variant #6: Preserve __JS_CONFUSER_VAR__", async () => {
 test("Variant #7: Custom callback option", async () => {
   var namesCollected: string[] = [];
 
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     expect(true).toStrictEqual(true);
 
@@ -169,4 +169,33 @@ test("Variant #8: Don't change globals when modified", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+test("Variant #9: Don't change arguments", async () => {
+  var namesCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function addTwo(){
+      return arguments[0] + arguments[1];
+    }
+
+    TEST_OUTPUT = addTwo(10, 20);
+    `,
+    {
+      target: "node",
+      globalConcealing: (name) => {
+        namesCollected.push(name);
+        return true;
+      },
+    }
+  );
+
+  expect(namesCollected).not.toContain("arguments");
+  expect(code).toContain("arguments[0]");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(30);
 });

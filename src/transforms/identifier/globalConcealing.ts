@@ -11,6 +11,7 @@ const ignoreGlobals = new Set([
   "require",
   "__dirname",
   "eval",
+  "arguments",
   variableFunctionName,
 ]);
 
@@ -73,7 +74,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               );
               if (
                 assignmentChild &&
-                assignmentChild.parentPath.isAssignmentExpression() &&
+                t.isAssignmentExpression(assignmentChild.parent) &&
                 assignmentChild.parent.left === assignmentChild.node
               ) {
                 illegalGlobals.add(identifierName);

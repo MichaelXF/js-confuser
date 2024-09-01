@@ -26,7 +26,6 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   if (
                     !computeProbabilityMap(
                       me.options.stringCompression,
-                      (x) => x,
                       originalValue
                     )
                   ) {

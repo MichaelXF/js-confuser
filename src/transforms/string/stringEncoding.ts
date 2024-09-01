@@ -55,10 +55,7 @@ export default (me: PluginInstance): PluginObj => {
           const { value } = path.node;
 
           // Allow percentages
-          if (
-            !computeProbabilityMap(me.options.stringEncoding, (x) => x, value)
-          )
-            return;
+          if (!computeProbabilityMap(me.options.stringEncoding, value)) return;
 
           var type = choice(["hexadecimal", "unicode"]);
 

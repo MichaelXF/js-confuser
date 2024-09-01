@@ -1,10 +1,11 @@
-import { PluginObj } from "@babel/core";
+import { NodePath, PluginObj } from "@babel/core";
 import { PluginArg } from "./plugin";
 import { Order } from "../order";
 import * as t from "@babel/types";
 import Obfuscator from "../obfuscator";
 import { computeProbabilityMap } from "../probability";
 import { getFunctionName } from "../utils/ast-utils";
+import { NodeSymbol, SKIP, UNSAFE } from "../constants";
 
 /**
  * RGF (Runtime-Generated-Function) uses the `new Function("code")` syntax to create executable code from strings.
@@ -28,7 +29,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (rgfArrayExpression.elements.length === 0) return;
 
           // Insert the RGF array at the top of the program
-          path.node.body.unshift(
+
+          function prepend(node: t.Statement) {
+            var newPath = path.unshiftContainer("body", node)[0];
+            path.scope.registerDeclaration(newPath);
+          }
+
+          prepend(
             t.variableDeclaration("var", [
               t.variableDeclarator(
                 t.identifier(rgfArrayName),
@@ -37,7 +44,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             ])
           );
 
-          path.node.body.unshift(
+          prepend(
             t.variableDeclaration("var", [
               t.variableDeclarator(
                 t.identifier(rgfEvalName),
@@ -47,8 +54,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           );
         },
       },
-      Function: {
-        exit(path) {
+      "FunctionDeclaration|FunctionExpression|ArrowFunctionExpression": {
+        exit(_path) {
+          const path = _path as NodePath<t.FunctionDeclaration>;
+
           // Skip async and generator functions
           if (path.node.async || path.node.generator) return;
 
@@ -59,7 +68,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (name === me.options.lock?.countermeasures) return;
           me.log(name);
 
-          if (!computeProbabilityMap(me.options.rgf, (x) => x, name)) return;
+          if (!computeProbabilityMap(me.options.rgf, name)) return;
 
           // Skip functions with references to outside variables
           // Check the scope to see if this function relies on any variables defined outside the function
@@ -95,6 +104,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const replacementName = me.getPlaceholder() + "_replacement";
           const thisName = me.getPlaceholder() + "_this";
 
+          const lastNode = t.expressionStatement(t.identifier(embeddedName));
+          (lastNode as NodeSymbol)[SKIP] = true;
+
           // Transform the function
           const evalTree: t.Program = t.program([
             t.functionDeclaration(
@@ -126,13 +138,28 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 ),
               ])
             ),
-            t.expressionStatement(t.identifier(embeddedName)),
+            lastNode,
           ]);
           const evalFile = t.file(evalTree);
 
-          me.obfuscator.obfuscateAST(evalFile, {
-            startIndex: me.obfuscator.index + 1,
+          var newObfuscator = new Obfuscator(me.options);
+
+          var hasRan = new Set(
+            me.obfuscator.plugins
+              .filter((plugin, i) => {
+                return i <= me.obfuscator.index;
+              })
+              .map((plugin) => plugin.pluginInstance.order)
+          );
+
+          newObfuscator.plugins = newObfuscator.plugins.filter((plugin) => {
+            return (
+              plugin.pluginInstance.order == Order.Preparation ||
+              !hasRan.has(plugin.pluginInstance.order)
+            );
           });
+
+          newObfuscator.obfuscateAST(evalFile);
 
           const generated = Obfuscator.generateCode(evalFile);
 
@@ -145,6 +172,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           // Params no longer needed, using 'arguments' instead
           path.node.params = [];
+
+          // Function is now unsafe
+          (path.node as NodeSymbol)[UNSAFE] = true;
 
           path
             .get("body")

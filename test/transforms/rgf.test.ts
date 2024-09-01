@@ -124,7 +124,7 @@ test("Variant #5: Don't convert functions that rely on outside-scoped variables 
 });
 
 test("Variant #6: Work on High Preset", async () => {
-  var { code: output } = await JsConfuser.obfuscate(
+  var { code } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(a, b){
       return a + b;
@@ -140,7 +140,7 @@ test("Variant #6: Work on High Preset", async () => {
   );
 
   var TEST_OUTPUT;
-  eval(output);
+  eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual(15);
 });
@@ -233,6 +233,7 @@ test("Variant #9: Work with Flatten on any function", async () => {
     `
     var outsideCounter = 0;
     var outsideFlag = false;
+    var TEST_OUTPUT
 
     function incrementOutsideCounter(){
       outsideCounter++;
@@ -251,6 +252,8 @@ test("Variant #9: Work with Flatten on any function", async () => {
     incrementOutsideCounter();
     incrementTimes(8);
     incrementTimes(1); 
+
+    TEST_OUTPUT_OUT = TEST_OUTPUT;
     `,
     {
       target: "node",
@@ -261,10 +264,10 @@ test("Variant #9: Work with Flatten on any function", async () => {
 
   expect(output).toContain("eval");
 
-  var TEST_OUTPUT;
+  var TEST_OUTPUT_OUT;
   eval(output);
 
-  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+  expect(TEST_OUTPUT_OUT).toStrictEqual("Correct Value");
 });
 
 test("Variant #10: Configurable by custom function option", async () => {

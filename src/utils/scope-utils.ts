@@ -58,7 +58,9 @@ export function assertScopeIntegrity(pluginName: string, node: t.File) {
       }
 
       if (seenNodes.has(path.node)) {
-        throw new Error(`Duplicate node found in AST ${path.node.type}`);
+        throw new Error(
+          `${pluginName}: Duplicate node found in AST ${path.node.type}`
+        );
       }
       seenNodes.add(path.node);
 
@@ -69,7 +71,7 @@ export function assertScopeIntegrity(pluginName: string, node: t.File) {
           const binding = path.scope.bindings[name];
           if (!binding.path || !binding.path.node || binding.path.removed) {
             throw new Error(
-              `Binding "${name}" was removed from the scope at node: ${path.node.type}`
+              `${pluginName}: Binding "${name}" was removed from the scope at node: ${path.node.type} ${binding.path}`
             );
           }
         }
@@ -106,7 +108,7 @@ export function assertScopeIntegrity(pluginName: string, node: t.File) {
 
   if (errors.length > 0) {
     throw new Error(
-      `${pluginName} scope integrity check failed:\n${errors.join("\n")}`
+      `${pluginName}: Scope integrity check failed:\n${errors.join("\n")}`
     );
   }
 }

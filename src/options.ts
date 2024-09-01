@@ -37,8 +37,25 @@ export interface CustomStringEncoding {
    * }
    * ```
    */
-  code: string;
+  code?: string;
   encode: (str: string) => string;
+
+  /**
+   * Optional. A decoder function can be provided to ensure the string is able to decode properly.
+   * @param str
+   * @returns
+   */
+  decode?: (str: string) => string;
+
+  /**
+   * Should be used when created 'shuffled' variants of the same encoding.
+   */
+  identity?: string;
+
+  /**
+   * Can be used instead of the `code` property.
+   */
+  template?: Template;
 }
 
 export interface ObfuscateOptions {
@@ -66,13 +83,6 @@ export interface ObfuscateOptions {
    * 2. `"browser"`
    */
   target: "node" | "browser";
-
-  /**
-   * ### `indent`
-   *
-   * Controls the indentation of the output.
-   */
-  indent?: 2 | 4 | "tabs";
 
   /**
    * ### `compact`
@@ -422,7 +432,12 @@ export interface ObfuscateOptions {
     customLocks?: CustomLock[];
   };
 
-  customStringEncodings?: CustomStringEncoding[];
+  customStringEncodings?: (
+    | CustomStringEncoding
+    | ((encodingImplementations: {
+        [identity: string]: CustomStringEncoding;
+      }) => CustomStringEncoding | null)
+  )[];
 
   /**
    * ### `movedDeclarations`

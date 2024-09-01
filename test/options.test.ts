@@ -40,7 +40,7 @@ describe("options", () => {
     expect(output).not.toContain("TEST_VARIABLE");
   });
 
-  test("Variant #4: Work with compact false", async () => {
+  test("Variant #4: Work with compact set to false", async () => {
     var output = await JsConfuser(`var TEST_VARIABLE;`, {
       target: "node",
       renameGlobals: true,
@@ -51,13 +51,10 @@ describe("options", () => {
     expect(output).not.toContain("TEST_VARIABLE");
   });
 
-  test("Variant #5: Work with indent set to 2 spaces", async () => {
+  test("Variant #5: Work with compact set to true", async () => {
     var output = await JsConfuser(`var TEST_VARIABLE;`, {
       target: "node",
-      renameGlobals: true,
-      renameVariables: true,
-      compact: false,
-      indent: 2,
+      compact: true,
     });
 
     expect(output).not.toContain("TEST_VARIABLE");
@@ -69,7 +66,6 @@ describe("options", () => {
       renameGlobals: true,
       renameVariables: true,
       compact: false,
-      indent: 2,
       debugComments: true,
     });
 

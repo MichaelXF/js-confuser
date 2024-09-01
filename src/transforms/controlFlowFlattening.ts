@@ -204,7 +204,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             block: t.Block,
             options: BasicBlockOptions
           ) {
-            for (const statement of block.body) {
+            for (const index in block.body) {
+              const statement = block.body[index];
+
               // Keep Imports before everything else
               if (t.isImportDeclaration(statement)) {
                 prependNodes.push(statement);
@@ -261,9 +263,17 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 currentBasicBlock.body.push(statement);
                 currentBasicBlock.body.push(
                   t.returnStatement(
-                    t.callExpression(t.identifier(embeddedName), [
-                      t.spreadElement(t.identifier(argVar)),
-                    ])
+                    t.callExpression(
+                      t.memberExpression(
+                        t.identifier(embeddedName),
+                        t.stringLiteral("call"),
+                        true
+                      ),
+                      [
+                        t.thisExpression(),
+                        t.spreadElement(t.identifier(argVar)),
+                      ]
+                    )
                   )
                 );
 
@@ -360,6 +370,18 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   options
                 );
 
+                continue;
+              }
+
+              if (
+                options.topLevel &&
+                Number(index) === block.body.length - 1 &&
+                t.isExpressionStatement(statement)
+              ) {
+                // Return the result of the last expression for eval() purposes
+                currentBasicBlock.body.push(
+                  t.returnStatement(statement.expression)
+                );
                 continue;
               }
 
@@ -658,14 +680,22 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               [t.restElement(t.identifier(argVar))],
               t.blockStatement([
                 t.returnStatement(
-                  t.callExpression(t.identifier(mainFnName), [
-                    ...basicBlocks
-                      .get(label)
-                      .stateValues.map((stateValue) =>
-                        t.numericLiteral(stateValue)
-                      ),
-                    t.identifier(argVar),
-                  ])
+                  t.callExpression(
+                    t.memberExpression(
+                      t.identifier(mainFnName),
+                      t.stringLiteral("call"),
+                      true
+                    ),
+                    [
+                      t.thisExpression(),
+                      ...basicBlocks
+                        .get(label)
+                        .stateValues.map((stateValue) =>
+                          t.numericLiteral(stateValue)
+                        ),
+                      t.identifier(argVar),
+                    ]
+                  )
                 ),
               ])
             );

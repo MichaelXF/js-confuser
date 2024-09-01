@@ -3,6 +3,7 @@ import * as t from "@babel/types";
 import { ok } from "assert";
 import { PluginArg } from "../plugin";
 import { Order } from "../../order";
+import { ensureComputedExpression } from "../../utils/ast-utils";
 
 function fail(): never {
   throw new Error("Assertion failed");
@@ -110,9 +111,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 index = literalsMap.size;
                 literalsMap.set(value, index);
 
-                firstTimeMap
-                  .get(value)
-                  .replaceWith(createMemberExpression(index));
+                var firstPath = firstTimeMap.get(value);
+
+                ensureComputedExpression(firstPath);
+
+                firstPath.replaceWith(createMemberExpression(index));
 
                 arrayExpression.elements.push(createLiteral(value));
               } else {
@@ -124,6 +127,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               ok(index !== -1);
 
               // Replace literals in the code with a placeholder
+              ensureComputedExpression(literalPath);
+
               literalPath.replaceWith(createMemberExpression(index));
               literalPath.skip();
             },

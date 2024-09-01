@@ -153,11 +153,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         const newDeclarationKind =
           varDecPath.node.kind === "const" ? "let" : varDecPath.node.kind;
 
-        varDecPath.replaceWithMultiple(
-          newDeclarations.map((declaration) =>
-            t.variableDeclaration(newDeclarationKind, [declaration])
+        varDecPath
+          .replaceWithMultiple(
+            newDeclarations.map((declaration) =>
+              t.variableDeclaration(newDeclarationKind, [declaration])
+            )
           )
-        );
+          .forEach((path) => {
+            // Make sure to register the new declarations
+            path.scope.registerDeclaration(path);
+          });
 
         // Replace all references to new singular identifiers
         for (const { path, replaceWith } of pendingReplacements) {

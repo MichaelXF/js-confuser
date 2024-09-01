@@ -29,11 +29,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           }
 
           if (
-            !computeProbabilityMap(
-              me.options.stringSplitting,
-              (x) => x,
-              object.value
-            )
+            !computeProbabilityMap(me.options.stringSplitting, object.value)
           ) {
             return;
           }
