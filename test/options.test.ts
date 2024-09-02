@@ -89,6 +89,72 @@ describe("options", () => {
       } as any)
     ).rejects.toThrow();
   });
+
+  test("Variant #8: Error on invalid target values", async () => {
+    var invalid: any = {
+      target: "__invalid__target__",
+    };
+
+    await expect(async () => {
+      return await JsConfuser.obfuscate("5+5", invalid);
+    }).rejects.toThrow();
+  });
+
+  test("Variant #9: Error when target property missing", async () => {
+    var invalid: any = {
+      objectExtraction: true,
+    };
+
+    await expect(async () => {
+      return await JsConfuser.obfuscate("5+5", invalid);
+    }).rejects.toThrow();
+  });
+
+  test("Variant #10: Error when invalid options are passed in", async () => {
+    var invalid: any = {
+      target: "browser",
+      __invalid__prop__: true,
+    };
+
+    await expect(async () => {
+      return await JsConfuser.obfuscate("5+5", invalid);
+    }).rejects.toThrow();
+  });
+
+  test("Variant #11: Error when invalid startDate is passed in", async () => {
+    var invalid: any = {
+      target: "browser",
+      lock: {
+        startDate: "__invalid__date__object__",
+      },
+    };
+
+    await expect(async () => {
+      return await JsConfuser.obfuscate("5+5", invalid);
+    }).rejects.toThrow();
+  });
+
+  test("Variant #12: Error when invalid endDate is passed in", async () => {
+    var invalid: any = {
+      target: "browser",
+      lock: {
+        endDate: "__invalid__date__object__",
+      },
+    };
+
+    await expect(async () => {
+      return await JsConfuser.obfuscate("5+5", invalid);
+    }).rejects.toThrow();
+  });
+
+  test("Variant #13: Error when source code is not a string", async () => {
+    await expect(async () => {
+      return await JsConfuser.obfuscate({} as any, {
+        target: "node",
+        preset: "low",
+      });
+    }).rejects.toThrow();
+  });
 });
 
 describe("options.preserveFunctionLength", () => {

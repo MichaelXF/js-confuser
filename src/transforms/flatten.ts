@@ -1,17 +1,19 @@
 import * as t from "@babel/types";
 import { NodePath, PluginObj } from "@babel/core";
 import {
+  ensureComputedExpression,
   getFunctionName,
-  insertIntoNearestBlockScope,
-  isReservedIdentifier,
+  prepend,
 } from "../utils/ast-utils";
 import { PluginArg } from "./plugin";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
-import { getRandomInteger, getRandomString } from "../utils/random-utils";
+import { getRandomInteger } from "../utils/random-utils";
 import { NodeSymbol, UNSAFE } from "../constants";
-import { isFunctionStrictMode } from "../utils/function-utils";
+import { computeFunctionLength } from "../utils/function-utils";
+import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 import { ok } from "assert";
+import { Scope } from "@babel/traverse";
 
 const SKIP = Symbol("skip");
 interface NodeSkip {
@@ -28,9 +30,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
   function flattenFunction(fnPath: NodePath<t.Function>) {
     // Skip if already processed
-    if ((fnPath.node as NodeSkip)[SKIP]) {
-      return;
-    }
+    if (me.isSkipped(fnPath)) return;
 
     // Don't apply to generator functions
     if (fnPath.node.generator) return;
@@ -44,11 +44,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     if (t.isArrowFunctionExpression(fnPath.node)) return;
     if (!t.isBlockStatement(fnPath.node.body)) return;
 
-    // Do not apply to non-simple parameter functions
-    if (fnPath.node.params.find((x) => !t.isIdentifier(x))) return;
-
     // Skip if marked as unsafe
     if ((fnPath.node as NodeSymbol)[UNSAFE]) return;
+
+    var program = fnPath.findParent((p) =>
+      p.isProgram()
+    ) as NodePath<t.Program>;
 
     let functionName = getFunctionName(fnPath);
     if (!t.isValidIdentifier(functionName, true)) {
@@ -67,7 +68,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     function generateProp(originalName) {
       var newProp;
       do {
-        newProp = originalName + getRandomInteger(0, 10);
+        newProp = "" + originalName + getRandomInteger(0, 10);
         // newProp = getRandomString(6);
       } while (
         standardProps.has(newProp) ||
@@ -88,7 +89,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     fnPath.traverse({
       Identifier: {
         exit(identifierPath) {
-          if (identifierPath.isJSXIdentifier()) return;
+          if (
+            !identifierPath.isBindingIdentifier() &&
+            !(identifierPath as NodePath).isReferencedIdentifier()
+          )
+            return;
+
           if ((identifierPath.node as NodeSymbol)[UNSAFE]) return;
           const identifierName = identifierPath.node.name;
 
@@ -97,24 +103,40 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             identifierPath.parent.id === identifierPath.node
           )
             return;
-          if (identifierName === "arguments" || identifierName === "console")
-            return;
+          if (identifierName === "arguments") return;
 
           var binding = identifierPath.scope.getBinding(identifierName);
           if (!binding) {
             return;
           }
 
-          var cursor: NodePath = identifierPath;
-          var isDefinedWithin = false;
-          do {
-            if (cursor.scope === binding.scope) {
-              isDefinedWithin = true;
-            }
-            cursor = cursor.parentPath;
-          } while (cursor && cursor !== fnPath);
+          if (
+            binding.kind === "param" &&
+            binding.identifier === identifierPath.node
+          )
+            return;
 
-          if (isDefinedWithin) {
+          var definedLocal = identifierPath.scope;
+          do {
+            if (definedLocal.hasOwnBinding(identifierName)) return;
+            if (definedLocal === fnPath.scope) break;
+
+            definedLocal = definedLocal.parent;
+            if (definedLocal === program.scope) ok(false);
+          } while (definedLocal);
+
+          var cursor: Scope = fnPath.scope.parent;
+          var isOutsideVariable = false;
+
+          do {
+            if (cursor.hasBinding(identifierName)) {
+              isOutsideVariable = true;
+              break;
+            }
+            cursor = cursor.parent;
+          } while (cursor);
+
+          if (!isOutsideVariable) {
             return;
           }
 
@@ -131,6 +153,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
     for (var identifierPath of identifierPaths) {
       const identifierName = identifierPath.node.name;
+      if (typeof identifierName !== "string") continue;
+
       const isTypeof = identifierPath.parentPath.isUnaryExpression({
         operator: "typeof",
       });
@@ -178,6 +202,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           standardProp = generateProp(identifierName);
           standardProps.set(identifierName, standardProp);
         }
+
+        ensureComputedExpression(identifierPath);
 
         // Replace identifier with a reference to the flat object property
         identifierPath
@@ -317,31 +343,25 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       ),
     ]);
 
+    const originalLength = computeFunctionLength(fnPath);
     fnPath.node.params = [t.restElement(t.identifier(argName))];
 
     // Ensure updated parameter gets registered in the function scope
     fnPath.scope.crawl();
     fnPath.skip();
 
-    (flattenedFunctionDeclaration as NodeSkip)[SKIP] = true;
-
     // Add the new flattened function at the top level
-    var program = fnPath.findParent((p) =>
-      p.isProgram()
-    ) as NodePath<t.Program>;
+    var newPath = prepend(program, flattenedFunctionDeclaration)[0];
 
-    var newPath = program.unshiftContainer(
-      "body",
-      flattenedFunctionDeclaration
-    )[0];
-
-    // Register the new function declaration at the root scope
-    program.scope.registerDeclaration(newPath);
+    me.skip(newPath);
 
     // Ensure parameters are registered in the new function scope
     newPath.scope.crawl();
 
     newPath.skip();
+
+    // Set function length
+    me.setFunctionLength(fnPath, originalLength);
   }
 
   return {

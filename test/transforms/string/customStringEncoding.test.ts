@@ -80,7 +80,7 @@ test("Variant #2: Custom Randomized Base64 encoding", async () => {
     const shuffledCharset = shuffle(customCharset.split("")).join("");
 
     return {
-      template: new Template(`
+      code: new Template(`
         // Creates a reverse lookup table from the given charset
         function createReverseCharset(charset) {
           if (charset.length !== 64) {

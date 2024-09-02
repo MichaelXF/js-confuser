@@ -8,16 +8,26 @@ import { chance, getRandomString } from "../utils/random-utils";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
 import { NodeSymbol, UNSAFE } from "../constants";
-import { isVariableFunctionIdentifier } from "../utils/function-utils";
+import {
+  computeFunctionLength,
+  isVariableFunctionIdentifier,
+} from "../utils/function-utils";
+import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Dispatcher);
   var dispatcherCounter = 0;
 
+  const setFunctionLength = me.getPlaceholder("d_fnLength");
+
+  let active = true;
+
   return {
     visitor: {
       "Program|Function": {
         exit(_path) {
+          if (!active) return;
+
           const blockPath = _path as NodePath<t.Program | t.Function>;
 
           if ((blockPath.node as NodeSymbol)[UNSAFE]) return;
@@ -169,9 +179,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 };
 
                 // Replace the identifier with a call to the function
-                if (path.parent.type === "CallExpression") {
+                const parentPath = path.parentPath;
+                if (parentPath?.isCallExpression()) {
                   var expressions: t.Expression[] = [];
-                  var callArguments = path.parent.arguments;
+                  var callArguments = parentPath.node.arguments;
 
                   if (callArguments.length === 0) {
                     expressions.push(
@@ -197,7 +208,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                       ? expressions[0]
                       : t.sequenceExpression(expressions);
 
-                  path.parentPath.replaceWith(output);
+                  parentPath.replaceWith(output);
                 } else {
                   // Replace non-invocation references with a 'cached' version of the function
                   path.replaceWith(createDispatcherCall(newName, keys.nonCall));
@@ -206,10 +217,27 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             },
           });
 
+          const fnLengthProperties = [];
+
           // Create the dispatcher function
           const objectExpression = t.objectExpression(
             Array.from(newNameMapping).map(([name, newName]) => {
-              const originalFn = functionPaths.get(name)!.node;
+              const originalPath = functionPaths.get(name);
+              const originalFn = originalPath.node;
+
+              if (me.options.preserveFunctionLength) {
+                const fnLength = computeFunctionLength(originalPath);
+
+                if (fnLength >= 1) {
+                  // 0 is already the default
+                  fnLengthProperties.push(
+                    t.objectProperty(
+                      t.stringLiteral(newName),
+                      t.numericLiteral(fnLength)
+                    )
+                  );
+                }
+              }
 
               const newBody = [...originalFn.body.body];
               ok(Array.isArray(newBody));
@@ -237,18 +265,30 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             })
           );
 
+          const fnLengths = t.objectExpression(fnLengthProperties);
+
           const dispatcher = new Template(`
-            function ${dispatcherName}(name, flagArg, returnTypeArg) {
+            function ${dispatcherName}(name, flagArg, returnTypeArg, fnLengths = {fnLengthsObjectExpression}) {
               var output, fns = {objectExpression};
 
               if(flagArg === "${keys.clearPayload}") {
                 ${payloadName} = [];
               }
               if(flagArg === "${keys.nonCall}") {
-                output = ${cacheName}[name] || (${cacheName}[name] = function(...args){ 
-                ${payloadName} = args;
-                return fns[name].apply(this);
-              });
+                function createFunction(){
+                  var fn = function(...args){ 
+                    ${payloadName} = args;
+                    return fns[name].apply(this);
+                  }
+
+                  var fnLength = fnLengths[name];
+                  if(fnLength) {
+                    ${setFunctionLength}(fn, fnLength);
+                  }
+
+                  return fn;
+                }
+                output = ${cacheName}[name] || (${cacheName}[name] = createFunction());
               } else {
                 output = fns[name]();
               }
@@ -261,6 +301,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             }
             `).single({
             objectExpression,
+            fnLengthsObjectExpression: fnLengths,
           });
 
           /**
@@ -268,11 +309,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
            * @param node
            */
           function prepend(node: t.Statement) {
-            var p = blockStatement.unshiftContainer<any, any, any>(
+            var newPath = blockStatement.unshiftContainer<any, any, any>(
               "body",
               node
-            );
-            blockStatement.scope.registerDeclaration(p[0]);
+            )[0];
+            blockStatement.scope.registerDeclaration(newPath);
           }
 
           // Insert the dispatcher function
@@ -294,6 +335,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               ),
             ])
           );
+
+          if (blockPath.isProgram()) {
+            active = false;
+
+            prepend(
+              SetFunctionLengthTemplate.single({ fnName: setFunctionLength })
+            );
+          }
 
           // Remove original functions
           for (let path of functionPaths.values()) {

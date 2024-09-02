@@ -22,7 +22,6 @@ export type ProbabilityMap<
 /**
  * Evaluates a ProbabilityMap.
  * @param map The setting object.
- * @param runner Custom function to determine return value
  * @param customFnArgs Args given to user-implemented function, such as a variable name.
  */
 export function computeProbabilityMap<

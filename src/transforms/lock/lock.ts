@@ -61,7 +61,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             {countermeasures}
           }
           `).setDefaultVariables({
-          regexString: t.stringLiteral(regexString.toString()),
+          regexString: () => t.stringLiteral(regexString.toString()),
         }),
         percentagePerBlock: 0.5,
       });
@@ -269,7 +269,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           // Don't apply to async or generator functions
           if (funcDecPath.node.async || funcDecPath.node.generator) return;
 
-          if (funcDecPath.find((p) => (p.node as NodeSymbol)[SKIP])) return;
+          if (funcDecPath.find((p) => !!(p.node as NodeSymbol)[SKIP])) return;
 
           var program = getParentFunctionOrProgram(funcDecPath);
           // Only top-level functions

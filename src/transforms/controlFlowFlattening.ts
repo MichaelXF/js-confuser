@@ -509,32 +509,37 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   ) as NodePath<t.VariableDeclaration>;
                   if (!variableDeclaration) return;
 
-                  var wrapInExpressionStatement = true;
+                  var wrapInAssignmentStatement = true;
 
-                  if (variableDeclaration.parentPath.isForStatement()) {
-                    if (variableDeclaration.node.kind === "var") {
-                      wrapInExpressionStatement = false;
-                    } else {
-                      // 'let'/'const' don't get extracted
-                      return;
-                    }
+                  var forChild = variableDeclaration.find(
+                    (p) =>
+                      (p.parentPath?.isForStatement() &&
+                        p.parentKey === "init") ||
+                      (p.parentPath?.isFor() && p.parentKey === "left")
+                  );
+                  if (forChild) {
+                    wrapInAssignmentStatement = false;
                   }
 
                   ok(variableDeclaration.node.declarations.length === 1);
 
-                  const assignment = t.assignmentExpression(
-                    "=",
-                    variableDeclaration.node.declarations[0].id,
-                    variableDeclaration.node.declarations[0].init ||
-                      t.identifier("undefined")
+                  let identifier = t.cloneNode(
+                    variableDeclaration.node.declarations[0].id
                   );
 
-                  // Replace variable declaration with assignment expression
-                  variableDeclaration.replaceWith(
-                    wrapInExpressionStatement
-                      ? t.expressionStatement(assignment)
-                      : assignment
-                  );
+                  const assignment = wrapInAssignmentStatement
+                    ? t.expressionStatement(
+                        t.assignmentExpression(
+                          "=",
+                          identifier,
+                          variableDeclaration.node.declarations[0].init ||
+                            t.identifier("undefined")
+                        )
+                      )
+                    : identifier;
+
+                  // Replace variable declaration with assignment expression statement
+                  variableDeclaration.replaceWith(assignment);
                 },
               },
 

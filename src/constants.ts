@@ -27,7 +27,7 @@ export const SKIP = Symbol("skip");
 export interface NodeSymbol {
   [UNSAFE]?: boolean;
   [PREDICTABLE]?: boolean;
-  [SKIP]?: boolean;
+  [SKIP]?: boolean | number;
 }
 
 /**

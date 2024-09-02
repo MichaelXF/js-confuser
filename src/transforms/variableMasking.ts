@@ -7,7 +7,10 @@ import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
 import { NodeSymbol, UNSAFE } from "../constants";
 import { getFunctionName } from "../utils/ast-utils";
-import { isFunctionStrictMode } from "../utils/function-utils";
+import {
+  computeFunctionLength,
+  isFunctionStrictMode,
+} from "../utils/function-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.VariableMasking);
@@ -118,7 +121,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             return;
           }
 
-          referencePath.replaceWith(t.cloneNode(memberExpression));
+          if (referencePath.container) {
+            referencePath.replaceWith(t.cloneNode(memberExpression));
+          }
         });
 
         [binding.path, ...binding.constantViolations].forEach(
@@ -174,7 +179,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   );
                 }
 
-                replacePath.replaceWith(replaceExpr);
+                if (replacePath.container) {
+                  replacePath.replaceWith(replaceExpr);
+                }
               },
             });
           }
@@ -186,9 +193,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
     if (!needsStack) return;
 
+    var originalLength = computeFunctionLength(fnPath);
     fnPath.node.params = [t.restElement(t.identifier(stackName))];
 
     fnPath.scope.registerBinding("param", fnPath.get("params")[0], fnPath);
+
+    me.setFunctionLength(fnPath, originalLength);
   };
 
   return {

@@ -2,6 +2,7 @@ import { ok } from "assert";
 import { ObfuscateOptions } from "../options";
 import { alphabeticalGenerator, createZeroWidthGenerator } from "./gen-utils";
 import { choice, getRandomHexString, getRandomInteger } from "./random-utils";
+import { computeProbabilityMap } from "../probability";
 
 export class NameGen {
   private generatedNames = new Set<string>();
@@ -22,9 +23,11 @@ export class NameGen {
       return value;
     }
 
+    var mode = computeProbabilityMap(this.identifierGenerator);
+
     const randomizedLength = getRandomInteger(6, 8);
 
-    switch (this.identifierGenerator) {
+    switch (mode) {
       case "randomized":
         var characters =
           "_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".split("");

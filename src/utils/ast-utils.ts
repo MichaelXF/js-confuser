@@ -260,3 +260,89 @@ export function getMemberExpressionPropertyAsString(
 
   return null; // If the property cannot be determined
 }
+
+/**
+ * Prepends and registers a list of nodes to the beginning of a block.
+ *
+ * - Preserves import declarations by inserting after the last import declaration.
+ * - Handles arrow functions
+ * - Handles switch cases
+ * @param path
+ * @param nodes
+ * @returns
+ */
+export function prepend(
+  path: NodePath,
+  ...nodesIn: (t.Statement | t.Statement[])[]
+): NodePath[] {
+  var nodes: t.Statement[] = [];
+  if (Array.isArray(nodesIn[0])) {
+    ok(nodesIn.length === 1);
+    nodes = nodesIn[0];
+  } else {
+    nodes = nodesIn as t.Statement[];
+  }
+
+  var listParent = path.find(
+    (p) => p.isFunction() || p.isBlock() || p.isSwitchCase()
+  );
+  if (!listParent) {
+    throw new Error("Could not find a suitable parent to prepend to");
+  }
+
+  function registerPaths(paths: NodePath[]) {
+    for (var path of paths) {
+      path.scope.registerDeclaration(path);
+    }
+
+    return paths;
+  }
+
+  if (listParent.isProgram()) {
+    // Preserve import declarations
+    // Filter out import declarations
+    const body = listParent.get("body");
+    const lastImportIndex = body.findIndex(
+      (path) => !path.isImportDeclaration()
+    );
+
+    if (lastImportIndex === 0 || lastImportIndex === -1) {
+      // No non-import declarations, so we can safely unshift everything
+      return registerPaths(listParent.unshiftContainer("body", nodes));
+    } else {
+      // Insert the nodes after the last import declaration
+      return registerPaths(body[lastImportIndex - 1].insertAfter(nodes));
+    }
+  }
+
+  if (listParent.isFunction()) {
+    var body = listParent.get("body");
+
+    if (listParent.isArrowFunctionExpression() && listParent.node.expression) {
+      if (!body.isBlockStatement()) {
+        body.replaceWith(
+          t.blockStatement([t.returnStatement(body.node as t.Expression)])
+        );
+      }
+    }
+
+    ok(body.isBlockStatement());
+
+    return registerPaths(body.unshiftContainer("body", nodes));
+  }
+
+  if (listParent.isBlock()) {
+    return registerPaths(listParent.unshiftContainer("body", nodes));
+  } else if (listParent.isSwitchCase()) {
+    return registerPaths(listParent.unshiftContainer("consequent", nodes));
+  }
+}
+
+export function prependProgram(
+  path: NodePath,
+  ...nodes: (t.Statement | t.Statement[])[]
+) {
+  var program = path.find((p) => p.isProgram());
+  ok(program);
+  return prepend(program, ...nodes);
+}

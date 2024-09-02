@@ -1,7 +1,13 @@
-import { PluginObj } from "@babel/core";
+import { NodePath, PluginObj } from "@babel/core";
 import Obfuscator from "../obfuscator";
 import { getRandomString } from "../utils/random-utils";
 import { Order } from "../order";
+import * as t from "@babel/types";
+import Template from "../templates/template";
+import { NodeSymbol, SKIP } from "../constants";
+import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
+import { prepend, prependProgram } from "../utils/ast-utils";
+import { ok } from "assert";
 
 export type PluginFunction = (pluginArg: PluginArg) => PluginObj;
 
@@ -29,6 +35,66 @@ export class PluginInstance {
 
   get globalState() {
     return this.obfuscator.globalState;
+  }
+
+  skip(path: NodePath | t.Node | NodePath[]) {
+    if (Array.isArray(path)) {
+      path.forEach((p) => this.skip(p));
+    } else {
+      let any = path as any;
+      let node = any.isNodeType ? any.node : any;
+
+      (node as NodeSymbol)[SKIP] = this.order;
+    }
+  }
+
+  isSkipped(path: NodePath | t.Node) {
+    let any = path as any;
+    let node = any.isNodeType ? any.node : any;
+
+    return (node as NodeSymbol)[SKIP] === this.order;
+  }
+
+  private setFunctionLengthName: string;
+  setFunctionLength(path: NodePath<t.Function>, originalLength: number) {
+    // Function length
+    if (this.options.preserveFunctionLength && originalLength > 0) {
+      if (!this.setFunctionLengthName) {
+        this.setFunctionLengthName = this.getPlaceholder("fnLength");
+
+        this.skip(
+          prependProgram(
+            path,
+            SetFunctionLengthTemplate.compile({
+              fnName: this.setFunctionLengthName,
+            })
+          )
+        );
+      }
+      if (t.isFunctionDeclaration(path.node)) {
+        prepend(
+          path.parentPath,
+          t.expressionStatement(
+            t.callExpression(t.identifier(this.setFunctionLengthName), [
+              t.identifier(path.node.id.name),
+              t.numericLiteral(originalLength),
+            ])
+          )
+        );
+      } else if (
+        t.isFunctionExpression(path.node) ||
+        t.isArrowFunctionExpression(path.node)
+      ) {
+        path.replaceWith(
+          t.callExpression(t.identifier(this.setFunctionLengthName), [
+            path.node,
+            t.numericLiteral(originalLength),
+          ])
+        );
+      } else {
+        // TODO
+      }
+    }
   }
 
   getPlaceholder(suffix = "") {

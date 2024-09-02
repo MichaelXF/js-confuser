@@ -82,8 +82,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       encoding.identity = encodingIndex.toString();
     }
 
-    if (typeof encoding.template === "undefined") {
-      encoding.template = new Template(encoding.code);
+    if (typeof encoding.code === "string") {
+      encoding.code = new Template(encoding.code);
     }
 
     encodingImplementations[encoding.identity] = encoding;
@@ -264,8 +264,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             const decodeFnName = fnName + "_d";
 
+            ok(encodingImplementation.code instanceof Template);
+
             // The decoder function
-            const decoder = encodingImplementation.template.compile({
+            const decoder = encodingImplementation.code.compile({
               fnName: decodeFnName,
               __bufferToStringFunction__: bufferToStringName,
             });

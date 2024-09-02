@@ -4,8 +4,10 @@ import { Order } from "../order";
 import * as t from "@babel/types";
 import Obfuscator from "../obfuscator";
 import { computeProbabilityMap } from "../probability";
-import { getFunctionName } from "../utils/ast-utils";
+import { getFunctionName, prepend, prependProgram } from "../utils/ast-utils";
 import { NodeSymbol, SKIP, UNSAFE } from "../constants";
+import { computeFunctionLength } from "../utils/function-utils";
+import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 
 /**
  * RGF (Runtime-Generated-Function) uses the `new Function("code")` syntax to create executable code from strings.
@@ -54,15 +56,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           );
         },
       },
-      "FunctionDeclaration|FunctionExpression|ArrowFunctionExpression": {
+      "FunctionDeclaration|FunctionExpression": {
         exit(_path) {
-          const path = _path as NodePath<t.FunctionDeclaration>;
+          const path = _path as NodePath<
+            t.FunctionDeclaration | t.FunctionExpression
+          >;
+
+          if (me.isSkipped(path)) return;
 
           // Skip async and generator functions
           if (path.node.async || path.node.generator) return;
-
-          // Don't apply to arrow functions
-          if (t.isArrowFunctionExpression(path.node)) return;
 
           const name = getFunctionName(path);
           if (name === me.options.lock?.countermeasures) return;
@@ -171,11 +174,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           rgfArrayExpression.elements.push(functionExpression);
 
           // Params no longer needed, using 'arguments' instead
+          const originalLength = computeFunctionLength(path);
           path.node.params = [];
 
           // Function is now unsafe
           (path.node as NodeSymbol)[UNSAFE] = true;
 
+          // Update body to point to new function
           path
             .get("body")
             .replaceWith(
@@ -202,6 +207,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 ),
               ])
             );
+
+          me.setFunctionLength(path, originalLength);
         },
       },
     },

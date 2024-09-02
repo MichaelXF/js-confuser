@@ -99,7 +99,7 @@ export function createDefaultStringEncoding(
 
       return Buffer.from(ret).toString("utf-8");
     },
-    template: new Template(`  
+    code: new Template(`  
         function {fnName}(str){
           var table = {__strTable__};
   

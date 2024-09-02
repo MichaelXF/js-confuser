@@ -28,3 +28,26 @@ export function isVariableFunctionIdentifier(path: NodePath<t.Node>) {
 
   return false;
 }
+
+/**
+ * Computes the `function.length` property given the parameter nodes.
+ *
+ * @example function abc(a, b, c = 1, ...d) {} // abc.length = 2
+ */
+export function computeFunctionLength(fnPath: NodePath<t.Function>): number {
+  var count = 0;
+
+  for (var parameterNode of fnPath.node.params) {
+    if (
+      parameterNode.type === "Identifier" ||
+      parameterNode.type === "ObjectPattern" ||
+      parameterNode.type === "ArrayPattern"
+    ) {
+      count++;
+    } else {
+      break;
+    }
+  }
+
+  return count;
+}

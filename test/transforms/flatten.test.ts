@@ -640,8 +640,8 @@ test("Variant #21: Preserve function.length property", async () => {
   );
 
   expect(output).toContain("_flat_oneParameter");
-  expect(output).not.toContain("_flat_twoParameters");
-  expect(output).not.toContain("_flat_threeParameters");
+  expect(output).toContain("_flat_twoParameters");
+  expect(output).toContain("_flat_threeParameters");
 
   var TEST_OUTPUT;
   eval(output);

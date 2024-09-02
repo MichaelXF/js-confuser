@@ -37,7 +37,7 @@ export interface CustomStringEncoding {
    * }
    * ```
    */
-  code?: string;
+  code?: string | Template;
   encode: (str: string) => string;
 
   /**
@@ -51,11 +51,6 @@ export interface CustomStringEncoding {
    * Should be used when created 'shuffled' variants of the same encoding.
    */
   identity?: string;
-
-  /**
-   * Can be used instead of the `code` property.
-   */
-  template?: Template;
 }
 
 export interface ObfuscateOptions {
