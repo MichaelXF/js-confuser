@@ -1,21 +1,31 @@
-# `2.0.0`
-2.0 Rewrite
+# `2.0.0-alpha.0`
+2.0 Rewrite Alpha 🎉
 
-- New option `renameLabels` to control if/which labels get renamed. Previously enabled but was not configurable.
+- Complete rewrite of JS-Confuser using Babel!
 
-- RGF no longers uses `new Function` instead uses `eval`
+- - Improved API Interface **⚠️ Breaking change**
 
-- Improved Moved Declaration's ability to move variables as unused function parameters
+- - Renamed `Stack` to `Variable Masking` **⚠️ Breaking change**
 
-- Removed ES5 option - Use Babel Instead
+- - Custom String Encoding / Custom Lock Code
 
-- Removed Browser Lock and OS Lock - Use custom Locks instead
+- - Added `Rename Labels` Learn more here
 
-- Removed Shuffle Hash option
+- - RGF no longers uses `new Function` instead uses `eval`
 
-- Control Flow Flattening no longer flattens `For Statement`/`While Statement/`Do Statement` for performance reasons. It now applies to `FunctionDeclaration` and flattens functions.
+- - Improved code transforms!
 
-- Removed `indent` option, `@babel/generator` does not allow customizing the indentation size. Use Prettier if you still wish for 4 space or tabs.
+- - Improved `Moved Declaration`'s ability to move variables as unused function parameters
+
+**Removed features**
+
+- Removed `ES5` option - Use Babel Instead
+
+- Removed `Browser Lock` and `OS Lock` - Use Custom Locks instead
+
+- Removed `Shuffle`'s Hash option
+
+- Removed `Indent` option. [`@babel/generator`](https://www.npmjs.com/package/@babel/generator) does not allow customizing the indentation size. Use Prettier if you still wish for 4 space or tabs. Be mindful if you have `integrity` or `selfDefending` enabled, as you should not alter the obfuscated code.
 
 # `1.7.3`
 Tamper Protection

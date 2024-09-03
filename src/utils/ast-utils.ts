@@ -336,6 +336,8 @@ export function prepend(
   } else if (listParent.isSwitchCase()) {
     return registerPaths(listParent.unshiftContainer("consequent", nodes));
   }
+
+  ok(false);
 }
 
 export function prependProgram(

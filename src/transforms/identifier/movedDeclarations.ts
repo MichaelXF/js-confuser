@@ -34,7 +34,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             // Strict mode disallows non-simple parameters
             // So we can't move the declaration to the function parameters
             var isStrictMode = isFunctionStrictMode(functionPath);
-            if (!isStrictMode) {
+            if (isStrictMode) {
               allowDefaultParamValue = false;
             }
 

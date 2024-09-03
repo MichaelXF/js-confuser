@@ -3,7 +3,6 @@ import { CustomStringEncoding } from "../../../src/options";
 import Template from "../../../src/templates/template";
 import { stringLiteral } from "@babel/types";
 import { shuffle } from "../../../src/utils/random-utils";
-import { writeFileSync } from "fs";
 
 test("Variant #1: Custom Base64 encoding", async () => {
   var code = `
@@ -153,8 +152,6 @@ var {fnName} = (str) => decode(str, {shuffledCharset});
 
   var TEST_OUTPUT;
   eval(code);
-
-  writeFileSync("./dev.output.js", code, "utf-8");
 
   expect(Array.isArray(TEST_OUTPUT)).toStrictEqual(true);
 

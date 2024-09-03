@@ -178,8 +178,9 @@ test("Variant #8: Work with 'use strict'", async () => {
   });
 
   // Ensure movedDeclarations applied and 'use strict' is still first
-  // x cannot be moved as a parameter as 'use strict' disallows non-simple parameters
-  expect(output).toContain('function myFunction(){"use strict";var x=1;');
+  // 'x' can still be moved but we can't store the static value as a default value
+  // Strict mode functions disallow non-simple parameters
+  expect(output).toContain('function myFunction(x){"use strict";x=1;');
 
   var TEST_OUTPUT;
   eval(output);
@@ -273,4 +274,28 @@ test("Variant #10: Move parameters to predictable function", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual(105);
+});
+
+test("Variant #11: Predictable function called with extraneous parameters", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function addTen(myArg){
+      var ten = 10;
+      return ten + myArg;
+    }
+
+    TEST_OUTPUT = addTen(5, -5000);
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    }
+  );
+
+  expect(code).not.toContain("addTen(myArg,ten");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(15);
 });

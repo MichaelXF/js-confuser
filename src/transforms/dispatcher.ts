@@ -339,9 +339,22 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (blockPath.isProgram()) {
             active = false;
 
-            prepend(
-              SetFunctionLengthTemplate.single({ fnName: setFunctionLength })
-            );
+            if (me.options.preserveFunctionLength) {
+              // Insert function length code
+              prepend(
+                SetFunctionLengthTemplate.single({ fnName: setFunctionLength })
+              );
+            } else {
+              // Don't insert function length code when disabled
+              // Instead insert empty function as the identifier is still referenced
+              prepend(
+                t.functionDeclaration(
+                  t.identifier(setFunctionLength),
+                  [],
+                  t.blockStatement([])
+                )
+              );
+            }
           }
 
           // Remove original functions

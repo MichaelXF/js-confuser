@@ -13,7 +13,6 @@ JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ 
 - Locks (domainLock, date)
 - [Detect changes to source code](https://github.com/MichaelXF/js-confuser/blob/master/docs/Integrity.md)
 
-You can extend each preset or all go without them entirely.
 
 ## Installation
 
@@ -44,8 +43,8 @@ JsConfuser.obfuscate(`
   target: "node",
   preset: "high",
   stringEncoding: false, // <- Normally enabled
-}).then(obfuscated => {
-  console.log(obfuscated)
+}).then(result => {
+  console.log(result.code)
 })
 
 /*
@@ -72,8 +71,6 @@ Read the [documentation](https://js-confuser.com/docs) for everything to know ab
 - [Options](https://new--confuser.netlify.app/docs)
 
 - [Presets](https://new--confuser.netlify.app/docs)
-
-
 
 
 ## Bug report

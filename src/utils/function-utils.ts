@@ -1,7 +1,15 @@
 import { NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
-import { variableFunctionName } from "../constants";
+import { FN_LENGTH, NodeSymbol, variableFunctionName } from "../constants";
 
+/**
+ * @example
+ * function abc() {
+ *   "use strict";
+ * } // true
+ * @param path
+ * @returns
+ */
 export function isFunctionStrictMode(path: NodePath<t.Function>) {
   if (
     t.isBlockStatement(path.node.body) &&
@@ -35,6 +43,11 @@ export function isVariableFunctionIdentifier(path: NodePath<t.Node>) {
  * @example function abc(a, b, c = 1, ...d) {} // abc.length = 2
  */
 export function computeFunctionLength(fnPath: NodePath<t.Function>): number {
+  var savedLength = (fnPath.node as NodeSymbol)[FN_LENGTH];
+  if (typeof savedLength === "number") {
+    return savedLength;
+  }
+
   var count = 0;
 
   for (var parameterNode of fnPath.node.params) {

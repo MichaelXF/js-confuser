@@ -6,6 +6,8 @@ import { PluginArg } from "../plugin";
 import { Order } from "../../order";
 import { computeProbabilityMap } from "../../probability";
 import { variableFunctionName } from "../../constants";
+import { prepend } from "../../utils/ast-utils";
+import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
 
 const ignoreGlobals = new Set([
   "require",
@@ -24,7 +26,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     gen = new NameGen();
 
   // Create the getGlobal function using a template
-  function createGetGlobalFunction(): t.FunctionDeclaration {
+  function createGlobalConcealingFunction(): t.FunctionDeclaration {
     const createSwitchStatement = () => {
       const cases = Array.from(globalMapping.keys()).map((originalName) => {
         var mappedKey = globalMapping.get(originalName);
@@ -123,35 +125,28 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           // No globals changed, no need to insert the getGlobal function
           if (globalMapping.size === 0) return;
 
-          // Insert the getGlobal function at the top of the program body
-          const getGlobalFunction = createGetGlobalFunction();
+          // The Global Concealing function returns the global variable from the specified parameter
+          const globalConcealingFunction = createGlobalConcealingFunction();
 
-          var newPath = programPath.unshiftContainer(
-            "body",
-            getGlobalFunction
-          )[0];
-          programPath.scope.registerDeclaration(newPath);
+          prepend(programPath, globalConcealingFunction);
 
-          var varPath = programPath.unshiftContainer(
-            "body",
-            new Template(`
-            var {globalVarName} = (function (){
-              try {
-                return window;
-              } catch ( e ) {
-              }
-              try {
-                return global;
-              } catch ( e ) {
-              }
+          const getGlobalVarFnName = me.getPlaceholder();
 
-              return this;
-          })();
+          // Insert the get global function
+          prepend(
+            programPath,
+            createGetGlobalTemplate(me, programPath).compile({
+              getGlobalFnName: getGlobalVarFnName,
+            })
+          );
 
-            `).compile({ globalVarName: globalVarName })
-          )[0];
-
-          programPath.scope.registerDeclaration(varPath);
+          // Call the get global function and store result in 'globalVarName'
+          prepend(
+            programPath,
+            new Template(
+              `var ${globalVarName} = ${getGlobalVarFnName}()`
+            ).single<t.Statement>()
+          );
         },
       },
     },

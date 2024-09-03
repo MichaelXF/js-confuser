@@ -1,4 +1,3 @@
-import TransformClass from "./src/transforms/transform";
 import ObfuscatorClass from "./src/obfuscator";
 import {
   IJsConfuser as JsConfuser,
@@ -16,4 +15,3 @@ export const presets: IJsConfuserPresets;
 export const debugTransformations: IJsConfuserDebugTransformations;
 export const debugObfuscation: IJsConfuserDebugObfuscation;
 export const Obfuscator: typeof ObfuscatorClass;
-export const Transform: typeof TransformClass;

@@ -3,7 +3,7 @@ import * as t from "@babel/types";
 import { ok } from "assert";
 import { PluginArg } from "../plugin";
 import { Order } from "../../order";
-import { ensureComputedExpression } from "../../utils/ast-utils";
+import { ensureComputedExpression, prepend } from "../../utils/ast-utils";
 
 function fail(): never {
   throw new Error("Assertion failed");
@@ -141,13 +141,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             t.variableDeclarator(t.identifier(arrayName), arrayExpression),
           ]);
 
-          // Insert the array at the top of the program body
-          var path = programPath.unshiftContainer(
-            "body",
-            itemsArrayDeclaration
-          )[0];
-
-          programPath.scope.registerDeclaration(path);
+          prepend(programPath, itemsArrayDeclaration);
         },
       },
     },

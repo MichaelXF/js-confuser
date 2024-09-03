@@ -4,10 +4,9 @@ import { Order } from "../order";
 import * as t from "@babel/types";
 import Obfuscator from "../obfuscator";
 import { computeProbabilityMap } from "../probability";
-import { getFunctionName, prepend, prependProgram } from "../utils/ast-utils";
+import { getFunctionName, prepend } from "../utils/ast-utils";
 import { NodeSymbol, SKIP, UNSAFE } from "../constants";
 import { computeFunctionLength } from "../utils/function-utils";
-import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 
 /**
  * RGF (Runtime-Generated-Function) uses the `new Function("code")` syntax to create executable code from strings.
@@ -32,12 +31,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           // Insert the RGF array at the top of the program
 
-          function prepend(node: t.Statement) {
-            var newPath = path.unshiftContainer("body", node)[0];
-            path.scope.registerDeclaration(newPath);
-          }
-
           prepend(
+            path,
             t.variableDeclaration("var", [
               t.variableDeclarator(
                 t.identifier(rgfArrayName),
@@ -47,6 +42,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           );
 
           prepend(
+            path,
             t.variableDeclaration("var", [
               t.variableDeclarator(
                 t.identifier(rgfEvalName),
@@ -84,11 +80,19 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               if (name === rgfArrayName) return;
 
               const binding = refPath.scope.getBinding(name);
-              if (!binding) return;
+              if (!binding) {
+                if (me.options.globalVariables.has(name)) return;
+                if (name === "arguments") return;
+
+                identifierPreventingTransform = name;
+                refPath.stop();
+                return;
+              }
 
               // If the binding is not in the current scope, it is an outside reference
               if (binding.scope !== path.scope) {
                 identifierPreventingTransform = name;
+                refPath.stop();
               }
             },
           });
@@ -97,7 +101,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             me.log(
               "Skipping function " +
                 name +
-                " due to reference to outside variable:" +
+                " due to reference to outside variable: " +
                 identifierPreventingTransform
             );
             return;
@@ -179,6 +183,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           // Function is now unsafe
           (path.node as NodeSymbol)[UNSAFE] = true;
+          me.skip(path);
 
           // Update body to point to new function
           path
@@ -198,7 +203,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     ),
                     [
                       t.arrayExpression([
-                        t.identifier("this"),
+                        t.thisExpression(),
                         t.identifier(rgfArrayName),
                       ]),
                       t.identifier("arguments"),

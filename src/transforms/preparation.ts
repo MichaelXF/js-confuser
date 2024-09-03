@@ -76,6 +76,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           var binding = path.scope.getBinding(name);
           var predictable = true;
+          var maxArgLength = 0;
 
           for (var referencePath of binding.referencePaths) {
             if (!referencePath.parentPath.isCallExpression()) {
@@ -83,15 +84,21 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               break;
             }
 
-            for (var arg of referencePath.parentPath.get("arguments")) {
+            var argsPath = referencePath.parentPath.get("arguments");
+            for (var arg of argsPath) {
               if (arg.isSpreadElement()) {
                 predictable = false;
                 break;
               }
             }
+
+            if (argsPath.length > maxArgLength) {
+              maxArgLength = argsPath.length;
+            }
           }
 
-          if (predictable) {
+          var definedArgLength = path.get("params").length;
+          if (predictable && definedArgLength >= maxArgLength) {
             (path.node as NodeSymbol)[PREDICTABLE] = true;
           }
         },

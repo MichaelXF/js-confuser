@@ -57,12 +57,21 @@ export function assertScopeIntegrity(pluginName: string, node: t.File) {
         programPath = path;
       }
 
+      // Duplicate name check
       if (seenNodes.has(path.node)) {
         throw new Error(
           `${pluginName}: Duplicate node found in AST ${path.node.type}`
         );
       }
       seenNodes.add(path.node);
+
+      // Identifier name check
+      if (
+        path.node.type === "Identifier" &&
+        ["this", "null"].includes(path.node.name)
+      ) {
+        throw new Error("Identifier cannot be named " + path.node.name);
+      }
 
       if (path.scope && Object.keys(path.scope.bindings).length > 0) {
         scopeStates.set(path.node, captureScopeState(path.scope));
@@ -107,8 +116,11 @@ export function assertScopeIntegrity(pluginName: string, node: t.File) {
   });
 
   if (errors.length > 0) {
-    throw new Error(
-      `${pluginName}: Scope integrity check failed:\n${errors.join("\n")}`
-    );
+    const message = `${pluginName}: Scope integrity check failed:\n${errors.join(
+      "\n"
+    )}`;
+
+    // console.warn(message);
+    throw new Error(message);
   }
 }

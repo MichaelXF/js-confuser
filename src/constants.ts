@@ -24,10 +24,13 @@ export const PREDICTABLE = Symbol("predictable");
  */
 export const SKIP = Symbol("skip");
 
+export const FN_LENGTH = Symbol("fnLength");
+
 export interface NodeSymbol {
   [UNSAFE]?: boolean;
   [PREDICTABLE]?: boolean;
   [SKIP]?: boolean | number;
+  [FN_LENGTH]?: number;
 }
 
 /**

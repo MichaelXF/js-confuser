@@ -1,5 +1,5 @@
 import { NodePath, PluginObj } from "@babel/core";
-import { Scope } from "@babel/traverse";
+import { Binding, Scope } from "@babel/traverse";
 import { PluginArg } from "../plugin";
 import * as t from "@babel/types";
 import { Order } from "../../order";
@@ -15,6 +15,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
   let availableNames: string[] = [];
 
   let renamedScopes = new Set<Scope>();
+  let renamedBindingIdentifiers = new WeakSet<t.Identifier>();
 
   return {
     visitor: {
@@ -36,6 +37,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       Scopable: {
         enter(path: NodePath<t.Scopable>) {
           const { scope } = path;
+          if (scope.path?.isClassDeclaration()) return;
+
           if (renamedScopes.has(scope)) {
             return;
           }
@@ -97,6 +100,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               )
                 continue;
             }
+            const binding = scope.bindings[identifierName];
+            if (renamedBindingIdentifiers.has(binding.identifier)) continue;
+            renamedBindingIdentifiers.add(binding.identifier);
 
             let newName = actuallyAvailableNames.pop();
 
@@ -108,6 +114,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             }
 
             scope.rename(identifierName, newName);
+
+            // Extra Class Declaration scope preserve logic needed
+            if (binding.path.type === "ClassDeclaration") {
+              var newBinding = scope.bindings[newName];
+              binding.path.scope.bindings[newName] = newBinding;
+            }
           }
 
           availableNames.push(...names);

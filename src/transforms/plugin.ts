@@ -3,11 +3,9 @@ import Obfuscator from "../obfuscator";
 import { getRandomString } from "../utils/random-utils";
 import { Order } from "../order";
 import * as t from "@babel/types";
-import Template from "../templates/template";
-import { NodeSymbol, SKIP } from "../constants";
+import { FN_LENGTH, NodeSymbol, SKIP } from "../constants";
 import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 import { prepend, prependProgram } from "../utils/ast-utils";
-import { ok } from "assert";
 
 export type PluginFunction = (pluginArg: PluginArg) => PluginObj;
 
@@ -57,6 +55,8 @@ export class PluginInstance {
 
   private setFunctionLengthName: string;
   setFunctionLength(path: NodePath<t.Function>, originalLength: number) {
+    (path.node as NodeSymbol)[FN_LENGTH] = originalLength;
+
     // Function length
     if (this.options.preserveFunctionLength && originalLength > 0) {
       if (!this.setFunctionLengthName) {
