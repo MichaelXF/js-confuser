@@ -15,6 +15,10 @@
 
 - - Improved code transforms!
 
+- - Improved `Minify`
+
+- - - Removes unused variables and functions now
+
 - - Improved `Moved Declaration`'s ability to move variables as unused function parameters
 
 **Removed features**

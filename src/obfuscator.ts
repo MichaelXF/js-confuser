@@ -17,11 +17,7 @@ import deadCode from "./transforms/deadCode";
 import stringSplitting from "./transforms/string/stringSplitting";
 import shuffle from "./transforms/shuffle";
 import finalizer from "./transforms/finalizer";
-import {
-  ObfuscationResult,
-  ProfilerCallback,
-  ProfilerLog,
-} from "./obfuscationResult";
+import { ObfuscationResult, ProfilerCallback } from "./obfuscationResult";
 import { isProbabilityMapProbable } from "./probability";
 import astScrambler from "./transforms/astScrambler";
 import calculator from "./transforms/calculator";
@@ -39,6 +35,12 @@ import variableConcealing from "./transforms/identifier/variableConcealing";
 import { NameGen } from "./utils/NameGen";
 import { assertScopeIntegrity } from "./utils/scope-utils";
 import opaquePredicates from "./transforms/opaquePredicates";
+import minify from "./transforms/minify";
+
+export const DEFAULT_OPTIONS: ObfuscateOptions = {
+  target: "node",
+  compact: true,
+};
 
 export default class Obfuscator {
   plugins: {
@@ -100,7 +102,7 @@ export default class Obfuscator {
     push(this.options.shuffle, shuffle);
     push(this.options.movedDeclarations, movedDeclarations);
     push(this.options.renameLabels, renameLabels);
-    // Minify
+    push(this.options.minify, minify);
     push(this.options.astScrambler, astScrambler);
     push(this.options.renameVariables, renameVariables);
 
@@ -184,9 +186,9 @@ export default class Obfuscator {
     this.obfuscateAST(ast);
 
     // Generate the transformed code from the modified AST with comments removed and compacted output
-    const code = Obfuscator.generateCode(ast, this.options);
+    const code = this.generateCode(ast);
 
-    if (code) {
+    if (typeof code === "string") {
       return {
         code: code,
       };
@@ -200,10 +202,7 @@ export default class Obfuscator {
   }
 
   static createDefaultInstance() {
-    return new Obfuscator({
-      target: "node",
-      compact: true,
-    });
+    return new Obfuscator(DEFAULT_OPTIONS);
   }
 
   /**
@@ -218,9 +217,9 @@ export default class Obfuscator {
    */
   static generateCode<T extends babel.types.Node = babel.types.File>(
     ast: T,
-    options?: ObfuscateOptions
+    options: ObfuscateOptions = DEFAULT_OPTIONS
   ): string {
-    const compact = options ? options.compact : true;
+    const compact = !!options.compact;
 
     const { code } = generate(ast, {
       comments: false, // Remove comments
