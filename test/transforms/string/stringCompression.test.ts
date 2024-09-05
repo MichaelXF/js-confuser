@@ -1,7 +1,7 @@
 import JsConfuser from "../../../src/index";
 
 it("should work", async () => {
-  var output = await JsConfuser(`input("Hello World")`, {
+  var { code: output } = await JsConfuser.obfuscate(`input("Hello World")`, {
     target: "node",
     stringCompression: true,
   });
@@ -23,7 +23,7 @@ it("should work on property keys", async () => {
   TEST_VAR = myObject.myKey;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringCompression: true,
   });
@@ -47,7 +47,7 @@ it("should work on class keys", async () => {
   TEST_VAR = myObject.myMethod();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringCompression: true,
   });
@@ -69,7 +69,7 @@ it("should not encode constructor key", async () => {
   new MyClass();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringCompression: true,
   });
@@ -89,7 +89,7 @@ it("should be configurable by custom function option", async () => {
 
   var stringsFound: string[] = [];
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringCompression: (strValue) => {
       stringsFound.push(strValue);

@@ -5,7 +5,7 @@ import JsConfuser from "../../src/index";
 var CASH_JS = readFileSync(join(__dirname, "./Cash.src.js"), "utf-8");
 
 test("Variant #1: Cash.js on High Preset (Strict Mode)", async () => {
-  var output = await JsConfuser(CASH_JS, {
+  var { code: output } = await JsConfuser.obfuscate(CASH_JS, {
     target: "node",
     preset: "high",
   });
@@ -79,7 +79,7 @@ test("Variant #2: Cash.js on High Preset + Integrity + Self Defending + RGF + Ta
     global[key] = window[key];
   }
 
-  var output = await JsConfuser(CASH_JS, {
+  var { code: output } = await JsConfuser.obfuscate(CASH_JS, {
     target: "node",
     preset: "high",
     rgf: true,

@@ -9,7 +9,7 @@ it("should append logical expressions", async () => {
     }
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     opaquePredicates: true,
   });
@@ -18,8 +18,8 @@ it("should append logical expressions", async () => {
 });
 
 // https://github.com/MichaelXF/js-confuser/issues/45
-it("should work on default Switch cases", async ()=>{
-    var code = `
+it("should work on default Switch cases", async () => {
+  var code = `
 
     switch (0) {
         default:
@@ -27,17 +27,17 @@ it("should work on default Switch cases", async ()=>{
     }
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     opaquePredicates: true,
   });
 
   var value;
-  function input(valueIn){
+  function input(valueIn) {
     value = valueIn;
   }
 
   eval(output);
 
   expect(value).toStrictEqual(true);
-})
+});

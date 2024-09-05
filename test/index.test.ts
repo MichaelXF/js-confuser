@@ -1,18 +1,20 @@
 import JsConfuser from "../src/index";
 import { ProfilerLog } from "../src/obfuscationResult";
+import * as t from "@babel/types";
 
 describe("obfuscate", () => {
   test("Variant #1: Should be a function", async () => {
     expect(typeof JsConfuser.obfuscate).toBe("function");
   });
 
-  test("Variant #2: Return be an awaited string", async () => {
+  test("Variant #2: Return an awaited object with 'code' property", async () => {
     var output = await JsConfuser.obfuscate("5+5", {
       target: "browser",
-      opaquePredicates: true,
+      compact: true,
     });
 
-    expect(typeof output).toBe("string");
+    expect(typeof output).toBe("object");
+    expect(typeof output.code).toBe("string");
   });
 
   test("Variant #3: Error when options are empty", async () => {
@@ -48,15 +50,7 @@ describe("obfuscate", () => {
 
 describe("obfuscateAST", () => {
   test("Variant #1: Mutate AST", async () => {
-    var AST = {
-      type: "Program",
-      body: [
-        {
-          type: "ExpressionStatement",
-          expression: { type: "Literal", value: true },
-        },
-      ],
-    };
+    var AST = t.file(t.program([t.expressionStatement(t.numericLiteral(5))]));
     var before = JSON.stringify(AST);
 
     JsConfuser.obfuscateAST(AST as any, {

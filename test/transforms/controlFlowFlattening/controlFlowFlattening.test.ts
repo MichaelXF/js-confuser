@@ -18,7 +18,7 @@ test("Variant #1: Obfuscate code and still execute in correct order", async () =
     TEST_OUTPUT = array;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: true,
   });
@@ -44,7 +44,7 @@ test("Variant #2: Properly handle for-loop", async () => {
     TEST_OUTPUT = array;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: true,
   });
@@ -72,7 +72,7 @@ test("Variant #3: Properly handle while-loop", async () => {
     TEST_OUTPUT = array;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: true,
   });
@@ -102,7 +102,7 @@ test("Variant #4: Properly handle break statements", async () => {
     TEST_OUTPUT = TEST_ARRAY;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: true,
   });
@@ -136,7 +136,7 @@ test("Variant #5: Properly handle 'let' variables", async () => {
     TEST_OUTPUT = array;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
   });
@@ -161,7 +161,7 @@ test("Variant #6: Properly handle 'let' in for-loops", async () => {
     TEST_OUTPUT = array;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
   });
@@ -189,7 +189,7 @@ test("Variant #7: Allow option to be set a percentage threshold", async () => {
     TEST_OUTPUT = array;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: 0.5,
   });
@@ -238,7 +238,7 @@ test("Variant #8: Work when obfuscated multiple times", async () => {
     TEST_OUTPUT = array;
   `; // [1,2,3,4,5,6,7,8,9,10]
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
   });
@@ -246,7 +246,7 @@ test("Variant #8: Work when obfuscated multiple times", async () => {
   // Ensure Control Flow Flattening applied
   expect(output).toContain("while");
 
-  var doublyObfuscated = await JsConfuser(output, {
+  var { code: doublyObfuscated } = await JsConfuser.obfuscate(output, {
     target: "node",
     controlFlowFlattening: true,
   });
@@ -259,7 +259,7 @@ test("Variant #8: Work when obfuscated multiple times", async () => {
 });
 
 test("Variant #9: Don't entangle floats or NaN", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
         
@@ -293,7 +293,7 @@ test("Variant #9: Don't entangle floats or NaN", async () => {
 });
 
 test("Variant #10: Correctly entangle property keys", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
         
@@ -333,7 +333,7 @@ test("Variant #10: Correctly entangle property keys", async () => {
 });
 
 test("Variant #11: Flatten nested if statements", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     TEST_ARRAY = [];
 
@@ -379,7 +379,7 @@ test("Variant #11: Flatten nested if statements", async () => {
 });
 
 test("Variant #12: Properly handle nested for loops", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     TEST_ARRAY = [];
 
@@ -413,7 +413,7 @@ test("Variant #12: Properly handle nested for loops", async () => {
 });
 
 test("Variant #13: Properly handle nested while-loops", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     TEST_ARRAY = [];
 
@@ -453,7 +453,7 @@ test("Variant #13: Properly handle nested while-loops", async () => {
 });
 
 test("Variant #14: Properly handle nested switch statements", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     TEST_ARRAY = [];
     
@@ -501,7 +501,7 @@ test("Variant #14: Properly handle nested switch statements", async () => {
 });
 
 test("Variant #16: Flatten with nested break and continue statements", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     TEST_ARRAY = [];
 
@@ -546,7 +546,7 @@ test("Variant #16: Flatten with nested break and continue statements", async () 
 });
 
 test("Variant #17: Flatten with infinite for loop and break", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     TEST_ARRAY = [];
     var i = 1;
@@ -578,7 +578,7 @@ test("Variant #17: Flatten with infinite for loop and break", async () => {
 });
 
 test("Variant #20: Work with redefined functions", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var counter = 0;
     function increment(){
@@ -625,7 +625,7 @@ test("Variant #20: Work with redefined functions", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/70
 test("Variant #21: Don't move Import Declarations", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     import {createHash} from "crypto";
     var inputString = "Hash this string";
@@ -661,7 +661,7 @@ test("Variant #21: Don't move Import Declarations", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/81
 test("Variant #22: Don't break typeof expression", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     TEST_OUTPUT = false;
     if(typeof nonExistentVariable === "undefined") {
@@ -682,7 +682,7 @@ test("Variant #22: Don't break typeof expression", async () => {
 });
 
 test("Variant #23: Don't break Super calls", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   class MyClass1 {
     constructor(val){
@@ -765,7 +765,7 @@ test("Variant #24: Nested function-calls with labeled breaks/continues", async (
 
   TEST_OUTPUT = x;`;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
     renameVariables: true,
@@ -791,7 +791,7 @@ test("Variant #25: Don't break call expressions to bound functions", async () =>
   TEST_OUTPUT = array;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
   });
@@ -806,7 +806,7 @@ test("Variant #25: Don't break call expressions to bound functions", async () =>
 });
 
 test("Variant #26: Add opaque predicates and still work", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   TEST_OUTPUT = [];
   if(true) TEST_OUTPUT.push(1);
@@ -832,7 +832,7 @@ test("Variant #26: Add opaque predicates and still work", async () => {
 });
 
 test("Variant #27: Work on async/generator functions", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   "use strict";
   async function myAsyncFunction(){
@@ -882,7 +882,7 @@ test("Variant #28: Don't break update expressions", async () => {
   TEST_OUTPUT = counter;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
   });
@@ -948,7 +948,7 @@ test("Variant #29: Nested labeled break and continue statements with RGF enabled
   TEST_OUTPUT = labeledBreaksAndContinues();
   `; // This complex code produces the value of 15
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
     rgf: true,
@@ -964,7 +964,7 @@ test("Variant #29: Nested labeled break and continue statements with RGF enabled
 });
 
 test("Variant #30: Properly handle switch statements", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   switch("DON'T CHANGE ME"){} // Empty switch for testing
   
@@ -1062,7 +1062,7 @@ test("Variant #30: Properly handle switch statements", async () => {
 });
 
 test("Variant #31: Don't break nested function calls", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var i;
     var counter = 0;
@@ -1089,7 +1089,7 @@ test("Variant #31: Don't break nested function calls", async () => {
 });
 
 test("Variant #32: Don't break same name function calls", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var counter = 0;
 
@@ -1126,7 +1126,7 @@ test("Variant #32: Don't break same name function calls", async () => {
 });
 
 test("Variant #33: Don't break same name function declarations that are not ran", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var counter = 0;
 
@@ -1163,7 +1163,7 @@ test("Variant #33: Don't break same name function declarations that are not ran"
   expect(TEST_OUTPUT).toStrictEqual(11);
 });
 
-test("Variant #34: Flatten If, For, While, Do-while, and Switch statements multiple times", async () => {
+test("Variant #34: Flatten If Statements multiple times", async () => {
   var code = `
   var counter = -1;
 
@@ -1215,14 +1215,17 @@ test("Variant #34: Flatten If, For, While, Do-while, and Switch statements multi
   TEST_OUTPUT = counter;
   `;
 
-  var firstObfuscation = await JsConfuser(code, {
+  var { code: firstObfuscation } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
   });
-  var secondObfuscation = await JsConfuser(firstObfuscation, {
-    target: "node",
-    controlFlowFlattening: true,
-  });
+  var { code: secondObfuscation } = await JsConfuser.obfuscate(
+    firstObfuscation,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
 
   var TEST_OUTPUT;
   eval(secondObfuscation);
@@ -1252,7 +1255,7 @@ test("Variant #35: Redefined function declaration + variable declaration", async
   }
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
   });

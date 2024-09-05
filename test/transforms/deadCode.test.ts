@@ -22,7 +22,7 @@ test("Variant #1: Execute properly", async () => {
     myFunction();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     deadCode: true,
   });
@@ -63,7 +63,7 @@ test("Variant #2: Preserve 'use strict' directive", async () => {
     myFunction();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     deadCode: true,
   });

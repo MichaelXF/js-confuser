@@ -239,3 +239,33 @@ test("Variant #9: Custom implementation for Rename Labels", async () => {
 
   expect(labelsCollected).toStrictEqual(["RENAME_ME", "KEEP_ME"]);
 });
+
+test("Variant #10: Allow duplicate labels in the program", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    TEST_OUTPUT = 0;
+    LABEL: {
+      TEST_OUTPUT++;
+      break LABEL;
+      TEST_OUTPUT = "Incorrect Value";
+    }
+
+    LABEL: {
+      TEST_OUTPUT++;
+      break LABEL;
+      TEST_OUTPUT = "Incorrect Value";
+    }
+    `,
+    {
+      target: "node",
+      renameLabels: true,
+    }
+  );
+
+  expect(code).not.toContain("LABEL");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(2);
+});

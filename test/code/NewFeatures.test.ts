@@ -6,7 +6,7 @@ test("Variant #1: Support BigInt Literals (1n)", async () => {
   TEST_OUTPUT = 1n;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     renameVariables: true,
   });

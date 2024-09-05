@@ -2,7 +2,7 @@ import JsConfuser from "../src/index";
 
 describe("options", () => {
   test("Variant #1: Accept percentages", async () => {
-    var output = await JsConfuser(`var TEST_VARIABLE;`, {
+    var { code: output } = await JsConfuser.obfuscate(`var TEST_VARIABLE;`, {
       target: "node",
       renameGlobals: true,
       renameVariables: true,
@@ -13,7 +13,7 @@ describe("options", () => {
   });
 
   test("Variant #2: Accept probability arrays", async () => {
-    var output = await JsConfuser(`var TEST_VARIABLE;`, {
+    var { code: output } = await JsConfuser.obfuscate(`var TEST_VARIABLE;`, {
       target: "node",
       renameVariables: true,
       renameGlobals: true,
@@ -24,7 +24,7 @@ describe("options", () => {
   });
 
   test("Variant #3: Accept probability maps", async () => {
-    var output = await JsConfuser(`var TEST_VARIABLE;`, {
+    var { code: output } = await JsConfuser.obfuscate(`var TEST_VARIABLE;`, {
       target: "node",
       renameVariables: true,
       renameGlobals: true,
@@ -41,27 +41,42 @@ describe("options", () => {
   });
 
   test("Variant #4: Work with compact set to false", async () => {
-    var output = await JsConfuser(`var TEST_VARIABLE;`, {
-      target: "node",
-      renameGlobals: true,
-      renameVariables: true,
-      compact: false,
-    });
+    var { code: output } = await JsConfuser.obfuscate(
+      `
+      var a;
+      var b;
+      var c;
+      `,
+      {
+        target: "node",
+        compact: false,
+      }
+    );
 
-    expect(output).not.toContain("TEST_VARIABLE");
+    expect(output).toContain("\n");
+    expect(output).toContain("var a;\nvar b;\nvar c;");
   });
 
   test("Variant #5: Work with compact set to true", async () => {
-    var output = await JsConfuser(`var TEST_VARIABLE;`, {
-      target: "node",
-      compact: true,
-    });
+    var { code: output } = await JsConfuser.obfuscate(
+      `
+      var a;
+      var b;
+      var c;
+      `,
+      {
+        target: "node",
+        compact: true,
+      }
+    );
 
-    expect(output).not.toContain("TEST_VARIABLE");
+    expect(output).not.toContain("\n");
+    expect(output).not.toContain("\t");
+    expect(output).toContain("var a;var b;var c;");
   });
 
   test("Variant #6: Work with debugComments enabled", async () => {
-    var output = await JsConfuser(`var TEST_VARIABLE;`, {
+    var { code: output } = await JsConfuser.obfuscate(`var TEST_VARIABLE;`, {
       target: "node",
       renameGlobals: true,
       renameVariables: true,
@@ -74,14 +89,14 @@ describe("options", () => {
 
   test("Variant #7: Error on invalid lock option", async () => {
     expect(
-      JsConfuser(`var TEST_VARIABLE;`, {
+      JsConfuser.obfuscate(`var TEST_VARIABLE;`, {
         target: "node",
         lock: "invalid",
       } as any)
     ).rejects.toThrow();
 
     expect(
-      JsConfuser(`var TEST_VARIABLE;`, {
+      JsConfuser.obfuscate(`var TEST_VARIABLE;`, {
         target: "node",
         lock: {
           invalidProperty: true,
@@ -159,7 +174,7 @@ describe("options", () => {
 
 describe("options.preserveFunctionLength", () => {
   test("Variant #1: Enabled by default", async () => {
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
     function myFunction(a, b, c, d = "") {
       // Function.length = 3
@@ -179,7 +194,7 @@ describe("options.preserveFunctionLength", () => {
   });
 
   test("Variant #2: Disabled", async () => {
-    var output = await JsConfuser(
+    var { code: output } = await JsConfuser.obfuscate(
       `
     function myFunction(a, b, c, d = "") {
       // Function.length = 3

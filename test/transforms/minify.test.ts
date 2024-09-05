@@ -7,7 +7,10 @@ test("Variant #1: Group variable declarations together", async () => {
   TEST_OUTPUT = a + b;
   `;
 
-  var output = await JsConfuser(code, { target: "browser", minify: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    minify: true,
+  });
 
   expect(output).toContain("var a=0,b=1");
 
@@ -25,7 +28,10 @@ test("Variant #2: Remove block statements when not necessary", async () => {
   }
   `;
 
-  var output = await JsConfuser(code, { target: "browser", minify: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    minify: true,
+  });
 
   expect(output).not.toContain("{");
   expect(output).toContain("doStuff()");
@@ -44,7 +50,10 @@ test("Variant #3: Shorten guaranteed returns", async () => {
   TEST_OUTPUT = TEST_FUNCTION(true);
   `;
 
-  var output = await JsConfuser(code, { target: "browser", minify: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    minify: true,
+  });
 
   expect(output).not.toContain("if");
   expect(output).toContain("?");
@@ -72,7 +81,10 @@ test("Variant #4: Shorten guaranteed assignment expressions", async () => {
   TEST_FUNCTION(true);
   `;
 
-  var output = await JsConfuser(code, { target: "browser", minify: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    minify: true,
+  });
 
   expect(output).not.toContain("if");
   expect(output).toContain("value=");
@@ -98,7 +110,10 @@ test("Variant #5: Work when shortening nested if-statements", async () => {
   }
   `;
 
-  var output = await JsConfuser(code, { target: "browser", minify: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    minify: true,
+  });
 
   expect(output).not.toContain("=>");
 
@@ -112,10 +127,13 @@ test("Variant #5: Work when shortening nested if-statements", async () => {
 
 test("Variant #8: Shorten simple array destructuring", async () => {
   // Valid
-  var output = await JsConfuser(`var [x] = [1]; TEST_OUTPUT = x;`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output } = await JsConfuser.obfuscate(
+    `var [x] = [1]; TEST_OUTPUT = x;`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output).toContain("var x=1");
 
@@ -125,7 +143,7 @@ test("Variant #8: Shorten simple array destructuring", async () => {
   expect(TEST_OUTPUT).toStrictEqual(1);
 
   // Invalid
-  var output2 = await JsConfuser(`var [x, y] = [1]`, {
+  var { code: output2 } = await JsConfuser.obfuscate(`var [x, y] = [1]`, {
     target: "node",
     minify: true,
   });
@@ -135,10 +153,13 @@ test("Variant #8: Shorten simple array destructuring", async () => {
 
 test("Variant #9: Shorten simple object destructuring", async () => {
   // Valid
-  var output = await JsConfuser(`var {x} = {x: 1}; TEST_OUTPUT = x;`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output } = await JsConfuser.obfuscate(
+    `var {x} = {x: 1}; TEST_OUTPUT = x;`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output).toContain("var x=1");
 
@@ -148,7 +169,7 @@ test("Variant #9: Shorten simple object destructuring", async () => {
   expect(TEST_OUTPUT).toStrictEqual(1);
 
   // Valid
-  var output2 = await JsConfuser(
+  var { code: output2 } = await JsConfuser.obfuscate(
     `var {['x']: y} = {x: 1}; TEST_OUTPUT_2 = y;`,
     {
       target: "node",
@@ -164,7 +185,7 @@ test("Variant #9: Shorten simple object destructuring", async () => {
   expect(TEST_OUTPUT_2).toStrictEqual(1);
 
   // Invalid
-  var output3 = await JsConfuser(`var {x,y} = {x:1}`, {
+  var { code: output3 } = await JsConfuser.obfuscate(`var {x,y} = {x:1}`, {
     target: "node",
     minify: true,
   });
@@ -172,7 +193,7 @@ test("Variant #9: Shorten simple object destructuring", async () => {
   expect(output3).toContain("var{x,y}=");
 
   // Invalid
-  var output4 = await JsConfuser(`var {y} = {x:1}`, {
+  var { code: output4 } = await JsConfuser.obfuscate(`var {y} = {x:1}`, {
     target: "node",
     minify: true,
   });
@@ -182,10 +203,13 @@ test("Variant #9: Shorten simple object destructuring", async () => {
 
 test("Variant #10: Shorten booleans", async () => {
   // Valid
-  var output = await JsConfuser(`var x = true; TEST_OUTPUT = x;`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output } = await JsConfuser.obfuscate(
+    `var x = true; TEST_OUTPUT = x;`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output).toContain("var x=!0");
 
@@ -195,10 +219,13 @@ test("Variant #10: Shorten booleans", async () => {
   expect(TEST_OUTPUT).toStrictEqual(true);
 
   // Valid
-  var output2 = await JsConfuser(`var x = false; TEST_OUTPUT_2 = x;`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output2 } = await JsConfuser.obfuscate(
+    `var x = false; TEST_OUTPUT_2 = x;`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output2).toContain("var x=!1");
 
@@ -210,7 +237,7 @@ test("Variant #10: Shorten booleans", async () => {
 
 test("Variant #11: Shorten 'undefined' to 'void 0'", async () => {
   // Valid
-  var output = await JsConfuser(`x = undefined;`, {
+  var { code: output } = await JsConfuser.obfuscate(`x = undefined;`, {
     target: "node",
     minify: true,
   });
@@ -218,14 +245,17 @@ test("Variant #11: Shorten 'undefined' to 'void 0'", async () => {
   expect(output).toContain("x=void 0");
 
   // Valid
-  var output2 = await JsConfuser(`var x = {undefined: 1}; TEST_OUTPUT = x`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output2 } = await JsConfuser.obfuscate(
+    `var x = {undefined: 1}; TEST_OUTPUT = x`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output2).toContain("var x={[void 0]:1}");
 
-  var output3 = await JsConfuser(
+  var { code: output3 } = await JsConfuser.obfuscate(
     `try { var undefined; (undefined) = true } catch(e) {}`,
     {
       target: "node",
@@ -238,10 +268,13 @@ test("Variant #11: Shorten 'undefined' to 'void 0'", async () => {
 
 test("Variant #11: Shorten 'Infinity' to 1/0", async () => {
   // Valid
-  var output = await JsConfuser(`var x = Infinity; TEST_OUTPUT = x;`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output } = await JsConfuser.obfuscate(
+    `var x = Infinity; TEST_OUTPUT = x;`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output).toContain("var x=1/0");
 
@@ -249,20 +282,26 @@ test("Variant #11: Shorten 'Infinity' to 1/0", async () => {
   eval(output);
 
   // Valid
-  var output2 = await JsConfuser(`var x = {Infinity: 1}; TEST_OUTPUT = x;`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output2 } = await JsConfuser.obfuscate(
+    `var x = {Infinity: 1}; TEST_OUTPUT = x;`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output2).toContain("var x={[1/0]:1}");
 });
 
 test("Variant #12: Shorten '!false' to '!0'", async () => {
   // Valid
-  var output = await JsConfuser(`var x = !false; TEST_OUTPUT = x;`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output } = await JsConfuser.obfuscate(
+    `var x = !false; TEST_OUTPUT = x;`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output).toContain("var x=!0");
 
@@ -274,10 +313,13 @@ test("Variant #12: Shorten '!false' to '!0'", async () => {
 
 test("Variant #13: Shorten 'false ? a : b' to 'b'", async () => {
   // Valid
-  var output = await JsConfuser(`var x = false ? 10 : 15; TEST_OUTPUT = x;`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output } = await JsConfuser.obfuscate(
+    `var x = false ? 10 : 15; TEST_OUTPUT = x;`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output).toContain("var x=15");
 
@@ -289,10 +331,13 @@ test("Variant #13: Shorten 'false ? a : b' to 'b'", async () => {
 
 test("Variant #14: Shorten 'var x = undefined' to 'var x'", async () => {
   // Valid
-  var output = await JsConfuser(`var x = undefined; TEST_OUTPUT = x;`, {
-    target: "node",
-    minify: true,
-  });
+  var { code: output } = await JsConfuser.obfuscate(
+    `var x = undefined; TEST_OUTPUT = x;`,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
 
   expect(output).toContain("var x");
   expect(output).not.toContain("var x=");
@@ -305,7 +350,7 @@ test("Variant #14: Shorten 'var x = undefined' to 'var x'", async () => {
 
 test("Variant #15: Remove implied 'return'", async () => {
   // Valid
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function MyFunction(){ 
     var output = "Hello World";
@@ -323,7 +368,7 @@ test("Variant #15: Remove implied 'return'", async () => {
 
   // Invalid
   // https://github.com/MichaelXF/js-confuser/issues/34
-  var output2 = await JsConfuser(
+  var { code: output2 } = await JsConfuser.obfuscate(
     `
   function greet(){ 
     if(true){ 
@@ -345,7 +390,7 @@ test("Variant #15: Remove implied 'return'", async () => {
 // https://github.com/MichaelXF/js-confuser/issues/43
 test("Variant #16: Handle deconstructuring in for loop", async () => {
   // Valid
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     for(const [a] of [[1]]) {
         input(a);
@@ -365,7 +410,7 @@ test("Variant #16: Handle deconstructuring in for loop", async () => {
 });
 
 test("Variant #17: Remove unreachable code following a return statement", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function myFunction(){
       return;
@@ -379,7 +424,7 @@ test("Variant #17: Remove unreachable code following a return statement", async 
 });
 
 test("Variant #18: Remove unreachable code following a continue or break statement", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     for(var i =0; i < 10; i++){
       continue;
@@ -398,7 +443,7 @@ test("Variant #18: Remove unreachable code following a continue or break stateme
 });
 
 test("Variant #19: Remove unreachable code following a throw statement", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     throw new Error("No more code to run");
     unreachableStmt;
@@ -411,7 +456,7 @@ test("Variant #19: Remove unreachable code following a throw statement", async (
 
 // https://github.com/MichaelXF/js-confuser/issues/76
 test("Variant #20: Properly handle objects with `, ^, [, ] as keys", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   TEST_OBJECT = {
     "\`": true,
@@ -439,7 +484,7 @@ test("Variant #20: Properly handle objects with `, ^, [, ] as keys", async () =>
 
 // https://github.com/MichaelXF/js-confuser/issues/75
 test("Variant #21: Properly handle Object constructor (Function Declaration)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function MyClass() {};
 
@@ -457,7 +502,7 @@ test("Variant #21: Properly handle Object constructor (Function Declaration)", a
 });
 
 test("Variant #22: Properly handle Object constructor (Function Expression)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var MyClass = function() {};
 
@@ -475,7 +520,7 @@ test("Variant #22: Properly handle Object constructor (Function Expression)", as
 });
 
 test("Variant #23: Shorten property names and method names", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var myObject = { "myKey": "Correct Value" };
   var myClass = class { ["myMethod"](){ return "Correct Value" } }
@@ -495,7 +540,7 @@ test("Variant #23: Shorten property names and method names", async () => {
 });
 
 test("Variant #24: Variable grouping in switch case", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   switch(true){
     case true:
@@ -521,7 +566,7 @@ test("Variant #24: Variable grouping in switch case", async () => {
 });
 
 test("Variant #25: Don't break redefined function declaration", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function a(){ TEST_OUTPUT = 1 };
   function a(){ TEST_OUTPUT = 2 };
@@ -540,7 +585,7 @@ test("Variant #25: Don't break redefined function declaration", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/91
 test("Variant #27: Preserve function.length property", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function oneParameter(a){};
     var twoParameters = function({a},{b,c},...d){};
@@ -559,7 +604,7 @@ test("Variant #27: Preserve function.length property", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/125
 test("Variant #28: Don't break destructuring assignment", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     let objectSlice = [];
     objectSlice.push({
@@ -687,4 +732,48 @@ test("Variant #30: Remove unreachable code after branches", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual(["Correct Value", "Correct Value"]);
+});
+
+test("Variant #31: Dead code elimination", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function deadCodeElimination(){
+      TEST_OUTPUT = [];
+      if( true ) {
+        var one = 1;
+        TEST_OUTPUT.push(one)
+      } else {
+        TEST_OUTPUT.push("Should be removed") 
+      }
+
+      if( false ) {
+        TEST_OUTPUT.push("Should be removed") 
+      } else {
+        var two = 2;
+        TEST_OUTPUT.push(two)
+      }
+
+      if( true ) {
+      } else {
+        TEST_OUTPUT.push("Should be removed")
+      }
+
+      if(false) {
+      } else {
+        var three = 3;
+        TEST_OUTPUT.push(three)
+      }
+    }
+
+    deadCodeElimination();
+    `,
+    { target: "node", minify: true }
+  );
+
+  expect(code).not.toContain("Should be removed");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual([1, 2, 3]);
 });

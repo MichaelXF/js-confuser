@@ -81,14 +81,10 @@ export async function obfuscateWithProfiler(
   };
 }
 
-var oldJsConfuser = async (sourceCode: string, options: ObfuscateOptions) => {
-  return (await obfuscate(sourceCode, options)).code;
-};
-
-const JsConfuser = Object.assign(oldJsConfuser, {
+const JsConfuser = {
   obfuscate,
   obfuscateAST,
   obfuscateWithProfiler,
-});
+};
 
 export default JsConfuser;

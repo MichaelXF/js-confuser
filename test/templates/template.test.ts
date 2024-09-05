@@ -222,4 +222,27 @@ describe("Template", () => {
 
     expect(output).toContain('return window["atob"](str)');
   });
+
+  test("Variant #10: Error when single() encounters multiple statements", async () => {
+    var ListTemplate = new Template(`
+      var a;
+      var b;
+      var c;
+      `);
+
+    expect(() => {
+      ListTemplate.single();
+    }).toThrow();
+  });
+
+  test("Variant #11: Handle empty statements when using single()", async () => {
+    var ValidTemplate = new Template(`
+      ;
+      var a;
+      ;
+      `);
+
+    var statement = ValidTemplate.single<t.VariableDeclaration>();
+    expect(statement.type).toStrictEqual("VariableDeclaration");
+  });
 });

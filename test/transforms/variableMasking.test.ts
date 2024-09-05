@@ -1,7 +1,7 @@
 import JsConfuser from "../../src/index";
 
 test("Variant #1: Replace all variables with array indexes (single variable)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
         var TEST_VARIABLE = 1;
@@ -27,7 +27,7 @@ test("Variant #1: Replace all variables with array indexes (single variable)", a
 });
 
 test("Variant #2: Replace all variables with array indexes (multiple variables)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
         var TEST_VARIABLE_1 = 5;
@@ -54,7 +54,7 @@ test("Variant #2: Replace all variables with array indexes (multiple variables)"
 });
 
 test("Variant #3: Replace all variables with array indexes (uninitialized variable are made undefined)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
         var TEST_VARIABLE;
@@ -80,7 +80,7 @@ test("Variant #3: Replace all variables with array indexes (uninitialized variab
 });
 
 test("Variant #4: Replace all variables with array indexes (parameters)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(TEST_VARIABLE_1, TEST_VARIABLE_2){
 
@@ -106,7 +106,7 @@ test("Variant #4: Replace all variables with array indexes (parameters)", async 
 });
 
 test("Variant #5: Replace all variables with array indexes (nested function)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
 
@@ -136,7 +136,7 @@ test("Variant #5: Replace all variables with array indexes (nested function)", a
 });
 
 test("Variant #6: Replace all variables with array indexes (nested class)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
 
@@ -174,7 +174,7 @@ test("Variant #6: Replace all variables with array indexes (nested class)", asyn
 });
 
 test("Variant #7: Replace variables defined within the function, and not run if any changes can be made", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       var TEST_VARIABLE = 0;
       function TEST_FUNCTION(){
@@ -193,7 +193,7 @@ test("Variant #7: Replace variables defined within the function, and not run if 
 });
 
 test("Variant #8: Work even when differing amount of arguments passed in", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function add3(var_x, var_y, var_z){
         return var_x + var_y;
@@ -217,7 +217,7 @@ test("Variant #8: Work even when differing amount of arguments passed in", async
 });
 
 test("Variant #9: Replace all variables with array indexes (middle indexes use array[index] syntax)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
         var TEST_VARIABLE_1 = 1;
@@ -250,7 +250,7 @@ test("Variant #9: Replace all variables with array indexes (middle indexes use a
 });
 
 test("Variant #10: Guess execution order correctly (CallExpression, arguments run before callee)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(a,b){
         var TEST_NESTED_FUNCTION = (x,y)=>{
@@ -278,7 +278,7 @@ test("Variant #10: Guess execution order correctly (CallExpression, arguments ru
 });
 
 test("Variant #11: Guess execution order correctly (AssignmentExpression, right side executes first)", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(a,b){
         
@@ -306,7 +306,7 @@ test("Variant #11: Guess execution order correctly (AssignmentExpression, right 
 });
 
 test("Variant #12: Should not entangle floats or NaN", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
         
@@ -336,7 +336,7 @@ test("Variant #12: Should not entangle floats or NaN", async () => {
 });
 
 test("Variant #13: Correctly entangle property keys", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
 
@@ -383,7 +383,7 @@ test("Variant #13: Correctly entangle property keys", async () => {
 });
 
 test("Variant #14: Correctly entangle method definition keys", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
       function TEST_FUNCTION(){
 
@@ -451,7 +451,7 @@ test("Variant #14: Correctly entangle method definition keys", async () => {
 });
 
 test("Variant #15: Function with 'use strict' directive", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function useStrictFunction(){
     'use strict';
@@ -480,7 +480,7 @@ test("Variant #15: Function with 'use strict' directive", async () => {
 });
 
 test("Variant #16: Function with 'this'", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   'use strict';
   function stackFunction(){
@@ -525,7 +525,7 @@ test("Variant #16: Function with 'this'", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/88
 test("Variant #17: Syncing arguments parameter", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var TEST_OUTPUT;
 
@@ -550,7 +550,7 @@ test("Variant #17: Syncing arguments parameter", async () => {
 });
 
 test("Variant #18: Preserve function.length property", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function oneParameter(a){
       var _ = 1;
@@ -559,7 +559,7 @@ test("Variant #18: Preserve function.length property", async () => {
       var _ = 1;
     };
     var myObject = {
-      threeParameters(a,b,c){
+      threeParameters: function(a,b,c){
         var _ = 1;
       }
     }

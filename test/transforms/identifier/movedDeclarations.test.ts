@@ -172,7 +172,7 @@ test("Variant #8: Work with 'use strict'", async () => {
   TEST_OUTPUT = myFunction();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -197,14 +197,14 @@ test("Variant #9: Defined variable without an initializer + CFF + Duplicate Lite
   TEST_OUTPUT = x + y;
   `;
 
-  var output1 = await JsConfuser(code, {
+  var { code: output1 } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
     controlFlowFlattening: true,
     duplicateLiteralsRemoval: true,
   });
 
-  var output2 = await JsConfuser(output1, {
+  var { code: output2 } = await JsConfuser.obfuscate(output1, {
     target: "node",
     movedDeclarations: true,
     controlFlowFlattening: true,
@@ -263,7 +263,7 @@ test("Variant #10: Move parameters to predictable function", async () => {
   TEST_OUTPUT = testFunction${predictableFunctionTag}_FN()
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });

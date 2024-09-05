@@ -273,7 +273,7 @@ test("Variant #9: Work with Flatten on any function", async () => {
 test("Variant #10: Configurable by custom function option", async () => {
   var functionNames: string[] = [];
 
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   "use strict";
 
@@ -331,7 +331,7 @@ test("Variant #10: Configurable by custom function option", async () => {
 });
 
 test("Variant #11: Function containing function should both be changed", async function () {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function FunctionA(){
       function FunctionB(){
@@ -359,7 +359,7 @@ test("Variant #11: Function containing function should both be changed", async f
 });
 
 test("Variant #12: Preserve Function.length", async function () {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(a,b,c,d = ""){ // Function.length = 3
 

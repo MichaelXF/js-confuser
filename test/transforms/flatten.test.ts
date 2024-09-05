@@ -362,7 +362,7 @@ test("Variant #12: Work with RGF enabled", async () => {
 });
 
 test("Variant #13: Work with assignment expression in the return statement", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var outside;
 
@@ -388,7 +388,7 @@ test("Variant #13: Work with assignment expression in the return statement", asy
 });
 
 test("Variant #14: Work with 'use strict' directive", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(){
     "use strict";
@@ -412,7 +412,7 @@ test("Variant #14: Work with 'use strict' directive", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/89
 test("Variant #15: Work with functions with invalid identifier names", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   // Input
   var object = {
@@ -433,7 +433,7 @@ test("Variant #15: Work with functions with invalid identifier names", async () 
 });
 
 test("Variant #16: Multiple test", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   "use strict";
 
@@ -499,7 +499,7 @@ test("Variant #16: Multiple test", async () => {
 });
 
 test("Variant #17: Don't apply to generator functions", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function* myGeneratorFunction(){
     yield "Correct Value";
@@ -519,7 +519,7 @@ test("Variant #17: Don't apply to generator functions", async () => {
 });
 
 test("Variant #18: Redefined variable in nested scope + Rename Variables", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   (function (){
     var outsideVar = "Incorrect Value 1";
@@ -562,7 +562,7 @@ test("Variant #18: Redefined variable in nested scope + Rename Variables", async
 });
 
 test("Variant #19: Nested function declaration", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(){
     TEST_OUTPUT = nestedFunctionDeclaration();
@@ -589,7 +589,7 @@ test("Variant #19: Nested function declaration", async () => {
 });
 
 test("Variant #20: Don't apply to functions that use 'this' 'arguments' or 'eval'", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(){
     usesEval();
@@ -625,7 +625,7 @@ test("Variant #20: Don't apply to functions that use 'this' 'arguments' or 'eval
 });
 
 test("Variant #21: Preserve function.length property", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function oneParameter(a){};
   var twoParameters = function({a},{b,c},...d){};
@@ -650,7 +650,7 @@ test("Variant #21: Preserve function.length property", async () => {
 });
 
 test("Variant #22: Modify object properties", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var myObject = {};
 
@@ -678,7 +678,7 @@ test("Variant #22: Modify object properties", async () => {
 });
 
 test("Variant #23: Reference original function name", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     (function (){
       function myFunction(){
@@ -701,7 +701,7 @@ test("Variant #23: Reference original function name", async () => {
 });
 
 test("Variant #24: Typeof expression", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function myFunction(){
       TEST_OUTPUT = typeof nonExistentVariable === "undefined";
