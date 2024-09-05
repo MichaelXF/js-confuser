@@ -199,3 +199,40 @@ test("Variant #9: Don't change arguments", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(30);
 });
+
+test("Variant #10: Properly handle declared global variables", async () => {
+  var namesCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function console(){
+      VALID_GLOBAL.TEST_PROPERTY = true;
+      INVALID_GLOBAL = true;
+    }
+
+    console();
+    `,
+    {
+      target: "node",
+      globalConcealing: (globalName) => {
+        namesCollected.push(globalName);
+        return true;
+      },
+    }
+  );
+
+  expect(namesCollected).toContain("VALID_GLOBAL");
+  expect(namesCollected).not.toContain("INVALID_GLOBAL");
+  expect(namesCollected).not.toContain("console");
+
+  var VALID_GLOBAL = { TEST_PROPERTY: false },
+    INVALID_GLOBAL;
+
+  // Global Concealing directly accesses globals from the global object
+  global.VALID_GLOBAL = VALID_GLOBAL;
+
+  eval(code);
+
+  expect(VALID_GLOBAL.TEST_PROPERTY).toStrictEqual(true);
+  expect(INVALID_GLOBAL).toStrictEqual(true);
+});

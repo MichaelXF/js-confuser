@@ -122,7 +122,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             if (definedLocal === fnPath.scope) break;
 
             definedLocal = definedLocal.parent;
-            if (definedLocal === program.scope) ok(false);
+            if (definedLocal === program.scope)
+              ok(functionName + ":" + identifierName);
           } while (definedLocal);
 
           var cursor: Scope = fnPath.scope.parent;

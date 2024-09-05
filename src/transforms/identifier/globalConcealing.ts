@@ -73,6 +73,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               var identifierPath = _path as NodePath<t.Identifier>;
               var identifierName = identifierPath.node.name;
 
+              const binding = identifierPath.scope.getBinding(identifierName);
+              if (binding) {
+                illegalGlobals.add(identifierName);
+                return;
+              }
+
               if (
                 !identifierPath.scope.hasGlobal(identifierName) ||
                 identifierPath.scope.hasOwnBinding(identifierName)
@@ -86,7 +92,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               if (
                 assignmentChild &&
                 t.isAssignmentExpression(assignmentChild.parent) &&
-                assignmentChild.parent.left === assignmentChild.node
+                assignmentChild.parent.left === assignmentChild.node &&
+                !t.isMemberExpression(identifierPath.parent)
               ) {
                 illegalGlobals.add(identifierName);
                 return;
