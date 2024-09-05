@@ -9,6 +9,8 @@
 
 - - Custom String Encoding / Custom Lock Code
 
+- - Added `Function Outlining` Learn more here
+
 - - Added `Rename Labels` Learn more here
 
 - - RGF no longers uses `new Function` instead uses `eval`

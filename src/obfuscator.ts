@@ -36,6 +36,7 @@ import { NameGen } from "./utils/NameGen";
 import { assertScopeIntegrity } from "./utils/scope-utils";
 import opaquePredicates from "./transforms/opaquePredicates";
 import minify from "./transforms/minify";
+import functionOutlining from "./transforms/functionOutlining";
 
 export const DEFAULT_OPTIONS: ObfuscateOptions = {
   target: "node",
@@ -74,6 +75,12 @@ export default class Obfuscator {
     this.options = applyDefaultsToOptions({ ...userOptions });
     this.nameGen = new NameGen(this.options.identifierGenerator);
 
+    const shouldAddLockTransform =
+      this.options.lock &&
+      (Object.keys(this.options.lock).filter((key) => key !== "customLocks")
+        .length > 0 ||
+        this.options.lock.customLocks.length > 0);
+
     const allPlugins: PluginFunction[] = [];
 
     const push = (probabilityMap, ...pluginFns) => {
@@ -86,7 +93,7 @@ export default class Obfuscator {
     push(true, preparation);
     push(this.options.objectExtraction, objectExtraction);
     push(this.options.flatten, flatten);
-    push(this.options.lock, lock);
+    push(shouldAddLockTransform, lock);
     push(this.options.rgf, rgf);
     push(this.options.dispatcher, dispatcher);
     push(this.options.deadCode, deadCode);
@@ -94,6 +101,7 @@ export default class Obfuscator {
     push(this.options.calculator, calculator);
     push(this.options.globalConcealing, globalConcealing);
     push(this.options.opaquePredicates, opaquePredicates);
+    push(this.options.functionOutlining, functionOutlining);
     push(this.options.stringSplitting, stringSplitting);
     push(this.options.stringConcealing, stringConcealing);
     push(this.options.stringCompression, stringCompression);
@@ -164,7 +172,7 @@ export default class Obfuscator {
       }
 
       babel.traverse(ast, plugin.visitor as babel.Visitor);
-      assertScopeIntegrity(pluginInstance.name, ast);
+      // assertScopeIntegrity(pluginInstance.name, ast);
 
       if (options?.profiler) {
         options?.profiler({

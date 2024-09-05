@@ -427,6 +427,8 @@ export interface ObfuscateOptions {
     customLocks?: CustomLock[];
   };
 
+  functionOutlining?: ProbabilityMap<boolean>;
+
   customStringEncodings?: (
     | CustomStringEncoding
     | ((encodingImplementations: {

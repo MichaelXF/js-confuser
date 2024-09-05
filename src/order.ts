@@ -24,6 +24,8 @@ export enum Order {
 
   OpaquePredicates = 13,
 
+  FunctionOutlining = 14,
+
   StringSplitting = 16,
 
   StringConcealing = 17,

@@ -39,6 +39,7 @@ const validProperties = new Set([
   "astScrambler",
   "variableConcealing",
   "customStringEncodings",
+  "functionOutlining",
 ]);
 
 const validLockProperties = new Set([
@@ -169,6 +170,8 @@ export function applyDefaultsToOptions(
   }
 
   if (options.lock) {
+    ok(typeof options.lock === "object", "options.lock must be an object");
+
     if (options.lock.selfDefending) {
       options.compact = true; // self defending forcibly enables this
     }
