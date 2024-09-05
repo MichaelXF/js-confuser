@@ -8,6 +8,7 @@ import { computeProbabilityMap } from "../../probability";
 import { variableFunctionName } from "../../constants";
 import { prepend } from "../../utils/ast-utils";
 import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
+import { getRandomInteger, getRandomString } from "../../utils/random-utils";
 
 const ignoreGlobals = new Set([
   "require",
@@ -27,6 +28,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
   // Create the getGlobal function using a template
   function createGlobalConcealingFunction(): t.FunctionDeclaration {
+    // Create fake global mappings
+
+    var fakeCount = getRandomInteger(20, 40);
+    for (var i = 0; i < fakeCount; i++) {
+      var fakeName = getRandomString(getRandomInteger(6, 8));
+      globalMapping.set(gen.generate(), fakeName);
+    }
+
     const createSwitchStatement = () => {
       const cases = Array.from(globalMapping.keys()).map((originalName) => {
         var mappedKey = globalMapping.get(originalName);
@@ -130,7 +139,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           prepend(programPath, globalConcealingFunction);
 
-          const getGlobalVarFnName = me.getPlaceholder();
+          const getGlobalVarFnName = me.getPlaceholder() + "_getGlobalVarFn";
 
           // Insert the get global function
           prepend(

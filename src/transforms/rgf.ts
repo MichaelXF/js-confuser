@@ -26,6 +26,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
   return {
     visitor: {
       Program: {
+        enter(path) {
+          path.scope.crawl();
+        },
         exit(path) {
           if (rgfArrayExpression.elements.length === 0) return;
 

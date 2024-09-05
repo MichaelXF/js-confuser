@@ -7,7 +7,7 @@ import {
   getParentFunctionOrProgram,
 } from "../utils/ast-utils";
 import { Binding, Scope } from "@babel/traverse";
-import { NodeSymbol, UNSAFE } from "../constants";
+import { NodeSymbol, placeholderVariablePrefix, UNSAFE } from "../constants";
 
 function isUndefined(path) {
   if (path.isIdentifier() && path.node.name === "undefined") {
@@ -45,6 +45,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Minify);
   return {
     visitor: {
+      Program(path) {
+        path.scope.crawl();
+      },
       // var a; var b; -> var a,b;
       VariableDeclaration: {
         exit(path) {
@@ -192,12 +195,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       FunctionDeclaration: {
         exit(path) {
           const id = path.get("id");
-          if (id.isIdentifier()) {
+          if (
+            id.isIdentifier() &&
+            !id.node.name.startsWith(placeholderVariablePrefix)
+          ) {
             const binding = path.scope.getBinding(id.node.name);
             if (
               binding &&
               binding.constantViolations.length === 0 &&
-              binding.referencePaths.length === 0
+              binding.referencePaths.length === 0 &&
+              !binding.referenced
             ) {
               path.remove();
             }
@@ -333,6 +340,25 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             alternate.replaceWith(alternate.node.body[0]);
           }
 
+          const testValue = path.get("test").evaluateTruthy();
+          if (testValue === false) {
+            // if(false){} -> ()
+            if (!alternate.node) {
+              path.remove();
+              return;
+
+              // if(false){a()}else{b()} -> b()
+            } else {
+              path.replaceWith(alternate.node);
+              return;
+            }
+
+            // if(true){a()} -> {a()}
+          } else if (testValue === true) {
+            path.replaceWith(consequent.node);
+            return;
+          }
+
           function getResult(path: NodePath): {
             returnPath: NodePath<t.ReturnStatement> | null;
             expressions: t.Expression[];
@@ -411,6 +437,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       // Remove implied returns
       // Remove code after if all branches are unreachable
       "Block|SwitchCase": {
+        enter(path) {
+          if (path.isProgram()) {
+            path.scope.crawl();
+          }
+        },
         exit(path) {
           var statementList = path.isBlock()
             ? (path.get("body") as NodePath<t.Statement>[])

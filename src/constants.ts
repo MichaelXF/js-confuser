@@ -24,6 +24,9 @@ export const PREDICTABLE = Symbol("predictable");
  */
 export const SKIP = Symbol("skip");
 
+/**
+ * Saves the original length of a function.
+ */
 export const FN_LENGTH = Symbol("fnLength");
 
 export interface NodeSymbol {

@@ -33,6 +33,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       Block: {
         exit(blockPath) {
           if (!blockPath.isProgram()) return;
+          if (blockPath.isProgram()) {
+            blockPath.scope.crawl();
+          }
 
           const body = blockPath.node.body;
           const blockFnParent = getParentFunctionOrProgram(blockPath);
@@ -80,6 +83,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const statIntGen = new IntGen();
 
           interface BasicBlockOptions {
+            parent?: BasicBlock;
             topLevel: boolean;
             fnLabel: string;
           }
@@ -90,6 +94,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           class BasicBlock {
             totalState: number;
             stateValues: number[];
+            block?: t.Block;
 
             constructor(
               public label: string,
@@ -144,6 +149,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const endLabel = me.getPlaceholder();
 
           let currentBasicBlock = new BasicBlock(startLabel, {
+            parent: null,
             topLevel: true,
             fnLabel: null,
           });
@@ -204,6 +210,20 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             block: t.Block,
             options: BasicBlockOptions
           ) {
+            currentBasicBlock.block = block;
+
+            // Make sure 'topLevel' is disabled when flattening IF-statements
+            const nestedFlattenIntoBasicBlocks = (
+              block: t.Block,
+              options: BasicBlockOptions
+            ) => {
+              var newOptions = {
+                ...options,
+                topLevel: false,
+              };
+              return flattenIntoBasicBlocks(block, newOptions);
+            };
+
             for (const index in block.body) {
               const statement = block.body[index];
 
@@ -246,7 +266,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                 var oldBasicBlock = currentBasicBlock;
 
-                var newBasicBlockOptions = { topLevel: false, fnLabel };
+                var newBasicBlockOptions = {
+                  topLevel: false,
+                  fnLabel,
+                };
 
                 endCurrentBasicBlock(
                   {
@@ -285,7 +308,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   options
                 );
 
-                oldBasicBlock.body.unshift(
+                // Add the function to the start of the 'block'
+                var topBasicBlock = Array.from(basicBlocks.values()).filter(
+                  (p) => p.block === block
+                )[0];
+
+                topBasicBlock.body.unshift(
                   t.expressionStatement(
                     t.assignmentExpression(
                       "=",
@@ -348,7 +376,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   options
                 );
 
-                flattenIntoBasicBlocks(consequent, options);
+                nestedFlattenIntoBasicBlocks(consequent, options);
 
                 if (alternate) {
                   endCurrentBasicBlock(
@@ -359,7 +387,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     options
                   );
 
-                  flattenIntoBasicBlocks(alternate, options);
+                  nestedFlattenIntoBasicBlocks(alternate, options);
                 }
 
                 endCurrentBasicBlock(
@@ -409,7 +437,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               jumpToNext: true,
               nextLabel: endLabel,
             },
-            { topLevel: true, fnLabel: null }
+            { parent: null, topLevel: true, fnLabel: null }
           );
 
           const topLevelNames = new Set<string>();
@@ -509,7 +537,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   ) as NodePath<t.VariableDeclaration>;
                   if (!variableDeclaration) return;
 
-                  var wrapInAssignmentStatement = true;
+                  var wrapInExpressionStatement = true;
 
                   var forChild = variableDeclaration.find(
                     (p) =>
@@ -518,7 +546,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                       (p.parentPath?.isFor() && p.parentKey === "left")
                   );
                   if (forChild) {
-                    wrapInAssignmentStatement = false;
+                    wrapInExpressionStatement = false;
                   }
 
                   ok(variableDeclaration.node.declarations.length === 1);
@@ -527,19 +555,28 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     variableDeclaration.node.declarations[0].id
                   );
 
-                  const assignment = wrapInAssignmentStatement
-                    ? t.expressionStatement(
-                        t.assignmentExpression(
-                          "=",
-                          identifier,
-                          variableDeclaration.node.declarations[0].init ||
-                            t.identifier("undefined")
-                        )
-                      )
-                    : identifier;
+                  let replacement: t.Node = identifier as t.Expression;
+                  // Only add name=value if the variable is initialized OR not in a for loop
+                  if (
+                    variableDeclaration.node.declarations[0].init ||
+                    !forChild
+                  ) {
+                    replacement = t.assignmentExpression(
+                      "=",
+                      identifier,
+                      variableDeclaration.node.declarations[0].init ||
+                        t.identifier("undefined")
+                    );
+                  }
+
+                  // Most times we want to wrap in an expression statement
+                  // var a = 1; -> a = 1;
+                  if (wrapInExpressionStatement) {
+                    replacement = t.expressionStatement(replacement);
+                  }
 
                   // Replace variable declaration with assignment expression statement
-                  variableDeclaration.replaceWith(assignment);
+                  variableDeclaration.replaceWith(replacement);
                 },
               },
 
@@ -727,6 +764,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               ])
             ),
           ];
+
+          // Reset all bindings here
+          blockPath.scope.bindings = Object.create(null);
 
           // Register new declarations
           for (var node of blockPath.get("body")) {

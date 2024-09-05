@@ -30,6 +30,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           const blockPath = _path as NodePath<t.Program | t.Function>;
 
+          if (blockPath.isProgram()) {
+            blockPath.scope.crawl();
+          }
+
           if ((blockPath.node as NodeSymbol)[UNSAFE]) return;
 
           // For testing
@@ -208,8 +212,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                       ? expressions[0]
                       : t.sequenceExpression(expressions);
 
+                  if (!parentPath.container) return;
                   parentPath.replaceWith(output);
                 } else {
+                  if (!path.container) return;
                   // Replace non-invocation references with a 'cached' version of the function
                   path.replaceWith(createDispatcherCall(newName, keys.nonCall));
                 }

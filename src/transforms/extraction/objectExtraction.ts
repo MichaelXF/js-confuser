@@ -14,6 +14,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
   return {
     visitor: {
+      Program: {
+        enter(path) {
+          path.scope.crawl();
+        },
+      },
       VariableDeclaration(varDecPath) {
         if (varDecPath.node.declarations.length !== 1) return;
         const declaration = varDecPath.get(

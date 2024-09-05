@@ -371,6 +371,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           flattenFunction(path);
         },
       },
+      Program(path) {
+        path.scope.crawl();
+      },
     },
   };
 };

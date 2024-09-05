@@ -5,7 +5,7 @@ import Template from "./template";
  * @param str
  * @param seed
  */
-export function HashFunction(str, seed = 0) {
+export function HashFunction(str: string, seed: number) {
   let h1 = 0xdeadbeef ^ seed,
     h2 = 0x41c6ce57 ^ seed;
   for (let i = 0, ch; i < str.length; i++) {

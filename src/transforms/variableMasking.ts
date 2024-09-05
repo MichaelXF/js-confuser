@@ -208,6 +208,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           transformFunction(path);
         },
       },
+      Program: {
+        enter(path) {
+          path.scope.crawl();
+        },
+      },
     },
   };
 };

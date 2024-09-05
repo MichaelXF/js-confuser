@@ -38,19 +38,12 @@ export default class Template {
       matches.forEach((variable) => {
         const name = variable.slice(1, -1);
 
-        // $ variables are for default variables
-        if (name.startsWith("$")) {
-          this.defaultVariables[name] = `td_${
-            Object.keys(this.defaultVariables).length
-          }`;
-        } else {
-          this.requiredVariables.add(name);
-        }
+        this.requiredVariables.add(name);
       });
     }
   }
 
-  private interpolateTemplate(variables: TemplateVariables = {}) {
+  private interpolateTemplate(variables: TemplateVariables) {
     const allVariables = { ...this.defaultVariables, ...variables };
 
     for (const requiredVariable of this.requiredVariables) {

@@ -19,6 +19,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
   return {
     visitor: {
+      Program: {
+        enter(path) {
+          path.scope.crawl();
+        },
+      },
       CallExpression: {
         exit(path: NodePath<t.CallExpression>) {
           if (

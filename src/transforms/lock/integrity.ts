@@ -31,6 +31,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
   return {
     visitor: {
+      Program: {
+        enter(path) {
+          path.scope.crawl();
+        },
+      },
       FunctionDeclaration: {
         exit(funcDecPath) {
           const integrityInterface = (funcDecPath.node as NodeIntegrity)[

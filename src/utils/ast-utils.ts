@@ -292,6 +292,9 @@ export function prepend(
 
   function registerPaths(paths: NodePath[]) {
     for (var path of paths) {
+      if (path.isVariableDeclaration() && path.node.kind === "var") {
+        getParentFunctionOrProgram(path).scope.registerDeclaration(path);
+      }
       path.scope.registerDeclaration(path);
     }
 

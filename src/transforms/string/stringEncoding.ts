@@ -65,7 +65,7 @@ export default (me: PluginInstance): PluginObj => {
               : toUnicodeRepresentation
           )(value);
 
-          path.replaceWith(t.identifier(`'${escapedString}'`));
+          path.replaceWith(t.identifier(`"${escapedString}"`));
           path.skip();
         },
       },

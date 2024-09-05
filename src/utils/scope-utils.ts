@@ -46,6 +46,8 @@ function compareScopes(beforeState, afterState, node) {
  * @param node
  */
 export function assertScopeIntegrity(pluginName: string, node: t.File) {
+  t.assertFile(node);
+
   const scopeStates = new WeakMap();
   const seenNodes = new WeakSet();
 
@@ -79,9 +81,10 @@ export function assertScopeIntegrity(pluginName: string, node: t.File) {
         for (var name in path.scope.bindings) {
           const binding = path.scope.bindings[name];
           if (!binding.path || !binding.path.node || binding.path.removed) {
-            throw new Error(
-              `${pluginName}: Binding "${name}" was removed from the scope at node: ${path.node.type} ${binding.path}`
-            );
+            const message = `${pluginName}: Binding "${name}" was removed from the scope at node: ${path.node.type} ${binding.path?.type}`;
+            // console.warn(message);
+
+            throw new Error(message);
           }
         }
       }
