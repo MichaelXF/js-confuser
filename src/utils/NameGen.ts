@@ -5,7 +5,7 @@ import { choice, getRandomHexString, getRandomInteger } from "./random-utils";
 import { computeProbabilityMap } from "../probability";
 
 export class NameGen {
-  private generatedNames = new Set<string>();
+  public generatedNames = new Set<string>();
   private counter = 1;
   private zeroWidthGenerator = createZeroWidthGenerator();
 

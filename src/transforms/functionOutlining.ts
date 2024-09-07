@@ -4,19 +4,9 @@ import { Order } from "../order";
 import { ensureComputedExpression, prepend } from "../utils/ast-utils";
 import * as t from "@babel/types";
 import { NameGen } from "../utils/NameGen";
-import { getRandomInteger } from "../utils/random-utils";
+import { chance, getRandomInteger } from "../utils/random-utils";
 import { Binding, Visitor } from "@babel/traverse";
-
-interface FunctionOutliningInterface {
-  objectName: string;
-  add: (node: t.Expression) => t.Expression;
-}
-
-const FUNCTION_OUTLINING = Symbol("functionOutlining");
-
-interface NodeFunctionOutlining {
-  [FUNCTION_OUTLINING]?: FunctionOutliningInterface;
-}
+import { computeProbabilityMap } from "../probability";
 
 function isSafeForOutlining(path: NodePath): {
   isSafe: boolean;
@@ -81,64 +71,30 @@ function isSafeForOutlining(path: NodePath): {
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.FunctionOutlining);
 
-  function addToOutliningObject(path: NodePath, node: t.Expression) {
-    var block = path.findParent((p) => p.isBlock());
-    if (!block) return;
+  var changesMade = 0;
 
-    let fnInterface = (block.node as NodeFunctionOutlining)[FUNCTION_OUTLINING];
+  function checkProbability() {
+    if (!computeProbabilityMap(me.options.functionOutlining)) return false;
 
-    if (!fnInterface) {
-      var objectName = me.getPlaceholder();
+    if (changesMade > 100 && chance(changesMade - 100)) return false;
 
-      var newPath = prepend(
-        block,
-        t.variableDeclaration("var", [
-          t.variableDeclarator(
-            t.identifier(objectName),
-            t.objectExpression([])
-          ),
-        ])
-      )[0] as NodePath<t.VariableDeclaration>;
-      me.skip(newPath);
-
-      let gen = new NameGen(me.options.identifierGenerator);
-
-      var objectExpression = newPath.node.declarations[0]
-        .init as t.ObjectExpression;
-      fnInterface = {
-        add: (node) => {
-          const property = gen.generate();
-          objectExpression.properties.push(
-            t.objectProperty(t.identifier(property), node)
-          );
-          me.skip(objectExpression);
-
-          return t.memberExpression(
-            t.identifier(objectName),
-            t.stringLiteral(property),
-            true
-          );
-        },
-        objectName,
-      };
-
-      (block.node as NodeFunctionOutlining)[FUNCTION_OUTLINING] = fnInterface;
-    }
-
-    return fnInterface.add(node);
+    return true;
   }
 
   return {
     visitor: {
       Block: {
-        exit(path) {
-          if (path.isProgram()) {
-            path.scope.crawl();
+        exit(blockPath) {
+          if (blockPath.isProgram()) {
+            blockPath.scope.crawl();
           }
-          if (path.find((p) => me.isSkipped(p))) return;
+          if (blockPath.find((p) => me.isSkipped(p))) return;
+
+          if (!checkProbability()) return;
+
           // Extract a random number of statements
 
-          var statements = path.get("body");
+          var statements = blockPath.get("body");
           var startIndex = getRandomInteger(0, statements.length);
           var endIndex = getRandomInteger(startIndex, statements.length);
 
@@ -180,18 +136,21 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             }
           }
 
+          changesMade++;
+
           var isFirst = true;
           for (var statement of extractedStatements) {
             if (isFirst) {
               isFirst = false;
-              var memberExpression = addToOutliningObject(
-                statement,
-                t.functionExpression(
-                  null,
-                  [],
-                  t.blockStatement(extractedStatements.map((x) => x.node))
-                )
-              );
+              var memberExpression = me
+                .getControlObject(blockPath)
+                .addProperty(
+                  t.functionExpression(
+                    null,
+                    [],
+                    t.blockStatement(extractedStatements.map((x) => x.node))
+                  )
+                );
               var callExpression = t.callExpression(memberExpression, []);
 
               statement.replaceWith(callExpression);
@@ -214,17 +173,24 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             return;
           }
 
+          if (!checkProbability()) return;
+
           if (path.find((p) => me.isSkipped(p))) return;
           if (!isSafeForOutlining(path).isSafe) return;
 
-          var memberExpression = addToOutliningObject(
-            path,
-            t.functionExpression(
-              null,
-              [],
-              t.blockStatement([t.returnStatement(t.cloneNode(path.node))])
-            )
-          );
+          changesMade++;
+
+          var blockPath = path.find((p) => p.isBlock()) as NodePath<t.Block>;
+
+          var memberExpression = me
+            .getControlObject(blockPath)
+            .addProperty(
+              t.functionExpression(
+                null,
+                [],
+                t.blockStatement([t.returnStatement(t.cloneNode(path.node))])
+              )
+            );
 
           var callExpression = t.callExpression(memberExpression, []);
 

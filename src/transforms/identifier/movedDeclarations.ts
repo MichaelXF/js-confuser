@@ -5,6 +5,8 @@ import { NodeSymbol, PREDICTABLE } from "../../constants";
 import * as t from "@babel/types";
 import { isStaticValue } from "../../utils/static-utils";
 import { isFunctionStrictMode } from "../../utils/function-utils";
+import { prepend } from "../../utils/ast-utils";
+import Template from "../../templates/template";
 
 /**
  * Moved Declarations moves variables in two ways:
@@ -17,6 +19,45 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
   return {
     visitor: {
+      FunctionDeclaration: {
+        exit(path) {
+          var functionPath = path.findParent((path) =>
+            path.isFunction()
+          ) as NodePath<t.Function>;
+
+          if (!functionPath || !(functionPath.node as NodeSymbol)[PREDICTABLE])
+            return;
+
+          // Must be direct child of the function
+          if (path.parentPath !== functionPath.get("body")) return;
+
+          // Rest params check
+          if (functionPath.get("params").find((p) => p.isRestElement())) return;
+
+          var isStrictMode = isFunctionStrictMode(functionPath);
+
+          if (isStrictMode) return;
+
+          const functionName = path.node.id.name;
+
+          var functionExpression = path.node as t.Node as t.FunctionExpression;
+          functionExpression.type = "FunctionExpression";
+          functionExpression.id = null;
+
+          functionPath.node.params.push(t.identifier(functionName));
+
+          prepend(
+            functionPath,
+            new Template(`
+              if(!${functionName}) {
+                ${functionName} = {functionExpression};
+              }
+              `).single({ functionExpression: functionExpression })
+          );
+
+          path.remove();
+        },
+      },
       VariableDeclaration: {
         exit(path) {
           if (path.node.kind !== "var") return;

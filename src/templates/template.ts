@@ -135,9 +135,7 @@ export default class Template {
     return file.program.body;
   }
 
-  single<T extends babelTypes.Node = babelTypes.Statement>(
-    variables: TemplateVariables = {}
-  ): T {
+  single<T extends babelTypes.Statement>(variables: TemplateVariables = {}): T {
     const nodes = this.compile(variables);
 
     if (nodes.length !== 1) {

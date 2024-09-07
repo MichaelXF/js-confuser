@@ -1,11 +1,13 @@
 import { NodePath, PluginObj } from "@babel/core";
 import Obfuscator from "../obfuscator";
-import { getRandomString } from "../utils/random-utils";
+import { chance, choice, getRandomString } from "../utils/random-utils";
 import { Order } from "../order";
 import * as t from "@babel/types";
-import { FN_LENGTH, NodeSymbol, SKIP } from "../constants";
+import { FN_LENGTH, NodeSymbol, SKIP, CONTROL_OBJECTS } from "../constants";
 import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 import { prepend, prependProgram } from "../utils/ast-utils";
+import ControlObject from "../utils/ControlObject";
+import { ok } from "assert";
 
 export type PluginFunction = (pluginArg: PluginArg) => PluginObj;
 
@@ -109,6 +111,30 @@ export class PluginInstance {
     if (this.options.verbose) {
       console.log(`[${this.name}]`, ...messages);
     }
+  }
+
+  getControlObject(blockPath: NodePath<t.Block>) {
+    ok(blockPath.isBlock());
+
+    var controlObjects = (blockPath.node as NodeSymbol)[CONTROL_OBJECTS];
+    if (!controlObjects) {
+      controlObjects = [];
+    }
+
+    if (
+      controlObjects.length === 0 ||
+      chance(100 - controlObjects.length * 10)
+    ) {
+      var newControlObject = new ControlObject(this, blockPath);
+
+      controlObjects.push(newControlObject);
+
+      (blockPath.node as NodeSymbol)[CONTROL_OBJECTS] = controlObjects;
+
+      return newControlObject;
+    }
+
+    return choice(controlObjects);
   }
 
   warn(...messages: any[]) {

@@ -1,3 +1,5 @@
+import ControlObject from "./utils/ControlObject";
+
 export const predictableFunctionTag = "__JS_PREDICT__";
 
 /**
@@ -29,11 +31,14 @@ export const SKIP = Symbol("skip");
  */
 export const FN_LENGTH = Symbol("fnLength");
 
+export const CONTROL_OBJECTS = Symbol("controlObjects");
+
 export interface NodeSymbol {
   [UNSAFE]?: boolean;
   [PREDICTABLE]?: boolean;
   [SKIP]?: boolean | number;
   [FN_LENGTH]?: number;
+  [CONTROL_OBJECTS]?: ControlObject[];
 }
 
 /**

@@ -37,28 +37,27 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             shiftedElements.unshift(shiftedElements.pop());
           }
 
-          var runtimeFn = me.getPlaceholder();
+          var block = path.find((p) => p.isBlock()) as NodePath<t.Block>;
 
-          var program = path.find((p) => p.isProgram()) as NodePath<t.Program>;
-          program.unshiftContainer(
-            "body",
+          var memberExpression = me.getControlObject(block).addProperty(
             new Template(
               `
-            function ${runtimeFn}(arr, shift) {
-              for (var i = 0; i < shift; i++) {
+            (function(arr) {
+              for (var i = 0; i < {shiftNode}; i++) {
                 arr.push(arr.shift());
               }
 
               return arr;
-            }
+            })
             `
-            ).single()
+            ).expression({
+              shiftNode: t.numericLiteral(shift),
+            })
           );
 
           path.replaceWith(
-            t.callExpression(t.identifier(runtimeFn), [
+            t.callExpression(memberExpression, [
               t.arrayExpression(shiftedElements),
-              t.numericLiteral(shift),
             ])
           );
 

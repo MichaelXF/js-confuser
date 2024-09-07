@@ -7,7 +7,7 @@ import { ok } from "assert";
 import { chance, getRandomString } from "../utils/random-utils";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
-import { NodeSymbol, UNSAFE } from "../constants";
+import { NodeSymbol, PREDICTABLE, UNSAFE } from "../constants";
 import {
   computeFunctionLength,
   isVariableFunctionIdentifier,
@@ -166,13 +166,18 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     dispatcherArgs.push(t.stringLiteral(keys.returnAsObject));
                   }
 
-                  var callExpression = t.callExpression(
-                    t.identifier(dispatcherName),
-                    dispatcherArgs
-                  );
+                  var callExpression: t.CallExpression | t.NewExpression =
+                    t.callExpression(
+                      t.identifier(dispatcherName),
+                      dispatcherArgs
+                    );
 
                   if (!asObject) {
                     return callExpression;
+                  }
+
+                  if (chance(50)) {
+                    (callExpression as t.Node).type = "NewExpression";
                   }
 
                   return t.memberExpression(
@@ -262,6 +267,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 [],
                 t.blockStatement(newBody)
               );
+
+              (functionExpression as NodeSymbol)[PREDICTABLE] = true;
 
               return t.objectProperty(
                 t.stringLiteral(newName),

@@ -7,7 +7,7 @@ var SOURCE_JS = readFileSync(join(__dirname, "./Dynamic.src.js"), "utf-8");
 
 test.concurrent("Variant #1: Dynamic.src.js on High Preset", async () => {
   // `input` is an embedded variable, therefore globalConcealing must be turned off
-  var { output: code } = await JsConfuser.obfuscate(SOURCE_JS, {
+  var { code: output } = await JsConfuser.obfuscate(SOURCE_JS, {
     target: "browser",
     preset: "high",
     globalConcealing: false,

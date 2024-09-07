@@ -299,3 +299,61 @@ test("Variant #11: Predictable function called with extraneous parameters", asyn
 
   expect(TEST_OUTPUT).toStrictEqual(15);
 });
+
+test("Variant #12: Move function declaration as parameter", async () => {
+  var code = `
+  var outsideVar = "Correct Value";
+
+  function myFunction(){
+    function getCorrectValue1(){
+      return "Correct Value";
+    }
+
+    let var1 = "Correct Value";
+    function getCorrectValue2(){
+      return var1;
+    }
+
+    let var2;
+    var2 = "Correct Value";
+
+    function getCorrectValue3(){
+      return var2;
+    }
+
+    function getCorrectValue4(){
+      if(var2) {
+        return outsideVar;
+      }
+    }
+
+    TEST_OUTPUT = [
+      getCorrectValue1(),
+      getCorrectValue2(),
+      getCorrectValue3(),
+      getCorrectValue4()
+    ];
+  }
+
+  myFunction();
+  `;
+
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "node",
+    movedDeclarations: true,
+  });
+
+  expect(output).toContain(
+    "myFunction(getCorrectValue1,getCorrectValue2,getCorrectValue3,getCorrectValue4"
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual([
+    "Correct Value",
+    "Correct Value",
+    "Correct Value",
+    "Correct Value",
+  ]);
+});
