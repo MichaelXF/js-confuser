@@ -5,7 +5,7 @@ import { ensureComputedExpression, prepend } from "../utils/ast-utils";
 import * as t from "@babel/types";
 import { NameGen } from "../utils/NameGen";
 import { getRandomInteger } from "../utils/random-utils";
-import { Binding } from "@babel/traverse";
+import { Binding, Visitor } from "@babel/traverse";
 
 interface FunctionOutliningInterface {
   objectName: string;
@@ -20,10 +20,19 @@ interface NodeFunctionOutlining {
 
 function isSafeForOutlining(path: NodePath): {
   isSafe: boolean;
-  bindings: Binding[];
+  bindings?: Binding[];
 } {
-  if (path.isIdentifier() || path.isLiteral())
-    return { isSafe: false, bindings: [] };
+  if (path.isIdentifier() || path.isLiteral()) return { isSafe: false };
+
+  // Skip direct invocations ('this' will be different)
+  if (path.key === "callee" && path.parentPath.isCallExpression()) {
+    return { isSafe: false };
+  }
+
+  // Skip typeof and delete expressions (identifier behavior is different)
+  if (path.key === "argument" && path.parentPath.isUnaryExpression()) {
+    return { isSafe: false };
+  }
 
   if (
     path.isReturnStatement() ||
@@ -36,13 +45,13 @@ function isSafeForOutlining(path: NodePath): {
     path.isImportDeclaration() ||
     path.isExportDeclaration()
   ) {
-    return { isSafe: false, bindings: [] };
+    return { isSafe: false };
   }
 
   var isSafe = true;
   var bindings: Binding[] = [];
 
-  path.traverse({
+  var visitor: Visitor = {
     ThisExpression(path) {
       isSafe = false;
       path.stop();
@@ -59,7 +68,12 @@ function isSafeForOutlining(path: NodePath): {
         bindings.push(binding);
       }
     },
-  });
+  };
+
+  // Exclude 'ThisExpression' and semantic 'Identifier' nodes
+  if (visitor[path.type]) return { isSafe: false };
+
+  path.traverse(visitor);
 
   return { isSafe, bindings };
 }
@@ -134,6 +148,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           var bindings: Binding[] = [];
 
           for (var statement of extractedStatements) {
+            // Don't override the control node
+            if (me.isSkipped(statement)) return;
+
             var result = isSafeForOutlining(statement);
             if (!result.isSafe) {
               return;
@@ -167,16 +184,17 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           for (var statement of extractedStatements) {
             if (isFirst) {
               isFirst = false;
-              statement.replaceWith(
-                addToOutliningObject(
-                  statement,
-                  t.functionExpression(
-                    null,
-                    [],
-                    t.blockStatement(extractedStatements.map((x) => x.node))
-                  )
+              var memberExpression = addToOutliningObject(
+                statement,
+                t.functionExpression(
+                  null,
+                  [],
+                  t.blockStatement(extractedStatements.map((x) => x.node))
                 )
               );
+              var callExpression = t.callExpression(memberExpression, []);
+
+              statement.replaceWith(callExpression);
               continue;
             }
             statement.remove();
