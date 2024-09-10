@@ -19,6 +19,7 @@ import {
 } from "../../utils/random-utils";
 import { CustomStringEncoding } from "../../options";
 import { createDefaultStringEncoding } from "./encoding";
+import { numericLiteral } from "../../utils/node";
 
 interface StringConcealingInterface {
   encodingImplementation: CustomStringEncoding;
@@ -218,7 +219,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 path.replaceWith(
                   t.callExpression(
                     t.identifier(stringConcealingInterface.fnName),
-                    [t.numericLiteral(index)]
+                    [numericLiteral(index)]
                   )
                 );
 

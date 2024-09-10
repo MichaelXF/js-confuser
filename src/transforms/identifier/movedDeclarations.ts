@@ -44,7 +44,18 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           functionExpression.type = "FunctionExpression";
           functionExpression.id = null;
 
-          functionPath.node.params.push(t.identifier(functionName));
+          var identifier = t.identifier(functionName);
+          functionPath.node.params.push(identifier);
+
+          var paramPath = functionPath.get("params").at(-1);
+
+          // Update binding to point to new path
+          const binding = functionPath.scope.getBinding(functionName);
+          if (binding) {
+            binding.kind = "param";
+            binding.path = paramPath;
+            binding.identifier = identifier;
+          }
 
           prepend(
             functionPath,
@@ -133,7 +144,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           switch (insertionMethod) {
             case "functionParameter":
-              var param: t.Pattern | t.Identifier = t.identifier(name);
+              var identifier = t.identifier(name);
+
+              var param: t.Pattern | t.Identifier = identifier;
               if (allowDefaultParamValue && defaultParamValue) {
                 param = t.assignmentPattern(param, defaultParamValue);
               }
@@ -142,7 +155,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
               var paramPath = functionPath.get("params").at(-1);
 
-              functionPath.scope.registerBinding("param", paramPath);
+              // Update binding to point to new path
+              const binding = functionPath.scope.getBinding(name);
+              if (binding) {
+                binding.kind = "param";
+                binding.path = paramPath;
+                binding.identifier = identifier;
+              }
+
               break;
             case "variableDeclaration":
               var block = path.findParent((path) =>

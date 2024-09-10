@@ -7,6 +7,7 @@ import { computeProbabilityMap } from "../probability";
 import { getFunctionName, prepend } from "../utils/ast-utils";
 import { NodeSymbol, SKIP, UNSAFE } from "../constants";
 import { computeFunctionLength } from "../utils/function-utils";
+import { numericLiteral } from "../utils/node";
 
 /**
  * RGF (Runtime-Generated-Function) uses the `new Function("code")` syntax to create executable code from strings.
@@ -198,7 +199,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     t.memberExpression(
                       t.memberExpression(
                         t.identifier(rgfArrayName),
-                        t.numericLiteral(index),
+                        numericLiteral(index),
                         true
                       ),
                       t.stringLiteral("apply"),

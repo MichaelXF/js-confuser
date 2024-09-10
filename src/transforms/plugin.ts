@@ -8,6 +8,7 @@ import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplat
 import { prepend, prependProgram } from "../utils/ast-utils";
 import ControlObject from "../utils/ControlObject";
 import { ok } from "assert";
+import { numericLiteral } from "../utils/node";
 
 export type PluginFunction = (pluginArg: PluginArg) => PluginObj;
 
@@ -37,7 +38,7 @@ export class PluginInstance {
     return this.obfuscator.globalState;
   }
 
-  skip(path: NodePath | t.Node | NodePath[]) {
+  skip<T extends t.Node>(path: NodePath<T> | T | NodePath<T>[]): T {
     if (Array.isArray(path)) {
       path.forEach((p) => this.skip(p));
     } else {
@@ -45,6 +46,8 @@ export class PluginInstance {
       let node = any.isNodeType ? any.node : any;
 
       (node as NodeSymbol)[SKIP] = this.order;
+
+      return node;
     }
   }
 
@@ -79,7 +82,7 @@ export class PluginInstance {
           t.expressionStatement(
             t.callExpression(t.identifier(this.setFunctionLengthName), [
               t.identifier(path.node.id.name),
-              t.numericLiteral(originalLength),
+              numericLiteral(originalLength),
             ])
           )
         );
@@ -90,7 +93,7 @@ export class PluginInstance {
         path.replaceWith(
           t.callExpression(t.identifier(this.setFunctionLengthName), [
             path.node,
-            t.numericLiteral(originalLength),
+            numericLiteral(originalLength),
           ])
         );
       } else {

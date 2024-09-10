@@ -18,8 +18,6 @@ export enum Order {
 
   Calculator = 9,
 
-  ControlFlowFlattening = 10,
-
   GlobalConcealing = 12,
 
   OpaquePredicates = 13,
@@ -38,7 +36,9 @@ export enum Order {
 
   Shuffle = 24,
 
-  MovedDeclarations = 26,
+  MovedDeclarations = 25,
+
+  ControlFlowFlattening = 26,
 
   RenameLabels = 27,
 

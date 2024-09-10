@@ -83,10 +83,15 @@ export function ensureComputedExpression(path: NodePath<t.Node>) {
  * - Variable Declaration
  * - Object property / method
  * - Class property / method
+ * - Program returns "[Program]"
+ * - Default returns "anonymous"
  * @param path
  * @returns
  */
 export function getFunctionName(path: NodePath<t.Function>): string {
+  if (!path) return "null";
+  if (path.isProgram()) return "[Program]";
+
   // Check function declaration/expression ID
   if (
     (t.isFunctionDeclaration(path.node) || t.isFunctionExpression(path.node)) &&
@@ -97,7 +102,7 @@ export function getFunctionName(path: NodePath<t.Function>): string {
 
   // Check for containing variable declaration
   if (
-    path.parentPath.isVariableDeclarator() &&
+    path.parentPath?.isVariableDeclarator() &&
     t.isIdentifier(path.parentPath.node.id)
   ) {
     return path.parentPath.node.id.name;
@@ -109,12 +114,25 @@ export function getFunctionName(path: NodePath<t.Function>): string {
   }
 
   // Check for containing property in an object
-  if (path.parentPath.isObjectProperty() || path.parentPath.isClassProperty()) {
+  if (
+    path.parentPath?.isObjectProperty() ||
+    path.parentPath?.isClassProperty()
+  ) {
     var property = getObjectPropertyAsString(path.parentPath.node);
     if (property) return property;
   }
 
-  return "anonymous";
+  var output = "anonymous";
+
+  if (path.isFunction()) {
+    if (path.node.generator) {
+      output += "*";
+    } else if (path.node.async) {
+      output = "async " + output;
+    }
+  }
+
+  return output;
 }
 
 export function isModuleImport(path: NodePath<t.StringLiteral>) {
@@ -139,14 +157,15 @@ export function isModuleImport(path: NodePath<t.StringLiteral>) {
 export function getParentFunctionOrProgram(
   path: NodePath<any>
 ): NodePath<t.Function | t.Program> {
+  if (path.isProgram()) return path;
+
   // Find the nearest function-like parent
   const functionOrProgramPath = path.findParent(
     (parentPath) => parentPath.isFunction() || parentPath.isProgram()
-  );
+  ) as NodePath<t.Function | t.Program>;
 
-  return functionOrProgramPath as NodePath<t.Function>;
-
-  ok(false);
+  ok(functionOrProgramPath);
+  return functionOrProgramPath;
 }
 
 export function insertIntoNearestBlockScope(
@@ -350,4 +369,79 @@ export function prependProgram(
   var program = path.find((p) => p.isProgram());
   ok(program);
   return prepend(program, ...nodes);
+}
+
+/**
+ * Subset of BindingIdentifier, excluding non-defined assignment expressions.
+ *
+ * @example
+ * var a = 1; // true
+ * var {c} = {} // true
+ * function b() {} // true
+ * function d([e] = [], ...f) {} // true
+ *
+ * f = 0; // false
+ * f(); // false
+ * @param path
+ * @returns
+ */
+export function isDefiningIdentifier(path: NodePath<t.Identifier>) {
+  if (path.key === "id" && path.parentPath.isFunction()) return true;
+  if (path.key === "id" && path.parentPath.isClassDeclaration) return true;
+
+  var maxTraversalPath = path.find(
+    (p) =>
+      (p.key === "id" && p.parentPath?.isVariableDeclarator()) ||
+      (p.listKey === "params" && p.parentPath?.isFunction()) ||
+      (p.key === "param" && p.parentPath?.isCatchClause())
+  );
+
+  if (!maxTraversalPath) return false;
+
+  var cursor: NodePath = path;
+  while (cursor && cursor !== maxTraversalPath) {
+    if (
+      cursor.parentPath.isObjectProperty() &&
+      cursor.parentPath.parentPath?.isObjectPattern()
+    ) {
+      if (cursor.key !== "value") {
+        return false;
+      }
+    } else if (cursor.parentPath.isArrayPattern()) {
+      if (cursor.listKey !== "elements") {
+        return false;
+      }
+    } else if (cursor.parentPath.isRestElement()) {
+      if (cursor.key !== "argument") {
+        return false;
+      }
+    } else if (cursor.parentPath.isAssignmentPattern()) {
+      if (cursor.key !== "left") {
+        return false;
+      }
+    } else if (cursor.parentPath.isObjectPattern()) {
+    } else return false;
+
+    cursor = cursor.parentPath;
+  }
+
+  return true;
+}
+
+/**
+ * @example
+ * function id() {} // true
+ * class id {} // true
+ * var id; // false
+ * @param path
+ * @returns
+ */
+export function isStrictIdentifier(path: NodePath): boolean {
+  if (
+    path.key === "id" &&
+    (path.parentPath.isFunction() || path.parentPath.isClass())
+  )
+    return true;
+
+  return false;
 }

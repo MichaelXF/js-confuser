@@ -105,6 +105,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               )
                 continue;
             }
+
             const binding = scope.bindings[identifierName];
             if (renamedBindingIdentifiers.has(binding.identifier)) continue;
             renamedBindingIdentifiers.add(binding.identifier);
@@ -118,6 +119,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               names.push(newName);
             }
 
+            // me.log("Renaming", identifierName, "to", newName);
             scope.rename(identifierName, newName);
 
             // Extra Class Declaration scope preserve logic needed

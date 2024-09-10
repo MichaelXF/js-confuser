@@ -1,13 +1,17 @@
-import { NodePath, PluginObj, traverse, Visitor } from "@babel/core";
+import { PluginObj } from "@babel/core";
+import { NodePath, Scope, Visitor } from "@babel/traverse";
 import { PluginArg } from "./plugin";
 import { Order } from "../order";
 import { computeProbabilityMap } from "../probability";
 import {
   ensureComputedExpression,
+  getFunctionName,
   getParentFunctionOrProgram,
-  getPatternIdentifierNames,
+  isDefiningIdentifier,
+  isStrictIdentifier,
 } from "../utils/ast-utils";
 import * as t from "@babel/types";
+import * as n from "../utils/node";
 import Template from "../templates/template";
 import {
   chance,
@@ -17,59 +21,145 @@ import {
 } from "../utils/random-utils";
 import { IntGen } from "../utils/IntGen";
 import { ok } from "assert";
+import { NameGen } from "../utils/NameGen";
+import { NodeSymbol, UNSAFE } from "../constants";
 
 /**
- * Control-Flow-Flattening breaks your code into Basic Blocks.
+ * Breaks functions into DAGs (Directed Acyclic Graphs)
  *
- * Basic Blocks are simple statements without any jumps or branches.
+ * - 1. Break functions into chunks
+ * - 2. Shuffle chunks but remember their original position
+ * - 3. Create a Switch statement inside a While loop, each case is a chunk, and the while loops exits on the last transition.
+ *
+ * The Switch statement:
+ *
+ * - 1. The state variable controls which case will run next
+ * - 2. At the end of each case, the state variable is updated to the next block of code.
+ * - 3. The while loop continues until the the state variable is the end state.
  */
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.ControlFlowFlattening);
 
-  const isDebug = true;
+  const isDebug = false;
+  const flattenIfStatements = true;
+  const addRelativeAssignments = true;
+  const addDeadCode = true;
+  const addFakeTests = true;
+  const addComplexTests = true;
+  const mangleNumericalLiterals = true;
+  const mangleBooleanLiterals = true;
+
+  const cffPrefix = me.getPlaceholder();
+  let cffCounter = 0;
 
   return {
     visitor: {
-      Block: {
-        exit(blockPath) {
-          if (!blockPath.isProgram()) return;
-          if (blockPath.isProgram()) {
-            blockPath.scope.crawl();
+      "Program|Function": {
+        exit(_path) {
+          let programOrFunctionPath = _path as NodePath<t.Program | t.Function>;
+
+          let programPath = _path.isProgram() ? _path : null;
+          let functionPath = _path.isFunction() ? _path : null;
+
+          let blockPath: NodePath<t.Block>;
+          if (programPath) {
+            blockPath = programPath;
+          } else {
+            var fnBlockPath = functionPath.get("body");
+            if (!fnBlockPath.isBlock()) return;
+            blockPath = fnBlockPath;
           }
-
-          const body = blockPath.node.body;
-          const blockFnParent = getParentFunctionOrProgram(blockPath);
-
-          let hasContinueOrBreak = false;
-          blockPath.traverse({
-            "ContinueStatement|BreakStatement"(path) {
-              if (getParentFunctionOrProgram(path) === blockFnParent) {
-                hasContinueOrBreak = true;
-                path.stop();
-              }
-            },
-          });
-
-          if (hasContinueOrBreak) {
-            return;
-          }
-
-          // Limit how many numbers get entangled
-          let mangledNumericLiteralsCreated = 0;
 
           // Must be at least 3 statements or more
-          if (body.length < 3) {
-            return;
-          }
+          if (blockPath.node.body.length < 3) return;
 
           // Check user's threshold setting
           if (!computeProbabilityMap(me.options.controlFlowFlattening)) {
             return;
           }
 
-          const prefix = me.getPlaceholder();
+          // Avoid unsafe functions
+          if (functionPath && (functionPath.node as NodeSymbol)[UNSAFE]) return;
+
+          programOrFunctionPath.scope.crawl();
+
+          const blockFnParent = getParentFunctionOrProgram(blockPath);
+
+          let hasIllegalNode = false;
+          var bindingNames = new Set<string>();
+          blockPath.traverse({
+            "Super|MetaProperty|AwaitExpression|YieldExpression"(path) {
+              if (
+                getParentFunctionOrProgram(path).node === blockFnParent.node
+              ) {
+                hasIllegalNode = true;
+                path.stop();
+              }
+            },
+            VariableDeclaration(path) {
+              if (path.node.declarations.length !== 1) {
+                hasIllegalNode = true;
+                path.stop();
+              }
+            },
+            BindingIdentifier(path) {
+              const binding = path.scope.getBinding(path.node.name);
+              if (!binding) return;
+
+              var fnParent = path.getFunctionParent();
+              if (
+                path.key === "id" &&
+                path.parentPath.isFunctionDeclaration()
+              ) {
+                fnParent = path.parentPath.getFunctionParent();
+              }
+
+              if (fnParent !== functionPath) return;
+
+              if (!isDefiningIdentifier(path)) {
+                return;
+              }
+
+              if (bindingNames.has(path.node.name)) {
+                hasIllegalNode = true;
+                path.stop();
+                return;
+              }
+              bindingNames.add(path.node.name);
+            },
+            "BreakStatement|ContinueStatement"(_path) {
+              var path = _path as NodePath<
+                t.BreakStatement | t.ContinueStatement
+              >;
+              if (path.node.label) return;
+
+              const parent = path.findParent(
+                (p) =>
+                  p.isFor() ||
+                  p.isWhile() ||
+                  (path.isBreakStatement() && p.isSwitchCase()) ||
+                  p === blockPath
+              );
+
+              if (parent === blockPath) {
+                hasIllegalNode = true;
+                path.stop();
+              }
+            },
+          });
+
+          if (hasIllegalNode) {
+            return;
+          }
+
+          // Limit how many numbers get entangled
+          let mangledLiteralsCreated = 0;
+
+          const prefix = cffPrefix + "_" + cffCounter++;
 
           const mainFnName = prefix + "_main";
+
+          const scopeVar = prefix + "_scope";
 
           const stateVars = new Array(isDebug ? 1 : getRandomInteger(2, 5))
             .fill("")
@@ -77,35 +167,178 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           const argVar = prefix + "_arg";
 
+          const didReturnVar = prefix + "_return";
+
           const basicBlocks = new Map<string, BasicBlock>();
 
           // Map labels to states
-          const statIntGen = new IntGen();
+          const stateIntGen = new IntGen();
 
-          interface BasicBlockOptions {
-            parent?: BasicBlock;
-            topLevel: boolean;
-            fnLabel: string;
+          const defaultBlockPath = blockPath;
+
+          let scopeCounter = 0;
+
+          const scopeNameGen = new NameGen(me.options.identifierGenerator);
+
+          class ScopeManager {
+            isNotUsed = true;
+
+            nameMap = new Map<string, string>();
+            nameGen = new NameGen(me.options.identifierGenerator);
+
+            preserveNames = new Set<string>();
+
+            getNewName(name: string) {
+              if (!this.nameMap.has(name)) {
+                let newName = this.nameGen.generate();
+                if (isDebug) {
+                  newName = "_" + name;
+                }
+                this.nameMap.set(name, newName);
+
+                // console.log(
+                //   "Renaming " +
+                //     name +
+                //     " to " +
+                //     newName +
+                //     " : " +
+                //     this.scope.path.type
+                // );
+
+                return newName;
+              }
+              return this.nameMap.get(name);
+            }
+
+            getMemberExpression(name: string) {
+              return t.memberExpression(
+                t.memberExpression(
+                  t.identifier(scopeVar),
+                  t.stringLiteral(this.propertyName),
+                  true
+                ),
+                t.stringLiteral(name),
+                true
+              );
+            }
+
+            propertyName: string;
+            constructor(public scope: Scope) {
+              this.propertyName = isDebug
+                ? "_" + scopeCounter++
+                : scopeNameGen.generate();
+            }
+
+            get parent() {
+              return scopeToScopeManager.get(this.scope.parent);
+            }
+
+            getObjectExpression(refreshLabel: string) {
+              var refreshScope = basicBlocks.get(refreshLabel).scopeManager;
+              var propertyMap: { [property: string]: t.Expression } = {};
+
+              var cursor = this.scope;
+              while (cursor) {
+                var parentScopeManager = scopeToScopeManager.get(cursor);
+                if (parentScopeManager) {
+                  propertyMap[parentScopeManager.propertyName] =
+                    t.memberExpression(
+                      t.identifier(scopeVar),
+                      t.stringLiteral(parentScopeManager.propertyName),
+                      true
+                    );
+                }
+
+                cursor = cursor.parent;
+              }
+
+              propertyMap[refreshScope.propertyName] = isDebug
+                ? new Template(`
+                  ({
+                    identity: "${refreshScope.propertyName}"
+                  })
+                    `).expression()
+                : t.objectExpression([]);
+
+              var properties: t.ObjectProperty[] = [];
+              for (var key in propertyMap) {
+                properties.push(
+                  t.objectProperty(t.stringLiteral(key), propertyMap[key], true)
+                );
+              }
+
+              return t.objectExpression(properties);
+            }
+
+            hasName(name: string) {
+              let cursor: ScopeManager = this;
+              while (cursor) {
+                if (cursor.nameMap.has(name)) {
+                  return true;
+                }
+                cursor = cursor.parent;
+              }
+
+              return false;
+            }
           }
 
+          const scopeToScopeManager = new Map<Scope, ScopeManager>();
           /**
            * A Basic Block is a sequence of instructions with no diversion except at the entry and exit points.
            */
           class BasicBlock {
             totalState: number;
             stateValues: number[];
-            block?: t.Block;
+
+            private createPath() {
+              const newPath = NodePath.get<t.BlockStatement, any>({
+                hub: this.parentPath.hub,
+                parentPath: this.parentPath,
+                parent: this.parentPath.node,
+                container: this.parentPath.node.body,
+                listKey: "body", // Set the correct list key
+                key: "virtual", // Set the index of the new node
+              } as any);
+
+              newPath.scope = this.parentPath.scope;
+              newPath.parentPath = this.parentPath;
+              newPath.node = t.blockStatement([]);
+
+              this.thisPath = newPath;
+              this.thisNode = newPath.node;
+            }
+
+            insertAfter(newNode: t.Statement) {
+              this.body.push(newNode);
+            }
+
+            get scope() {
+              return this.parentPath.scope;
+            }
+
+            get scopeManager() {
+              return scopeToScopeManager.get(this.scope);
+            }
+
+            thisPath: NodePath<t.BlockStatement>;
+            thisNode: t.BlockStatement;
+
+            get body(): t.Statement[] {
+              return this.thisPath.node.body;
+            }
 
             constructor(
               public label: string,
-              public options: BasicBlockOptions,
-              public body: t.Statement[] = []
+              public parentPath: NodePath<t.Block>
             ) {
+              this.createPath();
+
               if (isDebug) {
                 // States in debug mode are just 1, 2, 3, ...
                 this.totalState = basicBlocks.size + 1;
               } else {
-                this.totalState = statIntGen.generate();
+                this.totalState = stateIntGen.generate();
               }
 
               // Correct state values
@@ -137,6 +370,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
               // Store basic block
               basicBlocks.set(label, this);
+
+              // Create a new scope manager if it doesn't exist
+              if (!scopeToScopeManager.has(this.scope)) {
+                scopeToScopeManager.set(
+                  this.scope,
+                  new ScopeManager(this.scope)
+                );
+              }
             }
           }
 
@@ -148,267 +389,243 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const startLabel = me.getPlaceholder();
           const endLabel = me.getPlaceholder();
 
-          let currentBasicBlock = new BasicBlock(startLabel, {
-            parent: null,
-            topLevel: true,
-            fnLabel: null,
-          });
+          let currentBasicBlock = new BasicBlock(startLabel, blockPath);
 
-          interface Metadata {
-            label?: string;
-            type?: "goto";
-          }
-
-          interface NodeMetadata {
-            metadata?: Metadata;
-          }
-
-          function ControlStatement(metadata: Metadata): t.ExpressionStatement {
-            var exprStmt = new Template(
-              `ControlStatement()`
-            ).single<t.ExpressionStatement>();
-
-            (exprStmt.expression as NodeMetadata).metadata = metadata;
-
-            return exprStmt;
-          }
+          const gotoFunctionName =
+            "GOTO__" +
+            me.getPlaceholder() +
+            "__IF_YOU_CAN_READ_THIS_THERE_IS_A_BUG";
 
           function GotoControlStatement(label: string) {
-            return ControlStatement({
-              type: "goto",
-              label,
-            });
+            return new Template(`
+              ${gotoFunctionName}("${label}");
+              `).single();
           }
 
           // Ends the current block and starts a new one
-          function endCurrentBasicBlock(
-            {
-              jumpToNext = true,
-              nextLabel = me.getPlaceholder(),
-              prevJumpTo = null,
-            } = {},
-            options: BasicBlockOptions
-          ) {
+          function endCurrentBasicBlock({
+            jumpToNext = true,
+            nextLabel = me.getPlaceholder(),
+            prevJumpTo = null,
+            nextBlockPath = null,
+          } = {}) {
+            ok(nextBlockPath);
+
             if (prevJumpTo) {
-              currentBasicBlock.body.push(GotoControlStatement(prevJumpTo));
+              currentBasicBlock.insertAfter(GotoControlStatement(prevJumpTo));
             } else if (jumpToNext) {
-              currentBasicBlock.body.push(GotoControlStatement(nextLabel));
+              currentBasicBlock.insertAfter(GotoControlStatement(nextLabel));
             }
 
-            currentBasicBlock = new BasicBlock(nextLabel, options);
+            currentBasicBlock = new BasicBlock(nextLabel, nextBlockPath);
           }
 
-          const callableMap = new Map<string, string>();
-          const callableOriginalFnMap = new Map<
+          const prependNodes: t.Statement[] = [];
+          const functionExpressions: [
             string,
-            t.FunctionDeclaration
-          >();
-
-          const prependNodes = [];
+            string,
+            BasicBlock,
+            t.FunctionExpression
+          ][] = [];
 
           function flattenIntoBasicBlocks(
-            block: t.Block,
-            options: BasicBlockOptions
+            bodyIn: NodePath<t.Statement>[] | NodePath<t.Block>
           ) {
-            currentBasicBlock.block = block;
+            // if (!Array.isArray(bodyIn) && bodyIn.isBlock()) {
+            //   currentBasicBlock.parentPath = bodyIn;
+            // }
+            const body = Array.isArray(bodyIn) ? bodyIn : bodyIn.get("body");
+            const nextBlockPath = Array.isArray(bodyIn)
+              ? currentBasicBlock.parentPath
+              : bodyIn;
 
-            // Make sure 'topLevel' is disabled when flattening IF-statements
-            const nestedFlattenIntoBasicBlocks = (
-              block: t.Block,
-              options: BasicBlockOptions
-            ) => {
-              var newOptions = {
-                ...options,
-                topLevel: false,
-              };
-              return flattenIntoBasicBlocks(block, newOptions);
-            };
-
-            for (const index in block.body) {
-              const statement = block.body[index];
+            for (const index in body) {
+              const statement = body[index];
 
               // Keep Imports before everything else
-              if (t.isImportDeclaration(statement)) {
-                prependNodes.push(statement);
+              if (statement.isImportDeclaration()) {
+                prependNodes.push(statement.node);
                 continue;
               }
 
-              if (t.isClassDeclaration(statement)) {
-                prependNodes.push(statement);
-                continue;
-              }
+              if (statement.isFunctionDeclaration()) {
+                const fnName = statement.node.id.name;
+                let isIllegal = false;
 
-              // Convert Function Declaration into Basic Blocks
-              if (t.isFunctionDeclaration(statement)) {
-                const fnName = statement.id.name;
+                if (
+                  statement.node.async ||
+                  statement.node.generator ||
+                  (statement.node as NodeSymbol)[UNSAFE]
+                ) {
+                  isIllegal = true;
+                }
+                let oldBasicBlock = currentBasicBlock;
+                var fnLabel = me.getPlaceholder();
 
-                // Function cannot be redefined
-                if (statement.async || statement.generator) {
-                  if (options.topLevel) {
-                    prependNodes.push(statement);
-                  } else {
-                    currentBasicBlock.body.push(statement);
-                    continue;
-                  }
+                let sm = currentBasicBlock.scopeManager;
+                let rename = sm.getNewName(fnName);
+
+                sm.scope.bindings[fnName].kind = "var";
+
+                const hoistedBasicBlock = Array.from(basicBlocks.values()).find(
+                  (block) => block.parentPath === currentBasicBlock.parentPath
+                );
+
+                if (isIllegal) {
+                  hoistedBasicBlock.body.unshift(statement.node);
                   continue;
                 }
 
-                const isRedefined = callableOriginalFnMap.has(fnName);
-
-                const afterPath = me.getPlaceholder();
-                const fnLabel = me.getPlaceholder();
-
-                if (!isRedefined) {
-                  callableOriginalFnMap.set(fnName, statement);
-                  callableMap.set(fnName, fnLabel);
-                } else {
-                }
-
-                var oldBasicBlock = currentBasicBlock;
-
-                var newBasicBlockOptions = {
-                  topLevel: false,
+                const functionExpression = t.functionExpression(
+                  null,
+                  [],
+                  t.blockStatement([])
+                );
+                functionExpressions.push([
+                  fnName,
                   fnLabel,
-                };
+                  currentBasicBlock,
+                  functionExpression,
+                ]);
 
-                endCurrentBasicBlock(
-                  {
-                    prevJumpTo: afterPath,
-                    nextLabel: fnLabel,
-                  },
-                  newBasicBlockOptions
-                );
-
-                let embeddedName = fnLabel + "_" + statement.id.name;
-                statement.id.name = embeddedName;
-
-                // Start function body
-                currentBasicBlock.body.push(statement);
-                currentBasicBlock.body.push(
-                  t.returnStatement(
-                    t.callExpression(
-                      t.memberExpression(
-                        t.identifier(embeddedName),
-                        t.stringLiteral("call"),
-                        true
-                      ),
-                      [
-                        t.thisExpression(),
-                        t.spreadElement(t.identifier(argVar)),
-                      ]
-                    )
-                  )
-                );
-
-                endCurrentBasicBlock(
-                  {
-                    jumpToNext: false,
-                    nextLabel: afterPath,
-                  },
-                  options
-                );
-
-                // Add the function to the start of the 'block'
-                var topBasicBlock = Array.from(basicBlocks.values()).filter(
-                  (p) => p.block === block
-                )[0];
-
-                topBasicBlock.body.unshift(
+                hoistedBasicBlock.body.unshift(
                   t.expressionStatement(
                     t.assignmentExpression(
                       "=",
-                      t.identifier(fnName),
-                      createBasicBlockFunctionExpression(fnLabel)
+                      sm.getMemberExpression(rename),
+                      functionExpression
                     )
                   )
                 );
 
-                if (!isRedefined) {
-                  prependNodes.push(
-                    t.variableDeclaration("var", [
-                      t.variableDeclarator(
-                        t.identifier(fnName),
-                        createBasicBlockFunctionExpression(fnLabel)
-                      ),
-                    ])
+                const blockStatement = statement.get("body");
+
+                endCurrentBasicBlock({
+                  nextLabel: fnLabel,
+                  nextBlockPath: blockStatement,
+                  jumpToNext: false,
+                });
+                var fnTopBlock = currentBasicBlock;
+
+                // Implicit return
+                blockStatement.node.body.push(
+                  t.returnStatement(t.identifier("undefined"))
+                );
+
+                flattenIntoBasicBlocks(blockStatement);
+
+                // Debug label
+                if (isDebug) {
+                  fnTopBlock.body.unshift(
+                    t.expressionStatement(
+                      t.stringLiteral(
+                        "Function " +
+                          statement.node.id.name +
+                          " -> Renamed to " +
+                          rename
+                      )
+                    )
                   );
                 }
 
+                // Unpack parameters
+                if (statement.node.params.length > 0) {
+                  fnTopBlock.body.unshift(
+                    t.variableDeclaration("var", [
+                      t.variableDeclarator(
+                        t.arrayPattern(statement.node.params),
+                        t.identifier(argVar)
+                      ),
+                    ])
+                  );
+
+                  // Change bindings from 'param' to 'var'
+                  statement.get("params").forEach((param) => {
+                    var ids = param.getBindingIdentifierPaths();
+                    // Loop over the record of binding identifiers
+                    for (const identifierName in ids) {
+                      const identifierPath = ids[identifierName];
+                      if (identifierPath.getFunctionParent() === statement) {
+                        const binding =
+                          statement.scope.getBinding(identifierName);
+
+                        if (binding) {
+                          binding.kind = "var";
+                        }
+                      }
+                    }
+                  });
+                }
+
+                currentBasicBlock = oldBasicBlock;
                 continue;
               }
 
               // Convert IF statements into Basic Blocks
-              if (t.isIfStatement(statement)) {
-                function ensureBlockStatement(
-                  node: t.Statement
-                ): t.BlockStatement {
-                  if (t.isBlockStatement(node)) {
-                    return node;
-                  }
-                  return t.blockStatement([node]);
-                }
+              if (statement.isIfStatement() && flattenIfStatements) {
+                const test = statement.get("test");
+                const consequent = statement.get("consequent");
+                const alternate = statement.get("alternate");
 
-                const test = statement.test;
-                const consequent = ensureBlockStatement(statement.consequent);
-                const alternate = statement.alternate
-                  ? ensureBlockStatement(statement.alternate)
-                  : null;
+                // Both consequent and alternate are blocks
+                if (
+                  consequent.isBlockStatement() &&
+                  (!alternate.node || alternate.isBlockStatement())
+                ) {
+                  const consequentLabel = me.getPlaceholder();
+                  const alternateLabel = alternate.node
+                    ? me.getPlaceholder()
+                    : null;
+                  const afterPath = me.getPlaceholder();
 
-                const consequentLabel = me.getPlaceholder();
-                const alternateLabel = alternate ? me.getPlaceholder() : null;
-                const afterPath = me.getPlaceholder();
-
-                currentBasicBlock.body.push(
-                  t.ifStatement(
-                    test,
-                    GotoControlStatement(consequentLabel),
-                    alternateLabel
-                      ? GotoControlStatement(alternateLabel)
-                      : GotoControlStatement(afterPath)
-                  )
-                );
-
-                endCurrentBasicBlock(
-                  {
-                    jumpToNext: false,
-                    nextLabel: consequentLabel,
-                  },
-                  options
-                );
-
-                nestedFlattenIntoBasicBlocks(consequent, options);
-
-                if (alternate) {
-                  endCurrentBasicBlock(
-                    {
-                      prevJumpTo: afterPath,
-                      nextLabel: alternateLabel,
-                    },
-                    options
+                  currentBasicBlock.insertAfter(
+                    t.ifStatement(
+                      test.node,
+                      GotoControlStatement(consequentLabel),
+                      alternateLabel
+                        ? GotoControlStatement(alternateLabel)
+                        : GotoControlStatement(afterPath)
+                    )
                   );
 
-                  nestedFlattenIntoBasicBlocks(alternate, options);
-                }
+                  const oldBasicBlock = currentBasicBlock;
 
-                endCurrentBasicBlock(
-                  {
+                  endCurrentBasicBlock({
+                    jumpToNext: false,
+                    nextLabel: consequentLabel,
+                    nextBlockPath: consequent,
+                  });
+
+                  flattenIntoBasicBlocks(consequent);
+
+                  if (alternate.isBlockStatement()) {
+                    endCurrentBasicBlock({
+                      prevJumpTo: afterPath,
+                      nextLabel: alternateLabel,
+                      nextBlockPath: alternate,
+                    });
+
+                    flattenIntoBasicBlocks(alternate);
+                  }
+
+                  endCurrentBasicBlock({
                     prevJumpTo: afterPath,
                     nextLabel: afterPath,
-                  },
-                  options
-                );
+                    nextBlockPath: oldBasicBlock.parentPath,
+                  });
 
-                continue;
+                  continue;
+                }
               }
 
               if (
-                options.topLevel &&
-                Number(index) === block.body.length - 1 &&
-                t.isExpressionStatement(statement)
+                Number(index) === body.length - 1 &&
+                statement.isExpressionStatement() &&
+                statement.findParent((p) => p.isBlock()) === blockPath
               ) {
                 // Return the result of the last expression for eval() purposes
-                currentBasicBlock.body.push(
-                  t.returnStatement(statement.expression)
+                currentBasicBlock.insertAfter(
+                  t.returnStatement(statement.get("expression").node)
                 );
                 continue;
               }
@@ -418,27 +635,80 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 currentBasicBlock.body.length > 1 &&
                 chance(50 + currentBasicBlock.body.length)
               ) {
-                endCurrentBasicBlock({}, options);
+                endCurrentBasicBlock({
+                  nextBlockPath: nextBlockPath,
+                });
               }
 
-              currentBasicBlock.body.push(statement);
+              // console.log(currentBasicBlock.thisPath.type);
+              // console.log(currentBasicBlock.body);
+              currentBasicBlock.body.push(statement.node);
             }
           }
 
           // Convert our code into Basic Blocks
-          flattenIntoBasicBlocks(blockPath.node, {
-            topLevel: true,
-            fnLabel: null,
-          });
+          flattenIntoBasicBlocks(blockPath.get("body"));
 
           // Ensure always jumped to the Program end
-          endCurrentBasicBlock(
-            {
-              jumpToNext: true,
-              nextLabel: endLabel,
-            },
-            { parent: null, topLevel: true, fnLabel: null }
-          );
+          endCurrentBasicBlock({
+            jumpToNext: true,
+            nextLabel: endLabel,
+            nextBlockPath: defaultBlockPath,
+          });
+
+          if (!isDebug && addDeadCode) {
+            // DEAD CODE 1/3: Add fake chunks that are never reached
+            const fakeChunkCount = getRandomInteger(1, 5);
+            for (let i = 0; i < fakeChunkCount; i++) {
+              // These chunks just jump somewhere random, they are never executed
+              // so it could contain any code
+              const fakeBlock = new BasicBlock(me.getPlaceholder(), blockPath);
+              fakeBlock.insertAfter(
+                GotoControlStatement(choice(Array.from(basicBlocks.keys())))
+              );
+            }
+
+            // DEAD CODE 2/3: Add fake jumps to really mess with deobfuscators
+            basicBlocks.forEach((basicBlock) => {
+              if (chance(25)) {
+                var randomLabel = choice(Array.from(basicBlocks.keys()));
+
+                // The `false` literal will be mangled
+                basicBlock.insertAfter(
+                  new Template(`
+                    if(false){
+                    {goto}
+                    }
+                    `).single({
+                    goto: GotoControlStatement(randomLabel),
+                  })
+                );
+              }
+            });
+            // DEAD CODE 3/3: Clone chunks but these chunks are never ran
+            const cloneChunkCount = getRandomInteger(1, 5);
+            for (let i = 0; i < cloneChunkCount; i++) {
+              let randomChunk = choice(Array.from(basicBlocks.values()));
+
+              // Don't double define functions
+              let hasDeclaration = randomChunk.body.find((stmt) => {
+                return t.isDeclaration(stmt);
+              });
+
+              if (!hasDeclaration) {
+                let clonedChunk = new BasicBlock(
+                  me.getPlaceholder(),
+                  randomChunk.parentPath
+                );
+
+                randomChunk.body
+                  .map((x) => t.cloneNode(x))
+                  .forEach((node) => {
+                    clonedChunk.insertAfter(node);
+                  });
+              }
+            }
+          }
 
           const topLevelNames = new Set<string>();
 
@@ -447,38 +717,59 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             const { stateValues: currentStateValues } = basicBlock;
             // Wrap the statement in a Babel path to allow traversal
 
-            const visitor: Visitor = {
-              FunctionDeclaration: {
-                exit(fnPath) {
-                  if (!callableMap.has(fnPath.node.id.name)) {
+            const outerFn = getParentFunctionOrProgram(basicBlock.parentPath);
+
+            function isWithinSameFunction(path: NodePath) {
+              var fn = getParentFunctionOrProgram(path);
+              return fn.node === outerFn.node;
+            }
+
+            var visitor: Visitor = {
+              BooleanLiteral: {
+                exit(boolPath) {
+                  // Don't mangle booleans in debug mode
+                  if (
+                    isDebug ||
+                    !mangleBooleanLiterals ||
+                    me.isSkipped(boolPath)
+                  )
                     return;
-                  }
 
-                  var block = fnPath.find((p) =>
-                    p.isBlock()
-                  ) as NodePath<t.Block>;
+                  if (!isWithinSameFunction(boolPath)) return;
+                  if (chance(50 + mangledLiteralsCreated)) return;
 
-                  var oldName = fnPath.node.id.name;
-                  var newName = me.getPlaceholder();
+                  mangledLiteralsCreated++;
 
-                  fnPath.node.id.name = newName;
+                  const index = getRandomInteger(0, stateVars.length - 1);
+                  const stateVar = stateVars[index];
+                  const stateVarValue = currentStateValues[index];
 
-                  block.node.body.unshift(
-                    t.expressionStatement(
-                      t.assignmentExpression(
-                        "=",
-                        t.identifier(oldName),
-                        t.identifier(newName)
-                      )
-                    )
+                  const compareValue = choice([
+                    getRandomInteger(-250, 250),
+                    stateVarValue,
+                  ]);
+                  const compareResult = stateVarValue === compareValue;
+
+                  const newExpression = t.binaryExpression(
+                    boolPath.node.value === compareResult ? "==" : "!=",
+                    t.identifier(stateVar),
+                    n.numericLiteral(compareValue)
                   );
+
+                  ensureComputedExpression(boolPath);
+                  boolPath.replaceWith(newExpression);
                 },
               },
               // Mangle numbers with the state values
               NumericLiteral: {
                 exit(numPath) {
                   // Don't mangle numbers in debug mode
-                  if (isDebug) return;
+                  if (
+                    isDebug ||
+                    !mangleNumericalLiterals ||
+                    me.isSkipped(numPath)
+                  )
+                    return;
 
                   const num = numPath.node.value;
                   if (
@@ -489,12 +780,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   )
                     return;
 
-                  const numFnParent = getParentFunctionOrProgram(numPath);
-                  if (!numFnParent.isProgram()) return;
+                  if (!isWithinSameFunction(numPath)) return;
+                  if (chance(50 + mangledLiteralsCreated)) return;
 
-                  if (chance(50 + mangledNumericLiteralsCreated)) return;
-
-                  mangledNumericLiteralsCreated++;
+                  mangledLiteralsCreated++;
 
                   const index = getRandomInteger(0, stateVars.length - 1);
                   const stateVar = stateVars[index];
@@ -506,7 +795,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   const diff = t.binaryExpression(
                     "+",
                     t.identifier(stateVar),
-                    t.numericLiteral(num - currentStateValues[index])
+                    me.skip(n.numericLiteral(num - currentStateValues[index]))
                   );
 
                   ensureComputedExpression(numPath);
@@ -516,153 +805,300 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 },
               },
 
-              BindingIdentifier: {
-                exit(path) {
-                  if (path.findParent((p) => p.isFunction())) return;
+              Identifier: {
+                exit(path: NodePath<t.Identifier>) {
+                  const type = path.isReferenced()
+                    ? "referenced"
+                    : path.isBindingIdentifier()
+                    ? "binding"
+                    : null;
+                  if (!type) return;
 
-                  const binding = path.scope.getBinding(path.node.name);
+                  var binding = basicBlock.scope.getBinding(path.node.name);
                   if (!binding) return;
 
-                  if (!basicBlock.options.topLevel) {
+                  if (
+                    binding.kind === "var" ||
+                    binding.kind === "let" ||
+                    binding.kind === "const"
+                  ) {
+                  } else {
                     return;
                   }
 
-                  if (!callableMap.has(path.node.name)) {
-                    topLevelNames.add(path.node.name);
+                  var scopeManager = scopeToScopeManager.get(binding.scope);
+                  if (!scopeManager) return;
+                  if (scopeManager.preserveNames.has(path.node.name)) return;
+
+                  let newName = scopeManager.getNewName(path.node.name);
+
+                  const memberExpression: t.Expression =
+                    scopeManager.getMemberExpression(newName);
+
+                  scopeManager.isNotUsed = false;
+
+                  if (type === "binding") {
+                    if (
+                      path.key === "id" &&
+                      path.parentPath.isFunctionDeclaration()
+                    ) {
+                      var asFunctionExpression = t.cloneNode(
+                        path.parentPath.node
+                      ) as t.Node as t.FunctionExpression;
+                      asFunctionExpression.type = "FunctionExpression";
+
+                      path.parentPath.replaceWith(
+                        t.expressionStatement(
+                          t.assignmentExpression(
+                            "=",
+                            memberExpression,
+                            asFunctionExpression
+                          )
+                        )
+                      );
+                      return;
+                    } else if (
+                      path.key === "id" &&
+                      path.parentPath.isClassDeclaration()
+                    ) {
+                      var asClassExpression = t.cloneNode(
+                        path.parentPath.node
+                      ) as t.Node as t.ClassExpression;
+                      asClassExpression.type = "ClassExpression";
+
+                      path.parentPath.replaceWith(
+                        t.expressionStatement(
+                          t.assignmentExpression(
+                            "=",
+                            memberExpression,
+                            asClassExpression
+                          )
+                        )
+                      );
+                      return;
+                    } else {
+                      var variableDeclaration = path.find((p) =>
+                        p.isVariableDeclaration()
+                      ) as NodePath<t.VariableDeclaration>;
+                      if (variableDeclaration) {
+                        ok(variableDeclaration.node.declarations.length === 1);
+
+                        const first =
+                          variableDeclaration.get("declarations")[0];
+                        const id = first.get("id");
+
+                        const init = first.get("init");
+
+                        var newExpression: t.Node = id.node;
+
+                        if (init.node) {
+                          newExpression = t.assignmentExpression(
+                            "=",
+                            id.node,
+                            init.node
+                          );
+                        }
+
+                        if (
+                          variableDeclaration.key !== "init" &&
+                          variableDeclaration.key !== "left"
+                        ) {
+                          newExpression = t.expressionStatement(
+                            newExpression as t.Expression
+                          );
+                        } else {
+                        }
+
+                        variableDeclaration.replaceWith(newExpression);
+                        path.replaceWith(memberExpression);
+
+                        return;
+                      } else {
+                        //ok(false, "Binding not found");
+                      }
+                    }
                   }
 
-                  // Variable declaration -> Assignment expression
-                  var variableDeclaration = path.findParent((p) =>
-                    p.isVariableDeclaration()
-                  ) as NodePath<t.VariableDeclaration>;
-                  if (!variableDeclaration) return;
-
-                  var wrapInExpressionStatement = true;
-
-                  var forChild = variableDeclaration.find(
-                    (p) =>
-                      (p.parentPath?.isForStatement() &&
-                        p.parentKey === "init") ||
-                      (p.parentPath?.isFor() && p.parentKey === "left")
-                  );
-                  if (forChild) {
-                    wrapInExpressionStatement = false;
+                  if (isStrictIdentifier(path)) {
+                    return;
                   }
-
-                  ok(variableDeclaration.node.declarations.length === 1);
-
-                  let identifier = t.cloneNode(
-                    variableDeclaration.node.declarations[0].id
-                  );
-
-                  let replacement: t.Node = identifier as t.Expression;
-                  // Only add name=value if the variable is initialized OR not in a for loop
-                  if (
-                    variableDeclaration.node.declarations[0].init ||
-                    !forChild
-                  ) {
-                    replacement = t.assignmentExpression(
-                      "=",
-                      identifier,
-                      variableDeclaration.node.declarations[0].init ||
-                        t.identifier("undefined")
-                    );
-                  }
-
-                  // Most times we want to wrap in an expression statement
-                  // var a = 1; -> a = 1;
-                  if (wrapInExpressionStatement) {
-                    replacement = t.expressionStatement(replacement);
-                  }
-
-                  // Replace variable declaration with assignment expression statement
-                  variableDeclaration.replaceWith(replacement);
+                  path.replaceWith(memberExpression);
                 },
               },
 
+              // Top-level returns set additional flag to indicate that the function has returned
+              ReturnStatement: {
+                exit(path) {
+                  var functionParent = path.getFunctionParent();
+                  if (
+                    !functionParent ||
+                    functionParent.get("body") !== blockPath
+                  )
+                    return;
+
+                  const returnArgument =
+                    path.node.argument || t.identifier("undefined");
+
+                  path.node.argument = new Template(`
+                (${didReturnVar} = true, {returnArgument})
+                  `).expression({ returnArgument });
+                },
+              },
+
+              // goto() calls are replaced with state updates and break statements
               CallExpression: {
                 exit(path) {
                   if (
                     t.isIdentifier(path.node.callee) &&
-                    path.node.callee.name === "ControlStatement"
+                    path.node.callee.name === gotoFunctionName
                   ) {
-                    const metadata = (path.node as any).metadata as Metadata;
-                    ok(metadata);
+                    const [labelNode] = path.node.arguments;
 
-                    const { label, type } = metadata;
-                    ok(["goto"].includes(type));
+                    ok(t.isStringLiteral(labelNode));
+                    const label = labelNode.value;
 
-                    switch (type) {
-                      case "goto":
-                        const { stateValues: newStateValues } =
-                          basicBlocks.get(label);
+                    const jumpBlock = basicBlocks.get(label);
+                    ok(jumpBlock, "Label not found: " + label);
 
-                        const assignments = [];
+                    const {
+                      stateValues: newStateValues,
+                      totalState: newTotalState,
+                    } = jumpBlock;
 
-                        for (let i = 0; i < stateVars.length; i++) {
-                          const oldValue = currentStateValues[i];
-                          const newValue = newStateValues[i];
-                          if (oldValue === newValue) continue; // No diff needed if the value doesn't change
+                    const assignments = [];
 
-                          let assignment = t.assignmentExpression(
-                            "=",
-                            t.identifier(stateVars[i]),
-                            t.numericLiteral(newValue)
-                          );
+                    for (let i = 0; i < stateVars.length; i++) {
+                      const oldValue = currentStateValues[i];
+                      const newValue = newStateValues[i];
 
-                          if (!isDebug) {
-                            // Use diffs to create confusing code
-                            assignment = t.assignmentExpression(
-                              "+=",
-                              t.identifier(stateVars[i]),
-                              t.numericLiteral(newValue - oldValue)
-                            );
-                          }
+                      // console.log(oldValue, newValue);
+                      if (oldValue === newValue) continue; // No diff needed if the value doesn't change
 
-                          assignments.push(assignment);
-                        }
+                      let assignment = t.assignmentExpression(
+                        "=",
+                        t.identifier(stateVars[i]),
+                        n.numericLiteral(newValue)
+                      );
 
-                        path.parentPath
-                          .replaceWith(
-                            t.expressionStatement(
-                              t.sequenceExpression(assignments)
-                            )
-                          )[0]
-                          .skip();
+                      if (!isDebug && addRelativeAssignments) {
+                        // Use diffs to create confusing code
+                        assignment = t.assignmentExpression(
+                          "+=",
+                          t.identifier(stateVars[i]),
+                          n.numericLiteral(newValue - oldValue)
+                        );
+                      }
 
-                        // Debugging information
-                        // console.log("Path:", path);
-                        // console.log("ParentPath:", path.parentPath);
-
-                        path.insertAfter(breakStatement());
-
-                        break;
+                      assignments.push(assignment);
                     }
+
+                    // Add debug label
+                    if (isDebug) {
+                      assignments.unshift(
+                        t.stringLiteral("Goto " + newTotalState)
+                      );
+                    }
+
+                    path.parentPath
+                      .replaceWith(
+                        t.expressionStatement(t.sequenceExpression(assignments))
+                      )[0]
+                      .skip();
+
+                    // Add break after updating state variables
+                    path.insertAfter(breakStatement());
                   }
                 },
               },
             };
 
-            traverse(t.file(t.program(basicBlock.body)), visitor);
+            basicBlock.thisPath.traverse(visitor);
           }
 
           let switchCases: t.SwitchCase[] = [];
           let blocks = Array.from(basicBlocks.values());
-          if (!isDebug) {
+          if (!isDebug && addFakeTests) {
             shuffle(blocks);
           }
           for (const block of blocks) {
             if (block.label === endLabel) {
-              ok(block.body.length === 0);
+              // ok(block.body.length === 0);
               continue;
             }
 
-            const tests = [t.numericLiteral(block.totalState)];
+            let test: t.Expression = n.numericLiteral(block.totalState);
 
-            if (!isDebug) {
-              // Add some random numbers to confuse the switch statement
+            // Add complex tests
+            if (!isDebug && addComplexTests && chance(25)) {
+              // Create complex test expressions for each switch case
+
+              // case STATE+X:
+              var stateVarIndex = getRandomInteger(0, stateVars.length);
+
+              var stateValues = block.stateValues;
+              var difference = stateValues[stateVarIndex] - block.totalState;
+
+              var conditionNodes: t.Expression[] = [];
+              var alreadyConditionedItems = new Set<string>();
+
+              // This code finds clash conditions and adds them to 'conditionNodes' array
+              Array.from(basicBlocks.keys()).forEach((label) => {
+                if (label !== block.label) {
+                  var labelStates = basicBlocks.get(label).stateValues;
+                  var totalState = labelStates.reduce((a, b) => a + b, 0);
+
+                  if (totalState === labelStates[stateVarIndex] - difference) {
+                    var differentIndex = labelStates.findIndex(
+                      (v, i) => v !== stateValues[i]
+                    );
+                    if (differentIndex !== -1) {
+                      var expressionAsString =
+                        stateVars[differentIndex] +
+                        "!=" +
+                        labelStates[differentIndex];
+                      if (!alreadyConditionedItems.has(expressionAsString)) {
+                        alreadyConditionedItems.add(expressionAsString);
+
+                        conditionNodes.push(
+                          t.binaryExpression(
+                            "!=",
+                            t.identifier(stateVars[differentIndex]),
+                            n.numericLiteral(labelStates[differentIndex])
+                          )
+                        );
+                      }
+                    } else {
+                      conditionNodes.push(
+                        t.binaryExpression(
+                          "!=",
+                          t.cloneNode(discriminant),
+                          n.numericLiteral(totalState)
+                        )
+                      );
+                    }
+                  }
+                }
+              });
+
+              // case STATE!=Y && STATE+X
+              test = t.binaryExpression(
+                "-",
+                t.identifier(stateVars[stateVarIndex]),
+                n.numericLiteral(difference)
+              );
+
+              // Use the 'conditionNodes' to not cause state clashing issues
+              conditionNodes.forEach((conditionNode) => {
+                test = t.logicalExpression("&&", conditionNode, test);
+              });
+            }
+
+            const tests = [test];
+
+            if (!isDebug && addFakeTests) {
+              // Add fake tests
               for (let i = 0; i < getRandomInteger(1, 3); i++) {
-                tests.push(t.numericLiteral(statIntGen.generate()));
+                tests.push(n.numericLiteral(stateIntGen.generate()));
               }
 
               shuffle(tests);
@@ -670,14 +1106,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             const lastTest = tests.pop();
 
-            for (var test of tests) {
+            for (const test of tests) {
               switchCases.push(t.switchCase(test, []));
             }
 
-            switchCases.push(t.switchCase(lastTest, block.body));
+            switchCases.push(t.switchCase(lastTest, block.thisPath.node.body));
           }
 
-          if (!isDebug) {
+          if (!isDebug && addFakeTests) {
             // A random test can be 'default'
             choice(switchCases).test = null;
           }
@@ -699,7 +1135,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             t.binaryExpression(
               "!==",
               t.cloneNode(discriminant),
-              t.numericLiteral(endTotalState)
+              n.numericLiteral(endTotalState)
             ),
             t.blockStatement([switchStatement])
           );
@@ -716,53 +1152,98 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             ),
           ];
 
-          function createBasicBlockFunctionExpression(label: string) {
-            return t.functionExpression(
-              null,
-              [t.restElement(t.identifier(argVar))],
-              t.blockStatement([
-                t.returnStatement(
-                  t.callExpression(
-                    t.memberExpression(
-                      t.identifier(mainFnName),
-                      t.stringLiteral("call"),
-                      true
-                    ),
-                    [
-                      t.thisExpression(),
-                      ...basicBlocks
-                        .get(label)
-                        .stateValues.map((stateValue) =>
-                          t.numericLiteral(stateValue)
-                        ),
-                      t.identifier(argVar),
-                    ]
+          var parametersNames: string[] = [...stateVars, argVar, scopeVar];
+          var parameters = parametersNames.map((name) => t.identifier(name));
+
+          for (var [
+            originalFnName,
+            fnLabel,
+            basicBlock,
+            fn,
+          ] of functionExpressions) {
+            const { scopeManager } = basicBlock;
+            const { stateValues } = basicBlocks.get(fnLabel);
+
+            const argumentsRestName = me.getPlaceholder();
+
+            var argumentsNodes = [];
+            for (var parameterName of parametersNames) {
+              if (stateVars.includes(parameterName)) {
+                argumentsNodes.push(
+                  n.numericLiteral(
+                    stateValues[stateVars.indexOf(parameterName)]
                   )
+                );
+              } else if (parameterName === argVar) {
+                argumentsNodes.push(t.identifier(argumentsRestName));
+              } else if (parameterName === scopeVar) {
+                argumentsNodes.push(scopeManager.getObjectExpression(fnLabel));
+              } else {
+                ok(false);
+              }
+            }
+
+            Object.assign(
+              fn,
+              new Template(`
+              (function (...${argumentsRestName}){
+                ${
+                  isDebug
+                    ? `"Calling ${originalFnName}, Label: ${fnLabel}";`
+                    : ""
+                }
+                return {callExpression}
+              })
+              
+              `).expression({
+                callExpression: t.callExpression(
+                  t.identifier(mainFnName),
+                  argumentsNodes
                 ),
-              ])
+              })
             );
           }
 
           const mainFnDeclaration = t.functionDeclaration(
             t.identifier(mainFnName),
-            [
-              ...stateVars.map((stateVar) => t.identifier(stateVar)),
-              t.identifier(argVar),
-            ],
+            parameters,
             t.blockStatement([whileStatement])
           );
+
+          var startProgramExpression = t.callExpression(
+            t.identifier(mainFnName),
+            [
+              ...startStateValues.map((stateValue) =>
+                n.numericLiteral(stateValue)
+              ),
+              t.identifier("undefined"),
+              basicBlocks
+                .get(startLabel)
+                .scopeManager.getObjectExpression(startLabel),
+            ]
+          );
+
+          var resultVar = me.getPlaceholder();
+          var allowReturns = blockPath.find((p) => p.isFunction());
+
+          const stateProgramStatements = new Template(`
+            var ${didReturnVar};
+            var ${resultVar} = {startProgramExpression};
+            ${
+              allowReturns
+                ? `
+            if(${didReturnVar}){
+              return ${resultVar};
+            }`
+                : ""
+            }
+          `).compile({ startProgramExpression: startProgramExpression });
 
           blockPath.node.body = [
             ...prependNodes,
             ...variableDeclarations,
             mainFnDeclaration,
-            t.expressionStatement(
-              t.callExpression(t.identifier(mainFnName), [
-                ...startStateValues.map((stateValue) =>
-                  t.numericLiteral(stateValue)
-                ),
-              ])
-            ),
+            ...stateProgramStatements,
           ];
 
           // Reset all bindings here

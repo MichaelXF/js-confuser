@@ -4,6 +4,7 @@ import * as t from "@babel/types";
 import { Order } from "../../order";
 import { computeProbabilityMap } from "../../probability";
 import { ensureComputedExpression } from "../../utils/ast-utils";
+import { numericLiteral } from "../../utils/node";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.StringCompression);
@@ -40,7 +41,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                 path.replaceWith(
                   t.callExpression(t.identifier(stringFn), [
-                    t.numericLiteral(index),
+                    numericLiteral(index),
                   ])
                 );
               },

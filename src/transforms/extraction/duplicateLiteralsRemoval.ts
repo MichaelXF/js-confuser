@@ -4,6 +4,7 @@ import { ok } from "assert";
 import { PluginArg } from "../plugin";
 import { Order } from "../../order";
 import { ensureComputedExpression, prepend } from "../../utils/ast-utils";
+import { numericLiteral } from "../../utils/node";
 
 function fail(): never {
   throw new Error("Assertion failed");
@@ -19,7 +20,7 @@ const createLiteral = (value: LiteralValue) => {
       return t.stringLiteral(value);
 
     case "number":
-      return t.numericLiteral(value);
+      return numericLiteral(value);
 
     case "boolean":
       return t.booleanLiteral(value);
@@ -49,7 +50,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const createMemberExpression = (index) => {
             return t.memberExpression(
               t.identifier(arrayName),
-              t.numericLiteral(index),
+              numericLiteral(index),
               true
             );
           };

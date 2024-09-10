@@ -13,6 +13,7 @@ import {
   isVariableFunctionIdentifier,
 } from "../utils/function-utils";
 import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
+import { numericLiteral } from "../utils/node";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Dispatcher);
@@ -244,7 +245,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   fnLengthProperties.push(
                     t.objectProperty(
                       t.stringLiteral(newName),
-                      t.numericLiteral(fnLength)
+                      numericLiteral(fnLength)
                     )
                   );
                 }
@@ -253,14 +254,17 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               const newBody = [...originalFn.body.body];
               ok(Array.isArray(newBody));
 
-              newBody.unshift(
-                t.variableDeclaration("var", [
-                  t.variableDeclarator(
-                    t.arrayPattern([...originalFn.params]),
-                    t.identifier(payloadName)
-                  ),
-                ])
-              );
+              // Unpack parameters
+              if (originalFn.params.length > 0) {
+                newBody.unshift(
+                  t.variableDeclaration("var", [
+                    t.variableDeclarator(
+                      t.arrayPattern([...originalFn.params]),
+                      t.identifier(payloadName)
+                    ),
+                  ])
+                );
+              }
 
               const functionExpression = t.functionExpression(
                 null,
@@ -282,7 +286,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           const dispatcher = new Template(`
             function ${dispatcherName}(name, flagArg, returnTypeArg, fnLengths = {fnLengthsObjectExpression}) {
-              var output, fns = {objectExpression};
+              var output;
+              var fns = {objectExpression};
 
               if(flagArg === "${keys.clearPayload}") {
                 ${payloadName} = [];

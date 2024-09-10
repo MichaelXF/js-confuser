@@ -6,6 +6,8 @@ import { getRandomInteger } from "../utils/random-utils";
 import Template from "../templates/template";
 import { Order } from "../order";
 import { isStaticValue } from "../utils/static-utils";
+import { NodeSymbol, PREDICTABLE } from "../constants";
+import { numericLiteral } from "../utils/node";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Shuffle);
@@ -39,21 +41,24 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           var block = path.find((p) => p.isBlock()) as NodePath<t.Block>;
 
-          var memberExpression = me.getControlObject(block).addProperty(
-            new Template(
-              `
-            (function(arr) {
-              for (var i = 0; i < {shiftNode}; i++) {
-                arr.push(arr.shift());
-              }
-
-              return arr;
-            })
+          var functionExpression = new Template(
             `
-            ).expression({
-              shiftNode: t.numericLiteral(shift),
-            })
-          );
+          (function(arr) {
+            for (var i = 0; i < {shiftNode}; i++) {
+              arr.push(arr.shift());
+            }
+            return arr;
+          })
+          `
+          ).expression<t.FunctionExpression>({
+            shiftNode: numericLiteral(shift),
+          });
+
+          (functionExpression as NodeSymbol)[PREDICTABLE] = true;
+
+          var memberExpression = me
+            .getControlObject(block)
+            .addProperty(functionExpression);
 
           path.replaceWith(
             t.callExpression(memberExpression, [

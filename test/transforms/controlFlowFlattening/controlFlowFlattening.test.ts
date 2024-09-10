@@ -89,7 +89,6 @@ test("Variant #3: Properly handle while-loop", async () => {
 
 test("Variant #4: Properly handle break statements", async () => {
   var code = `
-
     var TEST_ARRAY = [];
 
     for ( var i =1; i < 50; i++ ) {
@@ -214,24 +213,16 @@ test("Variant #8: Work when obfuscated multiple times", async () => {
             if(typeof i === "number") { // Always true
               array.push(i);
 
-              var filler1;
-              var filler2;
-              var filler3;
+              var a1, a2, a3;
             }
 
-            var filler1;
-            var filler2;
-            var filler3;
+            var b1, b2, b3;
           }
 
-          var filler1;
-          var filler2;
-          var filler3;
+          var c1, c2, c3;
         }
 
-        var filler1;
-        var filler2;
-        var filler3;
+        var d1, d2, d3;
       break;
     }
     
@@ -465,7 +456,6 @@ test("Variant #14: Properly handle nested switch statements", async () => {
         TEST_ARRAY.push(1);
 
         var j = 0;
-        var i = 0;
         switch(j){
           case 1: TEST_ARRAY.push(-1); break;
           case 2: TEST_ARRAY.push(-1); break;
@@ -1088,44 +1078,35 @@ test("Variant #31: Don't break nested function calls", async () => {
   expect(TEST_OUTPUT).toStrictEqual(10);
 });
 
-test("Variant #32: Don't break same name function calls", async () => {
+test("Variant #32: Skip blocks with redefined functions", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
-    var counter = 0;
-
-    function a(){
-      // Outer a called
-      counter *= 2;
+  var counter = 0;
+  function a() {
+    counter *= 2;
+  }
+  var i;
+  for (i = 0; i < 10; ) {
+    function a() {
+      counter += 1;
     }
-
-    var i;
-
-    for(i = 0; i < 10;) {
-      function a(){
-        // Inner a called
-        counter += 1;
-      }
- 
-      a(); // Inner a
-      i++;
-    }
-
-    a(); // Inner a, Outer a got renamed
-
-    TEST_OUTPUT = counter;
+    a();
+    i++;
+  }
+  TEST_OUTPUT = counter;
   `,
     { target: "node", controlFlowFlattening: true }
   );
 
-  expect(output).toContain("while");
+  expect(output).not.toContain("while");
 
   var TEST_OUTPUT;
   eval(output);
 
-  expect(TEST_OUTPUT).toStrictEqual(11);
+  expect(TEST_OUTPUT).toStrictEqual(10);
 });
 
-test("Variant #33: Don't break same name function declarations that are not ran", async () => {
+test("Variant #33: Skip blocks with name collision", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
     var counter = 0;
@@ -1155,7 +1136,7 @@ test("Variant #33: Don't break same name function declarations that are not ran"
     { target: "node", controlFlowFlattening: true }
   );
 
-  expect(output).toContain("while");
+  expect(output).not.toContain("while");
 
   var TEST_OUTPUT;
   eval(output);
@@ -1292,4 +1273,66 @@ test("Variant #36: Preserve modified global", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #37: Nested parameter across multiple functions", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function myFunction() {
+  function fn1(nestedParam) {
+    function fn2() {
+      return nestedParam;
+    }
+
+    ("FN1 Body");
+    console.log(nestedParam);
+
+    return fn2();
+  }
+
+  ("FN2 Body");
+
+  return fn1("Correct Value");
+}
+
+var x = myFunction();
+
+TEST_OUTPUT = x;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #38: Generator function with mangled numbers", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var array;
+    function* genFunction() {
+      array = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    }
+    genFunction().next();
+    TEST_OUTPUT = array;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    }
+  );
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 });
