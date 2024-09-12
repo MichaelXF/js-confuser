@@ -502,4 +502,11 @@ export interface ObfuscateOptions {
   astScrambler?: boolean;
 
   variableConcealing?: ProbabilityMap<boolean>;
+
+  /**
+   * Packs the output code into a single `Function()` call. (`true/false`)
+   *
+   * Designed to escape strict mode constraints.
+   */
+  pack?: boolean;
 }

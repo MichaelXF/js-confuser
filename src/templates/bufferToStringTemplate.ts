@@ -16,7 +16,8 @@ export const BufferToStringTemplate = new Template(`
     var result = [];
 
     return function (array) {
-        var codePt, byte1;
+        var codePt;
+        var byte1;
         var buffLen = array["length"];
 
         result["length"] = 0;

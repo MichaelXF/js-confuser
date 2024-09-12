@@ -22,8 +22,6 @@ export enum Order {
 
   OpaquePredicates = 13,
 
-  FunctionOutlining = 14,
-
   StringSplitting = 16,
 
   StringConcealing = 17,
@@ -34,11 +32,13 @@ export enum Order {
 
   DuplicateLiteralsRemoval = 22,
 
-  Shuffle = 24,
+  Shuffle = 23,
+
+  ControlFlowFlattening = 24,
 
   MovedDeclarations = 25,
 
-  ControlFlowFlattening = 26,
+  FunctionOutlining = 26,
 
   RenameLabels = 27,
 

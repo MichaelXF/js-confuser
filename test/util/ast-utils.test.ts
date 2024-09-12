@@ -137,6 +137,9 @@ describe("isDefiningIdentifier", () => {
     var {id = 1} = {}
     var [id = 1] = []
     var {_: id} = {}
+    var _, id;
+    function f(id){}
+    function f(_, id){}
     function f({id}){}
     function f([id]){}
     function f({id = 1}){}

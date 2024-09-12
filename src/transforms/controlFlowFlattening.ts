@@ -1,17 +1,17 @@
 import { PluginObj } from "@babel/core";
-import { NodePath, Scope, Visitor } from "@babel/traverse";
+import traverse, { NodePath, Scope, Visitor } from "@babel/traverse";
 import { PluginArg } from "./plugin";
 import { Order } from "../order";
 import { computeProbabilityMap } from "../probability";
 import {
   ensureComputedExpression,
-  getFunctionName,
   getParentFunctionOrProgram,
   isDefiningIdentifier,
-  isStrictIdentifier,
+  isStrictMode,
+  isVariableIdentifier,
 } from "../utils/ast-utils";
 import * as t from "@babel/types";
-import * as n from "../utils/node";
+import { numericLiteral, deepClone } from "../utils/node";
 import Template from "../templates/template";
 import {
   chance,
@@ -22,7 +22,7 @@ import {
 import { IntGen } from "../utils/IntGen";
 import { ok } from "assert";
 import { NameGen } from "../utils/NameGen";
-import { NodeSymbol, UNSAFE } from "../constants";
+import { NodeSymbol, UNSAFE, NO_RENAME, PREDICTABLE } from "../constants";
 
 /**
  * Breaks functions into DAGs (Directed Acyclic Graphs)
@@ -40,16 +40,21 @@ import { NodeSymbol, UNSAFE } from "../constants";
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.ControlFlowFlattening);
 
+  // in Debug mode, the output is much easier to read
   const isDebug = false;
-  const flattenIfStatements = true;
-  const addRelativeAssignments = true;
-  const addDeadCode = true;
-  const addFakeTests = true;
-  const addComplexTests = true;
-  const mangleNumericalLiterals = true;
-  const mangleBooleanLiterals = true;
+  const flattenIfStatements = true; // Converts IF-statements into equivalent 'goto style of code'
+  const flattenFunctionDeclarations = true; // Converts Function Declarations into equivalent 'goto style of code'
+  const addRelativeAssignments = true; // state += (NEW_STATE - CURRENT_STATE)
+  const addDeadCode = true; // add fakes chunks of code
+  const addFakeTests = true; // case 100: case 490: case 510: ...
+  const addComplexTests = true; // case s != 49 && s - 10:
+  const mangleNumericalLiterals = true; // 50 => state + X
+  const mangleBooleanLiterals = true; // true => state == X
+  const addWithStatement = true; // Disabling not supported yet
 
   const cffPrefix = me.getPlaceholder();
+
+  // Amount of blocks changed by Control Flow Flattening
   let cffCounter = 0;
 
   return {
@@ -69,6 +74,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             if (!fnBlockPath.isBlock()) return;
             blockPath = fnBlockPath;
           }
+
+          // Don't apply to strict mode blocks
+          const strictModeEnforcingBlock = programOrFunctionPath.find((path) =>
+            isStrictMode(path as NodePath<t.Block>)
+          );
+          if (strictModeEnforcingBlock) return;
 
           // Must be at least 3 statements or more
           if (blockPath.node.body.length < 3) return;
@@ -157,17 +168,31 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           const prefix = cffPrefix + "_" + cffCounter++;
 
-          const mainFnName = prefix + "_main";
+          const withIdentifier = (suffix) => {
+            var name;
+            if (isDebug) {
+              name = prefix + "_" + suffix;
+            } else {
+              name = me.obfuscator.nameGen.generate();
+            }
 
-          const scopeVar = prefix + "_scope";
+            var id = t.identifier(name);
+
+            (id as NodeSymbol)[NO_RENAME] = name;
+            return id;
+          };
+
+          const mainFnName = withIdentifier("main");
+
+          const scopeVar = withIdentifier("scope");
 
           const stateVars = new Array(isDebug ? 1 : getRandomInteger(2, 5))
             .fill("")
-            .map((_, i) => `${prefix}_state_${i}`);
+            .map((_, i) => withIdentifier(`state_${i}`));
 
-          const argVar = prefix + "_arg";
+          const argVar = withIdentifier("_arg");
 
-          const didReturnVar = prefix + "_return";
+          const didReturnVar = withIdentifier("return");
 
           const basicBlocks = new Map<string, BasicBlock>();
 
@@ -180,20 +205,42 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           const scopeNameGen = new NameGen(me.options.identifierGenerator);
 
+          const withProperty = isDebug ? "with" : scopeNameGen.generate();
+          const withDiscriminant = new Template(
+            `${scopeVar.name}["${withProperty}"]`
+          ).expression<t.MemberExpression>();
+
+          const resetWithProperty = isDebug
+            ? "resetWith"
+            : scopeNameGen.generate();
+
           class ScopeManager {
             isNotUsed = true;
+            requiresInitializing = true;
 
             nameMap = new Map<string, string>();
-            nameGen = new NameGen(me.options.identifierGenerator);
+            nameGen = addWithStatement
+              ? me.obfuscator.nameGen
+              : new NameGen(me.options.identifierGenerator);
 
             preserveNames = new Set<string>();
 
-            getNewName(name: string) {
+            findUsed(): ScopeManager {
+              if (this.isNotUsed) return this.parent?.findUsed();
+
+              return this;
+            }
+
+            getNewName(name: string, originalNode?: t.Node) {
               if (!this.nameMap.has(name)) {
                 let newName = this.nameGen.generate();
                 if (isDebug) {
                   newName = "_" + name;
                 }
+                if ((originalNode as NodeSymbol)?.[NO_RENAME]) {
+                  newName = name;
+                }
+
                 this.nameMap.set(name, newName);
 
                 // console.log(
@@ -210,20 +257,49 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               return this.nameMap.get(name);
             }
 
-            getMemberExpression(name: string) {
+            getScopeObject() {
               return t.memberExpression(
-                t.memberExpression(
-                  t.identifier(scopeVar),
-                  t.stringLiteral(this.propertyName),
-                  true
-                ),
-                t.stringLiteral(name),
+                deepClone(scopeVar),
+                t.stringLiteral(this.propertyName),
                 true
               );
             }
 
+            getInitializingStatement() {
+              return t.expressionStatement(
+                t.assignmentExpression(
+                  "=",
+                  this.getScopeObject(),
+                  this.getInitializingObjectExpression()
+                )
+              );
+            }
+
+            getInitializingObjectExpression() {
+              return isDebug
+                ? new Template(`
+                  ({
+                    identity: "${this.propertyName}"
+                  })
+                    `).expression()
+                : t.objectExpression([]);
+            }
+
+            getMemberExpression(name: string) {
+              var memberExpression = t.memberExpression(
+                this.getScopeObject(),
+                t.stringLiteral(name),
+                true
+              );
+
+              return memberExpression;
+            }
+
             propertyName: string;
-            constructor(public scope: Scope) {
+            constructor(
+              public scope: Scope,
+              public initializingBasicBlock: BasicBlock
+            ) {
               this.propertyName = isDebug
                 ? "_" + scopeCounter++
                 : scopeNameGen.generate();
@@ -243,7 +319,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 if (parentScopeManager) {
                   propertyMap[parentScopeManager.propertyName] =
                     t.memberExpression(
-                      t.identifier(scopeVar),
+                      deepClone(scopeVar),
                       t.stringLiteral(parentScopeManager.propertyName),
                       true
                     );
@@ -252,13 +328,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 cursor = cursor.parent;
               }
 
-              propertyMap[refreshScope.propertyName] = isDebug
-                ? new Template(`
-                  ({
-                    identity: "${refreshScope.propertyName}"
-                  })
-                    `).expression()
-                : t.objectExpression([]);
+              propertyMap[refreshScope.propertyName] =
+                refreshScope.getInitializingObjectExpression();
 
               var properties: t.ObjectProperty[] = [];
               for (var key in propertyMap) {
@@ -290,6 +361,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           class BasicBlock {
             totalState: number;
             stateValues: number[];
+            allowWithDiscriminant = true;
+            bestWithDiscriminant: ScopeManager;
+
+            get withDiscriminant() {
+              if (!this.allowWithDiscriminant) return null;
+
+              return this.bestWithDiscriminant;
+            }
 
             private createPath() {
               const newPath = NodePath.get<t.BlockStatement, any>({
@@ -327,6 +406,83 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             get body(): t.Statement[] {
               return this.thisPath.node.body;
             }
+
+            createFalsePredicate(): t.Expression {
+              var predicate = this.createPredicate();
+              if (predicate.value) {
+                // Make predicate false
+                return t.unaryExpression("!", predicate.node);
+              }
+              return predicate.node;
+            }
+
+            createTruePredicate(): t.Expression {
+              var predicate = this.createPredicate();
+              if (!predicate.value) {
+                // Make predicate true
+                return t.unaryExpression("!", predicate.node);
+              }
+              return predicate.node;
+            }
+
+            createPredicate() {
+              var stateVarIndex = getRandomInteger(0, stateVars.length);
+              var stateValue = this.stateValues[stateVarIndex];
+              var compareValue = choice([
+                stateValue,
+                getRandomInteger(-250, 250),
+              ]);
+
+              var operator: t.BinaryExpression["operator"] = choice([
+                "==",
+                "!=",
+                "<",
+                ">",
+              ]);
+              var compareResult;
+              switch (operator) {
+                case "==":
+                  compareResult = stateValue === compareValue;
+                  break;
+                case "!=":
+                  compareResult = stateValue !== compareValue;
+                  break;
+                case "<":
+                  compareResult = stateValue < compareValue;
+                  break;
+                case ">":
+                  compareResult = stateValue > compareValue;
+                  break;
+              }
+
+              return {
+                node: t.binaryExpression(
+                  operator,
+                  deepClone(stateVars[stateVarIndex]),
+                  numericLiteral(compareValue)
+                ),
+                value: compareResult,
+              };
+            }
+
+            identifier(
+              identifierName: string,
+              scopeManager = this.scopeManager
+            ) {
+              if (
+                this.withDiscriminant &&
+                this.withDiscriminant === scopeManager
+              ) {
+                var id = t.identifier(identifierName);
+                (id as NodeSymbol)[NO_RENAME] = identifierName;
+                me.skip(id);
+                return id;
+              }
+
+              return scopeManager.getMemberExpression(identifierName);
+            }
+
+            initializedScope: ScopeManager;
 
             constructor(
               public label: string,
@@ -375,9 +531,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               if (!scopeToScopeManager.has(this.scope)) {
                 scopeToScopeManager.set(
                   this.scope,
-                  new ScopeManager(this.scope)
+                  new ScopeManager(this.scope, this)
                 );
               }
+
+              this.initializedScope = this.scopeManager;
             }
           }
 
@@ -390,6 +548,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const endLabel = me.getPlaceholder();
 
           let currentBasicBlock = new BasicBlock(startLabel, blockPath);
+          currentBasicBlock.allowWithDiscriminant = false;
 
           const gotoFunctionName =
             "GOTO__" +
@@ -453,6 +612,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 let isIllegal = false;
 
                 if (
+                  !flattenFunctionDeclarations ||
                   statement.node.async ||
                   statement.node.generator ||
                   (statement.node as NodeSymbol)[UNSAFE]
@@ -513,6 +673,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 );
 
                 flattenIntoBasicBlocks(blockStatement);
+                scopeToScopeManager.get(statement.scope).requiresInitializing =
+                  false;
+                basicBlocks.get(fnLabel).allowWithDiscriminant = false;
 
                 // Debug label
                 if (isDebug) {
@@ -534,7 +697,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     t.variableDeclaration("var", [
                       t.variableDeclarator(
                         t.arrayPattern(statement.node.params),
-                        t.identifier(argVar)
+                        deepClone(argVar)
                       ),
                     ])
                   );
@@ -597,6 +760,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   });
 
                   flattenIntoBasicBlocks(consequent);
+                  currentBasicBlock.initializedScope =
+                    oldBasicBlock.scopeManager;
 
                   if (alternate.isBlockStatement()) {
                     endCurrentBasicBlock({
@@ -656,6 +821,20 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             nextBlockPath: defaultBlockPath,
           });
 
+          basicBlocks.get(endLabel).allowWithDiscriminant = false;
+
+          // Add with / reset with logic
+          basicBlocks.get(startLabel).body.unshift(
+            new Template(`
+              ${scopeVar.name}["${resetWithProperty}"] = function(newStateValues){
+                ${scopeVar.name}["${withProperty}"] = undefined;
+                {arrayPattern} = newStateValues
+              }
+              `).single({
+              arrayPattern: t.arrayPattern(deepClone(stateVars)),
+            })
+          );
+
           if (!isDebug && addDeadCode) {
             // DEAD CODE 1/3: Add fake chunks that are never reached
             const fakeChunkCount = getRandomInteger(1, 5);
@@ -663,12 +842,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               // These chunks just jump somewhere random, they are never executed
               // so it could contain any code
               const fakeBlock = new BasicBlock(me.getPlaceholder(), blockPath);
-              fakeBlock.insertAfter(
-                GotoControlStatement(choice(Array.from(basicBlocks.keys())))
-              );
+              let fakeJump;
+              do {
+                fakeJump = choice(Array.from(basicBlocks.keys()));
+              } while (fakeJump === fakeBlock.label);
+
+              fakeBlock.insertAfter(GotoControlStatement(fakeJump));
             }
 
             // DEAD CODE 2/3: Add fake jumps to really mess with deobfuscators
+            // "irreducible control flow"
             basicBlocks.forEach((basicBlock) => {
               if (chance(25)) {
                 var randomLabel = choice(Array.from(basicBlocks.keys()));
@@ -676,11 +859,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 // The `false` literal will be mangled
                 basicBlock.insertAfter(
                   new Template(`
-                    if(false){
-                    {goto}
+                    if({predicate}){
+                      {goto}
                     }
                     `).single({
                     goto: GotoControlStatement(randomLabel),
+                    predicate: basicBlock.createFalsePredicate(),
                   })
                 );
               }
@@ -701,16 +885,15 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   randomChunk.parentPath
                 );
 
-                randomChunk.body
-                  .map((x) => t.cloneNode(x))
+                randomChunk.thisNode.body
+                  .map((x) => deepClone(x))
                   .forEach((node) => {
+                    if (node.type === "EmptyStatement") return;
                     clonedChunk.insertAfter(node);
                   });
               }
             }
           }
-
-          const topLevelNames = new Set<string>();
 
           // Remap 'GotoStatement' to actual state assignments and Break statements
           for (const basicBlock of basicBlocks.values()) {
@@ -752,8 +935,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                   const newExpression = t.binaryExpression(
                     boolPath.node.value === compareResult ? "==" : "!=",
-                    t.identifier(stateVar),
-                    n.numericLiteral(compareValue)
+                    deepClone(stateVar),
+                    numericLiteral(compareValue)
                   );
 
                   ensureComputedExpression(boolPath);
@@ -794,8 +977,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                   const diff = t.binaryExpression(
                     "+",
-                    t.identifier(stateVar),
-                    me.skip(n.numericLiteral(num - currentStateValues[index]))
+                    deepClone(stateVar),
+                    me.skip(numericLiteral(num - currentStateValues[index]))
                   );
 
                   ensureComputedExpression(numPath);
@@ -807,15 +990,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
               Identifier: {
                 exit(path: NodePath<t.Identifier>) {
-                  const type = path.isReferenced()
-                    ? "referenced"
-                    : path.isBindingIdentifier()
-                    ? "binding"
-                    : null;
-                  if (!type) return;
+                  if (!isVariableIdentifier(path)) return;
+                  if (me.isSkipped(path)) return;
 
-                  var binding = basicBlock.scope.getBinding(path.node.name);
-                  if (!binding) return;
+                  const identifierName = path.node.name;
+                  if (identifierName === gotoFunctionName) return;
+
+                  var binding = basicBlock.scope.getBinding(identifierName);
+                  if (!binding) {
+                    return;
+                  }
 
                   if (
                     binding.kind === "var" ||
@@ -826,23 +1010,28 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     return;
                   }
 
+                  // console.log("No binding found for " + identifierName);
+
                   var scopeManager = scopeToScopeManager.get(binding.scope);
                   if (!scopeManager) return;
-                  if (scopeManager.preserveNames.has(path.node.name)) return;
+                  if (scopeManager.preserveNames.has(identifierName)) return;
 
-                  let newName = scopeManager.getNewName(path.node.name);
+                  let newName = scopeManager.getNewName(
+                    identifierName,
+                    path.node
+                  );
 
-                  const memberExpression: t.Expression =
+                  let memberExpression: t.MemberExpression | t.Identifier =
                     scopeManager.getMemberExpression(newName);
 
                   scopeManager.isNotUsed = false;
 
-                  if (type === "binding") {
+                  if (path.isBindingIdentifier()) {
                     if (
                       path.key === "id" &&
                       path.parentPath.isFunctionDeclaration()
                     ) {
-                      var asFunctionExpression = t.cloneNode(
+                      var asFunctionExpression = deepClone(
                         path.parentPath.node
                       ) as t.Node as t.FunctionExpression;
                       asFunctionExpression.type = "FunctionExpression";
@@ -861,7 +1050,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                       path.key === "id" &&
                       path.parentPath.isClassDeclaration()
                     ) {
-                      var asClassExpression = t.cloneNode(
+                      var asClassExpression = deepClone(
                         path.parentPath.node
                       ) as t.Node as t.ClassExpression;
                       asClassExpression.type = "ClassExpression";
@@ -877,10 +1066,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                       );
                       return;
                     } else {
-                      var variableDeclaration = path.find((p) =>
-                        p.isVariableDeclaration()
+                      var variableDeclaration = path.find(
+                        (p) =>
+                          p.isVariableDeclaration() ||
+                          p === basicBlock.parentPath
                       ) as NodePath<t.VariableDeclaration>;
-                      if (variableDeclaration) {
+
+                      if (
+                        variableDeclaration &&
+                        variableDeclaration.isVariableDeclaration()
+                      ) {
                         ok(variableDeclaration.node.declarations.length === 1);
 
                         const first =
@@ -891,22 +1086,23 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                         var newExpression: t.Node = id.node;
 
-                        if (init.node) {
+                        var isForInitializer =
+                          (variableDeclaration.key === "init" ||
+                            variableDeclaration.key === "left") &&
+                          variableDeclaration.parentPath.isFor();
+
+                        if (init.node || !isForInitializer) {
                           newExpression = t.assignmentExpression(
                             "=",
                             id.node,
-                            init.node
+                            init.node || t.identifier("undefined")
                           );
                         }
 
-                        if (
-                          variableDeclaration.key !== "init" &&
-                          variableDeclaration.key !== "left"
-                        ) {
+                        if (!isForInitializer) {
                           newExpression = t.expressionStatement(
                             newExpression as t.Expression
                           );
-                        } else {
                         }
 
                         variableDeclaration.replaceWith(newExpression);
@@ -919,9 +1115,50 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     }
                   }
 
-                  if (isStrictIdentifier(path)) {
+                  if (isDefiningIdentifier(path)) {
                     return;
                   }
+                  if (!path.container) return;
+
+                  var assignmentLeft = path.find(
+                    (p) =>
+                      (p.key === "left" &&
+                        p.parentPath?.isAssignmentExpression()) ||
+                      p === basicBlock.parentPath
+                  );
+                  if (
+                    assignmentLeft &&
+                    !assignmentLeft.parentPath?.isAssignmentExpression()
+                  ) {
+                    assignmentLeft = null;
+                  }
+
+                  if (
+                    basicBlock.withDiscriminant &&
+                    basicBlock.withDiscriminant === scopeManager &&
+                    basicBlock.withDiscriminant.hasName(identifierName)
+                  ) {
+                    // console.log(identifierName, !!assignmentLeft);
+                    if (assignmentLeft) {
+                      // memberExpression = new Template(`
+                      // typeof {identifierName} !== "undefined" ? {identifierName} : {memberExpression}
+                      // `).expression({
+                      //   memberExpression: memberExpression,
+                      //   identifierName: () => {
+                      //     var id = t.identifier(newName);
+                      //     (id as NodeSymbol)[NO_RENAME] = newName;
+                      //     me.skip(id);
+                      //     return id;
+                      //   },
+                      // });
+                    } else {
+                      memberExpression = basicBlock.identifier(
+                        newName,
+                        scopeManager
+                      );
+                    }
+                  }
+
                   path.replaceWith(memberExpression);
                 },
               },
@@ -940,8 +1177,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     path.node.argument || t.identifier("undefined");
 
                   path.node.argument = new Template(`
-                (${didReturnVar} = true, {returnArgument})
-                  `).expression({ returnArgument });
+                ({didReturnVar} = true, {returnArgument})
+                  `).expression({
+                    returnArgument,
+                    didReturnVar: deepClone(didReturnVar),
+                  });
                 },
               },
 
@@ -965,31 +1205,66 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                       totalState: newTotalState,
                     } = jumpBlock;
 
-                    const assignments = [];
+                    const assignments: t.Expression[] = [];
+                    let needsIndividualAssignments = true;
 
-                    for (let i = 0; i < stateVars.length; i++) {
-                      const oldValue = currentStateValues[i];
-                      const newValue = newStateValues[i];
-
-                      // console.log(oldValue, newValue);
-                      if (oldValue === newValue) continue; // No diff needed if the value doesn't change
-
-                      let assignment = t.assignmentExpression(
-                        "=",
-                        t.identifier(stateVars[i]),
-                        n.numericLiteral(newValue)
+                    if (jumpBlock.withDiscriminant) {
+                      assignments.push(
+                        t.assignmentExpression(
+                          "=",
+                          deepClone(withDiscriminant),
+                          jumpBlock.withDiscriminant.getScopeObject()
+                        )
                       );
+                    } else if (basicBlock.withDiscriminant) {
+                      assignments.push(
+                        t.callExpression(
+                          t.memberExpression(
+                            deepClone(scopeVar),
+                            t.stringLiteral(resetWithProperty),
+                            true
+                          ),
+                          [
+                            t.arrayExpression(
+                              newStateValues.map(numericLiteral)
+                            ),
+                          ]
+                        )
+                      );
+                      needsIndividualAssignments = false;
+                    }
 
-                      if (!isDebug && addRelativeAssignments) {
-                        // Use diffs to create confusing code
-                        assignment = t.assignmentExpression(
-                          "+=",
-                          t.identifier(stateVars[i]),
-                          n.numericLiteral(newValue - oldValue)
+                    if (needsIndividualAssignments) {
+                      for (let i = 0; i < stateVars.length; i++) {
+                        const oldValue = currentStateValues[i];
+                        const newValue = newStateValues[i];
+
+                        // console.log(oldValue, newValue);
+                        if (oldValue === newValue) continue; // No diff needed if the value doesn't change
+
+                        const leftValue = jumpBlock.withDiscriminant
+                          ? jumpBlock.withDiscriminant.getMemberExpression(
+                              stateVars[i].name
+                            )
+                          : deepClone(stateVars[i]);
+
+                        let assignment = t.assignmentExpression(
+                          "=",
+                          leftValue,
+                          numericLiteral(newValue)
                         );
-                      }
 
-                      assignments.push(assignment);
+                        if (!isDebug && addRelativeAssignments) {
+                          // Use diffs to create confusing code
+                          assignment = t.assignmentExpression(
+                            "+=",
+                            deepClone(stateVars[i]),
+                            numericLiteral(newValue - oldValue)
+                          );
+                        }
+
+                        assignments.push(assignment);
+                      }
                     }
 
                     // Add debug label
@@ -1015,6 +1290,34 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             basicBlock.thisPath.traverse(visitor);
           }
 
+          // Select scope managers for the with statement
+          for (const basicBlock of basicBlocks.values()) {
+            basicBlock.bestWithDiscriminant =
+              basicBlock.initializedScope?.findUsed();
+
+            if (isDebug && basicBlock.withDiscriminant) {
+              basicBlock.body.unshift(
+                t.expressionStatement(
+                  t.stringLiteral(
+                    "With " + basicBlock.withDiscriminant.propertyName
+                  )
+                )
+              );
+            }
+          }
+
+          // Add scope initializations: scope["_0"] = {identity: "_0"}
+          for (const scopeManager of scopeToScopeManager.values()) {
+            if (scopeManager.isNotUsed) continue;
+            if (!scopeManager.requiresInitializing) continue;
+            if (scopeManager.initializingBasicBlock.label === startLabel)
+              continue;
+
+            scopeManager.initializingBasicBlock.body.unshift(
+              scopeManager.getInitializingStatement()
+            );
+          }
+
           let switchCases: t.SwitchCase[] = [];
           let blocks = Array.from(basicBlocks.values());
           if (!isDebug && addFakeTests) {
@@ -1026,7 +1329,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               continue;
             }
 
-            let test: t.Expression = n.numericLiteral(block.totalState);
+            let test: t.Expression = numericLiteral(block.totalState);
 
             // Add complex tests
             if (!isDebug && addComplexTests && chance(25)) {
@@ -1053,7 +1356,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     );
                     if (differentIndex !== -1) {
                       var expressionAsString =
-                        stateVars[differentIndex] +
+                        stateVars[differentIndex].name +
                         "!=" +
                         labelStates[differentIndex];
                       if (!alreadyConditionedItems.has(expressionAsString)) {
@@ -1062,8 +1365,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                         conditionNodes.push(
                           t.binaryExpression(
                             "!=",
-                            t.identifier(stateVars[differentIndex]),
-                            n.numericLiteral(labelStates[differentIndex])
+                            deepClone(stateVars[differentIndex]),
+                            numericLiteral(labelStates[differentIndex])
                           )
                         );
                       }
@@ -1071,8 +1374,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                       conditionNodes.push(
                         t.binaryExpression(
                           "!=",
-                          t.cloneNode(discriminant),
-                          n.numericLiteral(totalState)
+                          deepClone(discriminant),
+                          numericLiteral(totalState)
                         )
                       );
                     }
@@ -1083,8 +1386,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               // case STATE!=Y && STATE+X
               test = t.binaryExpression(
                 "-",
-                t.identifier(stateVars[stateVarIndex]),
-                n.numericLiteral(difference)
+                deepClone(stateVars[stateVarIndex]),
+                numericLiteral(difference)
               );
 
               // Use the 'conditionNodes' to not cause state clashing issues
@@ -1098,7 +1401,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             if (!isDebug && addFakeTests) {
               // Add fake tests
               for (let i = 0; i < getRandomInteger(1, 3); i++) {
-                tests.push(n.numericLiteral(stateIntGen.generate()));
+                tests.push(numericLiteral(stateIntGen.generate()));
               }
 
               shuffle(tests);
@@ -1119,8 +1422,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           }
 
           const discriminant = new Template(`
-            ${stateVars.join(" + ")}
+            ${stateVars.map((x) => x.name).join(" + ")}
           `).expression<t.Expression>();
+
+          traverse(t.program([t.expressionStatement(discriminant)]), {
+            Identifier(path) {
+              (path.node as NodeSymbol)[NO_RENAME] = path.node.name;
+            },
+          });
 
           // Create a new SwitchStatement
           const switchStatement = t.labeledStatement(
@@ -1134,26 +1443,26 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const whileStatement = t.whileStatement(
             t.binaryExpression(
               "!==",
-              t.cloneNode(discriminant),
-              n.numericLiteral(endTotalState)
+              deepClone(discriminant),
+              numericLiteral(endTotalState)
             ),
-            t.blockStatement([switchStatement])
+            t.blockStatement([
+              t.withStatement(
+                new Template(
+                  `{withDiscriminant} || Object["create"](null)`
+                ).expression({
+                  withDiscriminant,
+                }),
+                t.blockStatement([switchStatement])
+              ),
+            ])
           );
 
-          function variableDeclaration(name: string, value?: t.Expression) {
-            return t.variableDeclaration("var", [
-              t.variableDeclarator(t.identifier(name), value),
-            ]);
-          }
+          var parameters: t.Identifier[] = [...stateVars, argVar, scopeVar].map(
+            (id) => deepClone(id)
+          );
 
-          const variableDeclarations: t.Statement[] = [
-            ...Array.from(topLevelNames).map((name) =>
-              variableDeclaration(name)
-            ),
-          ];
-
-          var parametersNames: string[] = [...stateVars, argVar, scopeVar];
-          var parameters = parametersNames.map((name) => t.identifier(name));
+          var parametersNames: string[] = parameters.map((id) => id.name);
 
           for (var [
             originalFnName,
@@ -1168,15 +1477,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             var argumentsNodes = [];
             for (var parameterName of parametersNames) {
-              if (stateVars.includes(parameterName)) {
-                argumentsNodes.push(
-                  n.numericLiteral(
-                    stateValues[stateVars.indexOf(parameterName)]
-                  )
-                );
-              } else if (parameterName === argVar) {
+              const stateIndex = stateVars
+                .map((x) => x.name)
+                .indexOf(parameterName);
+              if (stateIndex !== -1) {
+                argumentsNodes.push(numericLiteral(stateValues[stateIndex]));
+              } else if (parameterName === argVar.name) {
                 argumentsNodes.push(t.identifier(argumentsRestName));
-              } else if (parameterName === scopeVar) {
+              } else if (parameterName === scopeVar.name) {
                 argumentsNodes.push(scopeManager.getObjectExpression(fnLabel));
               } else {
                 ok(false);
@@ -1197,7 +1505,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               
               `).expression({
                 callExpression: t.callExpression(
-                  t.identifier(mainFnName),
+                  deepClone(mainFnName),
                   argumentsNodes
                 ),
               })
@@ -1205,45 +1513,45 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           }
 
           const mainFnDeclaration = t.functionDeclaration(
-            t.identifier(mainFnName),
+            deepClone(mainFnName),
             parameters,
             t.blockStatement([whileStatement])
           );
 
-          var startProgramExpression = t.callExpression(
-            t.identifier(mainFnName),
-            [
-              ...startStateValues.map((stateValue) =>
-                n.numericLiteral(stateValue)
-              ),
-              t.identifier("undefined"),
-              basicBlocks
-                .get(startLabel)
-                .scopeManager.getObjectExpression(startLabel),
-            ]
-          );
+          (mainFnDeclaration as NodeSymbol)[PREDICTABLE] = true;
 
-          var resultVar = me.getPlaceholder();
+          var startProgramExpression = t.callExpression(deepClone(mainFnName), [
+            ...startStateValues.map((stateValue) => numericLiteral(stateValue)),
+            t.identifier("undefined"),
+            basicBlocks
+              .get(startLabel)
+              .scopeManager.getObjectExpression(startLabel),
+          ]);
+
+          var resultVar = withIdentifier("result");
           var allowReturns = blockPath.find((p) => p.isFunction());
 
-          const stateProgramStatements = new Template(`
-            var ${didReturnVar};
-            var ${resultVar} = {startProgramExpression};
+          const startProgramStatements = new Template(`
+            ${allowReturns ? `var {didReturnVar};` : ""}
+            var {resultVar} = {startProgramExpression};
             ${
               allowReturns
                 ? `
-            if(${didReturnVar}){
-              return ${resultVar};
+            if({didReturnVar}){
+              return {resultVar};
             }`
                 : ""
             }
-          `).compile({ startProgramExpression: startProgramExpression });
+          `).compile({
+            startProgramExpression,
+            didReturnVar: () => deepClone(didReturnVar),
+            resultVar: () => deepClone(resultVar),
+          });
 
           blockPath.node.body = [
             ...prependNodes,
-            ...variableDeclarations,
             mainFnDeclaration,
-            ...stateProgramStatements,
+            ...startProgramStatements,
           ];
 
           // Reset all bindings here

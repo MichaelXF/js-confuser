@@ -3,27 +3,6 @@ import * as t from "@babel/types";
 import { FN_LENGTH, NodeSymbol, variableFunctionName } from "../constants";
 
 /**
- * @example
- * function abc() {
- *   "use strict";
- * } // true
- * @param path
- * @returns
- */
-export function isFunctionStrictMode(path: NodePath<t.Function>) {
-  if (
-    t.isBlockStatement(path.node.body) &&
-    path.node.body.directives.some(
-      (directive) => directive.value.value === "use strict"
-    )
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
  * @example __JS_CONFUSER_VAR__(identifier) // true
  * @param path
  * @returns

@@ -4,8 +4,7 @@ import { PluginArg } from "../plugin";
 import { NodeSymbol, PREDICTABLE } from "../../constants";
 import * as t from "@babel/types";
 import { isStaticValue } from "../../utils/static-utils";
-import { isFunctionStrictMode } from "../../utils/function-utils";
-import { prepend } from "../../utils/ast-utils";
+import { isStrictMode, prepend } from "../../utils/ast-utils";
 import Template from "../../templates/template";
 
 /**
@@ -16,6 +15,26 @@ import Template from "../../templates/template";
  */
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.MovedDeclarations);
+
+  function isFunctionEligibleForParameterPacking(
+    functionPath: NodePath<t.Function>
+  ) {
+    // Getter/setter functions must have zero or one formal parameter
+    // We cannot add extra parameters to them
+    if (functionPath.isObjectMethod() || functionPath.isClassMethod()) {
+      if (functionPath.node.kind !== "method") {
+        return false;
+      }
+    }
+
+    // Rest params check
+    if (functionPath.get("params").find((p) => p.isRestElement())) return false;
+
+    // Max 1,000 parameters
+    if (functionPath.get("params").length > 1_000) return false;
+
+    return true;
+  }
 
   return {
     visitor: {
@@ -31,12 +50,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           // Must be direct child of the function
           if (path.parentPath !== functionPath.get("body")) return;
 
-          // Rest params check
-          if (functionPath.get("params").find((p) => p.isRestElement())) return;
+          // Must be eligible for parameter packing
+          if (!isFunctionEligibleForParameterPacking(functionPath)) return;
 
-          var isStrictMode = isFunctionStrictMode(functionPath);
+          var strictMode = isStrictMode(functionPath);
 
-          if (isStrictMode) return;
+          // Default parameters are not allowed when 'use strict' is declared
+          if (strictMode) return;
 
           const functionName = path.node.id.name;
 
@@ -85,13 +105,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             // Check for "use strict" directive
             // Strict mode disallows non-simple parameters
             // So we can't move the declaration to the function parameters
-            var isStrictMode = isFunctionStrictMode(functionPath);
-            if (isStrictMode) {
+            var strictMode = isStrictMode(functionPath);
+            if (strictMode) {
               allowDefaultParamValue = false;
             }
 
             // Cannot add variables after rest element
-            if (!functionPath.get("params").find((p) => p.isRestElement())) {
+            // Cannot add over 1,000 parameters
+            if (isFunctionEligibleForParameterPacking(functionPath)) {
               insertionMethod = "functionParameter";
             }
           }

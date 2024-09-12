@@ -40,6 +40,7 @@ const validProperties = new Set([
   "variableConcealing",
   "customStringEncodings",
   "functionOutlining",
+  "pack",
 ]);
 
 const validLockProperties = new Set([

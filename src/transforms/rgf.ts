@@ -170,7 +170,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             );
           });
 
-          newObfuscator.obfuscateAST(evalFile);
+          newObfuscator.obfuscateAST(evalFile, {
+            disablePack: true,
+          });
 
           const generated = Obfuscator.generateCode(evalFile);
 

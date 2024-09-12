@@ -3,6 +3,7 @@ import { parse } from "@babel/parser";
 import traverse from "@babel/traverse";
 import { NodePath } from "@babel/traverse";
 import { ok } from "assert";
+import { getRandomString } from "../utils/random-utils";
 
 export interface TemplateVariables {
   [varName: string]:
@@ -18,6 +19,8 @@ export default class Template {
   private templates: string[];
   private defaultVariables: TemplateVariables;
   private requiredVariables: Set<string>;
+  private astVariableMappings: Map<string, string>;
+  private astIdentifierPrefix = "__t_" + getRandomString(6);
 
   constructor(...templates: string[]) {
     this.templates = templates;
@@ -62,12 +65,20 @@ export default class Template {
       this.templates[Math.floor(Math.random() * this.templates.length)];
     let output = template;
 
+    this.astVariableMappings = new Map();
+
     Object.keys(allVariables).forEach((name) => {
       const bracketName = `{${name.replace("$", "\\$")}}`;
       let value = allVariables[name] as string;
 
       if (this.isASTVariable(value)) {
-        value = name;
+        let astIdentifierName = this.astVariableMappings.get(name);
+        if (typeof astIdentifierName === "undefined") {
+          astIdentifierName = this.astIdentifierPrefix + name;
+          this.astVariableMappings.set(name, astIdentifierName);
+        }
+
+        value = astIdentifierName;
       }
 
       const reg = new RegExp(bracketName, "g");
@@ -82,40 +93,64 @@ export default class Template {
   }
 
   private interpolateAST(ast: babelTypes.Node, variables: TemplateVariables) {
+    if (this.astVariableMappings.size === 0) return;
+
     const allVariables = { ...this.defaultVariables, ...variables };
+    const template = this;
 
-    const astNames = new Set(
-      Object.keys(allVariables).filter((name) => {
-        return this.isASTVariable(allVariables[name]);
-      })
-    );
+    // Reverse the lookup map
+    // Before {name -> __t_m4H6nk_name}
+    // After {__t_m4H6nk_name -> name}
+    const reverseMappings = new Map<string, string>();
+    this.astVariableMappings.forEach((value, key) => {
+      reverseMappings.set(value, key);
+    });
 
-    if (astNames.size === 0) return;
+    const insertedVariables = new Set<string>();
 
     traverse(ast, {
       Identifier(path: NodePath<babelTypes.Identifier>) {
-        const name = path.node.name;
-        if (astNames.has(name)) {
-          let value = allVariables[name];
-          if (typeof value === "function") {
-            value = value();
-          }
+        const idName = path.node.name;
+        if (!idName.startsWith(template.astIdentifierPrefix)) return;
+        const variableName = reverseMappings.get(idName);
 
-          if (value instanceof Template) {
-            value = value.compile(allVariables);
-          }
-
-          if (!Array.isArray(value)) {
-            path.replaceWith(value as babelTypes.Node);
-          } else {
-            path.replaceWithMultiple(value as babelTypes.Node[]);
-          }
+        if (typeof variableName === "undefined") {
+          ok(false, `Variable ${idName} not found in mappings`);
         }
+
+        let value = allVariables[variableName];
+        let isSingleUse = true; // Hard-coded nodes are deemed 'single use'
+        if (typeof value === "function") {
+          value = value();
+          isSingleUse = false;
+        }
+
+        if (value instanceof Template) {
+          value = value.compile(allVariables);
+          isSingleUse = false;
+        }
+
+        // Duplicate node check
+        if (isSingleUse) {
+          if (insertedVariables.has(variableName)) {
+            ok(false, "Duplicate node inserted for variable: " + variableName);
+          }
+          insertedVariables.add(variableName);
+        }
+
+        // Insert new nodes
+        if (!Array.isArray(value)) {
+          path.replaceWith(value as babelTypes.Node);
+        } else {
+          path.replaceWithMultiple(value as babelTypes.Node[]);
+        }
+
+        path.skip();
       },
     });
   }
 
-  compile(variables: TemplateVariables = {}): babelTypes.Statement[] {
+  file(variables: TemplateVariables = {}): babelTypes.File {
     const { output } = this.interpolateTemplate(variables);
 
     let file: babelTypes.File;
@@ -131,6 +166,12 @@ export default class Template {
     }
 
     this.interpolateAST(file, variables);
+
+    return file;
+  }
+
+  compile(variables: TemplateVariables = {}): babelTypes.Statement[] {
+    const file = this.file(variables);
 
     return file.program.body;
   }

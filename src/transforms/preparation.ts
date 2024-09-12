@@ -39,6 +39,64 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         },
       },
 
+      // `Hello ${username}` -> "Hello " + username
+      TemplateLiteral: {
+        exit(path) {
+          // Check if this is a tagged template literal, if yes, skip it
+          if (t.isTaggedTemplateExpression(path.parent)) {
+            return;
+          }
+
+          const { quasis, expressions } = path.node;
+
+          // Start with the first quasi (template string part)
+          let binaryExpression: t.Expression = t.stringLiteral(
+            quasis[0].value.cooked
+          );
+
+          // Loop over the remaining quasis and expressions, concatenating them
+          for (let i = 0; i < expressions.length; i++) {
+            // Add the expression as part of the binary concatenation
+            binaryExpression = t.binaryExpression(
+              "+",
+              binaryExpression,
+              expressions[i] as t.Expression
+            );
+
+            // Add the next quasi (template string part)
+            if (quasis[i + 1].value.cooked !== "") {
+              binaryExpression = t.binaryExpression(
+                "+",
+                binaryExpression,
+                t.stringLiteral(quasis[i + 1].value.cooked)
+              );
+            }
+          }
+
+          // Replace the template literal with the constructed binary expression
+          path.replaceWith(binaryExpression);
+        },
+      },
+
+      // /Hello World/g -> new RegExp("Hello World", "g")
+      RegExpLiteral: {
+        exit(path) {
+          const { pattern, flags } = path.node;
+
+          // Create a new RegExp() expression using the pattern and flags
+          const newRegExpCall = t.newExpression(
+            t.identifier("RegExp"), // Identifier for RegExp constructor
+            [
+              t.stringLiteral(pattern), // First argument: the pattern (no extra escaping needed)
+              flags ? t.stringLiteral(flags) : t.stringLiteral(""), // Second argument: the flags (if any)
+            ]
+          );
+
+          // Replace the literal regex with the new RegExp() call
+          path.replaceWith(newRegExpCall);
+        },
+      },
+
       ReferencedIdentifier: {
         exit(path) {
           const { name } = path.node;

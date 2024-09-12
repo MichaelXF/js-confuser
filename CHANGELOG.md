@@ -1,27 +1,57 @@
 # `2.0.0-alpha.0`
 2.0 Rewrite Alpha 🎉
 
-- Complete rewrite of JS-Confuser using Babel!
+**⚠️ Warning: This an alpha release. This version is not stable and the likelihood of encountering bugs is significantly higher.**
 
-- - Improved API Interface **⚠️ Breaking change**
+### Complete rewrite of JS-Confuser using Babel!
 
-- - Renamed `Stack` to `Variable Masking` **⚠️ Breaking change**
+**⚠️ Breaking changes**
 
-- - Custom String Encoding / Custom Lock Code
+- Revamped API Interface
 
-- - Added `Function Outlining` Learn more here
+- - JSConfuser.obfuscate() resolves to an object
 
-- - Added `Rename Labels` Learn more here
+| Property | Type | Description |
+| --- | --- | --- |
+| `code` | `string` | The obfuscated code. |
 
-- - RGF no longers uses `new Function` instead uses `eval`
+- Renamed `Stack` to `Variable Masking`
 
-- - Improved code transforms!
+**2.0 Changes**
 
-- - Improved `Minify`
+- Added Custom String Encoding and Custom Lock Code options
 
-- - - Removes unused variables and functions now
+- Added `Function Outlining` Learn more here
 
-- - Improved `Moved Declaration`'s ability to move variables as unused function parameters
+- Added `Rename Labels` Learn more here
+
+- Added `Pack` Learn more here
+
+- RGF no longers uses `new Function` instead uses `eval`
+
+- Improved code transforms!
+
+- Improved `Control Flow Flattening`
+
+- - Obfuscates the [Call Graph](https://en.wikipedia.org/wiki/Call_graph)
+
+- - Now supports lexical bindings (`let`, `const`, `class`)
+
+- - `with () { }` statement obfuscation
+
+- Improved `Minify`
+
+- - Removes unused variables and functions
+
+- Improved `Moved Declaration` ability to move variables as unused function parameters
+
+- Improved `String` transforms
+
+- - [Template literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals) are now obfuscated (First converted into equivalent String Literal)
+
+- - [Regular expressions](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions) are now obfuscated (First converted into equivalent RegExp() constructor calls)
+
+- - `String Compression` now uses zlib decompression ([Pako](https://github.com/nodeca/pako))
 
 **Removed features**
 
@@ -31,7 +61,14 @@
 
 - Removed `Shuffle`'s Hash option
 
-- Removed `Indent` option. [`@babel/generator`](https://www.npmjs.com/package/@babel/generator) does not allow customizing the indentation size. Use Prettier if you still wish for 4 space or tabs. Be mindful if you have `integrity` or `selfDefending` enabled, as you should not alter the obfuscated code.
+- Removed `Indent` option. [`@babel/generator`](https://www.npmjs.com/package/@babel/generator) does not allow customizing the indentation size. Use Prettier if you still wish for 4 space or tabs. Be mindful if you have `Integrity` or `Self Defending` enabled, as you should not alter the obfuscated code.
+
+
+**JS-Confuser.com Revamp**
+
+A new UI for JS-Confuser.com, featuring an advanced playground and documentation pages.
+
+The previous version will remain available: [old--confuser.netlify.com](https://old--confuser.netlify.app/)
 
 # `1.7.3`
 Tamper Protection

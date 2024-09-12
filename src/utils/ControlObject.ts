@@ -62,7 +62,7 @@ export default class ControlObject {
   addProperty(node: t.Expression) {
     if (!this.objectName) {
       // Object hasn't been created yet
-      this.objectName = this.me.getPlaceholder();
+      this.objectName = this.me.getPlaceholder() + "_controlObject";
 
       if (t.isFunctionExpression(node) && !node.id) {
         // Use function declaration as object

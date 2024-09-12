@@ -129,6 +129,7 @@ test("Variant #5: Work on High Preset", async () => {
       lock: {
         integrity: true,
       },
+      pack: true,
     }
   );
 

@@ -3,11 +3,23 @@ import { PluginArg } from "../plugin";
 import * as t from "@babel/types";
 import { Order } from "../../order";
 import { computeProbabilityMap } from "../../probability";
-import { ensureComputedExpression } from "../../utils/ast-utils";
+import {
+  ensureComputedExpression,
+  prependProgram,
+} from "../../utils/ast-utils";
 import { numericLiteral } from "../../utils/node";
+import {
+  PakoInflateMin,
+  StringCompressionTemplate,
+} from "../../templates/stringCompressionTemplate";
+import Obfuscator from "../../obfuscator";
+import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
+const pako = require("pako");
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.StringCompression);
+
+  const stringDelimiter = "|";
 
   return {
     visitor: {
@@ -21,6 +33,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             StringLiteral: {
               exit: (path) => {
                 const originalValue = path.node.value;
+
+                // Must be at least 3 characters long
+                if (originalValue.length < 3) return;
+
+                // Cannot contain the string delimiter
+                if (originalValue.includes(stringDelimiter)) return;
+
                 let index = stringMap.get(originalValue);
                 if (typeof index === "undefined") {
                   // Allow user option to skip compression for certain strings
@@ -51,23 +70,34 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           // No strings changed
           if (stringMap.size === 0) return;
 
-          // Create the string function
-          var arrayExpression = t.arrayExpression(
-            Array.from(stringMap.keys()).map((value) => t.stringLiteral(value))
+          var stringPayload = Array.from(stringMap.keys()).join(
+            stringDelimiter
           );
 
-          var stringFunction = t.functionDeclaration(
-            t.identifier(stringFn),
-            [t.identifier("index")],
-            t.blockStatement([
-              t.returnStatement(
-                t.memberExpression(arrayExpression, t.identifier("index"), true)
-              ),
-            ])
+          // Compress the string
+          var compressedBuffer: Uint8Array = pako.deflate(stringPayload);
+          var compressedBase64 =
+            Buffer.from(compressedBuffer).toString("base64");
+
+          const StringToBuffer = me.getPlaceholder();
+
+          prependProgram(
+            programPath,
+            StringCompressionTemplate.compile({
+              stringFn,
+              stringName: me.getPlaceholder(),
+              stringArray: me.getPlaceholder(),
+              stringDelimiter: () => t.stringLiteral(stringDelimiter),
+              stringValue: () => t.stringLiteral(compressedBase64),
+              GetGlobalTemplate: createGetGlobalTemplate(me, programPath),
+              getGlobalFnName: me.getPlaceholder(),
+            })
           );
 
-          var p = programPath.unshiftContainer("body", stringFunction);
-          programPath.scope.registerDeclaration(p[0]);
+          prependProgram(
+            programPath,
+            Obfuscator.parseCode(PakoInflateMin).program.body
+          );
         },
       },
     },

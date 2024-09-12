@@ -3,7 +3,13 @@ import Obfuscator from "../obfuscator";
 import { chance, choice, getRandomString } from "../utils/random-utils";
 import { Order } from "../order";
 import * as t from "@babel/types";
-import { FN_LENGTH, NodeSymbol, SKIP, CONTROL_OBJECTS } from "../constants";
+import {
+  FN_LENGTH,
+  NodeSymbol,
+  SKIP,
+  CONTROL_OBJECTS,
+  NO_RENAME,
+} from "../constants";
 import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 import { prepend, prependProgram } from "../utils/ast-utils";
 import ControlObject from "../utils/ControlObject";

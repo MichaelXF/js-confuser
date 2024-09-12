@@ -6,11 +6,8 @@ import Template from "../templates/template";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
 import { NodeSymbol, UNSAFE } from "../constants";
-import { getFunctionName } from "../utils/ast-utils";
-import {
-  computeFunctionLength,
-  isFunctionStrictMode,
-} from "../utils/function-utils";
+import { getFunctionName, isStrictMode } from "../utils/ast-utils";
+import { computeFunctionLength } from "../utils/function-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.VariableMasking);
@@ -37,7 +34,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     }
 
     // Do not apply to 'use strict' functions
-    if (isFunctionStrictMode(fnPath)) return;
+    if (isStrictMode(fnPath)) return;
 
     // Do not apply to functions marked unsafe
     if ((fnPath.node as NodeSymbol)[UNSAFE]) return;

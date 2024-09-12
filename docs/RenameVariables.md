@@ -2,9 +2,9 @@
 
 Determines if variables should be renamed. (`true/false`)
 
-Option name: `controlFlowFlattening`
+Option name: `renameVariables`
 
-Option values: `true/false`
+Option values: `true/false/Function`
 
 ```js
 // Input

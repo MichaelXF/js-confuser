@@ -4,23 +4,34 @@ JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ 
 
   [![NPM](https://img.shields.io/badge/NPM-%23000000.svg?style=for-the-badge&logo=npm&logoColor=white)](https://npmjs.com/package/js-confuser) [![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/MichaelXF/js-confuser) [![Netlify](https://img.shields.io/badge/netlify-%23000000.svg?style=for-the-badge&logo=netlify&logoColor=#00C7B7)](https://js-confuser.com)
 
-## Key features
 
-- Variable renaming
-- Control Flow obfuscation
-- String concealing
-- Function obfuscation
-- Locks (domainLock, date)
-- [Detect changes to source code](https://github.com/MichaelXF/js-confuser/blob/master/docs/Integrity.md)
+**The official documentation for this project has moved to [`JS-Confuser.com`](https://js-confuser.com)**: 
 
+- [Getting Started](https://new--confuser.netlify.app/docs)
 
-## Installation
+- - [What is Obfuscation?](https://new--confuser.netlify.app/docs/getting-started/what-is-obfuscation)
+
+- - [Playground](https://new--confuser.netlify.app/docs/getting-started/playground)
+
+- - [Installation](https://new--confuser.netlify.app/docs/getting-started/installation)
+
+- - [Usage](https://new--confuser.netlify.app/docs/getting-started/usage)
+
+- - [FAQ](https://new--confuser.netlify.app/docs/getting-started/faq)
+
+- [Options](https://new--confuser.netlify.app/docs)
+
+- [Presets](https://new--confuser.netlify.app/docs)
+
+## API Usage
+
+### Installation
 
 ```bash
 $ npm install js-confuser
 ```
 
-## Usage
+### Usage
 
 ```js
 var JsConfuser = require("js-confuser");
@@ -52,26 +63,6 @@ var AF59rI,ZgbbeaU,WDgj3I,gpR2qG,Ox61sk,pTNPNpX;AF59rI=[60,17,25,416,22,23,83,26
 */
 ```
 
-## Documentation
-
-Read the [documentation](https://js-confuser.com/docs) for everything to know about JS-Confuser, including:
-
-- [Getting Started](https://new--confuser.netlify.app/docs)
-
-- - [What is Obfuscation?](https://new--confuser.netlify.app/docs/getting-started/what-is-obfuscation)
-
-- - [Playground](https://new--confuser.netlify.app/docs/getting-started/playground)
-
-- - [Installation](https://new--confuser.netlify.app/docs/getting-started/installation)
-
-- - [Usage](https://new--confuser.netlify.app/docs/getting-started/usage)
-
-- - [FAQ](https://new--confuser.netlify.app/docs/getting-started/faq)
-
-- [Options](https://new--confuser.netlify.app/docs)
-
-- [Presets](https://new--confuser.netlify.app/docs)
-
 
 ## Bug report
 
@@ -80,3 +71,7 @@ Please [open an issue](https://github.com/MichaelXF/js-confuser/issues) with the
 ## Feature request
 
 Please [open an issue](https://github.com/MichaelXF/js-confuser/issues) and be descriptive. Don't submit any PRs until approved.
+
+## License
+
+MIT License

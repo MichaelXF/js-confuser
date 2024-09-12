@@ -372,6 +372,28 @@ export function prependProgram(
 }
 
 /**
+ * A referenced or binding identifier, only names that reflect variables.
+ *
+ * - Excludes labels
+ *
+ * @param path
+ * @returns
+ */
+export function isVariableIdentifier(path: NodePath<t.Identifier>) {
+  if (
+    !path.isReferencedIdentifier() &&
+    !(path as NodePath).isBindingIdentifier()
+  )
+    return false;
+
+  // abc: {} // not a variable identifier
+  if (path.key === "label" && path.parentPath?.isLabeledStatement())
+    return false;
+
+  return true;
+}
+
+/**
  * Subset of BindingIdentifier, excluding non-defined assignment expressions.
  *
  * @example
@@ -442,6 +464,32 @@ export function isStrictIdentifier(path: NodePath): boolean {
     (path.parentPath.isFunction() || path.parentPath.isClass())
   )
     return true;
+
+  return false;
+}
+
+/**
+ * @example
+ * function abc() {
+ *   "use strict";
+ * } // true
+ * @param path
+ * @returns
+ */
+export function isStrictMode(path: NodePath<t.Function | t.Block>) {
+  if (path.isBlock()) {
+    if (path.isTSModuleBlock()) return false;
+    return (path.node as t.BlockStatement | t.Program).directives.some(
+      (directive) => directive.value.value === "use strict"
+    );
+  }
+
+  if (path.isFunction()) {
+    const fnBody = path.get("body");
+    if (fnBody.isBlock()) {
+      return isStrictMode(fnBody);
+    }
+  }
 
   return false;
 }

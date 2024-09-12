@@ -129,6 +129,21 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           }
         },
       },
+      // a["key"] -> a.key
+      MemberExpression: {
+        exit(path) {
+          if (!path.node.computed) return;
+
+          const property = path.get("property");
+          if (!property.isStringLiteral()) return;
+
+          const key = property.node.value;
+          if (!t.isValidIdentifier(key)) return;
+
+          path.node.computed = false;
+          path.node.property = t.identifier(key);
+        },
+      },
       // {["key"]: 1} -> {key: 1}
       // {"key": 1} -> {key: 1}
       ObjectProperty: {
@@ -158,6 +173,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (path.node.expressions.length === 1) {
             path.replaceWith(path.node.expressions[0]);
           }
+        },
+      },
+      // ; -> ()
+      EmptyStatement: {
+        exit(path) {
+          path.remove();
         },
       },
       // console; -> ();
@@ -296,9 +317,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       },
       // while(true) {a();} -> while(true) a();
       // for(;;) {a();} -> for(;;) a();
-      "While|For": {
+      // with(a) {a();} -> with(a) a();
+      "While|For|WithStatement": {
         exit(_path) {
-          var path = _path as NodePath<t.While | t.For>;
+          var path = _path as NodePath<t.While | t.For | t.WithStatement>;
           var body = path.get("body");
 
           if (body.isBlock() && body.node.body.length === 1) {

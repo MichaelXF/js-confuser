@@ -1,6 +1,6 @@
 import JsConfuser from "../../src";
 
-test("Variant #1: Enabled by default", async () => {
+test("Variant #1: Preserve function.length on High Preset", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(a, b, c, d = "") {
@@ -12,6 +12,7 @@ test("Variant #1: Enabled by default", async () => {
     {
       target: "node",
       preset: "high",
+      pack: true,
     }
   );
 
@@ -20,7 +21,7 @@ test("Variant #1: Enabled by default", async () => {
   expect(TEST_OUTPUT).toStrictEqual(3);
 });
 
-test("Variant #2: Disabled", async () => {
+test("Variant #2: Allow user to disable preserving function.length", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(a, b, c, d = "") {
@@ -42,6 +43,7 @@ test("Variant #2: Disabled", async () => {
       duplicateLiteralsRemoval: false,
 
       rgf: true,
+      pack: true,
     }
   );
 

@@ -3,6 +3,7 @@ import { NodePath, PluginObj } from "@babel/core";
 import {
   ensureComputedExpression,
   getFunctionName,
+  isDefiningIdentifier,
   prepend,
 } from "../utils/ast-utils";
 import { PluginArg } from "./plugin";
@@ -89,10 +90,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     fnPath.traverse({
       Identifier: {
         exit(identifierPath) {
-          if (
-            !identifierPath.isBindingIdentifier() &&
-            !(identifierPath as NodePath).isReferencedIdentifier()
-          )
+          const type = identifierPath.isReferencedIdentifier()
+            ? "referenced"
+            : (identifierPath as NodePath).isBindingIdentifier()
+            ? "binding"
+            : "other";
+
+          if (!type) return;
+          if (type === "binding" && isDefiningIdentifier(identifierPath))
             return;
 
           if ((identifierPath.node as NodeSymbol)[UNSAFE]) return;

@@ -21,6 +21,7 @@ test("Variant #1: Obfuscate code and still execute in correct order", async () =
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: true,
+    pack: true,
   });
 
   // Ensure Control Flow Flattening applied
@@ -47,6 +48,7 @@ test("Variant #2: Properly handle for-loop", async () => {
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: true,
+    pack: true,
   });
 
   // Ensure Control Flow Flattening applied
@@ -75,6 +77,7 @@ test("Variant #3: Properly handle while-loop", async () => {
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: true,
+    pack: true,
   });
 
   // Ensure Control Flow Flattening applied
@@ -104,6 +107,7 @@ test("Variant #4: Properly handle break statements", async () => {
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: true,
+    pack: true,
   });
 
   // Ensure Control Flow Flattening applied
@@ -138,6 +142,7 @@ test("Variant #5: Properly handle 'let' variables", async () => {
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
+    pack: true,
   });
 
   // Ensure Control Flow Flattening applied
@@ -163,6 +168,7 @@ test("Variant #6: Properly handle 'let' in for-loops", async () => {
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
+    pack: true,
   });
 
   // Ensure Control Flow Flattening did applied
@@ -191,6 +197,7 @@ test("Variant #7: Allow option to be set a percentage threshold", async () => {
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     controlFlowFlattening: 0.5,
+    pack: true,
   });
 
   // Ensure the output is the exact same
@@ -232,6 +239,7 @@ test("Variant #8: Work when obfuscated multiple times", async () => {
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
+    pack: true,
   });
 
   // Ensure Control Flow Flattening applied
@@ -266,6 +274,7 @@ test("Variant #9: Don't entangle floats or NaN", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -311,6 +320,7 @@ test("Variant #10: Correctly entangle property keys", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -360,6 +370,7 @@ test("Variant #11: Flatten nested if statements", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -392,6 +403,7 @@ test("Variant #12: Properly handle nested for loops", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -432,6 +444,7 @@ test("Variant #13: Properly handle nested while-loops", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -479,6 +492,7 @@ test("Variant #14: Properly handle nested switch statements", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -494,38 +508,34 @@ test("Variant #16: Flatten with nested break and continue statements", async () 
   var { code: output } = await JsConfuser.obfuscate(
     `
     TEST_ARRAY = [];
-
-    for ( var i =1; i < 10; i++ ) {
-      if(i%2==0){
+    for (let i = 1; i < 10; i++) {
+      if (i % 2 == 0) {
         continue;
       }
-      if(i==7){
+      if (i == 7) {
         break;
       }
-      TEST_ARRAY.push(i);
+      TEST_ARRAY["push"](i);
     }
-
     var j;
-
-    a: for ( var i = 0; i < 5; i++ ) {
-      if ( i == 3 ) {
-        for ( j = 0; j < 5; j++ ) {
-          if ( j == 1 ) {break a;}
-          if ( j % 2 == 0 ) { continue a;}
+    QYZuQDZ: for (let i2 = 0; i2 < 5; i2++) {
+      if (i2 == 3) {
+        for (j = 0; j < 5; j++) {
+          if (j == 1) {
+            break QYZuQDZ;
+          }
+          if (j % 2 == 0) {
+            continue QYZuQDZ;
+          }
         }
-        TEST_ARRAY.push(-1);
+        TEST_ARRAY["push"](-1);
       }
     }
-
-    var fillerExpr1;
-    var fillerExpr2;
-    var fillerExpr3;
-    var fillerExpr4;
-    var fillerExpr5;
     `,
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -556,6 +566,7 @@ test("Variant #17: Flatten with infinite for loop and break", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -601,6 +612,7 @@ test("Variant #20: Work with redefined functions", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -625,6 +637,7 @@ test("Variant #21: Don't move Import Declarations", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -661,6 +674,7 @@ test("Variant #22: Don't break typeof expression", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -693,7 +707,7 @@ test("Variant #23: Don't break Super calls", async () => {
   var myObject = new MyClass2();
   TEST_OUTPUT = myObject.val; // 10
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: true, pack: true }
   );
 
   var TEST_OUTPUT;
@@ -761,6 +775,7 @@ test("Variant #24: Nested function-calls with labeled breaks/continues", async (
     renameVariables: true,
     identifierGenerator: "mangled",
     variableMasking: true,
+    pack: true,
   });
 
   var TEST_OUTPUT;
@@ -784,6 +799,7 @@ test("Variant #25: Don't break call expressions to bound functions", async () =>
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
+    pack: true,
   });
 
   // Ensure Control Flow Flattening applied
@@ -810,7 +826,7 @@ test("Variant #26: Add opaque predicates and still work", async () => {
 
   TEST_OUTPUT.push( true ? 3 : "Incorrect Conditional Statement" );
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: true, pack: true }
   );
 
   expect(output).toContain("while");
@@ -824,7 +840,6 @@ test("Variant #26: Add opaque predicates and still work", async () => {
 test("Variant #27: Work on async/generator functions", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
-  "use strict";
   async function myAsyncFunction(){
     await (1);
   }
@@ -842,7 +857,7 @@ test("Variant #27: Work on async/generator functions", async () => {
   var fillerVar2;
   var fillerVar3;
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: true, pack: true }
   );
 
   // Ensure Control Flow Flattening applied
@@ -875,6 +890,7 @@ test("Variant #28: Don't break update expressions", async () => {
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     controlFlowFlattening: true,
+    pack: true,
   });
 
   // Ensure Control Flow Flattening applied
@@ -944,6 +960,7 @@ test("Variant #29: Nested labeled break and continue statements with RGF enabled
     rgf: true,
     renameVariables: true,
     identifierGenerator: "mangled",
+    pack: true,
   });
 
   // Run the code
@@ -1039,6 +1056,7 @@ test("Variant #30: Properly handle switch statements", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -1067,7 +1085,7 @@ test("Variant #31: Don't break nested function calls", async () => {
 
     TEST_OUTPUT = counter;
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: true, pack: true }
   );
 
   expect(output).toContain("while");
@@ -1095,7 +1113,7 @@ test("Variant #32: Skip blocks with redefined functions", async () => {
   }
   TEST_OUTPUT = counter;
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: true, pack: true }
   );
 
   expect(output).not.toContain("while");
@@ -1133,7 +1151,7 @@ test("Variant #33: Skip blocks with name collision", async () => {
 
     TEST_OUTPUT = counter;
   `,
-    { target: "node", controlFlowFlattening: true }
+    { target: "node", controlFlowFlattening: true, pack: true }
   );
 
   expect(output).not.toContain("while");
@@ -1205,6 +1223,7 @@ test("Variant #34: Flatten If Statements multiple times", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -1266,6 +1285,7 @@ test("Variant #36: Preserve modified global", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -1279,29 +1299,29 @@ test("Variant #37: Nested parameter across multiple functions", async () => {
   var { code } = await JsConfuser.obfuscate(
     `
     function myFunction() {
-  function fn1(nestedParam) {
-    function fn2() {
-      return nestedParam;
+      function fn1(nestedParam) {
+        function fn2() {
+          var _;
+          ("fn2 Body");
+          return nestedParam;
+        }
+
+        ("fn1 Body");
+        return fn2();
+      }
+
+      ("myFunction Body");
+      return fn1("Correct Value");
     }
 
-    ("FN1 Body");
-    console.log(nestedParam);
+    var x = myFunction();
 
-    return fn2();
-  }
-
-  ("FN2 Body");
-
-  return fn1("Correct Value");
-}
-
-var x = myFunction();
-
-TEST_OUTPUT = x;
-    `,
+    TEST_OUTPUT = x;
+  `,
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
 
@@ -1327,6 +1347,7 @@ test("Variant #38: Generator function with mangled numbers", async () => {
     {
       target: "node",
       controlFlowFlattening: true,
+      pack: true,
     }
   );
   expect(code).toContain("while");

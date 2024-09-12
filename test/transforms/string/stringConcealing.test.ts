@@ -353,3 +353,33 @@ test("Variant #14: Nested, duplicate strings", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
+
+test("Variant #15: Template strings", async () => {
+  var stringsCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    TEST_OUTPUT = \`Hello World\`
+    `,
+    {
+      target: "node",
+      stringConcealing: (strValue) => {
+        stringsCollected.push(strValue);
+
+        return true;
+      },
+    }
+  );
+
+  // Ensure the string got concealed
+  expect(code).not.toContain("Hello World");
+
+  // Ensure the custom implementation was called
+  expect(stringsCollected).toContain("Hello World");
+
+  // Ensure the code works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
+});

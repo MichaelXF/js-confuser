@@ -136,6 +136,7 @@ test("Variant #6: Work on High Preset", async () => {
       target: "node",
       preset: "high",
       rgf: true,
+      pack: true,
     }
   );
 

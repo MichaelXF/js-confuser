@@ -159,3 +159,65 @@ test("Variant #7: Force Variable declarations to be expanded", async () => {
   expect(output).toContain("var myIfVar2;");
   expect(output).toContain("var myIfVar3");
 });
+
+test("Variant #8: Convert Regex Literals to `new RegExp()` constructor calls", async () => {
+  var { code: output } = await JsConfuser.obfuscate(
+    `
+    const numberRegex = /-?(?:\\d+\\.\\d+|\\.\\d+|\\d+)(?=\\b)/g;
+
+    const testString = \`
+      This is a test -123 with numbers 456, 78.9, and .23, -0.45, -98.76, and 0.5.
+      Invalid numbers include -. and text like abc.
+    \`;
+
+    var numbers = testString.match(numberRegex)
+
+    TEST_OUTPUT = numbers;
+  `,
+    {
+      target: "node",
+      compact: true, // <- Something needs to be enabled
+    }
+  );
+
+  // Ensure the regex literal got changed
+  expect(output).toContain("new RegExp");
+  expect(output).not.toContain("/g");
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual([
+    "-123",
+    "456",
+    "78.9",
+    ".23",
+    "-0.45",
+    "-98.76",
+    "0.5",
+  ]);
+});
+
+test("Variant #9: Convert Template Literals into equivalent String Literal", async () => {
+  const { code } = await JsConfuser.obfuscate(
+    `
+    var firstName = \`John\`;
+    var lastName = \`Doe\`;
+
+    var fullName = \`\${firstName} \${lastName}\`;
+    TEST_OUTPUT = \`Hello \${fullName}!\`;
+    `,
+    {
+      target: "node",
+      compact: true, // <- Something needs to be enabled
+    }
+  );
+
+  // Ensure the template literals got changed
+  expect(code).not.toContain("`");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello John Doe!");
+});

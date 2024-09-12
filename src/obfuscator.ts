@@ -37,6 +37,7 @@ import { assertScopeIntegrity } from "./utils/scope-utils";
 import opaquePredicates from "./transforms/opaquePredicates";
 import minify from "./transforms/minify";
 import functionOutlining from "./transforms/functionOutlining";
+import pack from "./transforms/pack";
 
 export const DEFAULT_OPTIONS: ObfuscateOptions = {
   target: "node",
@@ -160,6 +161,7 @@ export default class Obfuscator {
     ast: babel.types.File,
     options?: {
       profiler?: ProfilerCallback;
+      disablePack?: boolean;
     }
   ): babel.types.File {
     for (let i = 0; i < this.plugins.length; i++) {
@@ -184,6 +186,10 @@ export default class Obfuscator {
       }
     }
 
+    if (this.options.pack && !options?.disablePack) {
+      ast = pack(ast, this);
+    }
+
     return ast;
   }
 
@@ -191,7 +197,7 @@ export default class Obfuscator {
     // Parse the source code into an AST
     let ast = Obfuscator.parseCode(sourceCode);
 
-    this.obfuscateAST(ast);
+    ast = this.obfuscateAST(ast);
 
     // Generate the transformed code from the modified AST with comments removed and compacted output
     const code = this.generateCode(ast);
@@ -232,6 +238,10 @@ export default class Obfuscator {
     const { code } = generate(ast, {
       comments: false, // Remove comments
       minified: compact,
+      // jsescOption: {
+      //   String Encoding using Babel
+      //   escapeEverything: true,
+      // },
     });
 
     return code;

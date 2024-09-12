@@ -88,6 +88,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (blockPath.isProgram()) {
             blockPath.scope.crawl();
           }
+
           if (blockPath.find((p) => me.isSkipped(p))) return;
 
           if (!checkProbability()) return;

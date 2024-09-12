@@ -33,12 +33,15 @@ export const FN_LENGTH = Symbol("fnLength");
 
 export const CONTROL_OBJECTS = Symbol("controlObjects");
 
+export const NO_RENAME = Symbol("noRename");
+
 export interface NodeSymbol {
   [UNSAFE]?: boolean;
   [PREDICTABLE]?: boolean;
   [SKIP]?: boolean | number;
   [FN_LENGTH]?: number;
   [CONTROL_OBJECTS]?: ControlObject[];
+  [NO_RENAME]?: string;
 }
 
 /**

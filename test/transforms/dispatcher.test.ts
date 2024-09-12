@@ -321,6 +321,7 @@ test("Variant #13: Work with Control Flow Flattening", async () => {
     target: "browser",
     dispatcher: true,
     controlFlowFlattening: true,
+    pack: true,
   });
 
   var value = "never_called";

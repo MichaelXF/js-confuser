@@ -712,6 +712,7 @@ test("Variant #28: Transform __JS_CONFUSER_VAR__ on High Preset", async () => {
     {
       target: "node",
       preset: "high",
+      pack: true,
     }
   );
 
@@ -721,4 +722,64 @@ test("Variant #28: Transform __JS_CONFUSER_VAR__ on High Preset", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #29: Redefined hoisted function", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    "use strict";
+    function a() {
+      return 10;
+    }
+
+    TEST_OUTPUT = [];
+
+    for (var i = 1; i <= a(); i++) {
+      function a() {
+        return 5;
+      }
+      var b, c;
+      let d;
+      TEST_OUTPUT.push(i);
+    }
+  `,
+    { target: "node", renameVariables: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  // Non-strict mode: [1,2,3,4,5]
+  // Strict mode: [1,2,3,4,5,6,7,8,9,10]
+  expect(TEST_OUTPUT).toStrictEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+});
+
+test("Variant #30: Non-strict mode hoisted function", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function getTen() {
+      return 10;
+    }
+
+    var counter = 0;
+
+    for (var i = 1; i <= getTen(); i++) {
+      function getFive() {
+        return 5;
+      }
+
+      counter++;
+    }
+
+    TEST_FUNCTION(counter);
+    `,
+    { target: "node", renameVariables: true }
+  );
+
+  var TEST_FUNCTION = (value) => (TEST_OUTPUT = value);
+  var TEST_OUTPUT;
+
+  new Function("TEST_FUNCTION", code)(TEST_FUNCTION);
+
+  expect(TEST_OUTPUT).toStrictEqual(10);
 });

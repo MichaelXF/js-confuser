@@ -14,6 +14,7 @@ import {
 } from "../utils/function-utils";
 import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 import { numericLiteral } from "../utils/node";
+import { prependProgram } from "../utils/ast-utils";
 
 export default ({ Plugin }: PluginArg): PluginObj => {
   const me = Plugin(Order.Dispatcher);
@@ -21,18 +22,31 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
   const setFunctionLength = me.getPlaceholder("d_fnLength");
 
-  let active = true;
-
   return {
     visitor: {
       "Program|Function": {
         exit(_path) {
-          if (!active) return;
-
           const blockPath = _path as NodePath<t.Program | t.Function>;
 
           if (blockPath.isProgram()) {
             blockPath.scope.crawl();
+
+            // Don't insert function length code when disabled
+            // Instead insert empty function as the identifier is still referenced
+            var insertNode = t.functionDeclaration(
+              t.identifier(setFunctionLength),
+              [],
+              t.blockStatement([])
+            );
+
+            if (me.options.preserveFunctionLength) {
+              // Insert function length code
+              insertNode = SetFunctionLengthTemplate.single({
+                fnName: setFunctionLength,
+              });
+            }
+
+            me.skip(prependProgram(_path, insertNode));
           }
 
           if ((blockPath.node as NodeSymbol)[UNSAFE]) return;
@@ -71,7 +85,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 }
 
                 // Do not apply to functions in nested scopes
-                if (path.parentPath !== blockStatement) {
+                if (path.parentPath !== blockStatement || me.isSkipped(path)) {
                   illegalNames.add(name);
                   return;
                 }
@@ -322,6 +336,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             fnLengthsObjectExpression: fnLengths,
           });
 
+          (dispatcher as NodeSymbol)[PREDICTABLE] = true;
+
           /**
            * Prepends the node into the block. (And registers the declaration)
            * @param node
@@ -353,27 +369,6 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               ),
             ])
           );
-
-          if (blockPath.isProgram()) {
-            active = false;
-
-            if (me.options.preserveFunctionLength) {
-              // Insert function length code
-              prepend(
-                SetFunctionLengthTemplate.single({ fnName: setFunctionLength })
-              );
-            } else {
-              // Don't insert function length code when disabled
-              // Instead insert empty function as the identifier is still referenced
-              prepend(
-                t.functionDeclaration(
-                  t.identifier(setFunctionLength),
-                  [],
-                  t.blockStatement([])
-                )
-              );
-            }
-          }
 
           // Remove original functions
           for (let path of functionPaths.values()) {

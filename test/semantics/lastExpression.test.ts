@@ -11,6 +11,7 @@ test("Variant #1: Last expression is preserved on 'High' preset", async () => {
     {
       target: "node",
       preset: "high",
+      pack: true,
     }
   );
 
@@ -34,6 +35,7 @@ test("Variant #2: Last expression is preserved on 'High' preset with RGF", async
       target: "node",
       preset: "high",
       rgf: true,
+      pack: true,
     }
   );
 
