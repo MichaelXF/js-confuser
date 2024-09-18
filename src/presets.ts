@@ -30,7 +30,7 @@ const highPreset: ObfuscateOptions = {
   minify: true,
   movedDeclarations: true,
   objectExtraction: true,
-  // opaquePredicates: 0.75,
+  opaquePredicates: 0.75,
   renameVariables: true,
   renameGlobals: true,
   shuffle: true,

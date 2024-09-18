@@ -30,6 +30,7 @@ import {
   PREDICTABLE,
   variableFunctionName,
   WITH_STATEMENT,
+  CONTROL_OBJECTS,
 } from "../constants";
 
 /**
@@ -258,11 +259,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               ? me.obfuscator.nameGen
               : new NameGen(me.options.identifierGenerator);
 
-            findWithBindings(): ScopeManager {
-              if (this.nameMap.size === 0)
-                return this.parent?.findWithBindings();
+            findBestWithDiscriminant(basicBlock: BasicBlock): ScopeManager {
+              if (basicBlock !== this.initializingBasicBlock) {
+                if (this.nameMap.size > 0) return this;
+              }
 
-              return this;
+              return this.parent?.findBestWithDiscriminant(basicBlock);
             }
 
             getNewName(name: string, originalNode?: t.Node) {
@@ -570,6 +572,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             }
           }
 
+          /**
+           * Stage 1: Flatten the code into Basic Blocks
+           *
+           * This involves transforming the Control Flow / Scopes into blocks with 'goto' statements
+           *
+           * - A block is simply a sequence of statements
+           * - A block can have a 'goto' statement to another block
+           * - A block original scope is preserved
+           *
+           * 'goto' & Scopes are transformed in Stage 2
+           */
+
           const switchLabel = me.getPlaceholder();
           const breakStatement = () => {
             return t.breakStatement(t.identifier(switchLabel));
@@ -681,14 +695,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   functionExpression,
                 ]);
 
+                // Change the function declaration to a variable declaration
                 hoistedBasicBlock.body.unshift(
-                  t.expressionStatement(
-                    t.assignmentExpression(
-                      "=",
-                      sm.getMemberExpression(rename),
+                  t.variableDeclaration("var", [
+                    t.variableDeclarator(
+                      t.identifier(fnName),
                       functionExpression
-                    )
-                  )
+                    ),
+                  ])
                 );
 
                 const blockStatement = statement.get("body");
@@ -912,7 +926,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               }
             });
             // DEAD CODE 3/3: Clone chunks but these chunks are never ran
-            const cloneChunkCount = 0; // getRandomInteger(1, 5);
+            const cloneChunkCount = getRandomInteger(1, 5);
             for (let i = 0; i < cloneChunkCount; i++) {
               let randomChunk = choice(Array.from(basicBlocks.values()));
 
@@ -945,7 +959,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Select scope managers for the with statement
           for (const basicBlock of basicBlocks.values()) {
             basicBlock.bestWithDiscriminant =
-              basicBlock.initializedScope?.findWithBindings();
+              basicBlock.initializedScope?.findBestWithDiscriminant(basicBlock);
 
             if (isDebug && basicBlock.withDiscriminant) {
               basicBlock.body.unshift(
@@ -957,6 +971,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               );
             }
           }
+
+          /**
+           * Stage 2: Transform 'goto' statements into valid JavaScript
+           *
+           * - 'goto' is replaced with equivalent state updates and break statements
+           * - Original identifiers are converted into member expressions
+           */
 
           // Remap 'GotoStatement' to actual state assignments and Break statements
           for (const basicBlock of basicBlocks.values()) {
@@ -1238,6 +1259,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             basicBlock.thisPath.traverse(visitor);
           }
+
+          /**
+           * Stage 3: Create a switch statement to handle the control flow
+           *
+           * - Add fake / impossible blocks
+           * - Add fake / predicates to the switch cases tests
+           */
 
           // Create global numbers for predicates
           const mainScope = basicBlocks.get(startLabel).scopeManager;
@@ -1551,6 +1579,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           // Reset all bindings here
           blockPath.scope.bindings = Object.create(null);
+
+          // Bindings changed - breaking control objects
+          delete (blockPath.node as NodeSymbol)[CONTROL_OBJECTS];
 
           // Register new declarations
           for (var node of blockPath.get("body")) {

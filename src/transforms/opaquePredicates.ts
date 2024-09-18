@@ -2,18 +2,9 @@ import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
 import { NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
-import Template from "../templates/template";
-import { NameGen } from "../utils/NameGen";
-import { getBlock, prependProgram } from "../utils/ast-utils";
-import {
-  chance,
-  choice,
-  getRandomString,
-  shuffle,
-} from "../utils/random-utils";
+import { getBlock } from "../utils/ast-utils";
+import { chance, getRandomString } from "../utils/random-utils";
 import { computeProbabilityMap } from "../probability";
-import { NodeSymbol, PREDICTABLE } from "../constants";
-import ControlObject from "../utils/ControlObject";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.OpaquePredicates, {

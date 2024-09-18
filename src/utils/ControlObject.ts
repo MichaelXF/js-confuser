@@ -50,18 +50,18 @@ export default class ControlObject {
 
   createTruePredicate() {
     var { node, value } = this.createPredicate();
-    if (!value) {
-      return t.unaryExpression("!", node);
+    if (value) {
+      return node;
     }
-    return node;
+    return t.unaryExpression("!", node);
   }
 
   createFalsePredicate() {
     var { node, value } = this.createPredicate();
-    if (value) {
-      return t.unaryExpression("!", node);
+    if (!value) {
+      return node;
     }
-    return node;
+    return t.unaryExpression("!", node);
   }
 
   private ensureCreated(node?: t.Node) {
