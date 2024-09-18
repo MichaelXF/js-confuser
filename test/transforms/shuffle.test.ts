@@ -83,3 +83,32 @@ test("Variant #4: Don't use common variable names like x", async () => {
   eval(output);
   expect(VALUE).toEqual([1, 2, 3, 4, 5, 6]);
 });
+
+test("Variant #5: Don't apply to arrays with non-pure elements", async () => {
+  var shuffleCalled = false;
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var counter = 0;
+    function increment(by) {
+      counter += by;
+      return counter;
+    }
+    TEST_OUTPUT = [increment(1), increment(2), increment(3), increment(4)];
+    `,
+    {
+      target: "node",
+      shuffle: () => {
+        shuffleCalled = true;
+        return true;
+      },
+    }
+  );
+
+  expect(shuffleCalled).toStrictEqual(false);
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual([1, 3, 6, 10]);
+});

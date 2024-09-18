@@ -492,3 +492,37 @@ test("Variant #19: Lexically bound variables", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Hello World");
 });
+
+test("Variant #20: Ignore functions with 'use strict' directive", async () => {
+  var { code: output } = await JsConfuser.obfuscate(
+    `
+  function myFunction(){
+    "use strict";
+
+    // In strict mode, undefined cannot be reassigned
+    try {
+      undefined = false;
+    } catch(e) {
+      return "Correct Value"; 
+    }
+
+    return "Incorrect Value";
+  }
+  
+  TEST_OUTPUT = myFunction();
+  `,
+    {
+      target: "node",
+      dispatcher: true,
+      pack: true, // Escape Jest strict mode
+    }
+  );
+
+  expect(output).not.toContain("dispatcher_0");
+
+  var TEST_OUTPUT;
+
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

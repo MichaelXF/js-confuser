@@ -276,33 +276,12 @@ test("Variant #10: Configurable by custom function option", async () => {
 
   var { code: output } = await JsConfuser.obfuscate(
     `
-  "use strict";
-
-  // By checking strict-mode, we can check if the function was RGF or not
   function rgfThisFunction(){
-    var isStrictMode = () => {
-      try {
-        undefined = true;
-      } catch (E) {
-        return true;
-      }
-      return false;
-    }
-
-    return isStrictMode();
+    return true;
   }
-
+  
   function doNotRgfThisFunction(){
-    var isStrictMode = () => {
-      try {
-        undefined = true;
-      } catch (E) {
-        return true;
-      }
-      return false;
-    }
-
-    return isStrictMode();
+    return true;
   }
 
   TEST_OUTPUT_1 = rgfThisFunction();
@@ -314,6 +293,7 @@ test("Variant #10: Configurable by custom function option", async () => {
         functionNames.push(name);
         return name !== "doNotRgfThisFunction";
       },
+      pack: true,
     }
   );
 
@@ -323,11 +303,14 @@ test("Variant #10: Configurable by custom function option", async () => {
   ]);
   expect(output).toContain("eval");
 
+  expect(output).not.toContain("rgfThisFunction(){return true");
+  expect(output).toContain("doNotRgfThisFunction(){return true");
+
   var TEST_OUTPUT_1;
   var TEST_OUTPUT_2;
 
   eval(output);
-  expect(TEST_OUTPUT_1).toStrictEqual(false);
+  expect(TEST_OUTPUT_1).toStrictEqual(true);
   expect(TEST_OUTPUT_2).toStrictEqual(true);
 });
 
@@ -351,7 +334,7 @@ test("Variant #11: Function containing function should both be changed", async f
   );
 
   // 2 means one Function changed, 3 means two Functions changed
-  expect(output.split("_rgf_eval(").length).toStrictEqual(3);
+  expect(output.split('_rgf_eval("').length).toStrictEqual(3);
 
   var TEST_OUTPUT;
   eval(output);

@@ -83,3 +83,26 @@ test("Variant #2: Preserve 'use strict' directive", async () => {
 
   expect(value).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 });
+
+test("Variant #3: Custom probability function", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function myFunction(){
+      return "Correct Value";
+    }
+    TEST_OUTPUT = myFunction();
+    
+    `,
+    {
+      target: "browser",
+      deadCode: () => {
+        return true;
+      },
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

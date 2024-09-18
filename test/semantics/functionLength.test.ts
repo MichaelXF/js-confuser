@@ -41,6 +41,7 @@ test("Variant #2: Allow user to disable preserving function.length", async () =>
       stringSplitting: false,
       deadCode: false,
       duplicateLiteralsRemoval: false,
+      opaquePredicates: false,
 
       rgf: true,
       pack: true,

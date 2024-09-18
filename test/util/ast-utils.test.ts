@@ -2,9 +2,12 @@ import { ok } from "assert";
 import Obfuscator from "../../src/obfuscator";
 import {
   getFunctionName,
+  getPatternIdentifierNames,
   isDefiningIdentifier,
+  isUndefined,
 } from "../../src/utils/ast-utils";
-import traverse from "@babel/traverse";
+import traverse, { NodePath } from "@babel/traverse";
+import * as t from "@babel/types";
 
 describe("getFunctionName", () => {
   test("Variant #1: Function Declaration / Expression", () => {
@@ -107,24 +110,27 @@ describe("getFunctionName", () => {
   });
 });
 
+function getIdentifierPath(
+  sourceCode: string,
+  targetIdentifierName = "id"
+): NodePath<t.Identifier> {
+  const ast = Obfuscator.parseCode(sourceCode);
+  let returnPath;
+
+  traverse(ast, {
+    Identifier(path) {
+      if (path.node.name === targetIdentifierName) {
+        returnPath = path;
+      }
+    },
+  });
+
+  ok(returnPath, `${targetIdentifierName} not found in ${sourceCode}`);
+
+  return returnPath;
+}
+
 describe("isDefiningIdentifier", () => {
-  function getIdentifierPath(sourceCode: string, targetIdentifierName = "id") {
-    var ast = Obfuscator.parseCode(sourceCode);
-    var returnPath;
-
-    traverse(ast, {
-      Identifier(path) {
-        if (path.node.name === targetIdentifierName) {
-          returnPath = path;
-        }
-      },
-    });
-
-    ok(returnPath, `${targetIdentifierName} not found in ${sourceCode}`);
-
-    return returnPath;
-  }
-
   test("Variant #1: True examples", () => {
     `
     var id = 1
@@ -152,6 +158,11 @@ describe("isDefiningIdentifier", () => {
     try{}catch({_: id}){}
     for(var id in []){}
     for(var id of []){}
+    import id from "module"
+    import * as id from "module"
+    import {id} from "module"
+    import {_ as id} from "module"
+    import {_, id} from "module"
      `
       .split("\n")
       .forEach((sourceCode) => {
@@ -189,6 +200,8 @@ describe("isDefiningIdentifier", () => {
     try{}catch({_: _ = id}){}
     try{}catch({id: _ = _}){}
     try{}catch({_ = id}){}
+    import {id as _} from "module"
+    import {_, id as __} from "module"
      `
       .split("\n")
       .forEach((sourceCode) => {
@@ -202,5 +215,55 @@ describe("isDefiningIdentifier", () => {
           );
         }
       });
+  });
+});
+
+describe("getPatternIdentifierNames", () => {
+  test("Variant #1: Function parameters", () => {
+    var sampleOne = `
+    function abc(id1, {id2}, {_: id3}, id4 = 1, {id5 = 1}, {_: [id6] = 1}, ...id7){}
+    `;
+
+    var path = getIdentifierPath(sampleOne, "id1");
+    var functionPath = path.getFunctionParent()!;
+
+    expect(functionPath.type).toStrictEqual("FunctionDeclaration");
+
+    var result = getPatternIdentifierNames(functionPath.get("params"));
+    expect(result).toStrictEqual(
+      new Set(["id1", "id2", "id3", "id4", "id5", "id6", "id7"])
+    );
+  });
+});
+
+function getExpression(code) {
+  var ast = Obfuscator.parseCode(code);
+
+  ok(ast.program.body.length === 1);
+  var returnPath: NodePath<t.Expression> | null = null;
+  traverse(ast, {
+    Program(path) {
+      returnPath = path
+        .get("body")[0]
+        .get("expression") as NodePath<t.Expression>;
+
+      ok(returnPath.isExpression());
+    },
+  });
+
+  ok(returnPath);
+
+  return returnPath!;
+}
+
+describe("isUndefined", () => {
+  test("Variant #1: True examples", () => {
+    expect(isUndefined(getExpression("undefined"))).toStrictEqual(true);
+    expect(isUndefined(getExpression("void 0"))).toStrictEqual(true);
+  });
+
+  test("Variant #2: False examples", () => {
+    expect(isUndefined(getExpression("myIdentifier"))).toStrictEqual(false);
+    expect(isUndefined(getExpression("10+10"))).toStrictEqual(false);
   });
 });

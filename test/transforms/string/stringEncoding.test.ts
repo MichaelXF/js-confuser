@@ -95,6 +95,7 @@ test("Variant #5: Preserve 'use strict' directive", async () => {
   var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     preset: "high",
+    pack: false,
   });
 
   expect(output.startsWith('"use strict"')).toStrictEqual(true);

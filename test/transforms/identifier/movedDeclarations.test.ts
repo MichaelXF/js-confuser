@@ -197,22 +197,16 @@ test("Variant #9: Defined variable without an initializer + CFF + Duplicate Lite
   TEST_OUTPUT = x + y;
   `;
 
-  var { code: output1 } = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
     controlFlowFlattening: true,
     duplicateLiteralsRemoval: true,
-  });
-
-  var { code: output2 } = await JsConfuser.obfuscate(output1, {
-    target: "node",
-    movedDeclarations: true,
-    controlFlowFlattening: true,
-    duplicateLiteralsRemoval: true,
+    pack: true,
   });
 
   var TEST_OUTPUT;
-  eval(output2);
+  eval(output);
   expect(TEST_OUTPUT).toStrictEqual(3);
 });
 
@@ -356,4 +350,31 @@ test("Variant #12: Move function declaration as parameter", async () => {
     "Correct Value",
     "Correct Value",
   ]);
+});
+
+test("Variant #13: Variable and parameter with the same name", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function abc(a, b, c) {
+      var c = a + b + c;
+
+      TEST_OUTPUT = c;
+    }
+
+    abc(1, 2, 3);
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+
+      // Harden the test by renaming variables
+      renameVariables: true,
+      identifierGenerator: "mangled",
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(6);
 });

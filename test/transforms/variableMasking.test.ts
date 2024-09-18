@@ -582,11 +582,11 @@ test("Variant #19: For, For In/Of Statement", async () => {
     `
     function declarationInitializer(){
       var items = [1,2,3,4,5], output = 0;
-      for(var i1 = 0; i1 < items.length; i1++) {
-        output += items[i1]
+      for(var i1_ = 0; i1_ < items.length; i1_++) {
+        output += items[i1_]
       }
-      for(var i2 in items) {
-        output += items[i2] * 2
+      for(var i2_ in items) {
+        output += items[i2_] * 2
       }
       for(var item of items) {
         output += item * 2
@@ -595,12 +595,12 @@ test("Variant #19: For, For In/Of Statement", async () => {
     }
 
     function nonDeclarationInitializer(){
-      var items = [5,6,7,8,9,10], output = 0, i1, item;
-      for(i1 = 0; i1 < items.length; i1++) {
-        output += items[i1]
+      var items = [5,6,7,8,9,10], output = 0, i1_, item;
+      for(i1_ = 0; i1_ < items.length; i1_++) {
+        output += items[i1_]
       }
-      for(i1 in items) {
-        output += items[i1] * 2
+      for(i1_ in items) {
+        output += items[i1_] * 2
       }
       for(item of items) {
         output += item * 2
@@ -635,4 +635,28 @@ test("Variant #19: For, For In/Of Statement", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual(300);
+});
+
+test("Variant #20: Handle __JS_CONFUSER_VAR__ function", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function myFunction(){
+      var myVar = "Correct Value";
+      TEST_OUTPUT = __JS_CONFUSER_VAR__(myVar);
+    }
+
+    myFunction();
+    `,
+    {
+      target: "node",
+      variableMasking: true,
+      renameVariables: true,
+    }
+  );
+
+  expect(code).not.toContain("__JS_CONFUSER_VAR__");
+
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).not.toBeUndefined();
 });

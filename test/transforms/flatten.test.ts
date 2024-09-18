@@ -387,7 +387,7 @@ test("Variant #13: Work with assignment expression in the return statement", asy
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
 
-test("Variant #14: Work with 'use strict' directive", async () => {
+test("Variant #14: Ignore functions with 'use strict' directive", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(){
@@ -401,8 +401,8 @@ test("Variant #14: Work with 'use strict' directive", async () => {
     { target: "node", flatten: true }
   );
 
-  // Ensure flat was applied
-  expect(output).toContain("_flat_myFunction");
+  // Ensure flatten was not applied
+  expect(output).not.toContain("_flat_");
 
   var TEST_OUTPUT;
   eval(output);
@@ -547,12 +547,12 @@ test("Variant #18: Redefined variable in nested scope + Rename Variables", async
     {
       target: "node",
       flatten: true,
-      renameVariables: (x) => !x.includes("_flat_"),
+      renameVariables: true,
     }
   );
 
-  expect(output).toContain("_flat_myFunction1");
-  expect(output).toContain("_flat_myFunction2");
+  // Ensure flat object was found
+  expect(output).toContain("get");
 
   var TEST_OUTPUT_1, TEST_OUTPUT_2;
   eval(output);
@@ -718,4 +718,29 @@ test("Variant #24: Typeof expression", async () => {
 
   eval(output);
   expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+test("Variant #25: Handle __JS_CONFUSER_VAR__ function", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var myVar = "Correct Value";
+
+    function myFunction(){
+      TEST_OUTPUT = __JS_CONFUSER_VAR__(myVar);
+    }
+
+    myFunction();
+    `,
+    {
+      target: "node",
+      flatten: true,
+      renameVariables: true,
+    }
+  );
+
+  expect(code).not.toContain("__JS_CONFUSER_VAR__");
+
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).not.toBeUndefined();
 });

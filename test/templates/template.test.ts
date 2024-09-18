@@ -1,3 +1,4 @@
+import { UNSAFE } from "../../src/constants";
 import Obfuscator from "../../src/obfuscator";
 import Template from "../../src/templates/template";
 import * as t from "@babel/types";
@@ -286,4 +287,41 @@ test("Variant #13: Handle multiple AST-based variables", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #14: Add symbols to template", async () => {
+  var ValidTemplate = new Template(`
+    function myUnsafeFunction(){
+      return eval('"Correct Value"')
+    }
+    TEST_OUTPUT = myUnsafeFunction();
+    `).addSymbols(UNSAFE);
+
+  var file = ValidTemplate.file();
+  var statements = file.program.body;
+  expect(statements.length).toStrictEqual(2);
+
+  expect(statements[0][UNSAFE]).toStrictEqual(true);
+  expect(statements[1][UNSAFE]).toStrictEqual(true);
+
+  var code = Obfuscator.generateCode(file);
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #15: Error on duplicate node insertions", async () => {
+  var InvalidTemplate = new Template(`
+    var myString1 = {str}
+    var myString2 = {str}
+    TEST_OUTPUT = {str}
+    `);
+
+  expect(() => {
+    InvalidTemplate.compile({
+      str: t.stringLiteral("Duplicate node inserted"),
+    });
+  }).toThrow();
 });

@@ -777,3 +777,28 @@ test("Variant #31: Dead code elimination", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual([1, 2, 3]);
 });
+
+test("Variant #32: Work with Eval calls", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var localVar = false;
+    eval(__JS_CONFUSER_VAR__(localVar) + " = true")
+    if(!localVar) {
+      TEST_OUTPUT = "Incorrect Value";
+    }
+
+    if(!TEST_OUTPUT) {
+      TEST_OUTPUT = "Correct Value";
+    }
+    `,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

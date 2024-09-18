@@ -207,6 +207,7 @@ test("Variant #10: Properly handle declared global variables", async () => {
     `
     function console(){
       VALID_GLOBAL.TEST_PROPERTY = true;
+      VALID_GLOBAL.ANOTHER_PROPERTY = true;
       INVALID_GLOBAL = true;
     }
 
@@ -235,4 +236,35 @@ test("Variant #10: Properly handle declared global variables", async () => {
 
   expect(VALID_GLOBAL.TEST_PROPERTY).toStrictEqual(true);
   expect(INVALID_GLOBAL).toStrictEqual(true);
+});
+
+test("Variant #11: Shadowed global variable", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function testFunction(){
+      var console = {
+        log: () => {
+          TEST_OUTPUT = "Correct Value";
+        }
+      };
+      function innerFunction(){
+        console.log("You should not see this.");
+      }
+
+      innerFunction()
+    }
+
+    testFunction();
+
+    `,
+    {
+      target: "node",
+      globalConcealing: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
