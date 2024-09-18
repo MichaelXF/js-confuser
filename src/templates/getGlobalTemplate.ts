@@ -1,31 +1,33 @@
 import { NodePath } from "@babel/traverse";
 import { PluginInstance } from "../transforms/plugin";
 import Template from "./template";
+import { UNSAFE } from "../constants";
 
 export const createGetGlobalTemplate = (
   pluginInstance: PluginInstance,
   path: NodePath
 ) => {
-  var options = pluginInstance.options;
-  // if (options.lock?.tamperProtection) {
-  //   return new Template(`
-  //     function {getGlobalFnName}(){
-  //       var localVar = false;
-  //       eval(${transform.jsConfuserVar("localVar")} + " = true")
-  //       if (!localVar) {
-  //         {countermeasures}
-  //       }
+  if (pluginInstance.options.lock?.tamperProtection) {
+    return new Template(`
+      function {getGlobalFnName}(){
+        var localVar = false;
+        eval(__JS_CONFUSER_VAR__(localVar) + " = true")
+        if (!localVar) {
+          {countermeasures}
 
-  //       const root = eval("this");
-  //       return root;
-  //     }
-  //   `).setDefaultVariables({
-  //     countermeasures: transform.lockTransform.getCounterMeasuresCode(
-  //       object,
-  //       parents
-  //     ),
-  //   });
-  // }
+          return {};
+        }
+
+        const root = eval("this");
+        return root;
+      }
+    `)
+      .addSymbols(UNSAFE)
+      .setDefaultVariables({
+        countermeasures:
+          pluginInstance.globalState.lock.createCountermeasuresCode(),
+      });
+  }
 
   return GetGlobalTemplate;
 };

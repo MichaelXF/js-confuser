@@ -45,7 +45,7 @@ export const BufferToStringTemplate = new Template(`
     };
   })();
 
-  function {name}(buffer){
+  function {BufferToString}(buffer){
     if(typeof __TextDecoder !== "undefined" && __TextDecoder) {
       return new __TextDecoder()["decode"](new __Uint8Array(buffer));
     } else if(typeof __Buffer !== "undefined" && __Buffer) {
