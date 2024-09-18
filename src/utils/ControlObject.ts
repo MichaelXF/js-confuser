@@ -110,7 +110,8 @@ export default class ControlObject {
   }
 
   addProperty(node: t.Expression) {
-    this.ensureCreated(node);
+    var initialNode = this.ensureCreated(node);
+    if (initialNode) return initialNode;
 
     const propertyName = this.nameGen.generate();
     this.propertyNames.add(propertyName);

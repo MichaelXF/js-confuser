@@ -189,7 +189,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Limit how many numbers get entangled
           let mangledLiteralsCreated = 0;
 
-          const prefix = cffPrefix + "_" + cffCounter++;
+          const cffIndex = ++cffCounter; // Start from 1
+          const prefix = cffPrefix + "_" + cffIndex;
 
           const withIdentifier = (suffix) => {
             var name;
@@ -201,7 +202,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             var id = t.identifier(name);
 
-            (id as NodeSymbol)[NO_RENAME] = name;
+            (id as NodeSymbol)[NO_RENAME] = cffIndex;
             return id;
           };
 
@@ -226,16 +227,27 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           let scopeCounter = 0;
 
-          const scopeNameGen = new NameGen(me.options.identifierGenerator);
+          let scopeNameGen = new NameGen(me.options.identifierGenerator);
+          if (!isDebug) {
+            scopeNameGen = me.obfuscator.nameGen;
+          }
 
-          const withProperty = isDebug ? "with" : scopeNameGen.generate();
-          const withDiscriminant = new Template(
+          // Create 'with' object - Determines which scope gets top-level variable access
+          const withProperty = isDebug ? "with" : scopeNameGen.generate(false);
+          const withMemberExpression = new Template(
             `${scopeVar.name}["${withProperty}"]`
           ).expression<t.MemberExpression>();
+          withMemberExpression.object[NO_RENAME] = cffIndex;
 
+          // Create 'resetWith' function - Safely resets the 'with' object to none
           const resetWithProperty = isDebug
             ? "resetWith"
-            : scopeNameGen.generate();
+            : scopeNameGen.generate(false);
+
+          const resetWithMemberExpression = new Template(
+            `${scopeVar.name}["${resetWithProperty}"]`
+          ).expression<t.MemberExpression>();
+          resetWithMemberExpression.object[NO_RENAME] = cffIndex;
 
           class ScopeManager {
             isNotUsed = true;
@@ -245,8 +257,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             nameGen = addWithStatement
               ? me.obfuscator.nameGen
               : new NameGen(me.options.identifierGenerator);
-
-            preserveNames = new Set<string>();
 
             findWithBindings(): ScopeManager {
               if (this.nameMap.size === 0)
@@ -261,9 +271,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 if (isDebug) {
                   newName = "_" + name;
                 }
-                if ((originalNode as NodeSymbol)?.[NO_RENAME]) {
-                  newName = name;
-                }
+
+                // console.log(name, newName);
 
                 this.nameMap.set(name, newName);
 
@@ -495,9 +504,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 this.withDiscriminant === scopeManager
               ) {
                 var id = t.identifier(identifierName);
-                (id as NodeSymbol)[NO_RENAME] = identifierName;
+                (id as NodeSymbol)[NO_RENAME] = cffIndex;
                 (id as NodeSymbol)[WITH_STATEMENT] = true;
-                me.skip(id);
                 return id;
               }
 
@@ -853,12 +861,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Add with / reset with logic
           basicBlocks.get(startLabel).body.unshift(
             new Template(`
-              ${scopeVar.name}["${resetWithProperty}"] = function(newStateValues){
-                ${scopeVar.name}["${withProperty}"] = undefined;
+              {resetWithMemberExpression} = function(newStateValues){
+                {withMemberExpression} = undefined;
                 {arrayPattern} = newStateValues
               }
               `).single({
               arrayPattern: t.arrayPattern(deepClone(stateVars)),
+              resetWithMemberExpression: deepClone(resetWithMemberExpression),
+              withMemberExpression: deepClone(withMemberExpression),
             })
           );
 
@@ -902,7 +912,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               }
             });
             // DEAD CODE 3/3: Clone chunks but these chunks are never ran
-            const cloneChunkCount = getRandomInteger(1, 5);
+            const cloneChunkCount = 0; // getRandomInteger(1, 5);
             for (let i = 0; i < cloneChunkCount; i++) {
               let randomChunk = choice(Array.from(basicBlocks.values()));
 
@@ -1045,6 +1055,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 exit(path: NodePath<t.Identifier>) {
                   if (!isVariableIdentifier(path)) return;
                   if (me.isSkipped(path)) return;
+                  if ((path.node as NodeSymbol)[NO_RENAME] === cffIndex) return;
 
                   const identifierName = path.node.name;
                   if (identifierName === gotoFunctionName) return;
@@ -1067,7 +1078,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                   var scopeManager = scopeToScopeManager.get(binding.scope);
                   if (!scopeManager) return;
-                  if (scopeManager.preserveNames.has(identifierName)) return;
 
                   let newName = scopeManager.getNewName(
                     identifierName,
@@ -1104,7 +1114,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     }
                   }
 
+                  me.skip(memberExpression);
+
                   path.replaceWith(memberExpression);
+                  path.skip();
                 },
               },
 
@@ -1157,24 +1170,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                       assignments.push(
                         t.assignmentExpression(
                           "=",
-                          deepClone(withDiscriminant),
+                          deepClone(withMemberExpression),
                           jumpBlock.withDiscriminant.getScopeObject()
                         )
                       );
                     } else if (basicBlock.withDiscriminant) {
                       assignments.push(
-                        t.callExpression(
-                          t.memberExpression(
-                            deepClone(scopeVar),
-                            t.stringLiteral(resetWithProperty),
-                            true
-                          ),
-                          [
-                            t.arrayExpression(
-                              newStateValues.map(numericLiteral)
-                            ),
-                          ]
-                        )
+                        t.callExpression(deepClone(resetWithMemberExpression), [
+                          t.arrayExpression(newStateValues.map(numericLiteral)),
+                        ])
                       );
                       needsIndividualAssignments = false;
                     }
@@ -1238,7 +1242,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Create global numbers for predicates
           const mainScope = basicBlocks.get(startLabel).scopeManager;
           const predicateNumbers = new Map<string, number>();
-          const predicateNumberCount = isDebug ? 0 : getRandomInteger(2, 5);
+          const predicateNumberCount =
+            isDebug || !addPredicateTests ? 0 : getRandomInteger(2, 5);
           for (let i = 0; i < predicateNumberCount; i++) {
             const name = mainScope.getNewName(
               me.getPlaceholder("predicate_" + i)
@@ -1413,7 +1418,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           traverse(t.program([t.expressionStatement(discriminant)]), {
             Identifier(path) {
-              (path.node as NodeSymbol)[NO_RENAME] = path.node.name;
+              (path.node as NodeSymbol)[NO_RENAME] = cffIndex;
             },
           });
 
@@ -1437,7 +1442,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 new Template(
                   `{withDiscriminant} || Object["create"](null)`
                 ).expression({
-                  withDiscriminant: deepClone(withDiscriminant),
+                  withDiscriminant: deepClone(withMemberExpression),
                 }),
                 t.blockStatement([switchStatement])
               ),

@@ -67,7 +67,7 @@ export interface NodeSymbol {
   [SKIP]?: boolean | number;
   [FN_LENGTH]?: number;
   [CONTROL_OBJECTS]?: ControlObject[];
-  [NO_RENAME]?: string;
+  [NO_RENAME]?: string | number;
 
   [GEN_NODE]?: boolean;
   [MULTI_TRANSFORM]?: boolean;
