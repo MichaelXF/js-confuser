@@ -3,14 +3,24 @@ import { ObfuscateOptions } from "../options";
 import { alphabeticalGenerator, createZeroWidthGenerator } from "./gen-utils";
 import { choice, getRandomHexString, getRandomInteger } from "./random-utils";
 import { computeProbabilityMap } from "../probability";
+import { reservedKeywords, reservedObjectPrototype } from "../constants";
 
+/**
+ * Generate random names for variables and properties.
+ */
 export class NameGen {
   public generatedNames = new Set<string>();
+  public notSafeForReuseNames = new Set<string>();
+
   private counter = 1;
   private zeroWidthGenerator = createZeroWidthGenerator();
 
   constructor(
-    private identifierGenerator: ObfuscateOptions["identifierGenerator"] = "randomized"
+    private identifierGenerator: ObfuscateOptions["identifierGenerator"] = "randomized",
+    public options = {
+      avoidReserved: false,
+      avoidObjectPrototype: false,
+    }
   ) {}
 
   private attemptGenerate() {
@@ -45,7 +55,12 @@ export class NameGen {
         return "_0x" + getRandomHexString(randomizedLength);
 
       case "mangled":
-        return alphabeticalGenerator(this.counter++);
+        var mangledName = "";
+        do {
+          mangledName = alphabeticalGenerator(this.counter++);
+        } while (reservedKeywords.includes(mangledName));
+
+        return mangledName;
 
       case "number":
         return "var_" + this.counter++;
@@ -60,14 +75,32 @@ export class NameGen {
     }
   }
 
-  generate(): string {
+  generate(isSafeForReuse = true): string {
     let name: string;
 
     do {
       name = this.attemptGenerate();
-    } while (this.generatedNames.has(name));
+
+      // Avoid reserved keywords
+      if (this.options.avoidReserved && reservedKeywords.includes(name)) {
+        name = "";
+        continue;
+      }
+
+      // Avoid reserved object prototype properties
+      if (
+        this.options.avoidObjectPrototype &&
+        reservedObjectPrototype.has(name)
+      ) {
+        name = "";
+        continue;
+      }
+    } while (!name || this.generatedNames.has(name));
 
     this.generatedNames.add(name);
+    if (!isSafeForReuse) {
+      this.notSafeForReuseNames.add(name);
+    }
     return name;
   }
 }

@@ -8,7 +8,12 @@ import { FN_LENGTH, NodeSymbol, variableFunctionName } from "../constants";
  * @returns
  */
 export function isVariableFunctionIdentifier(path: NodePath<t.Node>) {
-  if (path.isIdentifier() && path.parentPath?.isCallExpression()) {
+  if (
+    path.isIdentifier() &&
+    path.listKey === "arguments" &&
+    path.key === 0 &&
+    path.parentPath?.isCallExpression()
+  ) {
     const callee = path.parentPath.get("callee");
     return callee.isIdentifier({ name: variableFunctionName });
   }

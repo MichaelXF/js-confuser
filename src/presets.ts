@@ -1,27 +1,17 @@
 import { ObfuscateOptions } from "./options";
 
 /**
- * - High Obfuscation preset.
- * - **Average 90% performance reduction.**
+ * - High Obfuscation preset
  *
- * ## **`Enabled features`**
- * 1. Variable renaming
- * 2. Control flow obfuscation
- * 3. String concealing
- * 4. Opaque predicates
- * 5. Dead code
- * 6. Dispatcher
- * 7. Moved declarations
- * 8. Object extraction
- * 9. Global concealing
- * 10. Minified output
+ * **This preset is unsafe and may break your code.**
  *
- * ## **`Disabled features`**
- * - `rgf` Use at your own risk!
+ * Security risks:
  *
- * ### Potential Issues
- * 1. *String Encoding* can corrupt files. Disable `stringEncoding` manually if this happens.
- * 2. *Dead Code* can bloat file size. Reduce or disable `deadCode`.
+ * - Function constructor (`Pack`)
+ * - Escapes strict-mode constraints (`Pack`)
+ * - Use of `with` statement (`Control Flow Flattening`)
+ * - Object.prototype pollution (`Opaque Predicates`)
+ * - Bloats file size (`Dead Code` and `String Compression` can add up to 50kb)
  */
 const highPreset: ObfuscateOptions = {
   target: "node",
@@ -30,8 +20,8 @@ const highPreset: ObfuscateOptions = {
   calculator: true,
   compact: true,
   hexadecimalNumbers: true,
-  controlFlowFlattening: 0.75,
-  deadCode: 0.2,
+  controlFlowFlattening: 0.5,
+  deadCode: 0.25,
   dispatcher: true,
   duplicateLiteralsRemoval: 0.75,
   flatten: true,
@@ -40,11 +30,11 @@ const highPreset: ObfuscateOptions = {
   minify: true,
   movedDeclarations: true,
   objectExtraction: true,
-  opaquePredicates: 0.75,
+  // opaquePredicates: 0.75,
   renameVariables: true,
   renameGlobals: true,
   shuffle: true,
-  variableMasking: true,
+  variableMasking: 0.75,
   stringConcealing: true,
   stringCompression: true,
   stringEncoding: true,
@@ -52,13 +42,22 @@ const highPreset: ObfuscateOptions = {
   astScrambler: true,
   functionOutlining: false,
 
-  // Use at own risk
-  rgf: false,
+  // Security risks
+  pack: true,
 };
 
 /**
- * - Medium Obfuscation preset.
- * - Average 50% performance reduction.
+ * - Medium Obfuscation preset
+ *
+ * **This preset is unsafe and may break your code.**
+ *
+ * Security risks:
+ *
+ * - Function constructor (`Pack`)
+ * - Escapes strict-mode constraints (`Pack`)
+ * - Use of `with` statement (`Control Flow Flattening`)
+ * - Object.prototype pollution (`Opaque Predicates`)
+ * - Bloats file size (`Dead Code` can add up to 50kb)
  */
 const mediumPreset: ObfuscateOptions = {
   target: "node",
@@ -68,7 +67,7 @@ const mediumPreset: ObfuscateOptions = {
   compact: true,
   hexadecimalNumbers: true,
   controlFlowFlattening: 0.25,
-  deadCode: 0.025,
+  deadCode: 0.1,
   dispatcher: 0.5,
   duplicateLiteralsRemoval: 0.5,
   globalConcealing: true,
@@ -76,7 +75,6 @@ const mediumPreset: ObfuscateOptions = {
   minify: true,
   movedDeclarations: true,
   objectExtraction: true,
-  opaquePredicates: 0.5,
   renameVariables: true,
   renameGlobals: true,
   shuffle: true,
@@ -84,11 +82,14 @@ const mediumPreset: ObfuscateOptions = {
   stringConcealing: true,
   stringSplitting: 0.25,
   astScrambler: true,
+  pack: true,
 };
 
 /**
- * - Low Obfuscation preset.
- * - Average 30% performance reduction.
+ * - Low Obfuscation preset
+ *
+ * A balanced preset that provides basic obfuscation.
+ *
  */
 const lowPreset: ObfuscateOptions = {
   target: "node",
@@ -97,15 +98,13 @@ const lowPreset: ObfuscateOptions = {
   calculator: true,
   compact: true,
   hexadecimalNumbers: true,
-  controlFlowFlattening: 0.1,
-  deadCode: 0.01,
+  deadCode: 0.05,
   dispatcher: 0.25,
   duplicateLiteralsRemoval: 0.5,
   identifierGenerator: "randomized",
   minify: true,
   movedDeclarations: true,
   objectExtraction: true,
-  opaquePredicates: 0.1,
   renameVariables: true,
   renameGlobals: true,
   stringConcealing: true,

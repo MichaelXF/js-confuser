@@ -4,6 +4,12 @@ import traverse from "@babel/traverse";
 import { NodePath } from "@babel/traverse";
 import { ok } from "assert";
 import { getRandomString } from "../utils/random-utils";
+import { NodeSymbol } from "../constants";
+
+// Create a union type of the symbol keys in NodeSymbol
+type NodeSymbolKeys = keyof {
+  [K in keyof NodeSymbol as K extends symbol ? K : never]: NodeSymbol[K];
+};
 
 export interface TemplateVariables {
   [varName: string]:
@@ -21,6 +27,7 @@ export default class Template {
   private requiredVariables: Set<string>;
   private astVariableMappings: Map<string, string>;
   private astIdentifierPrefix = "__t_" + getRandomString(6);
+  private symbols: NodeSymbolKeys[] = [];
 
   constructor(...templates: string[]) {
     this.templates = templates;
@@ -28,6 +35,11 @@ export default class Template {
     this.requiredVariables = new Set<string>();
 
     this.findRequiredVariables();
+  }
+
+  addSymbols(...symbols: NodeSymbolKeys[]): this {
+    this.symbols.push(...symbols);
+    return this;
   }
 
   setDefaultVariables(defaultVariables: TemplateVariables): this {
@@ -72,11 +84,8 @@ export default class Template {
       let value = allVariables[name] as string;
 
       if (this.isASTVariable(value)) {
-        let astIdentifierName = this.astVariableMappings.get(name);
-        if (typeof astIdentifierName === "undefined") {
-          astIdentifierName = this.astIdentifierPrefix + name;
-          this.astVariableMappings.set(name, astIdentifierName);
-        }
+        let astIdentifierName = this.astIdentifierPrefix + name;
+        this.astVariableMappings.set(name, astIdentifierName);
 
         value = astIdentifierName;
       }
@@ -112,11 +121,9 @@ export default class Template {
       Identifier(path: NodePath<babelTypes.Identifier>) {
         const idName = path.node.name;
         if (!idName.startsWith(template.astIdentifierPrefix)) return;
-        const variableName = reverseMappings.get(idName);
 
-        if (typeof variableName === "undefined") {
-          ok(false, `Variable ${idName} not found in mappings`);
-        }
+        const variableName = reverseMappings.get(idName);
+        ok(variableName, `Variable ${idName} not found in mappings`);
 
         let value = allVariables[variableName];
         let isSingleUse = true; // Hard-coded nodes are deemed 'single use'
@@ -166,6 +173,14 @@ export default class Template {
     }
 
     this.interpolateAST(file, variables);
+
+    if (this.symbols.length > 0) {
+      file.program.body.forEach((node) => {
+        for (const symbol of this.symbols) {
+          node[symbol] = true;
+        }
+      });
+    }
 
     return file;
   }

@@ -1,6 +1,25 @@
 import * as t from "@babel/types";
 import { ok } from "assert";
 
+export type LiteralValue = string | number | boolean | undefined | null;
+export const createLiteral = (value: LiteralValue) => {
+  if (value === null) return t.nullLiteral();
+  if (value === undefined) return t.identifier("undefined");
+
+  switch (typeof value) {
+    case "string":
+      return t.stringLiteral(value);
+
+    case "number":
+      return numericLiteral(value);
+
+    case "boolean":
+      return t.booleanLiteral(value);
+  }
+
+  ok(false);
+};
+
 /**
  * Handles both positive and negative numeric literals
  * @param value
@@ -38,12 +57,18 @@ export function deepClone(node: t.Node | t.Node[]) {
     const clonedObj = {};
 
     // Handle string and symbol property keys
-    [
-      ...Object.getOwnPropertyNames(obj),
-      ...Object.getOwnPropertySymbols(obj),
-    ].forEach((key) => {
+
+    Object.getOwnPropertyNames(obj).forEach((key) => {
       const value = obj[key];
       clonedObj[key] = deepClone(value);
+    });
+
+    // Copy simple symbols (Avoid objects = infinite recursion)
+    Object.getOwnPropertySymbols(obj).forEach((symbol) => {
+      const value = obj[symbol];
+      if (typeof value !== "object") {
+        clonedObj[symbol] = deepClone(value);
+      }
     });
 
     return clonedObj;

@@ -1,31 +1,22 @@
 import * as t from "@babel/types";
 import { NodePath } from "@babel/core";
 import { ok } from "assert";
+import { deepClone } from "./node";
 
-export function containsLexicallyBoundVariables(path: NodePath): boolean {
-  var foundLexicalDeclaration = false;
-
-  path.traverse({
-    VariableDeclaration(declarationPath) {
-      if (
-        declarationPath.node.kind === "let" ||
-        declarationPath.node.kind === "const"
-      ) {
-        foundLexicalDeclaration = true;
-        declarationPath.stop();
+export function getPatternIdentifierNames(
+  path: NodePath | NodePath[]
+): Set<string> {
+  if (Array.isArray(path)) {
+    var allNames = new Set<string>();
+    for (var p of path) {
+      var names = getPatternIdentifierNames(p);
+      for (var name of names) {
+        allNames.add(name);
       }
-    },
+    }
 
-    ClassDeclaration(declarationPath) {
-      foundLexicalDeclaration = true;
-      declarationPath.stop();
-    },
-  });
-
-  return foundLexicalDeclaration;
-}
-
-export function getPatternIdentifierNames(path: NodePath): string[] {
+    return allNames;
+  }
   var names = new Set<string>();
 
   var functionParent = path.find((parent) => parent.isFunction());
@@ -46,7 +37,7 @@ export function getPatternIdentifierNames(path: NodePath): string[] {
     names.add(path.node.name);
   }
 
-  return Array.from(names);
+  return names;
 }
 
 /**
@@ -154,8 +145,12 @@ export function isModuleImport(path: NodePath<t.StringLiteral>) {
   return false;
 }
 
+export function getBlock(path: NodePath) {
+  return path.find((p) => p.isBlock()) as NodePath<t.Block>;
+}
+
 export function getParentFunctionOrProgram(
-  path: NodePath<any>
+  path: NodePath
 ): NodePath<t.Function | t.Program> {
   if (path.isProgram()) return path;
 
@@ -166,66 +161,6 @@ export function getParentFunctionOrProgram(
 
   ok(functionOrProgramPath);
   return functionOrProgramPath;
-}
-
-export function insertIntoNearestBlockScope(
-  path: NodePath,
-  ...nodesToInsert: t.Statement[]
-): NodePath[] {
-  // Traverse up the AST until we find a BlockStatement or Program
-  let targetPath: NodePath = path;
-
-  while (
-    targetPath &&
-    !t.isBlockStatement(targetPath.node) &&
-    !t.isProgram(targetPath.node)
-  ) {
-    targetPath = targetPath.parentPath;
-  }
-
-  // Ensure that we found a valid insertion point
-  if (t.isBlockStatement(targetPath.node)) {
-    // Insert before the current statement within the found block
-    return targetPath.insertBefore(nodesToInsert) as NodePath[];
-  } else if (targetPath.isProgram()) {
-    // Insert at the top of the program body
-    return targetPath.unshiftContainer("body", nodesToInsert) as NodePath[];
-  } else {
-    throw new Error(
-      "Could not find a suitable block scope to insert the nodes."
-    );
-  }
-}
-
-export function isReservedIdentifier(
-  node: t.Identifier | t.JSXIdentifier
-): boolean {
-  return (
-    node.name === "arguments" || // Check for 'arguments'
-    node.name === "undefined" || // Check for 'undefined'
-    node.name === "NaN" || // Check for 'NaN'
-    node.name === "Infinity" || // Check for 'Infinity'
-    node.name === "eval" || // Check for 'eval'
-    t.isThisExpression(node) || // Check for 'this'
-    t.isSuper(node) || // Check for 'super'
-    t.isMetaProperty(node) // Check for meta properties like 'new.target'
-  );
-}
-
-export function hasNestedBinding(path: NodePath, name: string): boolean {
-  let found = false;
-
-  // Traverse through the child paths (nested scopes)
-  path.traverse({
-    Scope(nestedPath) {
-      if (nestedPath.scope.hasOwnBinding(name)) {
-        found = true;
-        nestedPath.stop(); // Stop further traversal if found
-      }
-    },
-  });
-
-  return found;
 }
 
 export function getObjectPropertyAsString(
@@ -280,6 +215,76 @@ export function getMemberExpressionPropertyAsString(
   return null; // If the property cannot be determined
 }
 
+function registerPaths(paths: NodePath[]) {
+  for (var path of paths) {
+    if (path.isVariableDeclaration() && path.node.kind === "var") {
+      getParentFunctionOrProgram(path).scope.registerDeclaration(path);
+    }
+    path.scope.registerDeclaration(path);
+  }
+
+  return paths;
+}
+
+function nodeListToNodes(nodesIn: (t.Statement | t.Statement[])[]) {
+  var nodes: t.Statement[] = [];
+  if (Array.isArray(nodesIn[0])) {
+    ok(nodesIn.length === 1);
+    nodes = nodesIn[0];
+  } else {
+    nodes = nodesIn as t.Statement[];
+  }
+
+  return nodes;
+}
+
+/**
+ * Appends to the bottom of a block. Preserving last expression for the top level.
+ */
+export function append(
+  path: NodePath,
+  ...nodesIn: (t.Statement | t.Statement[])[]
+) {
+  var nodes = nodeListToNodes(nodesIn);
+
+  var listParent = path.find(
+    (p) => p.isFunction() || p.isBlock() || p.isSwitchCase()
+  );
+  if (!listParent) {
+    throw new Error("Could not find a suitable parent to prepend to");
+  }
+
+  if (listParent.isProgram()) {
+    var lastExpression = listParent.get("body").at(-1);
+    if (lastExpression.isExpressionStatement()) {
+      return registerPaths(lastExpression.insertBefore(nodes));
+    }
+  }
+
+  if (listParent.isSwitchCase()) {
+    return registerPaths(listParent.pushContainer("consequent", nodes));
+  }
+
+  if (listParent.isFunction()) {
+    var body = listParent.get("body");
+
+    if (listParent.isArrowFunctionExpression() && listParent.node.expression) {
+      if (!body.isBlockStatement()) {
+        body.replaceWith(
+          t.blockStatement([t.returnStatement(body.node as t.Expression)])
+        );
+      }
+    }
+
+    ok(body.isBlockStatement());
+
+    return registerPaths(body.pushContainer("body", nodes));
+  }
+
+  ok(listParent.isBlock());
+  return registerPaths(listParent.pushContainer("body", nodes));
+}
+
 /**
  * Prepends and registers a list of nodes to the beginning of a block.
  *
@@ -294,30 +299,13 @@ export function prepend(
   path: NodePath,
   ...nodesIn: (t.Statement | t.Statement[])[]
 ): NodePath[] {
-  var nodes: t.Statement[] = [];
-  if (Array.isArray(nodesIn[0])) {
-    ok(nodesIn.length === 1);
-    nodes = nodesIn[0];
-  } else {
-    nodes = nodesIn as t.Statement[];
-  }
+  var nodes = nodeListToNodes(nodesIn);
 
   var listParent = path.find(
     (p) => p.isFunction() || p.isBlock() || p.isSwitchCase()
   );
   if (!listParent) {
     throw new Error("Could not find a suitable parent to prepend to");
-  }
-
-  function registerPaths(paths: NodePath[]) {
-    for (var path of paths) {
-      if (path.isVariableDeclaration() && path.node.kind === "var") {
-        getParentFunctionOrProgram(path).scope.registerDeclaration(path);
-      }
-      path.scope.registerDeclaration(path);
-    }
-
-    return paths;
   }
 
   if (listParent.isProgram()) {
@@ -342,9 +330,9 @@ export function prepend(
 
     if (listParent.isArrowFunctionExpression() && listParent.node.expression) {
       if (!body.isBlockStatement()) {
-        body.replaceWith(
+        body = body.replaceWith(
           t.blockStatement([t.returnStatement(body.node as t.Expression)])
-        );
+        )[0];
       }
     }
 
@@ -410,6 +398,13 @@ export function isVariableIdentifier(path: NodePath<t.Identifier>) {
 export function isDefiningIdentifier(path: NodePath<t.Identifier>) {
   if (path.key === "id" && path.parentPath.isFunction()) return true;
   if (path.key === "id" && path.parentPath.isClassDeclaration) return true;
+  if (
+    path.key === "local" &&
+    (path.parentPath.isImportSpecifier() ||
+      path.parentPath.isImportDefaultSpecifier() ||
+      path.parentPath.isImportNamespaceSpecifier())
+  )
+    return true;
 
   var maxTraversalPath = path.find(
     (p) =>
@@ -468,6 +463,45 @@ export function isStrictIdentifier(path: NodePath): boolean {
   return false;
 }
 
+export function isExportedIdentifier(path: NodePath<t.Identifier>) {
+  // Check if the identifier is directly inside an ExportNamedDeclaration
+  if (path.parentPath.isExportNamedDeclaration()) {
+    return true;
+  }
+
+  // Check if the identifier is in an ExportDefaultDeclaration
+  if (path.parentPath.isExportDefaultDeclaration()) {
+    return true;
+  }
+
+  // Check if the identifier is within an ExportSpecifier
+  if (
+    path.parentPath.isExportSpecifier() &&
+    path.parentPath.parentPath.isExportNamedDeclaration()
+  ) {
+    return true;
+  }
+
+  // Check if it's part of an exported variable declaration (e.g., export const a = 1;)
+  if (
+    path.parentPath.isVariableDeclarator() &&
+    path.parentPath.parentPath.parentPath.isExportNamedDeclaration()
+  ) {
+    return true;
+  }
+
+  // Check if it's part of an exported function declaration (e.g., export function abc() {})
+  if (
+    (path.parentPath.isFunctionDeclaration() ||
+      path.parentPath.isClassDeclaration()) &&
+    path.parentPath.parentPath.isExportNamedDeclaration()
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * @example
  * function abc() {
@@ -476,7 +510,10 @@ export function isStrictIdentifier(path: NodePath): boolean {
  * @param path
  * @returns
  */
-export function isStrictMode(path: NodePath<t.Function | t.Block>) {
+export function isStrictMode(path: NodePath) {
+  // Classes are always in strict mode
+  if (path.isClass()) return true;
+
   if (path.isBlock()) {
     if (path.isTSModuleBlock()) return false;
     return (path.node as t.BlockStatement | t.Program).directives.some(
@@ -491,5 +528,140 @@ export function isStrictMode(path: NodePath<t.Function | t.Block>) {
     }
   }
 
+  return false;
+}
+
+/**
+ * A modified identifier is an identifier that is assigned to or updated.
+ *
+ * - Assignment Expression
+ * - Update Expression
+ *
+ * @param identifierPath
+ */
+export function isModifiedIdentifier(identifierPath: NodePath<t.Identifier>) {
+  var isModification = false;
+  if (identifierPath.parentPath.isUpdateExpression()) {
+    isModification = true;
+  }
+  if (
+    identifierPath.find(
+      (p) => p.key === "left" && p.parentPath?.isAssignmentExpression()
+    )
+  ) {
+    isModification = true;
+  }
+
+  return isModification;
+}
+
+export function replaceDefiningIdentifierToMemberExpression(
+  path: NodePath<t.Identifier>,
+  memberExpression: t.MemberExpression
+) {
+  // function id(){} -> var id = function() {}
+  if (path.key === "id" && path.parentPath.isFunctionDeclaration()) {
+    var asFunctionExpression = deepClone(
+      path.parentPath.node
+    ) as t.Node as t.FunctionExpression;
+    asFunctionExpression.type = "FunctionExpression";
+
+    path.parentPath.replaceWith(
+      t.expressionStatement(
+        t.assignmentExpression("=", memberExpression, asFunctionExpression)
+      )
+    );
+    return;
+  }
+
+  // class id{} -> var id = class {}
+  if (path.key === "id" && path.parentPath.isClassDeclaration()) {
+    var asClassExpression = deepClone(
+      path.parentPath.node
+    ) as t.Node as t.ClassExpression;
+    asClassExpression.type = "ClassExpression";
+
+    path.parentPath.replaceWith(
+      t.expressionStatement(
+        t.assignmentExpression("=", memberExpression, asClassExpression)
+      )
+    );
+    return;
+  }
+
+  // var id = 1 -> id = 1
+  var variableDeclaratorChild = path.find(
+    (p) =>
+      p.key === "id" &&
+      p.parentPath?.isVariableDeclarator() &&
+      p.parentPath?.parentPath?.isVariableDeclaration()
+  ) as NodePath<t.VariableDeclarator["id"]>;
+
+  if (variableDeclaratorChild) {
+    var variableDeclarator =
+      variableDeclaratorChild.parentPath as NodePath<t.VariableDeclarator>;
+    var variableDeclaration =
+      variableDeclarator.parentPath as NodePath<t.VariableDeclaration>;
+
+    if (variableDeclaration.type === "VariableDeclaration") {
+      ok(
+        variableDeclaration.node.declarations.length === 1,
+        "Multiple declarations not supported"
+      );
+    }
+
+    const id = variableDeclarator.get("id");
+    const init = variableDeclarator.get("init");
+
+    var newExpression: t.Node = id.node;
+
+    var isForInitializer =
+      (variableDeclaration.key === "init" ||
+        variableDeclaration.key === "left") &&
+      variableDeclaration.parentPath.isFor();
+
+    if (init.node || !isForInitializer) {
+      newExpression = t.assignmentExpression(
+        "=",
+        id.node,
+        init.node || t.identifier("undefined")
+      );
+    }
+
+    if (!isForInitializer) {
+      newExpression = t.expressionStatement(newExpression as t.Expression);
+    }
+
+    path.replaceWith(memberExpression);
+
+    if (variableDeclaration.isVariableDeclaration()) {
+      variableDeclaration.replaceWith(newExpression);
+    }
+
+    return;
+  }
+
+  // Safely replace the identifier with the member expression
+  // ensureComputedExpression(path);
+  // path.replaceWith(memberExpression);
+}
+
+/**
+ * @example
+ * undefined // true
+ * void 0 // true
+ */
+export function isUndefined(path: NodePath) {
+  if (path.isIdentifier() && path.node.name === "undefined") {
+    return true;
+  }
+  if (
+    path.isUnaryExpression() &&
+    path.node.operator === "void" &&
+    path.node.argument.type === "NumericLiteral" &&
+    path.node.argument.value === 0
+  ) {
+    return true;
+  }
   return false;
 }

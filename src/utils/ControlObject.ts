@@ -16,7 +16,10 @@ export default class ControlObject {
   objectExpression: t.ObjectExpression | null = null;
 
   constructor(public me: PluginInstance, public blockPath: NodePath<t.Block>) {
-    this.nameGen = new NameGen(me.options.identifierGenerator);
+    this.nameGen = new NameGen(me.options.identifierGenerator, {
+      avoidReserved: true,
+      avoidObjectPrototype: true,
+    });
   }
 
   createMemberExpression(propertyName: string): t.MemberExpression {
@@ -28,6 +31,8 @@ export default class ControlObject {
   }
 
   createPredicate() {
+    this.ensureCreated();
+
     var propertyName = choice(Array.from(this.propertyNames));
     if (!propertyName || chance(50)) {
       propertyName = this.nameGen.generate();
@@ -36,8 +41,8 @@ export default class ControlObject {
     return {
       node: t.binaryExpression(
         "in",
-        t.identifier(this.objectName),
-        t.stringLiteral(propertyName)
+        t.stringLiteral(propertyName),
+        t.identifier(this.objectName)
       ),
       value: this.propertyNames.has(propertyName),
     };
@@ -59,12 +64,12 @@ export default class ControlObject {
     return node;
   }
 
-  addProperty(node: t.Expression) {
+  private ensureCreated(node?: t.Node) {
     if (!this.objectName) {
       // Object hasn't been created yet
       this.objectName = this.me.getPlaceholder() + "_controlObject";
 
-      if (t.isFunctionExpression(node) && !node.id) {
+      if (node && t.isFunctionExpression(node) && !node.id) {
         // Use function declaration as object
 
         let newNode: t.FunctionDeclaration = node as any;
@@ -102,6 +107,10 @@ export default class ControlObject {
         this.me.skip(this.objectExpression);
       }
     }
+  }
+
+  addProperty(node: t.Expression) {
+    this.ensureCreated(node);
 
     const propertyName = this.nameGen.generate();
     this.propertyNames.add(propertyName);

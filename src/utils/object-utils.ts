@@ -1,8 +1,13 @@
-export function createObject(
+/**
+ * Creates an object from the given keys and values arrays.
+ * @param keys
+ * @param values
+ */
+export function createObject<T>(
   keys: string[],
-  values: any[]
-): { [key: string]: any } {
-  if (keys.length != values.length) {
+  values: T[]
+): { [key: string]: T } {
+  if (keys.length !== values.length) {
     throw new Error("length mismatch");
   }
 

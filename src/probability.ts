@@ -16,7 +16,7 @@ type Stringed<V> = (V extends string ? V : never) | "true" | "false";
  */
 export type ProbabilityMap<
   T,
-  F extends (...args: any[]) => any = (...args: any[]) => any // Default to a generic function
+  F extends (...args: any[]) => any = () => boolean // Default to a generic function
 > = false | true | number | T | T[] | { [key in Stringed<T>]?: number } | F;
 
 /**
@@ -69,7 +69,7 @@ export function computeProbabilityMap<
   var count = 0;
   var winner = null;
   Object.keys(percentages).forEach((key) => {
-    var x = parseFloat(percentages[key]);
+    var x = Number(percentages[key]);
 
     if (ticket >= count && ticket < count + x) {
       winner = key;
@@ -110,6 +110,9 @@ export function isProbabilityMapProbable<T>(map: ProbabilityMap<T>): boolean {
     }
   }
   if (typeof map === "object") {
+    if (map instanceof Date) return true;
+    if (map instanceof RegExp) return true;
+
     var keys = Object.keys(map);
     ok(
       keys.length != 0,

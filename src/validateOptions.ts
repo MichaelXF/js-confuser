@@ -37,7 +37,6 @@ const validProperties = new Set([
   "debugComments",
   "preserveFunctionLength",
   "astScrambler",
-  "variableConcealing",
   "customStringEncodings",
   "functionOutlining",
   "pack",
@@ -46,13 +45,10 @@ const validProperties = new Set([
 const validLockProperties = new Set([
   "selfDefending",
   "antiDebug",
-  "context",
   "tamperProtection",
   "startDate",
   "endDate",
   "domainLock",
-  "osLock",
-  "browserLock",
   "integrity",
   "countermeasures",
   "customLocks",
@@ -149,10 +145,6 @@ export function applyDefaultsToOptions(
     options = Object.assign({}, presets[options.preset], options);
   }
 
-  if (!options.hasOwnProperty("debugComments")) {
-    options.debugComments = false; // debugComments is off by default
-  }
-
   if (!options.hasOwnProperty("compact")) {
     options.compact = true; // Compact is on by default
   }
@@ -230,6 +222,7 @@ export function applyDefaultsToOptions(
       "parseFloat",
       "Math",
       "JSON",
+      "RegExp",
       "Promise",
       "String",
       "Boolean",

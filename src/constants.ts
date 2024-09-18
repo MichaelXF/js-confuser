@@ -35,6 +35,32 @@ export const CONTROL_OBJECTS = Symbol("controlObjects");
 
 export const NO_RENAME = Symbol("noRename");
 
+/**
+ * This Identifier is used for a hexadecimal number or escaped string.
+ */
+export const GEN_NODE = Symbol("genNode");
+
+/**
+ * This function is used to mark functions that when transformed will most likely cause a maximum call stack error.
+ *
+ * Examples: Native Function Check
+ */
+export const MULTI_TRANSFORM = Symbol("multiTransform");
+
+/**
+ * The function contains a `with` statement.
+ *
+ * OR
+ *
+ * This identifier is used for a `with` statement.
+ *
+ * Tells Pack not to globally transform the node.
+ */
+export const WITH_STATEMENT = Symbol("withStatement");
+
+/**
+ * Symbols describe precomputed semantics of a node, allowing the obfuscator to make the best choices for the node.
+ */
 export interface NodeSymbol {
   [UNSAFE]?: boolean;
   [PREDICTABLE]?: boolean;
@@ -42,6 +68,10 @@ export interface NodeSymbol {
   [FN_LENGTH]?: number;
   [CONTROL_OBJECTS]?: ControlObject[];
   [NO_RENAME]?: string;
+
+  [GEN_NODE]?: boolean;
+  [MULTI_TRANSFORM]?: boolean;
+  [WITH_STATEMENT]?: boolean;
 }
 
 /**
@@ -51,3 +81,78 @@ export const variableFunctionName = "__JS_CONFUSER_VAR__";
 
 export const noRenameVariablePrefix = "__NO_JS_CONFUSER_RENAME__";
 export const placeholderVariablePrefix = "__p_";
+
+/**
+ * Identifiers that are not actually variables.
+ */
+export const reservedIdentifiers = new Set([
+  "undefined",
+  "null",
+  "NaN",
+  "Infinity",
+  "eval",
+  "arguments",
+]);
+
+export const reservedObjectPrototype = new Set([
+  "toString",
+  "valueOf",
+  "constructor",
+  "__proto__",
+  "hasOwnProperty",
+  "isPrototypeOf",
+  "propertyIsEnumerable",
+  "toLocaleString",
+]);
+
+/**
+ * For Zero Width generator - Mangled variable names
+ */
+export const reservedKeywords = [
+  "if",
+  "in",
+  "for",
+  "let",
+  "new",
+  "try",
+  "var",
+  "case",
+  "else",
+  "null",
+  "break",
+  "catch",
+  "class",
+  "const",
+  "super",
+  "throw",
+  "while",
+  "yield",
+  "delete",
+  "export",
+  "import",
+  "public",
+  "return",
+  "switch",
+  "default",
+  "finally",
+  "private",
+  "continue",
+  "debugger",
+  "function",
+  "arguments",
+  "protected",
+  "instanceof",
+  "await",
+  "async",
+
+  // new key words and other fun stuff :P
+  "NaN",
+  "undefined",
+  "true",
+  "false",
+  "typeof",
+  "this",
+  "static",
+  "void",
+  "of",
+];

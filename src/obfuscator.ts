@@ -1,42 +1,45 @@
-import { ObfuscateOptions } from "./options";
+import { ok } from "assert";
 import * as babel from "@babel/core";
 import generate from "@babel/generator";
-import { PluginFunction, PluginInstance } from "./transforms/plugin";
-import { ok } from "assert";
+import { Node, Statement } from "@babel/types";
+import { ObfuscateOptions } from "./options";
 import { applyDefaultsToOptions, validateOptions } from "./validateOptions";
+import { ObfuscationResult, ProfilerCallback } from "./obfuscationResult";
+import { isProbabilityMapProbable } from "./probability";
+import { NameGen } from "./utils/NameGen";
+import { Order } from "./order";
+import {
+  PluginFunction,
+  PluginInstance,
+  PluginObject,
+} from "./transforms/plugin";
 
+// Transforms
 import preparation from "./transforms/preparation";
 import renameVariables from "./transforms/identifier/renameVariables";
 import variableMasking from "./transforms/variableMasking";
 import dispatcher from "./transforms/dispatcher";
 import duplicateLiteralsRemoval from "./transforms/extraction/duplicateLiteralsRemoval";
 import objectExtraction from "./transforms/extraction/objectExtraction";
+import functionOutlining from "./transforms/functionOutlining";
 import globalConcealing from "./transforms/identifier/globalConcealing";
 import stringCompression from "./transforms/string/stringCompression";
 import deadCode from "./transforms/deadCode";
 import stringSplitting from "./transforms/string/stringSplitting";
 import shuffle from "./transforms/shuffle";
-import finalizer from "./transforms/finalizer";
-import { ObfuscationResult, ProfilerCallback } from "./obfuscationResult";
-import { isProbabilityMapProbable } from "./probability";
 import astScrambler from "./transforms/astScrambler";
 import calculator from "./transforms/calculator";
-import { Order } from "./order";
 import movedDeclarations from "./transforms/identifier/movedDeclarations";
 import renameLabels from "./transforms/renameLabels";
 import rgf from "./transforms/rgf";
 import flatten from "./transforms/flatten";
 import stringConcealing from "./transforms/string/stringConcealing";
 import lock from "./transforms/lock/lock";
-import integrity from "./transforms/lock/integrity";
-import { Statement } from "@babel/types";
 import controlFlowFlattening from "./transforms/controlFlowFlattening";
-import variableConcealing from "./transforms/identifier/variableConcealing";
-import { NameGen } from "./utils/NameGen";
-import { assertScopeIntegrity } from "./utils/scope-utils";
 import opaquePredicates from "./transforms/opaquePredicates";
 import minify from "./transforms/minify";
-import functionOutlining from "./transforms/functionOutlining";
+import finalizer from "./transforms/finalizer";
+import integrity from "./transforms/lock/integrity";
 import pack from "./transforms/pack";
 
 export const DEFAULT_OPTIONS: ObfuscateOptions = {
@@ -46,7 +49,7 @@ export const DEFAULT_OPTIONS: ObfuscateOptions = {
 
 export default class Obfuscator {
   plugins: {
-    plugin: babel.PluginObj;
+    plugin: PluginObject;
     pluginInstance: PluginInstance;
   }[] = [];
   options: ObfuscateOptions;
@@ -56,7 +59,6 @@ export default class Obfuscator {
   globalState = {
     lock: {
       integrity: {
-        hashFnName: "",
         sensitivityRegex: / |\n|;|,|\{|\}|\(|\)|\.|\[|\]/g,
       },
 
@@ -64,22 +66,102 @@ export default class Obfuscator {
         throw new Error("Not implemented");
       },
     },
+
+    // After RenameVariables completes, this map will contain the renamed variables
+    // Most use cases involve grabbing the Program(global) mappings
+    renamedVariables: new Map<Node, Map<string, string>>(),
+
+    // Internal functions, should not be renamed/removed
+    internals: {
+      stringCompressionLibraryName: "",
+      nativeFunctionName: "",
+      integrityHashName: "",
+      invokeCountermeasuresFnName: "",
+    },
   };
+
+  isInternalVariable(name: string) {
+    return Object.values(this.globalState.internals).includes(name);
+  }
+
+  shouldTransformNativeFunction(nameAndPropertyPath: string[]) {
+    if (!this.options.lock?.tamperProtection) {
+      return false;
+    }
+
+    // Custom implementation for Tamper Protection
+    if (typeof this.options.lock.tamperProtection === "function") {
+      return this.options.lock.tamperProtection(nameAndPropertyPath.join("."));
+    }
+
+    if (
+      this.options.target === "browser" &&
+      nameAndPropertyPath.length === 1 &&
+      nameAndPropertyPath[0] === "fetch"
+    ) {
+      return true;
+    }
+
+    var globalObject = {};
+    try {
+      globalObject =
+        typeof globalThis !== "undefined"
+          ? globalThis
+          : typeof window !== "undefined"
+          ? window
+          : typeof global !== "undefined"
+          ? global
+          : typeof self !== "undefined"
+          ? self
+          : new Function("return this")();
+    } catch (e) {}
+
+    var fn = globalObject;
+    for (var item of nameAndPropertyPath) {
+      fn = fn?.[item];
+      if (typeof fn === "undefined") return false;
+    }
+
+    var hasNativeCode =
+      typeof fn === "function" && ("" + fn).includes("[native code]");
+
+    return hasNativeCode;
+  }
+
+  getStringCompressionLibraryName() {
+    if (this.parentObfuscator) {
+      return this.parentObfuscator.getStringCompressionLibraryName();
+    }
+
+    return this.globalState.internals.stringCompressionLibraryName;
+  }
+
+  getObfuscatedVariableName(originalName: string, programNode: Node) {
+    const renamedVariables = this.globalState.renamedVariables.get(programNode);
+
+    return renamedVariables?.get(originalName) || originalName;
+  }
 
   /**
    * The main Name Generator for `Rename Variables`
    */
   nameGen: NameGen;
 
-  public constructor(userOptions: ObfuscateOptions) {
+  public constructor(
+    userOptions: ObfuscateOptions,
+    public parentObfuscator?: Obfuscator
+  ) {
     validateOptions(userOptions);
     this.options = applyDefaultsToOptions({ ...userOptions });
     this.nameGen = new NameGen(this.options.identifierGenerator);
 
     const shouldAddLockTransform =
       this.options.lock &&
-      (Object.keys(this.options.lock).filter((key) => key !== "customLocks")
-        .length > 0 ||
+      (Object.keys(this.options.lock).filter(
+        (key) =>
+          key !== "customLocks" &&
+          isProbabilityMapProbable(this.options.lock[key])
+      ).length > 0 ||
         this.options.lock.customLocks.length > 0);
 
     const allPlugins: PluginFunction[] = [];
@@ -116,26 +198,28 @@ export default class Obfuscator {
     push(this.options.renameVariables, renameVariables);
 
     push(true, finalizer);
+    push(this.options.pack, pack);
     push(this.options.lock?.integrity, integrity);
-
-    push(this.options.variableConcealing, variableConcealing);
 
     allPlugins.map((pluginFunction) => {
       var pluginInstance: PluginInstance;
       var plugin = pluginFunction({
-        Plugin: (nameOrOrder) => {
-          var pluginOptions;
-          if (typeof nameOrOrder === "string") {
-            pluginOptions = { name: nameOrOrder };
-          } else if (typeof nameOrOrder === "number") {
-            pluginOptions = { name: Order[nameOrOrder], order: nameOrOrder };
-          } else if (typeof nameOrOrder === "object" && nameOrOrder) {
-            pluginOptions = nameOrOrder;
-          } else {
-            ok(false);
+        Plugin: (order: Order, mergeObject?) => {
+          ok(typeof order === "number");
+          var pluginOptions = {
+            order,
+            name: Order[order],
+          };
+
+          const newPluginInstance = new PluginInstance(pluginOptions, this);
+          if (typeof mergeObject === "object" && mergeObject) {
+            Object.assign(newPluginInstance, mergeObject);
           }
 
-          return (pluginInstance = new PluginInstance(pluginOptions, this));
+          pluginInstance = newPluginInstance;
+
+          // @ts-ignore
+          return newPluginInstance as any;
         },
       });
 
@@ -153,6 +237,11 @@ export default class Obfuscator {
     this.plugins = this.plugins.sort(
       (a, b) => a.pluginInstance.order - b.pluginInstance.order
     );
+
+    if (!parentObfuscator && this.hasPlugin(Order.StringCompression)) {
+      this.globalState.internals.stringCompressionLibraryName =
+        this.nameGen.generate(false);
+    }
   }
 
   index: number = 0;
@@ -164,30 +253,40 @@ export default class Obfuscator {
       disablePack?: boolean;
     }
   ): babel.types.File {
+    let finalASTHandler: PluginObject["finalASTHandler"][] = [];
+
     for (let i = 0; i < this.plugins.length; i++) {
       this.index = i;
       const { plugin, pluginInstance } = this.plugins[i];
+
+      // Skip pack if disabled
+      if (pluginInstance.order === Order.Pack && options?.disablePack) continue;
+
       if (this.options.verbose) {
         console.log(
           `Applying ${pluginInstance.name} (${i + 1}/${this.plugins.length})`
         );
       }
 
-      babel.traverse(ast, plugin.visitor as babel.Visitor);
-      // assertScopeIntegrity(pluginInstance.name, ast);
+      babel.traverse(ast, plugin.visitor);
+      plugin.post?.();
+
+      if (plugin.finalASTHandler) {
+        finalASTHandler.push(plugin.finalASTHandler);
+      }
 
       if (options?.profiler) {
         options?.profiler({
+          index: i,
           currentTransform: pluginInstance.name,
-          currentTransformNumber: i,
           nextTransform: this.plugins[i + 1]?.pluginInstance?.name,
           totalTransforms: this.plugins.length,
         });
       }
     }
 
-    if (this.options.pack && !options?.disablePack) {
-      ast = pack(ast, this);
+    for (const handler of finalASTHandler) {
+      ast = handler(ast);
     }
 
     return ast;
@@ -202,21 +301,17 @@ export default class Obfuscator {
     // Generate the transformed code from the modified AST with comments removed and compacted output
     const code = this.generateCode(ast);
 
-    if (typeof code === "string") {
-      return {
-        code: code,
-      };
-    } else {
-      throw new Error("Failed to generate code");
-    }
+    return {
+      code: code,
+    };
   }
 
   getPlugin(order: Order) {
     return this.plugins.find((x) => x.pluginInstance.order === order);
   }
 
-  static createDefaultInstance() {
-    return new Obfuscator(DEFAULT_OPTIONS);
+  hasPlugin(order: Order) {
+    return !!this.getPlugin(order);
   }
 
   /**

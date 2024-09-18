@@ -3,13 +3,24 @@ import * as t from "@babel/types";
 // Function to check if a node is a static value
 export function isStaticValue(node: t.Node): boolean {
   // Check for literals which are considered static
-  if (t.isLiteral(node)) {
+  if (
+    t.isStringLiteral(node) ||
+    t.isNumericLiteral(node) ||
+    t.isBooleanLiteral(node) ||
+    t.isNullLiteral(node)
+  ) {
+    if (t.isDirectiveLiteral(node)) return false;
+
     return true;
   }
 
   // Handle unary expressions like -42
   if (t.isUnaryExpression(node)) {
-    return isStaticValue(node.argument);
+    // Only consider certain operators as static (e.g., -, +)
+    if (["-", "+", "!", "~", "void"].includes(node.operator)) {
+      return isStaticValue(node.argument);
+    }
+    return false;
   }
 
   // Handle binary expressions with static values only
@@ -43,12 +54,13 @@ export function isStaticValue(node: t.Node): boolean {
     return node.properties.every((prop) => {
       if (t.isObjectProperty(prop)) {
         return isStaticValue(prop.key) && isStaticValue(prop.value);
+      } else if (t.isSpreadElement(prop)) {
+        return isStaticValue(prop.argument);
       }
       return false;
     });
   }
 
   // Add more cases as needed, depending on what you consider "static"
-
   return false;
 }

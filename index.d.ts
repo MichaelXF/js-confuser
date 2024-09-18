@@ -1,17 +1,3 @@
-import ObfuscatorClass from "./src/obfuscator";
-import {
-  IJsConfuser as JsConfuser,
-  IJsConfuserDebugObfuscation,
-  IJsConfuserDebugTransformations,
-  IJsConfuserObfuscate,
-  IJsConfuserObfuscateAST,
-  IJsConfuserPresets,
-} from "./src/types";
+import JsConfuser from "./src";
 
 export default JsConfuser;
-export const obfuscate: IJsConfuserObfuscate;
-export const obfuscateAST: IJsConfuserObfuscateAST;
-export const presets: IJsConfuserPresets;
-export const debugTransformations: IJsConfuserDebugTransformations;
-export const debugObfuscation: IJsConfuserDebugObfuscation;
-export const Obfuscator: typeof ObfuscatorClass;

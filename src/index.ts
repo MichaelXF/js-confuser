@@ -7,12 +7,14 @@ import {
   ProfilerCallback,
   ProfilerLog,
 } from "./obfuscationResult";
+import presets from "./presets";
+import Template from "./templates/template";
 
 export async function obfuscate(
   sourceCode: string,
   options: ObfuscateOptions
 ): Promise<ObfuscationResult> {
-  var obfuscator = new Obfuscator(options);
+  const obfuscator = new Obfuscator(options);
 
   return obfuscator.obfuscate(sourceCode);
 }
@@ -21,7 +23,7 @@ export async function obfuscateAST(
   ast: babelTypes.File,
   options: ObfuscateOptions
 ) {
-  var obfuscator = new Obfuscator(options);
+  const obfuscator = new Obfuscator(options);
 
   return obfuscator.obfuscateAST(ast);
 }
@@ -36,31 +38,40 @@ export async function obfuscateWithProfiler(
 ): Promise<ObfuscationResult & { profileData: ProfileData }> {
   const startTime = performance.now();
 
-  var obfuscator = new Obfuscator(options);
-  var totalTransforms = obfuscator.plugins.length;
+  const obfuscator = new Obfuscator(options);
+  let totalTransforms = obfuscator.plugins.length;
 
-  var transformTimeMap: { [transformName: string]: number } =
-    Object.create(null);
-  var currentTransformTime = performance.now();
+  let transformMap: ProfileData["transforms"] = Object.create(null);
 
   const beforeParseTime = performance.now();
 
-  var ast = Obfuscator.parseCode(sourceCode);
+  let ast = Obfuscator.parseCode(sourceCode);
 
   const parseTime = performance.now() - beforeParseTime;
+
+  let currentTransformTime = performance.now();
 
   ast = obfuscator.obfuscateAST(ast, {
     profiler: (log: ProfilerLog) => {
       var nowTime = performance.now();
-      transformTimeMap[log.currentTransform] = nowTime - currentTransformTime;
+      transformMap[log.currentTransform] = {
+        transformTime: nowTime - currentTransformTime,
+        changeData: {},
+      };
       currentTransformTime = nowTime;
       profiler.callback(log);
     },
   });
 
+  obfuscator.plugins.forEach(({ pluginInstance }) => {
+    if (transformMap[pluginInstance.name]) {
+      transformMap[pluginInstance.name].changeData = pluginInstance.changeData;
+    }
+  });
+
   const beforeCompileTime = performance.now();
 
-  var code = Obfuscator.generateCode(ast, obfuscator.options);
+  const code = Obfuscator.generateCode(ast, obfuscator.options);
 
   const compileTime = performance.now() - beforeCompileTime;
 
@@ -71,7 +82,7 @@ export async function obfuscateWithProfiler(
   return {
     code: code,
     profileData: {
-      transformTimeMap: transformTimeMap,
+      transforms: transformMap,
       obfuscationTime: obfuscationTime,
       parseTime: parseTime,
       compileTime: compileTime,
@@ -85,6 +96,8 @@ const JsConfuser = {
   obfuscate,
   obfuscateAST,
   obfuscateWithProfiler,
+  presets,
+  Template,
 };
 
 export default JsConfuser;

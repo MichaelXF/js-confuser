@@ -8,7 +8,7 @@ export enum Order {
 
   Flatten = 2,
 
-  Lock = 3, // Includes Anti Debug
+  Lock = 3,
 
   RGF = 4,
 
@@ -50,5 +50,7 @@ export enum Order {
 
   Finalizer = 35,
 
-  Integrity = 36, // Must run last
+  Pack = 36,
+
+  Integrity = 37, // Must run last
 }
