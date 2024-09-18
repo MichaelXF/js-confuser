@@ -13,7 +13,11 @@ import {
 } from "../utils/function-utils";
 import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 import { numericLiteral } from "../utils/node";
-import { isStrictMode, prependProgram } from "../utils/ast-utils";
+import {
+  isStrictMode,
+  isVariableIdentifier,
+  prependProgram,
+} from "../utils/ast-utils";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.Dispatcher, {
@@ -77,6 +81,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           // Scan for function declarations
           blockPath.traverse({
+            // Check for reassigned / redefined functions
+            BindingIdentifier: {
+              exit(path: NodePath<t.Identifier>) {
+                if (!isVariableIdentifier(path)) return;
+
+                const name = path.node.name;
+                if (!path.parentPath?.isFunctionDeclaration()) {
+                  illegalNames.add(name);
+                }
+              },
+            },
+            // Find functions eligible for dispatching
             FunctionDeclaration: {
               exit(path: NodePath<t.FunctionDeclaration>) {
                 const name = path.node.id.name;

@@ -526,3 +526,39 @@ test("Variant #20: Ignore functions with 'use strict' directive", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+test("Variant #21: Ignore reassigned & redefined functions", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    // Redefining
+    var xyz = function () {
+      TEST_OUTPUT_1 = "Correct Value";
+    };
+    function xyz() {
+      TEST_OUTPUT_1 = "Incorrect Value";
+    }
+    xyz();
+
+    // Reassigning
+    function abc(){
+      TEST_OUTPUT_2 = "Incorrect Value";
+    }
+    abc = function(){
+      TEST_OUTPUT_2 = "Correct Value";
+    }
+    abc();
+    `,
+    {
+      target: "node",
+      dispatcher: true,
+    }
+  );
+
+  expect(code).not.toContain("dispatcher_0");
+
+  var TEST_OUTPUT_1, TEST_OUTPUT_2;
+  eval(code);
+
+  expect(TEST_OUTPUT_1).toStrictEqual("Correct Value");
+  expect(TEST_OUTPUT_2).toStrictEqual("Correct Value");
+});
