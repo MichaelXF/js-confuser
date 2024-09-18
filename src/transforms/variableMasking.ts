@@ -1,16 +1,40 @@
-import { PluginObj } from "@babel/core";
-import { NodePath } from "@babel/traverse";
-import { PluginArg } from "./plugin";
+import { Binding, NodePath } from "@babel/traverse";
+import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
 import Template from "../templates/template";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
-import { NodeSymbol, UNSAFE } from "../constants";
-import { getFunctionName, isStrictMode } from "../utils/ast-utils";
-import { computeFunctionLength } from "../utils/function-utils";
+import {
+  NodeSymbol,
+  PREDICTABLE,
+  reservedIdentifiers,
+  UNSAFE,
+  variableFunctionName,
+} from "../constants";
+import {
+  ensureComputedExpression,
+  getFunctionName,
+  isDefiningIdentifier,
+  isStrictMode,
+  isVariableIdentifier,
+  prepend,
+  replaceDefiningIdentifierToMemberExpression,
+} from "../utils/ast-utils";
+import {
+  computeFunctionLength,
+  isVariableFunctionIdentifier,
+} from "../utils/function-utils";
+import { ok } from "assert";
+import { NameGen } from "../utils/NameGen";
+import { choice, getRandomInteger } from "../utils/random-utils";
+import { createLiteral } from "../utils/node";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.VariableMasking);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.VariableMasking, {
+    changeData: {
+      functions: 0,
+    },
+  });
 
   const transformFunction = (fnPath: NodePath<t.Function>) => {
     // Do not apply to getter/setter methods
@@ -45,163 +69,181 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       return;
     }
 
-    const stackName = me.generateRandomIdentifier() + "_varMask";
-    const stackMap = new Map<string, number>();
+    const stackName = me.getPlaceholder() + "_varMask";
+    const stackMap = new Map<Binding, number | string>();
+    const propertyGen = new NameGen("mangled");
+    const stackKeys = new Set<string>();
     let needsStack = false;
 
-    for (const param of fnPath.node.params) {
-      stackMap.set((param as t.Identifier).name, stackMap.size);
+    const illegalBindings = new Set<Binding>();
+
+    function checkBinding(binding: Binding) {
+      // Custom illegal check
+      // Variable Declarations with more than one declarator are not supported
+      // They can be inserted from the user's code even though Preparation phase should prevent it
+      // String Compression library includes such code
+      // TODO: Support multiple declarators
+      var variableDeclaration = binding.path.find((p) =>
+        p.isVariableDeclaration()
+      ) as NodePath<t.VariableDeclaration>;
+      if (
+        variableDeclaration &&
+        variableDeclaration.node.declarations.length > 1
+      ) {
+        return false;
+      }
+
+      function checkForUnsafe(valuePath: NodePath) {
+        var hasUnsafeNode = false;
+
+        valuePath.traverse({
+          ThisExpression(path) {
+            hasUnsafeNode = true;
+            path.stop();
+          },
+          Function(path) {
+            if ((path.node as NodeSymbol)[UNSAFE]) {
+              hasUnsafeNode = true;
+              path.stop();
+            }
+          },
+        });
+
+        return hasUnsafeNode;
+      }
+
+      // Check function value for 'this'
+      // Adding function expression to the stack (member expression)
+      // would break the 'this' context
+      if (binding.path.isVariableDeclarator()) {
+        let init = binding.path.get("init");
+        if (init.node) {
+          if (checkForUnsafe(init)) return false;
+        }
+      }
+
+      // x = function(){ return this }
+      // Cannot be transformed to x = stack[0] as 'this' would change
+      for (var assignment of binding.constantViolations) {
+        if (checkForUnsafe(assignment)) return false;
+      }
+
+      // __JS_CONFUSER_VAR__(identifier) -> __JS_CONFUSER_VAR__(stack.identifier)
+      // This cannot be transformed as it would break the user's code
+      for (var referencePath of binding.referencePaths) {
+        if (isVariableFunctionIdentifier(referencePath)) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    for (const param of fnPath.get("params")) {
+      ok(param.isIdentifier());
+
+      const paramName = param.node.name;
+      const binding = param.scope.getBinding(paramName);
+
+      if (!binding || !checkBinding(binding)) return;
+
+      ok(!stackMap.has(binding));
+      stackKeys.add(stackMap.size.toString());
+      stackMap.set(binding, stackMap.size);
     }
 
     fnPath.traverse({
-      BindingIdentifier(identifierPath) {
-        const binding = identifierPath.scope.getBinding(
-          identifierPath.node.name
-        );
-        if (!binding || binding.scope !== fnPath.scope) return;
+      Identifier(path) {
+        if (!isVariableIdentifier(path)) return;
 
-        if (binding.path.isIdentifier()) {
-          // Parameter check
-          if (
-            !fnPath.node.params.some(
-              (param) =>
-                t.isIdentifier(param) &&
-                param.name === (binding.path.node as t.Identifier).name
-            )
-          ) {
-            return;
-          }
-        } else if (binding.path.isVariableDeclarator()) {
-          if (binding.path.parentPath.node?.type !== "VariableDeclaration")
-            return;
-          if (binding.path.parentPath.node.declarations.length > 1) return;
-          if (!t.isIdentifier(binding.path.parentPath.node.declarations[0].id))
-            return;
-        } else {
-          return;
-        }
+        if (reservedIdentifiers.has(path.node.name)) return;
+        if (me.options.globalVariables.has(path.node.name)) return;
+        if (path.node.name === stackName) return;
+        if (path.node.name === variableFunctionName) return;
+
+        const binding = path.scope.getBinding(path.node.name);
+        if (!binding || binding.scope !== fnPath.scope) return;
+        if (illegalBindings.has(binding)) return;
 
         needsStack = true;
 
-        let stackIndex = stackMap.get(identifierPath.node.name);
-        if (typeof stackIndex === "undefined") {
-          stackIndex = stackMap.size;
-          stackMap.set(identifierPath.node.name, stackIndex);
-        }
-
-        const memberExpression = new Template(`
-          ${stackName}[${stackIndex}]
-          `).expression<t.MemberExpression>();
-
-        binding.referencePaths.forEach((referencePath) => {
-          var callExpressionChild = referencePath;
-
-          if (
-            callExpressionChild &&
-            callExpressionChild.parentPath?.isCallExpression() &&
-            callExpressionChild.parentPath.node.callee ===
-              callExpressionChild.node
-          ) {
-            callExpressionChild.parentPath.replaceWith(
-              t.callExpression(
-                t.memberExpression(
-                  t.cloneNode(memberExpression),
-                  t.identifier("call")
-                ),
-                [
-                  t.thisExpression(),
-                  ...callExpressionChild.parentPath.node.arguments,
-                ]
-              )
-            );
-
+        let index = stackMap.get(binding);
+        if (typeof index === "undefined") {
+          // Only transform var and let bindings
+          // Function declarations could be hoisted and changing them to declarations is breaking
+          if (!["var", "let"].includes(binding.kind)) {
+            illegalBindings.add(binding);
             return;
           }
 
-          if (referencePath.container) {
-            referencePath.replaceWith(t.cloneNode(memberExpression));
+          if (!checkBinding(binding)) {
+            illegalBindings.add(binding);
+            return;
           }
-        });
 
-        [binding.path, ...binding.constantViolations].forEach(
-          (constantViolation) => {
-            constantViolation.traverse({
-              "ReferencedIdentifier|BindingIdentifier"(idPath) {
-                if (!idPath.isIdentifier()) return;
+          do {
+            index = choice([
+              stackMap.size,
+              propertyGen.generate(),
+              getRandomInteger(-250, 250),
+            ]);
+          } while (!index || stackKeys.has(index.toString()));
 
-                const cBinding = idPath.scope.getBinding(idPath.node.name);
-                if (cBinding !== binding) return;
+          stackMap.set(binding, index);
+          stackKeys.add(index.toString());
+        }
 
-                var replacePath: NodePath = idPath;
-                var valueNode: t.Expression | null = null;
-
-                var forInOfChild = idPath.find(
-                  (p) =>
-                    p.parentPath?.isForInStatement() ||
-                    p.parentPath?.isForOfStatement()
-                );
-
-                var variableDeclarationChild = idPath.find((p) =>
-                  p.parentPath?.isVariableDeclarator()
-                );
-
-                if (
-                  variableDeclarationChild &&
-                  t.isVariableDeclarator(variableDeclarationChild.parent) &&
-                  variableDeclarationChild.parent.id ===
-                    variableDeclarationChild.node
-                ) {
-                  replacePath = variableDeclarationChild.parentPath.parentPath;
-                  valueNode =
-                    variableDeclarationChild.parent.init ||
-                    t.identifier("undefined");
-                }
-
-                if (
-                  forInOfChild &&
-                  (t.isForInStatement(forInOfChild.parent) ||
-                    t.isForOfStatement(forInOfChild.parent)) &&
-                  forInOfChild.parent.left === forInOfChild.node
-                ) {
-                  replacePath = forInOfChild;
-                  valueNode = null;
-                }
-
-                let replaceExpr: t.Node = t.cloneNode(memberExpression);
-                if (valueNode) {
-                  replaceExpr = t.assignmentExpression(
-                    "=",
-                    replaceExpr,
-                    valueNode
-                  );
-                }
-
-                if (replacePath.container) {
-                  replacePath.replaceWith(replaceExpr);
-                }
-              },
-            });
-          }
+        const memberExpression = t.memberExpression(
+          t.identifier(stackName),
+          createLiteral(index),
+          true
         );
 
-        identifierPath.scope.removeBinding(identifierPath.node.name);
+        if (isDefiningIdentifier(path)) {
+          replaceDefiningIdentifierToMemberExpression(path, memberExpression);
+
+          return;
+        }
+
+        ensureComputedExpression(path);
+        path.replaceWith(memberExpression);
       },
     });
 
     if (!needsStack) return;
 
-    var originalLength = computeFunctionLength(fnPath);
+    const originalParamCount = fnPath.node.params.length;
+    const originalLength = computeFunctionLength(fnPath);
+
     fnPath.node.params = [t.restElement(t.identifier(stackName))];
+
+    // Discard extraneous parameters
+    // Predictable functions are guaranteed to not have extraneous parameters
+    if (!(fnPath.node as NodeSymbol)[PREDICTABLE]) {
+      prepend(
+        fnPath,
+        new Template(`${stackName}["length"] = {originalParamCount};`).single({
+          originalParamCount: t.numericLiteral(originalParamCount),
+        })
+      );
+    }
+
+    // Function is no longer predictable
+    (fnPath.node as NodeSymbol)[PREDICTABLE] = false;
 
     fnPath.scope.registerBinding("param", fnPath.get("params")[0], fnPath);
 
     me.setFunctionLength(fnPath, originalLength);
+
+    me.changeData.functions++;
   };
 
   return {
     visitor: {
       Function: {
         exit(path: NodePath<t.Function>) {
+          if (!path.get("body").isBlockStatement()) return;
+
           transformFunction(path);
         },
       },

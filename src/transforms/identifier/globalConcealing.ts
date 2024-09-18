@@ -1,14 +1,23 @@
 import * as t from "@babel/types";
-import { NodePath, PluginObj } from "@babel/core";
+import { NodePath } from "@babel/core";
 import { NameGen } from "../../utils/NameGen";
 import Template from "../../templates/template";
-import { PluginArg } from "../plugin";
+import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
 import { computeProbabilityMap } from "../../probability";
-import { variableFunctionName } from "../../constants";
-import { prepend } from "../../utils/ast-utils";
+import {
+  MULTI_TRANSFORM,
+  reservedIdentifiers,
+  variableFunctionName,
+} from "../../constants";
+import {
+  getMemberExpressionPropertyAsString,
+  isVariableIdentifier,
+  prepend,
+} from "../../utils/ast-utils";
 import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
 import { getRandomInteger, getRandomString } from "../../utils/random-utils";
+import { ok } from "assert";
 
 const ignoreGlobals = new Set([
   "require",
@@ -16,10 +25,16 @@ const ignoreGlobals = new Set([
   "eval",
   "arguments",
   variableFunctionName,
+  ...reservedIdentifiers,
 ]);
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.GlobalConcealing);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.GlobalConcealing, {
+    changeData: {
+      globals: 0,
+      nativeFunctions: 0,
+    },
+  });
 
   var globalMapping = new Map<string, string>(),
     globalFnName = me.getPlaceholder() + "_getGlobal",
@@ -69,9 +84,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           var pendingReplacements = new Map<string, NodePath[]>();
 
           programPath.traverse({
-            "ReferencedIdentifier|BindingIdentifier"(_path) {
-              var identifierPath = _path as NodePath<t.Identifier>;
+            Identifier(identifierPath) {
+              if (!isVariableIdentifier(identifierPath)) return;
+
               var identifierName = identifierPath.node.name;
+
+              if (ignoreGlobals.has(identifierName)) return;
 
               const binding = identifierPath.scope.getBinding(identifierName);
               if (binding) {
@@ -79,10 +97,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 return;
               }
 
-              if (
-                !identifierPath.scope.hasGlobal(identifierName) ||
-                identifierPath.scope.hasOwnBinding(identifierName)
-              ) {
+              if (!identifierPath.scope.hasGlobal(identifierName)) {
                 return;
               }
 
@@ -98,8 +113,6 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 illegalGlobals.add(identifierName);
                 return;
               }
-
-              if (ignoreGlobals.has(identifierName)) return;
 
               if (!pendingReplacements.has(identifierName)) {
                 pendingReplacements.set(identifierName, [identifierPath]);
@@ -133,9 +146,112 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               [t.stringLiteral(mapping)]
             );
 
-            paths.forEach((path) => {
-              path.replaceWith(t.cloneNode(callExpression));
-            });
+            const { nativeFunctionName } = me.globalState.internals;
+
+            for (let path of paths) {
+              const replaceExpression = t.cloneNode(callExpression);
+              me.skip(replaceExpression);
+
+              if (
+                // Native Function will only be populated if tamper protection is enabled
+                nativeFunctionName &&
+                // Avoid maximum call stack error
+                !path.find((p) => p.node[MULTI_TRANSFORM] || me.isSkipped(p))
+              ) {
+                // First extract the member expression chain
+                let nameAndPropertyPath = [globalName];
+                let cursorPath = path;
+                let callExpressionPath: NodePath<t.CallExpression> | null =
+                  null;
+
+                const checkForCallExpression = () => {
+                  if (
+                    cursorPath.parentPath?.isCallExpression() &&
+                    cursorPath.key === "callee"
+                  ) {
+                    callExpressionPath = cursorPath.parentPath;
+                    return true;
+                  }
+                };
+
+                if (!checkForCallExpression()) {
+                  cursorPath = cursorPath?.parentPath;
+                  while (cursorPath?.isMemberExpression()) {
+                    let propertyString = getMemberExpressionPropertyAsString(
+                      cursorPath.node
+                    );
+                    if (!propertyString || typeof propertyString !== "string") {
+                      break;
+                    }
+
+                    nameAndPropertyPath.push(propertyString);
+
+                    if (checkForCallExpression()) break;
+                    cursorPath = cursorPath.parentPath;
+                  }
+                }
+
+                // Eligible member-expression/identifier
+                if (callExpressionPath) {
+                  // Check user's custom implementation
+                  var shouldTransform =
+                    me.obfuscator.shouldTransformNativeFunction(
+                      nameAndPropertyPath
+                    );
+                  if (shouldTransform) {
+                    path.replaceWith(replaceExpression);
+
+                    // console.log("Hello World") ->
+                    // checkNative(getGlobal("console")["log"])("Hello World")
+
+                    // Parent-most member expression must be wrapped
+                    // This to preserve proper 'this' binding in member expression invocations
+                    let callee = callExpressionPath.get(
+                      "callee"
+                    ) as NodePath<t.Expression>;
+                    let callArgs: t.Expression[] = [callee.node];
+
+                    if (callee.isMemberExpression()) {
+                      const additionalPropertyString =
+                        getMemberExpressionPropertyAsString(callee.node);
+                      ok(
+                        additionalPropertyString,
+                        "Expected additional property to be a string"
+                      );
+                      callee = callee.get("object");
+                      callArgs = [
+                        callee.node,
+                        t.stringLiteral(additionalPropertyString),
+                      ];
+                    }
+
+                    // Method supports two signatures:
+                    // checkNative(fetch)(...)
+                    // checkNative(console, "log")(...)
+
+                    callExpressionPath
+                      .get("callee")
+                      .replaceWith(
+                        me.skip(
+                          t.callExpression(
+                            t.identifier(nativeFunctionName),
+                            callArgs
+                          )
+                        )
+                      );
+
+                    me.changeData.nativeFunctions++;
+                    continue;
+                  }
+                }
+              }
+
+              me.changeData.globals++;
+
+              // Regular replacement
+              // console -> getGlobal("console")
+              path.replaceWith(replaceExpression);
+            }
           }
 
           // No globals changed, no need to insert the getGlobal function

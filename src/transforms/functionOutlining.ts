@@ -1,5 +1,5 @@
-import { NodePath, PluginObj } from "@babel/core";
-import { PluginArg } from "./plugin";
+import { NodePath } from "@babel/core";
+import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
 import { ensureComputedExpression, prepend } from "../utils/ast-utils";
 import * as t from "@babel/types";
@@ -68,8 +68,12 @@ function isSafeForOutlining(path: NodePath): {
   return { isSafe, bindings };
 }
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.FunctionOutlining);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.FunctionOutlining, {
+    changeData: {
+      functionsMade: 0,
+    },
+  });
 
   var changesMade = 0;
 
@@ -152,6 +156,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     t.blockStatement(extractedStatements.map((x) => x.node))
                   )
                 );
+
+              me.changeData.functionsMade++;
+
               var callExpression = t.callExpression(memberExpression, []);
 
               statement.replaceWith(callExpression);
@@ -192,6 +199,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 t.blockStatement([t.returnStatement(t.cloneNode(path.node))])
               )
             );
+
+          me.changeData.functionsMade++;
 
           var callExpression = t.callExpression(memberExpression, []);
 

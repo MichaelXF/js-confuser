@@ -1,10 +1,14 @@
-import { NodePath, PluginObj } from "@babel/core";
+import { NodePath } from "@babel/core";
 import { Order } from "../../order";
-import { PluginArg } from "../plugin";
+import { PluginArg, PluginObject } from "../plugin";
 import { NodeSymbol, PREDICTABLE } from "../../constants";
 import * as t from "@babel/types";
 import { isStaticValue } from "../../utils/static-utils";
-import { isStrictMode, prepend } from "../../utils/ast-utils";
+import {
+  getPatternIdentifierNames,
+  isStrictMode,
+  prepend,
+} from "../../utils/ast-utils";
 import Template from "../../templates/template";
 
 /**
@@ -13,11 +17,17 @@ import Template from "../../templates/template";
  * 1) Move variables to top of the current block
  * 2) Move variables as unused function parameters
  */
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.MovedDeclarations);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.MovedDeclarations, {
+    changeData: {
+      variableDeclarations: 0,
+      functionParameters: 0,
+    },
+  });
 
   function isFunctionEligibleForParameterPacking(
-    functionPath: NodePath<t.Function>
+    functionPath: NodePath<t.Function>,
+    proposedParameterName: string
   ) {
     // Getter/setter functions must have zero or one formal parameter
     // We cannot add extra parameters to them
@@ -32,6 +42,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
     // Max 1,000 parameters
     if (functionPath.get("params").length > 1_000) return false;
+
+    // Check for duplicate parameter names
+    var bindingIdentifiers = getPatternIdentifierNames(
+      functionPath.get("params")
+    );
+
+    // Duplicate parameter name not allowed
+    if (bindingIdentifiers.has(proposedParameterName)) return false;
 
     return true;
   }
@@ -50,15 +68,18 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           // Must be direct child of the function
           if (path.parentPath !== functionPath.get("body")) return;
 
+          const functionName = path.node.id.name;
+
           // Must be eligible for parameter packing
-          if (!isFunctionEligibleForParameterPacking(functionPath)) return;
+          if (
+            !isFunctionEligibleForParameterPacking(functionPath, functionName)
+          )
+            return;
 
           var strictMode = isStrictMode(functionPath);
 
           // Default parameters are not allowed when 'use strict' is declared
           if (strictMode) return;
-
-          const functionName = path.node.id.name;
 
           var functionExpression = path.node as t.Node as t.FunctionExpression;
           functionExpression.type = "FunctionExpression";
@@ -87,6 +108,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           );
 
           path.remove();
+          me.changeData.functionParameters++;
         },
       },
       VariableDeclaration: {
@@ -98,6 +120,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           var functionPath = path.findParent((path) =>
             path.isFunction()
           ) as NodePath<t.Function>;
+
+          const declaration = path.node.declarations[0];
+          if (!t.isIdentifier(declaration.id)) return;
+          const varName = declaration.id.name;
 
           var allowDefaultParamValue = true;
 
@@ -112,13 +138,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             // Cannot add variables after rest element
             // Cannot add over 1,000 parameters
-            if (isFunctionEligibleForParameterPacking(functionPath)) {
+            if (isFunctionEligibleForParameterPacking(functionPath, varName)) {
               insertionMethod = "functionParameter";
             }
           }
-
-          const declaration = path.node.declarations[0];
-          if (!t.isIdentifier(declaration.id)) return;
 
           const { name } = declaration.id;
           const value = declaration.init || t.identifier("undefined");
@@ -184,6 +207,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 binding.identifier = identifier;
               }
 
+              me.changeData.functionParameters++;
               break;
             case "variableDeclaration":
               var block = path.findParent((path) =>
@@ -203,6 +227,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   t.variableDeclaration("var", [variableDeclarator])
                 );
               }
+
+              me.changeData.variableDeclarations++;
 
               break;
           }

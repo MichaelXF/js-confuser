@@ -1,5 +1,5 @@
-import { NodePath, PluginObj } from "@babel/core";
-import { PluginArg } from "../plugin";
+import { NodePath } from "@babel/core";
+import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
 import * as t from "@babel/types";
 import {
@@ -9,8 +9,12 @@ import {
 } from "../../utils/ast-utils";
 import { computeProbabilityMap } from "../../probability";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.ObjectExtraction);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.ObjectExtraction, {
+    changeData: {
+      objects: 0,
+    },
+  });
 
   return {
     visitor: {
@@ -173,6 +177,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         for (const { path, replaceWith } of pendingReplacements) {
           path.replaceWith(replaceWith);
         }
+
+        me.log("Extracted object", identifier.node.name);
+
+        me.changeData.objects++;
       },
     },
   };

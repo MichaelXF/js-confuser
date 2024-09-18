@@ -1,7 +1,7 @@
 import * as t from "@babel/types";
-import { NodePath, PluginObj } from "@babel/core";
+import { NodePath } from "@babel/core";
 import Template from "../../templates/template";
-import { PluginArg } from "../plugin";
+import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
 import { computeProbabilityMap } from "../../probability";
 import { ok } from "assert";
@@ -10,6 +10,8 @@ import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
 import {
   ensureComputedExpression,
   isModuleImport,
+  prepend,
+  prependProgram,
 } from "../../utils/ast-utils";
 import {
   chance,
@@ -32,8 +34,12 @@ interface NodeStringConcealing {
   [STRING_CONCEALING]?: StringConcealingInterface;
 }
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.StringConcealing);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.StringConcealing, {
+    changeData: {
+      strings: 0,
+    },
+  });
 
   const blocks: NodePath<t.Block>[] = [];
   const stringMap = new Map<string, number>();
@@ -212,6 +218,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   stringMap.set(encodedValue, index);
                 }
 
+                me.changeData.strings++;
+
                 // Ensure the string is computed so we can replace it with complex call expression
                 ensureComputedExpression(path);
 
@@ -232,21 +240,17 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const bufferToStringName = me.getPlaceholder() + "_bufferToString";
           const getGlobalFnName = me.getPlaceholder() + "_getGlobal";
 
-          const bufferToString = BufferToStringTemplate.compile({
+          const bufferToStringCode = BufferToStringTemplate.compile({
             GetGlobalTemplate: createGetGlobalTemplate(me, programPath),
             getGlobalFnName: getGlobalFnName,
-            name: bufferToStringName,
+            BufferToString: bufferToStringName,
           });
 
-          programPath
-            .unshiftContainer("body", bufferToString)
-            .forEach((path) => {
-              programPath.scope.registerDeclaration(path);
-            });
+          prependProgram(programPath, bufferToStringCode);
 
           // Create the string array
-          var stringArrayPath = programPath.unshiftContainer(
-            "body",
+          prependProgram(
+            programPath,
             t.variableDeclaration("var", [
               t.variableDeclarator(
                 t.identifier(stringArrayName),
@@ -255,15 +259,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 )
               ),
             ])
-          )[0];
-          programPath.scope.registerDeclaration(stringArrayPath);
+          );
 
           for (var block of blocks) {
             const { encodingImplementation, fnName } = (
               block.node as NodeStringConcealing
             )[STRING_CONCEALING] as StringConcealingInterface;
 
-            const decodeFnName = fnName + "_d";
+            const decodeFnName = fnName + "_decode";
 
             ok(encodingImplementation.code instanceof Template);
 
@@ -280,14 +283,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               }
             `).single<t.FunctionDeclaration>();
 
-            block
-              .unshiftContainer("body", [
-                ...decoder,
-                retrieveFunctionDeclaration,
-              ])
-              .forEach((path) => {
-                block.scope.registerDeclaration(path);
-              });
+            prepend(block, [...decoder, retrieveFunctionDeclaration]);
           }
         },
       },

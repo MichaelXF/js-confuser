@@ -1,14 +1,15 @@
-import { PluginObj } from "@babel/core";
 import traverse, { NodePath, Scope, Visitor } from "@babel/traverse";
-import { PluginArg } from "./plugin";
+import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
 import { computeProbabilityMap } from "../probability";
 import {
   ensureComputedExpression,
   getParentFunctionOrProgram,
   isDefiningIdentifier,
+  isModifiedIdentifier,
   isStrictMode,
   isVariableIdentifier,
+  replaceDefiningIdentifierToMemberExpression,
 } from "../utils/ast-utils";
 import * as t from "@babel/types";
 import { numericLiteral, deepClone } from "../utils/node";
@@ -22,7 +23,14 @@ import {
 import { IntGen } from "../utils/IntGen";
 import { ok } from "assert";
 import { NameGen } from "../utils/NameGen";
-import { NodeSymbol, UNSAFE, NO_RENAME, PREDICTABLE } from "../constants";
+import {
+  NodeSymbol,
+  UNSAFE,
+  NO_RENAME,
+  PREDICTABLE,
+  variableFunctionName,
+  WITH_STATEMENT,
+} from "../constants";
 
 /**
  * Breaks functions into DAGs (Directed Acyclic Graphs)
@@ -37,8 +45,16 @@ import { NodeSymbol, UNSAFE, NO_RENAME, PREDICTABLE } from "../constants";
  * - 2. At the end of each case, the state variable is updated to the next block of code.
  * - 3. The while loop continues until the the state variable is the end state.
  */
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.ControlFlowFlattening);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.ControlFlowFlattening, {
+    changeData: {
+      functions: 0,
+      blocks: 0,
+      ifStatements: 0,
+      deadCode: 0,
+      variables: 0,
+    },
+  });
 
   // in Debug mode, the output is much easier to read
   const isDebug = false;
@@ -48,6 +64,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
   const addDeadCode = true; // add fakes chunks of code
   const addFakeTests = true; // case 100: case 490: case 510: ...
   const addComplexTests = true; // case s != 49 && s - 10:
+  const addPredicateTests = true; // case scope.A + 10: ...
   const mangleNumericalLiterals = true; // 50 => state + X
   const mangleBooleanLiterals = true; // true => state == X
   const addWithStatement = true; // Disabling not supported yet
@@ -57,11 +74,24 @@ export default ({ Plugin }: PluginArg): PluginObj => {
   // Amount of blocks changed by Control Flow Flattening
   let cffCounter = 0;
 
+  const functionsModified = new Set<t.Node>();
+
   return {
+    post: () => {
+      functionsModified.forEach((node) => {
+        (node as NodeSymbol)[UNSAFE] = true;
+      });
+    },
     visitor: {
       "Program|Function": {
         exit(_path) {
           let programOrFunctionPath = _path as NodePath<t.Program | t.Function>;
+
+          // Exclude loops
+          if (
+            programOrFunctionPath.find((p) => p.isForStatement() || p.isWhile())
+          )
+            return;
 
           let programPath = _path.isProgram() ? _path : null;
           let functionPath = _path.isFunction() ? _path : null;
@@ -70,7 +100,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (programPath) {
             blockPath = programPath;
           } else {
-            var fnBlockPath = functionPath.get("body");
+            let fnBlockPath = functionPath.get("body");
             if (!fnBlockPath.isBlock()) return;
             blockPath = fnBlockPath;
           }
@@ -97,7 +127,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const blockFnParent = getParentFunctionOrProgram(blockPath);
 
           let hasIllegalNode = false;
-          var bindingNames = new Set<string>();
+          const bindingNames = new Set<string>();
           blockPath.traverse({
             "Super|MetaProperty|AwaitExpression|YieldExpression"(path) {
               if (
@@ -113,11 +143,21 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 path.stop();
               }
             },
-            BindingIdentifier(path) {
+            Identifier(path) {
+              if (
+                path.node.name === variableFunctionName ||
+                path.node.name === "arguments"
+              ) {
+                hasIllegalNode = true;
+                path.stop();
+                return;
+              }
+
+              if (!path.isBindingIdentifier()) return;
               const binding = path.scope.getBinding(path.node.name);
               if (!binding) return;
 
-              var fnParent = path.getFunctionParent();
+              let fnParent = path.getFunctionParent();
               if (
                 path.key === "id" &&
                 path.parentPath.isFunctionDeclaration()
@@ -138,30 +178,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               }
               bindingNames.add(path.node.name);
             },
-            "BreakStatement|ContinueStatement"(_path) {
-              var path = _path as NodePath<
-                t.BreakStatement | t.ContinueStatement
-              >;
-              if (path.node.label) return;
-
-              const parent = path.findParent(
-                (p) =>
-                  p.isFor() ||
-                  p.isWhile() ||
-                  (path.isBreakStatement() && p.isSwitchCase()) ||
-                  p === blockPath
-              );
-
-              if (parent === blockPath) {
-                hasIllegalNode = true;
-                path.stop();
-              }
-            },
           });
 
           if (hasIllegalNode) {
             return;
           }
+
+          me.changeData.blocks++;
 
           // Limit how many numbers get entangled
           let mangledLiteralsCreated = 0;
@@ -173,7 +196,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             if (isDebug) {
               name = prefix + "_" + suffix;
             } else {
-              name = me.obfuscator.nameGen.generate();
+              name = me.obfuscator.nameGen.generate(false);
             }
 
             var id = t.identifier(name);
@@ -225,15 +248,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             preserveNames = new Set<string>();
 
-            findUsed(): ScopeManager {
-              if (this.isNotUsed) return this.parent?.findUsed();
+            findWithBindings(): ScopeManager {
+              if (this.nameMap.size === 0)
+                return this.parent?.findWithBindings();
 
               return this;
             }
 
             getNewName(name: string, originalNode?: t.Node) {
               if (!this.nameMap.has(name)) {
-                let newName = this.nameGen.generate();
+                let newName = this.nameGen.generate(false);
                 if (isDebug) {
                   newName = "_" + name;
                 }
@@ -242,6 +266,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 }
 
                 this.nameMap.set(name, newName);
+
+                me.changeData.variables++;
 
                 // console.log(
                 //   "Renaming " +
@@ -282,11 +308,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     identity: "${this.propertyName}"
                   })
                     `).expression()
-                : t.objectExpression([]);
+                : new Template(`Object["create"](null)`).expression();
             }
 
             getMemberExpression(name: string) {
-              var memberExpression = t.memberExpression(
+              const memberExpression = t.memberExpression(
                 this.getScopeObject(),
                 t.stringLiteral(name),
                 true
@@ -310,12 +336,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             }
 
             getObjectExpression(refreshLabel: string) {
-              var refreshScope = basicBlocks.get(refreshLabel).scopeManager;
-              var propertyMap: { [property: string]: t.Expression } = {};
+              let refreshScope = basicBlocks.get(refreshLabel).scopeManager;
+              let propertyMap: { [property: string]: t.Expression } = {};
 
-              var cursor = this.scope;
+              let cursor = this.scope;
               while (cursor) {
-                var parentScopeManager = scopeToScopeManager.get(cursor);
+                let parentScopeManager = scopeToScopeManager.get(cursor);
                 if (parentScopeManager) {
                   propertyMap[parentScopeManager.propertyName] =
                     t.memberExpression(
@@ -331,8 +357,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               propertyMap[refreshScope.propertyName] =
                 refreshScope.getInitializingObjectExpression();
 
-              var properties: t.ObjectProperty[] = [];
-              for (var key in propertyMap) {
+              const properties: t.ObjectProperty[] = [];
+              for (const key in propertyMap) {
                 properties.push(
                   t.objectProperty(t.stringLiteral(key), propertyMap[key], true)
                 );
@@ -341,18 +367,16 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               return t.objectExpression(properties);
             }
 
-            hasName(name: string) {
-              let cursor: ScopeManager = this;
-              while (cursor) {
-                if (cursor.nameMap.has(name)) {
-                  return true;
-                }
-                cursor = cursor.parent;
-              }
-
-              return false;
+            hasOwnName(name: string) {
+              return this.nameMap.has(name);
             }
           }
+
+          const getImpossibleBasicBlocks = () => {
+            return Array.from(basicBlocks.values()).filter(
+              (block) => block.options.impossible
+            );
+          };
 
           const scopeToScopeManager = new Map<Scope, ScopeManager>();
           /**
@@ -465,16 +489,14 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               };
             }
 
-            identifier(
-              identifierName: string,
-              scopeManager = this.scopeManager
-            ) {
+            identifier(identifierName: string, scopeManager: ScopeManager) {
               if (
                 this.withDiscriminant &&
                 this.withDiscriminant === scopeManager
               ) {
                 var id = t.identifier(identifierName);
                 (id as NodeSymbol)[NO_RENAME] = identifierName;
+                (id as NodeSymbol)[WITH_STATEMENT] = true;
                 me.skip(id);
                 return id;
               }
@@ -486,7 +508,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             constructor(
               public label: string,
-              public parentPath: NodePath<t.Block>
+              public parentPath: NodePath<t.Block>,
+              public options: { impossible?: boolean } = {}
             ) {
               this.createPath();
 
@@ -620,7 +643,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   isIllegal = true;
                 }
                 let oldBasicBlock = currentBasicBlock;
-                var fnLabel = me.getPlaceholder();
+                let fnLabel = me.getPlaceholder();
 
                 let sm = currentBasicBlock.scopeManager;
                 let rename = sm.getNewName(fnName);
@@ -635,6 +658,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   hoistedBasicBlock.body.unshift(statement.node);
                   continue;
                 }
+
+                me.changeData.functions++;
 
                 const functionExpression = t.functionExpression(
                   null,
@@ -665,7 +690,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   nextBlockPath: blockStatement,
                   jumpToNext: false,
                 });
-                var fnTopBlock = currentBasicBlock;
+                let fnTopBlock = currentBasicBlock;
 
                 // Implicit return
                 blockStatement.node.body.push(
@@ -704,7 +729,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                   // Change bindings from 'param' to 'var'
                   statement.get("params").forEach((param) => {
-                    var ids = param.getBindingIdentifierPaths();
+                    let ids = param.getBindingIdentifierPaths();
                     // Loop over the record of binding identifiers
                     for (const identifierName in ids) {
                       const identifierPath = ids[identifierName];
@@ -735,6 +760,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   consequent.isBlockStatement() &&
                   (!alternate.node || alternate.isBlockStatement())
                 ) {
+                  me.changeData.ifStatements++;
+
                   const consequentLabel = me.getPlaceholder();
                   const alternateLabel = alternate.node
                     ? me.getPlaceholder()
@@ -841,20 +868,23 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             for (let i = 0; i < fakeChunkCount; i++) {
               // These chunks just jump somewhere random, they are never executed
               // so it could contain any code
-              const fakeBlock = new BasicBlock(me.getPlaceholder(), blockPath);
+              const fakeBlock = new BasicBlock(me.getPlaceholder(), blockPath, {
+                impossible: true,
+              });
               let fakeJump;
               do {
                 fakeJump = choice(Array.from(basicBlocks.keys()));
               } while (fakeJump === fakeBlock.label);
 
               fakeBlock.insertAfter(GotoControlStatement(fakeJump));
+              me.changeData.deadCode++;
             }
 
             // DEAD CODE 2/3: Add fake jumps to really mess with deobfuscators
             // "irreducible control flow"
             basicBlocks.forEach((basicBlock) => {
-              if (chance(25)) {
-                var randomLabel = choice(Array.from(basicBlocks.keys()));
+              if (chance(30 - basicBlocks.size)) {
+                let randomLabel = choice(Array.from(basicBlocks.keys()));
 
                 // The `false` literal will be mangled
                 basicBlock.insertAfter(
@@ -867,6 +897,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     predicate: basicBlock.createFalsePredicate(),
                   })
                 );
+
+                me.changeData.deadCode++;
               }
             });
             // DEAD CODE 3/3: Clone chunks but these chunks are never ran
@@ -882,7 +914,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               if (!hasDeclaration) {
                 let clonedChunk = new BasicBlock(
                   me.getPlaceholder(),
-                  randomChunk.parentPath
+                  randomChunk.parentPath,
+                  {
+                    impossible: true,
+                  }
                 );
 
                 randomChunk.thisNode.body
@@ -891,7 +926,25 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                     if (node.type === "EmptyStatement") return;
                     clonedChunk.insertAfter(node);
                   });
+
+                me.changeData.deadCode++;
               }
+            }
+          }
+
+          // Select scope managers for the with statement
+          for (const basicBlock of basicBlocks.values()) {
+            basicBlock.bestWithDiscriminant =
+              basicBlock.initializedScope?.findWithBindings();
+
+            if (isDebug && basicBlock.withDiscriminant) {
+              basicBlock.body.unshift(
+                t.expressionStatement(
+                  t.stringLiteral(
+                    "With " + basicBlock.withDiscriminant.propertyName
+                  )
+                )
+              );
             }
           }
 
@@ -903,11 +956,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             const outerFn = getParentFunctionOrProgram(basicBlock.parentPath);
 
             function isWithinSameFunction(path: NodePath) {
-              var fn = getParentFunctionOrProgram(path);
+              let fn = getParentFunctionOrProgram(path);
               return fn.node === outerFn.node;
             }
 
-            var visitor: Visitor = {
+            let visitor: Visitor = {
               BooleanLiteral: {
                 exit(boolPath) {
                   // Don't mangle booleans in debug mode
@@ -1026,132 +1079,24 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                   scopeManager.isNotUsed = false;
 
-                  if (path.isBindingIdentifier()) {
-                    if (
-                      path.key === "id" &&
-                      path.parentPath.isFunctionDeclaration()
-                    ) {
-                      var asFunctionExpression = deepClone(
-                        path.parentPath.node
-                      ) as t.Node as t.FunctionExpression;
-                      asFunctionExpression.type = "FunctionExpression";
-
-                      path.parentPath.replaceWith(
-                        t.expressionStatement(
-                          t.assignmentExpression(
-                            "=",
-                            memberExpression,
-                            asFunctionExpression
-                          )
-                        )
-                      );
-                      return;
-                    } else if (
-                      path.key === "id" &&
-                      path.parentPath.isClassDeclaration()
-                    ) {
-                      var asClassExpression = deepClone(
-                        path.parentPath.node
-                      ) as t.Node as t.ClassExpression;
-                      asClassExpression.type = "ClassExpression";
-
-                      path.parentPath.replaceWith(
-                        t.expressionStatement(
-                          t.assignmentExpression(
-                            "=",
-                            memberExpression,
-                            asClassExpression
-                          )
-                        )
-                      );
-                      return;
-                    } else {
-                      var variableDeclaration = path.find(
-                        (p) =>
-                          p.isVariableDeclaration() ||
-                          p === basicBlock.parentPath
-                      ) as NodePath<t.VariableDeclaration>;
-
-                      if (
-                        variableDeclaration &&
-                        variableDeclaration.isVariableDeclaration()
-                      ) {
-                        ok(variableDeclaration.node.declarations.length === 1);
-
-                        const first =
-                          variableDeclaration.get("declarations")[0];
-                        const id = first.get("id");
-
-                        const init = first.get("init");
-
-                        var newExpression: t.Node = id.node;
-
-                        var isForInitializer =
-                          (variableDeclaration.key === "init" ||
-                            variableDeclaration.key === "left") &&
-                          variableDeclaration.parentPath.isFor();
-
-                        if (init.node || !isForInitializer) {
-                          newExpression = t.assignmentExpression(
-                            "=",
-                            id.node,
-                            init.node || t.identifier("undefined")
-                          );
-                        }
-
-                        if (!isForInitializer) {
-                          newExpression = t.expressionStatement(
-                            newExpression as t.Expression
-                          );
-                        }
-
-                        variableDeclaration.replaceWith(newExpression);
-                        path.replaceWith(memberExpression);
-
-                        return;
-                      } else {
-                        //ok(false, "Binding not found");
-                      }
-                    }
-                  }
-
                   if (isDefiningIdentifier(path)) {
+                    replaceDefiningIdentifierToMemberExpression(
+                      path,
+                      memberExpression
+                    );
                     return;
                   }
+
                   if (!path.container) return;
 
-                  var assignmentLeft = path.find(
-                    (p) =>
-                      (p.key === "left" &&
-                        p.parentPath?.isAssignmentExpression()) ||
-                      p === basicBlock.parentPath
-                  );
-                  if (
-                    assignmentLeft &&
-                    !assignmentLeft.parentPath?.isAssignmentExpression()
-                  ) {
-                    assignmentLeft = null;
-                  }
+                  var isModified = isModifiedIdentifier(path);
 
                   if (
                     basicBlock.withDiscriminant &&
                     basicBlock.withDiscriminant === scopeManager &&
-                    basicBlock.withDiscriminant.hasName(identifierName)
+                    basicBlock.withDiscriminant.hasOwnName(identifierName)
                   ) {
-                    // console.log(identifierName, !!assignmentLeft);
-                    if (assignmentLeft) {
-                      // memberExpression = new Template(`
-                      // typeof {identifierName} !== "undefined" ? {identifierName} : {memberExpression}
-                      // `).expression({
-                      //   memberExpression: memberExpression,
-                      //   identifierName: () => {
-                      //     var id = t.identifier(newName);
-                      //     (id as NodeSymbol)[NO_RENAME] = newName;
-                      //     me.skip(id);
-                      //     return id;
-                      //   },
-                      // });
-                    } else {
+                    if (!isModified) {
                       memberExpression = basicBlock.identifier(
                         newName,
                         scopeManager
@@ -1290,19 +1235,38 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             basicBlock.thisPath.traverse(visitor);
           }
 
-          // Select scope managers for the with statement
-          for (const basicBlock of basicBlocks.values()) {
-            basicBlock.bestWithDiscriminant =
-              basicBlock.initializedScope?.findUsed();
+          // Create global numbers for predicates
+          const mainScope = basicBlocks.get(startLabel).scopeManager;
+          const predicateNumbers = new Map<string, number>();
+          const predicateNumberCount = isDebug ? 0 : getRandomInteger(2, 5);
+          for (let i = 0; i < predicateNumberCount; i++) {
+            const name = mainScope.getNewName(
+              me.getPlaceholder("predicate_" + i)
+            );
 
-            if (isDebug && basicBlock.withDiscriminant) {
-              basicBlock.body.unshift(
-                t.expressionStatement(
-                  t.stringLiteral(
-                    "With " + basicBlock.withDiscriminant.propertyName
-                  )
-                )
-              );
+            const number = getRandomInteger(-250, 250);
+            predicateNumbers.set(name, number);
+
+            const createAssignment = (value: number) => {
+              return new Template(`
+                {memberExpression} = {number}
+                `).single({
+                memberExpression: mainScope.getMemberExpression(name),
+                number: numericLiteral(number),
+              });
+            };
+
+            basicBlocks.get(startLabel).body.unshift(createAssignment(number));
+
+            // Add random assignments to impossible blocks
+            var fakeAssignmentCount = getRandomInteger(0, 3);
+            for (let i = 0; i < fakeAssignmentCount; i++) {
+              var impossibleBlock = choice(getImpossibleBasicBlocks());
+              if (impossibleBlock) {
+                impossibleBlock.body.unshift(
+                  createAssignment(getRandomInteger(-250, 250))
+                );
+              }
             }
           }
 
@@ -1331,31 +1295,52 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             let test: t.Expression = numericLiteral(block.totalState);
 
+            // Predicate tests cannot apply to the start label
+            // As that's when the numbers are initialized
+            if (
+              !isDebug &&
+              addPredicateTests &&
+              block.label !== startLabel &&
+              chance(50)
+            ) {
+              let predicateName = choice(Array.from(predicateNumbers.keys()));
+              if (predicateName) {
+                let number = predicateNumbers.get(predicateName);
+                let diff = block.totalState - number;
+
+                test = t.binaryExpression(
+                  "+",
+                  mainScope.getMemberExpression(predicateName),
+                  numericLiteral(diff)
+                );
+              }
+            }
+
             // Add complex tests
-            if (!isDebug && addComplexTests && chance(25)) {
+            if (!isDebug && addComplexTests && chance(50)) {
               // Create complex test expressions for each switch case
 
               // case STATE+X:
-              var stateVarIndex = getRandomInteger(0, stateVars.length);
+              let stateVarIndex = getRandomInteger(0, stateVars.length);
 
-              var stateValues = block.stateValues;
-              var difference = stateValues[stateVarIndex] - block.totalState;
+              let stateValues = block.stateValues;
+              let difference = stateValues[stateVarIndex] - block.totalState;
 
-              var conditionNodes: t.Expression[] = [];
-              var alreadyConditionedItems = new Set<string>();
+              let conditionNodes: t.Expression[] = [];
+              let alreadyConditionedItems = new Set<string>();
 
               // This code finds clash conditions and adds them to 'conditionNodes' array
               Array.from(basicBlocks.keys()).forEach((label) => {
                 if (label !== block.label) {
-                  var labelStates = basicBlocks.get(label).stateValues;
-                  var totalState = labelStates.reduce((a, b) => a + b, 0);
+                  let labelStates = basicBlocks.get(label).stateValues;
+                  let totalState = labelStates.reduce((a, b) => a + b, 0);
 
                   if (totalState === labelStates[stateVarIndex] - difference) {
-                    var differentIndex = labelStates.findIndex(
+                    let differentIndex = labelStates.findIndex(
                       (v, i) => v !== stateValues[i]
                     );
                     if (differentIndex !== -1) {
-                      var expressionAsString =
+                      let expressionAsString =
                         stateVars[differentIndex].name +
                         "!=" +
                         labelStates[differentIndex];
@@ -1398,9 +1383,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             const tests = [test];
 
-            if (!isDebug && addFakeTests) {
+            if (!isDebug && addFakeTests && chance(50)) {
               // Add fake tests
-              for (let i = 0; i < getRandomInteger(1, 3); i++) {
+              let fakeTestCount = getRandomInteger(1, 3);
+              for (let i = 0; i < fakeTestCount; i++) {
                 tests.push(numericLiteral(stateIntGen.generate()));
               }
 
@@ -1451,18 +1437,20 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 new Template(
                   `{withDiscriminant} || Object["create"](null)`
                 ).expression({
-                  withDiscriminant,
+                  withDiscriminant: deepClone(withDiscriminant),
                 }),
                 t.blockStatement([switchStatement])
               ),
             ])
           );
 
-          var parameters: t.Identifier[] = [...stateVars, argVar, scopeVar].map(
-            (id) => deepClone(id)
-          );
+          const parameters: t.Identifier[] = [
+            ...stateVars,
+            argVar,
+            scopeVar,
+          ].map((id) => deepClone(id));
 
-          var parametersNames: string[] = parameters.map((id) => id.name);
+          const parametersNames: string[] = parameters.map((id) => id.name);
 
           for (var [
             originalFnName,
@@ -1475,8 +1463,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             const argumentsRestName = me.getPlaceholder();
 
-            var argumentsNodes = [];
-            for (var parameterName of parametersNames) {
+            const argumentsNodes = [];
+            for (const parameterName of parametersNames) {
               const stateIndex = stateVars
                 .map((x) => x.name)
                 .indexOf(parameterName);
@@ -1553,6 +1541,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             mainFnDeclaration,
             ...startProgramStatements,
           ];
+
+          functionsModified.add(programOrFunctionPath.node);
 
           // Reset all bindings here
           blockPath.scope.bindings = Object.create(null);

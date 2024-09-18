@@ -1,5 +1,4 @@
-import { PluginObj } from "@babel/core";
-import { PluginArg } from "./plugin";
+import { PluginArg, PluginObject } from "./plugin";
 import { NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
 import Template from "../templates/template";
@@ -14,13 +13,20 @@ import {
 } from "../utils/function-utils";
 import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 import { numericLiteral } from "../utils/node";
-import { prependProgram } from "../utils/ast-utils";
+import { isStrictMode, prependProgram } from "../utils/ast-utils";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.Dispatcher);
-  var dispatcherCounter = 0;
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Dispatcher, {
+    changeData: {
+      functions: 0,
+    },
+  });
+  let dispatcherCounter = 0;
 
   const setFunctionLength = me.getPlaceholder("d_fnLength");
+
+  // in Debug mode, function names are preserved
+  const isDebug = false;
 
   return {
     visitor: {
@@ -90,19 +96,25 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   return;
                 }
 
+                if (isStrictMode(path)) {
+                  illegalNames.add(name);
+                  return;
+                }
+
+                // Do not apply to unsafe functions, redefined functions, or internal obfuscator functions
                 if (
+                  (path.node as NodeSymbol)[UNSAFE] ||
                   functionPaths.has(name) ||
-                  (path.node as NodeSymbol)[UNSAFE]
+                  me.obfuscator.isInternalVariable(name)
                 ) {
                   illegalNames.add(name);
                   return;
                 }
 
+                // Functions with default parameters are not fully supported
+                // (Could be a Function Expression referencing outer scope)
                 if (
-                  path.node.params.find(
-                    (x) => x.type === "AssignmentPattern"
-                  ) ||
-                  (path.node as NodeSymbol)[UNSAFE]
+                  path.node.params.find((x) => x.type === "AssignmentPattern")
                 ) {
                   illegalNames.add(name);
                   return;
@@ -128,6 +140,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             return;
           }
 
+          me.changeData.functions += functionPaths.size;
+
           const dispatcherName =
             me.getPlaceholder() + "_dispatcher_" + dispatcherCounter++;
           const payloadName = me.getPlaceholder() + "_payload";
@@ -135,15 +149,20 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           const newNameMapping = new Map<string, string>();
 
           const keys = {
-            placeholderNoMeaning: getRandomString(10),
-            clearPayload: getRandomString(10),
-            nonCall: getRandomString(10),
-            returnAsObject: getRandomString(10),
-            returnAsObjectProperty: getRandomString(10),
+            placeholderNoMeaning: isDebug ? "noMeaning" : getRandomString(10),
+            clearPayload: isDebug ? "clearPayload" : getRandomString(10),
+            nonCall: isDebug ? "nonCall" : getRandomString(10),
+            returnAsObject: isDebug ? "returnAsObject" : getRandomString(10),
+            returnAsObjectProperty: isDebug
+              ? "returnAsObjectProperty"
+              : getRandomString(10),
           };
 
           for (var name of functionPaths.keys()) {
-            newNameMapping.set(name, getRandomString(6) /**  "_" + name */);
+            newNameMapping.set(
+              name,
+              isDebug ? "_" + name : getRandomString(6) /**  "_" + name */
+            );
           }
 
           // Find identifiers calling/referencing the functions
@@ -204,7 +223,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                 // Replace the identifier with a call to the function
                 const parentPath = path.parentPath;
-                if (parentPath?.isCallExpression()) {
+                if (path.key === "callee" && parentPath?.isCallExpression()) {
                   var expressions: t.Expression[] = [];
                   var callArguments = parentPath.node.arguments;
 
@@ -280,11 +299,26 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 );
               }
 
+              // Add debug label
+              if (isDebug) {
+                newBody.unshift(
+                  t.expressionStatement(
+                    t.stringLiteral(`Dispatcher: ${name} -> ${newName}`)
+                  )
+                );
+              }
+
               const functionExpression = t.functionExpression(
                 null,
                 [],
                 t.blockStatement(newBody)
               );
+
+              for (var symbol of Object.getOwnPropertySymbols(originalFn)) {
+                (functionExpression as any)[symbol] = (originalFn as any)[
+                  symbol
+                ];
+              }
 
               (functionExpression as NodeSymbol)[PREDICTABLE] = true;
 

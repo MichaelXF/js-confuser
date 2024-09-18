@@ -1,5 +1,4 @@
-import { PluginObj } from "@babel/core";
-import { PluginArg } from "../plugin";
+import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
 import { getRandomInteger } from "../../utils/random-utils";
 import { HashFunction } from "../../templates/integrityTemplate";
@@ -26,8 +25,12 @@ export interface NodeIntegrity {
  *
  * This transformation must run last as any changes to the code will break the hash
  */
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.Integrity);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Integrity, {
+    changeData: {
+      functions: 0,
+    },
+  });
 
   return {
     visitor: {
@@ -53,7 +56,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           )
             return;
 
-          const { hashFnName } = me.globalState.lock.integrity;
+          const { integrityHashName: hashFnName } = me.globalState.internals;
+          const obfuscatedHashFnName = me.obfuscator.getObfuscatedVariableName(
+            hashFnName,
+            funcDecPath.find((p) => p.isProgram()).node
+          );
 
           const newFnName = newFunctionDeclaration.id.name;
           const binding = newFnPath.scope.getBinding(newFnName);
@@ -71,11 +78,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           var hashCode = HashFunction(codeTrimmed, seed);
 
-          me.log(codeTrimmed, hashCode);
+          // me.log(codeTrimmed, hashCode);
+          me.changeData.functions++;
 
           funcDecPath.node.body = t.blockStatement(
             new Template(`
-              var hash = ${hashFnName}(${newFunctionDeclaration.id.name}, ${seed});
+              var hash = ${obfuscatedHashFnName}(${newFunctionDeclaration.id.name}, ${seed});
           if(hash === ${hashCode}) {
             {originalBody}
           } else {
@@ -85,7 +93,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               originalBody: funcDecPath.node.body.body,
               countermeasures: () =>
                 me.globalState.lock.createCountermeasuresCode(),
-            })
+            }),
+            // Preserve directives
+            funcDecPath.node.body.directives
           );
         },
       },

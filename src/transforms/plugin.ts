@@ -1,32 +1,38 @@
-import { NodePath, PluginObj } from "@babel/core";
+import { NodePath, PluginObj, Visitor } from "@babel/core";
 import Obfuscator from "../obfuscator";
 import { chance, choice, getRandomString } from "../utils/random-utils";
 import { Order } from "../order";
 import * as t from "@babel/types";
-import {
-  FN_LENGTH,
-  NodeSymbol,
-  SKIP,
-  CONTROL_OBJECTS,
-  NO_RENAME,
-} from "../constants";
+import { FN_LENGTH, NodeSymbol, SKIP, CONTROL_OBJECTS } from "../constants";
 import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 import { prepend, prependProgram } from "../utils/ast-utils";
 import ControlObject from "../utils/ControlObject";
 import { ok } from "assert";
 import { numericLiteral } from "../utils/node";
 
-export type PluginFunction = (pluginArg: PluginArg) => PluginObj;
+export interface PluginObject {
+  visitor?: Visitor;
+  finalASTHandler?: (ast: t.File) => t.File;
+
+  post?: () => void;
+}
 
 export type PluginArg = {
-  Plugin: (order: Order) => PluginInstance;
+  Plugin: <T extends Partial<PluginInstance> = {}>(
+    order: Order,
+    merge?: T
+  ) => PluginInstance & T;
 };
+
+export type PluginFunction = (pluginArg: PluginArg) => PluginObject;
 
 export class PluginInstance {
   constructor(
     public pluginOptions: { name?: string; order?: number },
     public obfuscator: Obfuscator
   ) {}
+
+  public changeData: { [key: string]: number } = {};
 
   get name() {
     return this.pluginOptions.name || "unnamed";
@@ -112,17 +118,17 @@ export class PluginInstance {
     return "__p_" + getRandomString(4) + (suffix ? "_" + suffix : "");
   }
 
-  generateRandomIdentifier() {
-    return "_" + getRandomString(6);
-  }
-
   log(...messages: any[]) {
     if (this.options.verbose) {
       console.log(`[${this.name}]`, ...messages);
     }
   }
 
-  getControlObject(blockPath: NodePath<t.Block>) {
+  hasControlObject(blockPath: NodePath<t.Block>) {
+    return (blockPath.node as NodeSymbol)[CONTROL_OBJECTS]?.length > 0;
+  }
+
+  getControlObject(blockPath: NodePath<t.Block>, createMultiple = true) {
     ok(blockPath.isBlock());
 
     var controlObjects = (blockPath.node as NodeSymbol)[CONTROL_OBJECTS];
@@ -132,7 +138,10 @@ export class PluginInstance {
 
     if (
       controlObjects.length === 0 ||
-      chance(100 - controlObjects.length * 10)
+      (createMultiple &&
+        chance(
+          controlObjects[0].propertyNames.size - 15 * controlObjects.length
+        ))
     ) {
       var newControlObject = new ControlObject(this, blockPath);
 

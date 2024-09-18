@@ -1,28 +1,19 @@
-import { NodePath, PluginObj } from "@babel/core";
-import { PluginArg } from "./plugin";
+import { NodePath } from "@babel/core";
+import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
 import { Order } from "../order";
 import {
   ensureComputedExpression,
   getParentFunctionOrProgram,
+  isUndefined,
 } from "../utils/ast-utils";
 import { Binding, Scope } from "@babel/traverse";
-import { NodeSymbol, placeholderVariablePrefix, UNSAFE } from "../constants";
-
-function isUndefined(path) {
-  if (path.isIdentifier() && path.node.name === "undefined") {
-    return true;
-  }
-  if (
-    path.isUnaryExpression() &&
-    path.node.operator === "void" &&
-    path.node.argument.type === "NumericLiteral" &&
-    path.node.argument.value === 0
-  ) {
-    return true;
-  }
-  return false;
-}
+import {
+  NodeSymbol,
+  placeholderVariablePrefix,
+  SKIP,
+  UNSAFE,
+} from "../constants";
 
 const identifierMap = new Map<string, () => t.Expression>();
 identifierMap.set("undefined", () =>
@@ -41,7 +32,7 @@ identifierMap.set("Infinity", () =>
  * - Shorten literals: True to !0, False to !1, Infinity to 1/0, Undefined to void 0
  * - Remove unused variables, functions
  */
-export default ({ Plugin }: PluginArg): PluginObj => {
+export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.Minify);
   return {
     visitor: {
@@ -92,8 +83,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             function addBindingsToScope(scope: Scope) {
               for (var name in bindings) {
                 const binding = bindings[name];
-                binding.path = newBindingIdentifierPaths[name];
-                scope.bindings[name] = binding;
+                if (binding) {
+                  binding.path = newBindingIdentifierPaths[name];
+                  scope.bindings[name] = binding;
+                }
               }
             }
 
@@ -121,6 +114,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             var argument = path.get("argument");
             if (argument.isNumericLiteral()) return;
             const value = argument.evaluateTruthy();
+            const parent = getParentFunctionOrProgram(path);
+            if (parent && (parent.node as NodeSymbol)[UNSAFE]) return;
+
             if (value === undefined) return;
 
             path.replaceWith(
@@ -185,6 +181,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       ExpressionStatement: {
         exit(path) {
           if (path.get("expression").isIdentifier()) {
+            // Preserve last expression of program for RGF
+            if (
+              path.parentPath?.isProgram() &&
+              path.parentPath?.get("body").at(-1) === path
+            )
+              return;
             path.remove();
           }
         },
@@ -344,25 +346,33 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             return true;
           };
 
-          if (
-            !alternate.node &&
-            consequent.isBlock() &&
-            consequent.node.body.length === 1 &&
-            isMoveable(consequent.node.body[0])
-          ) {
-            consequent.replaceWith(consequent.node.body[0]);
+          let testValue = path.get("test").evaluateTruthy();
+
+          const parent = getParentFunctionOrProgram(path);
+          if (parent && (parent.node as NodeSymbol)[UNSAFE]) {
+            testValue = undefined;
           }
 
-          if (
-            alternate.node &&
-            alternate.isBlock() &&
-            alternate.node.body.length === 1 &&
-            isMoveable(alternate.node.body[0])
-          ) {
-            alternate.replaceWith(alternate.node.body[0]);
+          if (typeof testValue !== "undefined") {
+            if (
+              !alternate.node &&
+              consequent.isBlock() &&
+              consequent.node.body.length === 1 &&
+              isMoveable(consequent.node.body[0])
+            ) {
+              consequent.replaceWith(consequent.node.body[0]);
+            }
+
+            if (
+              alternate.node &&
+              alternate.isBlock() &&
+              alternate.node.body.length === 1 &&
+              isMoveable(alternate.node.body[0])
+            ) {
+              alternate.replaceWith(alternate.node.body[0]);
+            }
           }
 
-          const testValue = path.get("test").evaluateTruthy();
           if (testValue === false) {
             // if(false){} -> ()
             if (!alternate.node) {

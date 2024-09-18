@@ -1,9 +1,8 @@
-import { PluginObj } from "@babel/core";
-import { PluginArg, PluginInstance } from "../plugin";
+import { PluginInstance, PluginObject } from "../plugin";
 import * as t from "@babel/types";
 import { choice } from "../../utils/random-utils";
 import { computeProbabilityMap } from "../../probability";
-import { Order } from "../../order";
+import { GEN_NODE, NodeSymbol } from "../../constants";
 
 function pad(x: string, len: number): string {
   while (x.length < len) {
@@ -47,7 +46,7 @@ function toUnicodeRepresentation(str: string) {
   return escapedString;
 }
 
-export default (me: PluginInstance): PluginObj => {
+export default (me: PluginInstance): PluginObject => {
   return {
     visitor: {
       StringLiteral: {
@@ -65,7 +64,10 @@ export default (me: PluginInstance): PluginObj => {
               : toUnicodeRepresentation
           )(value);
 
-          path.replaceWith(t.identifier(`"${escapedString}"`));
+          var id = t.identifier(`"${escapedString}"`);
+
+          (id as NodeSymbol)[GEN_NODE] = true;
+          path.replaceWith(id);
           path.skip();
         },
       },

@@ -1,6 +1,5 @@
-import { PluginObj } from "@babel/core";
 import { NodePath } from "@babel/traverse";
-import { PluginArg } from "./plugin";
+import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
 import { Order } from "../order";
 import path from "path";
@@ -17,7 +16,22 @@ import {
 } from "../utils/ast-utils";
 import { isVariableFunctionIdentifier } from "../utils/function-utils";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
+/**
+ * Preparation arranges the user's code into an AST the obfuscator can easily transform.
+ *
+ * ExplicitIdentifiers
+ * - `object.IDENTIFIER` -> `object['IDENTIFIER']` // Now String Concealing can apply on it
+ * - `{ IDENTIFIER: ... }` -> `{ "IDENTIFIER": ... }`
+ *
+ * ExplicitDeclarations
+ * - `var a,b,c` -> `var a; var b; var c;` // Now Stack can apply on it
+ *
+ * Block
+ * - `x => x * 2` -> `x => { return x * 2 }` // Change into Block Statements
+ * - `if(true) return` -> `if (true) { return }`
+ * - `while(a) a--;` -> `while(a) { a-- }`
+ */
+export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.Preparation);
 
   const markFunctionUnsafe = (path: NodePath<t.Node>) => {
@@ -106,7 +120,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           // When Rename Variables is disabled, __JS_CONFUSER_VAR__ must still be removed
           if (
-            !me.obfuscator.getPlugin(Order.RenameVariables) &&
+            !me.obfuscator.hasPlugin(Order.RenameVariables) &&
             isVariableFunctionIdentifier(path)
           ) {
             ok(
@@ -221,8 +235,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                 path
                   .replaceWithMultiple(
                     path.node.declarations.map((declaration, i) => {
-                      var names = getPatternIdentifierNames(
-                        path.get("declarations")[i]
+                      var names = Array.from(
+                        getPatternIdentifierNames(path.get("declarations")[i])
                       );
                       names.forEach((name) => {
                         path.scope.removeBinding(name);

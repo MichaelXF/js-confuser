@@ -1,65 +1,37 @@
-import { PluginObj } from "@babel/core";
-import { PluginArg } from "./plugin";
+import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
 import { Order } from "../order";
 import { ok } from "assert";
+import { NameGen } from "../utils/NameGen";
+import { prependProgram } from "../utils/ast-utils";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.Calculator);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Calculator, {
+    changeData: {
+      expressions: 0,
+    },
+  });
+
+  const nameGen = new NameGen(me.options.identifierGenerator);
 
   return {
     visitor: {
       Program: {
-        exit(path) {
+        exit(programPath) {
           const allowedBinaryOperators = new Set(["+", "-", "*", "/"]);
-          const allowedUnaryOperators = new Set([
-            "!",
-            "void",
-            "typeof",
-            "-",
-            "~",
-            "+",
-          ]);
-
           var operatorsMap = new Map<string, string>();
           var calculatorFnName = me.getPlaceholder() + "_calc";
 
-          path.traverse({
-            UnaryExpression: {
-              exit(path) {
-                const { operator } = path.node;
-
-                if (!allowedUnaryOperators.has(operator)) return;
-
-                // Special `typeof identifier` check
-                if (
-                  operator === "typeof" &&
-                  path.get("argument").isIdentifier()
-                )
-                  return;
-
-                const mapKey = "unaryExpression_" + operator;
-                let operatorKey = operatorsMap.get(mapKey);
-
-                // Add unary operator to the map if it doesn't exist
-                if (typeof operatorKey === "undefined") {
-                  operatorKey = me.generateRandomIdentifier();
-                  operatorsMap.set(mapKey, operatorKey);
-                }
-
-                path.replaceWith(
-                  t.callExpression(t.identifier(calculatorFnName), [
-                    t.stringLiteral(operatorKey),
-                    path.node.argument,
-                  ])
-                );
-              },
-            },
+          programPath.traverse({
             BinaryExpression: {
               exit(path) {
                 const { operator } = path.node;
 
                 if (t.isPrivate(path.node.left)) return;
+
+                // TODO: Improve precedence handling or remove this transformation entirely
+                if (!t.isNumericLiteral(path.node.right)) return;
+                if (!t.isNumericLiteral(path.node.left)) return;
 
                 if (!allowedBinaryOperators.has(operator)) return;
 
@@ -68,9 +40,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                 // Add binary operator to the map if it doesn't exist
                 if (typeof operatorKey === "undefined") {
-                  operatorKey = me.generateRandomIdentifier();
+                  operatorKey = nameGen.generate();
                   operatorsMap.set(mapKey, operatorKey);
                 }
+
+                ok(operatorKey);
+
+                me.changeData.expressions++;
 
                 path.replaceWith(
                   t.callExpression(t.identifier(calculatorFnName), [
@@ -94,29 +70,20 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           ).map(([mapKey, key]) => {
             const [type, operator] = mapKey.split("_");
 
-            let expression: t.Expression;
-            if (type === "binaryExpression") {
-              expression = t.binaryExpression(
-                operator as any,
-                t.identifier("a"),
-                t.identifier("b")
-              );
-            } else if (type === "unaryExpression") {
-              expression = t.unaryExpression(
-                operator as any,
-                t.identifier("a")
-              );
-            } else {
-              ok(false);
-            }
+            let expression = t.binaryExpression(
+              operator as any,
+              t.identifier("a"),
+              t.identifier("b")
+            );
 
             return t.switchCase(t.stringLiteral(key), [
               t.returnStatement(expression),
             ]);
           });
 
-          var p = path.unshiftContainer(
-            "body",
+          prependProgram(
+            programPath,
+
             t.functionDeclaration(
               t.identifier(calculatorFnName),
               [t.identifier("operator"), t.identifier("a"), t.identifier("b")],
@@ -125,8 +92,6 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               ])
             )
           );
-
-          path.scope.registerDeclaration(p[0]);
         },
       },
     },

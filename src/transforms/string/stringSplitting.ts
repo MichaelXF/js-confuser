@@ -1,5 +1,4 @@
-import { PluginObj } from "@babel/core";
-import { PluginArg, PluginInstance } from "../plugin";
+import { PluginArg, PluginInstance, PluginObject } from "../plugin";
 import { getRandomInteger, splitIntoChunks } from "../../utils/random-utils";
 import { computeProbabilityMap } from "../../probability";
 import { binaryExpression, stringLiteral } from "@babel/types";
@@ -7,8 +6,12 @@ import { ok } from "assert";
 import { Order } from "../../order";
 import { ensureComputedExpression } from "../../utils/ast-utils";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.StringSplitting);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.StringSplitting, {
+    changeData: {
+      strings: 0,
+    },
+  });
 
   return {
     visitor: {
@@ -55,6 +58,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           });
 
           parent.right = stringLiteral(last);
+
+          me.changeData.strings++;
 
           ensureComputedExpression(path);
 

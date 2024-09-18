@@ -1,42 +1,27 @@
-import { PluginObj } from "@babel/core";
 import * as t from "@babel/types";
 import { ok } from "assert";
-import { PluginArg } from "../plugin";
+import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
 import { ensureComputedExpression, prepend } from "../../utils/ast-utils";
-import { numericLiteral } from "../../utils/node";
+import { createLiteral, LiteralValue, numericLiteral } from "../../utils/node";
+import { NodePath } from "@babel/traverse";
 
 function fail(): never {
   throw new Error("Assertion failed");
 }
 
-type LiteralValue = string | number | boolean | undefined | null;
-const createLiteral = (value: LiteralValue) => {
-  if (value === null) return t.nullLiteral();
-  if (value === undefined) return t.identifier("undefined");
-
-  switch (typeof value) {
-    case "string":
-      return t.stringLiteral(value);
-
-    case "number":
-      return numericLiteral(value);
-
-    case "boolean":
-      return t.booleanLiteral(value);
-  }
-
-  ok(false);
-};
-
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.DuplicateLiteralsRemoval);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.DuplicateLiteralsRemoval, {
+    changeData: {
+      literals: 0,
+    },
+  });
 
   return {
     visitor: {
       Program: {
         enter(programPath) {
-          const arrayName = me.generateRandomIdentifier();
+          const arrayName = me.getPlaceholder() + "_dlrArray";
 
           // Collect all literals
           const literalsMap = new Map<LiteralValue, number>();
@@ -57,7 +42,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           // Traverse through all nodes to find literals
           programPath.traverse({
-            "Literal|Identifier"(_path) {
+            "StringLiteral|BooleanLiteral|NumericLiteral|NullLiteral|Identifier"(
+              _path
+            ) {
               const literalPath = _path as babel.NodePath<
                 t.Literal | t.Identifier
               >;
@@ -65,6 +52,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               let node = literalPath.node;
               var isUndefined = false;
               if (literalPath.isIdentifier()) {
+                // Only referenced variable names
+                if (!(literalPath as NodePath).isReferencedIdentifier()) return;
+
+                // undefined = true; // Skip
+                if ((literalPath as NodePath).isBindingIdentifier()) return;
+
                 // Allow 'undefined' to be redefined
                 if (
                   literalPath.scope.hasBinding(literalPath.node.name, {
@@ -79,7 +72,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   return;
                 }
               }
-              if (t.isRegExpLiteral(node) || t.isTemplateLiteral(node)) return;
+              if (
+                t.isRegExpLiteral(node) ||
+                t.isTemplateLiteral(node) ||
+                t.isDirectiveLiteral(node)
+              )
+                return;
 
               const value: LiteralValue = isUndefined
                 ? undefined
@@ -114,6 +112,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
                 var firstPath = firstTimeMap.get(value);
 
+                me.changeData.literals++;
                 ensureComputedExpression(firstPath);
 
                 firstPath.replaceWith(createMemberExpression(index));
@@ -127,7 +126,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
               ok(index !== -1);
 
-              // Replace literals in the code with a placeholder
+              me.changeData.literals++;
               ensureComputedExpression(literalPath);
 
               literalPath.replaceWith(createMemberExpression(index));

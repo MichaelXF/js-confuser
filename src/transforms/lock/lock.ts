@@ -1,17 +1,39 @@
-import { NodePath, PluginObj } from "@babel/core";
-import { PluginArg } from "../plugin";
+import { NodePath } from "@babel/core";
+import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
 import { chance, choice } from "../../utils/random-utils";
 import Template from "../../templates/template";
 import * as t from "@babel/types";
 import { CustomLock } from "../../options";
-import { getParentFunctionOrProgram } from "../../utils/ast-utils";
+import {
+  getFunctionName,
+  getParentFunctionOrProgram,
+  isDefiningIdentifier,
+  isVariableIdentifier,
+  prependProgram,
+} from "../../utils/ast-utils";
 import { INTEGRITY, NodeIntegrity } from "./integrity";
 import { HashTemplate } from "../../templates/integrityTemplate";
-import { NodeSymbol, SKIP } from "../../constants";
+import {
+  MULTI_TRANSFORM,
+  NodeSymbol,
+  PREDICTABLE,
+  SKIP,
+  UNSAFE,
+} from "../../constants";
+import {
+  IndexOfTemplate,
+  NativeFunctionTemplate,
+  StrictModeTemplate,
+} from "../../templates/tamperProtectionTemplates";
+import { computeProbabilityMap } from "../../probability";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.Lock);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Lock, {
+    changeData: {
+      locksInserted: 0,
+    },
+  });
 
   if (me.options.lock.startDate instanceof Date) {
     me.options.lock.customLocks.push({
@@ -109,9 +131,12 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
   if (me.options.lock.countermeasures) {
     invokeCountermeasuresFnName = me.getPlaceholder("invokeCountermeasures");
+
+    me.globalState.internals.invokeCountermeasuresFnName =
+      invokeCountermeasuresFnName;
   }
 
-  me.globalState.lock.createCountermeasuresCode = () => {
+  var createCountermeasuresCode = () => {
     if (invokeCountermeasuresFnName) {
       return new Template(`${invokeCountermeasuresFnName}()`).compile();
     }
@@ -122,6 +147,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
     return new Template(`while(true){}`).compile();
   };
+  me.globalState.lock.createCountermeasuresCode = createCountermeasuresCode;
 
   function applyLockToBlock(path: NodePath<t.Block>, customLock: CustomLock) {
     let times = timesMap.get(customLock);
@@ -159,38 +185,48 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     const template =
       typeof lockCode === "string" ? new Template(lockCode) : lockCode;
     const lockNodes = template.compile({
-      countermeasures: () => me.globalState.lock.createCountermeasuresCode(),
+      countermeasures: () => createCountermeasuresCode(),
     });
     var p = path.unshiftContainer("body", lockNodes);
     p.forEach((p) => p.skip());
+
+    me.changeData.locksInserted++;
   }
 
   return {
     visitor: {
-      Identifier: {
-        enter(path) {
-          if (path.node.name !== me.options.lock.countermeasures) {
-            return;
-          }
+      BindingIdentifier(path) {
+        if (path.node.name !== me.options.lock.countermeasures) {
+          return;
+        }
 
-          if (countermeasuresNode) {
-            // Disallow multiple countermeasures functions
-            me.error(
-              "Countermeasures function was already defined, it must have a unique name from the rest of your code"
-            );
-          }
+        // Exclude labels
+        if (!isVariableIdentifier(path)) return;
 
-          if (
-            path.scope.getBinding(path.node.name).scope !==
-            path.scope.getProgramParent()
-          ) {
-            me.error(
-              "Countermeasures function must be defined at the global level"
-            );
-          }
+        if (!isDefiningIdentifier(path)) {
+          // Reassignments are not allowed
 
-          countermeasuresNode = path;
-        },
+          me.error("Countermeasures function cannot be reassigned");
+        }
+
+        if (countermeasuresNode) {
+          // Disallow multiple countermeasures functions
+
+          me.error(
+            "Countermeasures function was already defined, it must have a unique name from the rest of your code"
+          );
+        }
+
+        if (
+          path.scope.getBinding(path.node.name).scope !==
+          path.scope.getProgramParent()
+        ) {
+          me.error(
+            "Countermeasures function must be defined at the global level"
+          );
+        }
+
+        countermeasuresNode = path;
       },
 
       Block: {
@@ -204,8 +240,47 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
       Program: {
         exit(path) {
-          // Insert invokeCountermeasures function
+          // Insert nativeFunctionCheck
+          if (me.options.lock.tamperProtection) {
+            // Disallow strict mode
+            // Tamper Protection uses non-strict mode features:
+            // - eval() with local scope assignments
+            const directives = path.get("directives");
+            for (var directive of directives) {
+              if (directive.node.value.value === "use strict") {
+                me.error(
+                  "Tamper Protection cannot be applied to code in strict mode. Disable strict mode by removing the 'use strict' directive, or disable Tamper Protection."
+                );
+              }
+            }
 
+            var nativeFunctionName =
+              me.getPlaceholder() + "_nativeFunctionCheck";
+
+            me.obfuscator.globalState.internals.nativeFunctionName =
+              nativeFunctionName;
+
+            // Ensure program is not in strict mode
+            // Tamper Protection forces non-strict mode
+            prependProgram(
+              path,
+              StrictModeTemplate.compile({
+                nativeFunctionName,
+                countermeasures: createCountermeasuresCode(),
+              })
+            );
+
+            const nativeFunctionDeclaration = NativeFunctionTemplate.single({
+              nativeFunctionName,
+              countermeasures: createCountermeasuresCode(),
+              IndexOfTemplate: IndexOfTemplate,
+            });
+
+            // Checks function's toString() value for [native code] signature
+            prependProgram(path, nativeFunctionDeclaration);
+          }
+
+          // Insert invokeCountermeasures function
           if (invokeCountermeasuresFnName) {
             if (!countermeasuresNode) {
               me.error(
@@ -215,7 +290,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               );
             }
 
-            var hasInvoked = me.getPlaceholder();
+            var hasInvoked = me.getPlaceholder("hasInvoked");
             var statements = new Template(`
                 var ${hasInvoked} = false;
                 function ${invokeCountermeasuresFnName}(){
@@ -223,12 +298,11 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   ${hasInvoked} = true;
                   ${me.options.lock.countermeasures}();
                 }
-                `).compile();
+                `)
+              .addSymbols(MULTI_TRANSFORM)
+              .compile();
 
-            path.unshiftContainer("body", statements).forEach((p) => {
-              path.scope.registerDeclaration(p);
-              p.skip();
-            });
+            prependProgram(path, statements).forEach((p) => p.skip());
           }
 
           if (me.options.lock.integrity) {
@@ -236,26 +310,20 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             const imulFnName = me.getPlaceholder() + "_imul";
 
             const { sensitivityRegex } = me.globalState.lock.integrity;
-            me.globalState.lock.integrity.hashFnName = hashFnName;
+            me.globalState.internals.integrityHashName = hashFnName;
 
-            path
-              .unshiftContainer(
-                "body",
-                HashTemplate.compile({
-                  imul: imulFnName,
-                  name: hashFnName,
-                  hashingUtilFnName: me.getPlaceholder(),
-                  sensitivityRegex: () =>
-                    t.newExpression(t.identifier("RegExp"), [
-                      t.stringLiteral(sensitivityRegex.source),
-                      t.stringLiteral(sensitivityRegex.flags),
-                    ]),
-                })
-              )
-              .forEach((path) => {
-                (path.node as NodeSymbol)[SKIP] = true;
-                path.scope.registerDeclaration(path);
-              });
+            const hashCode = HashTemplate.compile({
+              imul: imulFnName,
+              name: hashFnName,
+              hashingUtilFnName: me.getPlaceholder(),
+              sensitivityRegex: () =>
+                t.newExpression(t.identifier("RegExp"), [
+                  t.stringLiteral(sensitivityRegex.source),
+                  t.stringLiteral(sensitivityRegex.flags),
+                ]),
+            });
+
+            prependProgram(path, hashCode);
           }
         },
       },
@@ -265,6 +333,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       // The extracted function is hashed in the 'integrity' plugin
       FunctionDeclaration: {
         exit(funcDecPath) {
+          if (!me.options.lock.integrity) return;
+
           // Mark functions for integrity
           // Don't apply to async or generator functions
           if (funcDecPath.node.async || funcDecPath.node.generator) return;
@@ -275,12 +345,33 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           // Only top-level functions
           if (!program.isProgram()) return;
 
+          // Check user's custom implementation
+          const functionName = getFunctionName(funcDecPath);
+          // Don't apply to the countermeasures function (Intended)
+          if (
+            me.options.lock.countermeasures &&
+            functionName === me.options.lock.countermeasures
+          )
+            return;
+          // Don't apply to invokeCountermeasures function (Intended)
+          if (me.obfuscator.isInternalVariable(functionName)) return;
+
+          if (!computeProbabilityMap(me.options.lock.integrity, functionName))
+            return;
+
           var newFnName = me.getPlaceholder();
           var newFunctionDeclaration = t.functionDeclaration(
             t.identifier(newFnName),
             funcDecPath.node.params,
             funcDecPath.node.body
           );
+
+          // Clone semantic symbols like (UNSAFE, PREDICTABLE, MULTI_TRANSFORM, etc)
+          const source = funcDecPath.node;
+          Object.getOwnPropertySymbols(source).forEach((symbol) => {
+            newFunctionDeclaration[symbol] = source[symbol];
+          });
+
           (newFunctionDeclaration as NodeSymbol)[SKIP] = true;
 
           var [newFnPath] = program.unshiftContainer(
@@ -292,12 +383,19 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           // In the case Integrity cannot transform the function, the original behavior is preserved
           funcDecPath.node.body = t.blockStatement(
             new Template(`
-              return  ${newFnName}(...arguments)
-              `).compile()
+              return  ${newFnName}(...arguments);
+              `).compile(),
+            funcDecPath.node.body.directives
           );
 
           // Parameters no longer needed, using 'arguments' instead
           funcDecPath.node.params = [];
+
+          // Mark the function as unsafe - use of 'arguments' is unsafe
+          (funcDecPath.node as NodeSymbol)[UNSAFE] = true;
+
+          // Params changed - function is no longer predictable
+          (funcDecPath.node as NodeSymbol)[PREDICTABLE] = false;
 
           // Mark the function for integrity
           (funcDecPath.node as NodeIntegrity)[INTEGRITY] = {

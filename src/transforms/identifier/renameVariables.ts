@@ -1,222 +1,279 @@
-import { NodePath, PluginObj } from "@babel/core";
-import { Binding, Scope } from "@babel/traverse";
-import { PluginArg } from "../plugin";
+import { NodePath } from "@babel/core";
+import { Visitor } from "@babel/traverse";
+import { PluginArg, PluginObject } from "../plugin";
 import * as t from "@babel/types";
 import { Order } from "../../order";
 import {
-  NodeSymbol,
   noRenameVariablePrefix,
   placeholderVariablePrefix,
   variableFunctionName,
-  NO_RENAME,
 } from "../../constants";
 import { computeProbabilityMap } from "../../probability";
 import {
   getParentFunctionOrProgram,
   isDefiningIdentifier,
+  isExportedIdentifier,
+  isVariableIdentifier,
 } from "../../utils/ast-utils";
+import { isVariableFunctionIdentifier } from "../../utils/function-utils";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.RenameVariables);
-  let availableNames: string[] = [];
+const RENAMED = Symbol("Renamed");
 
-  let renamedScopes = new Set<Scope>();
-  let renamedBindingIdentifiers = new WeakSet<t.Identifier>();
+const reusePreviousNames = true;
 
-  let changedScopes = new Map<Scope, Map<string, string>>();
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.RenameVariables, {
+    changeData: {
+      variables: 0,
+    },
+  });
+
+  const definedMap = new Map<t.Node, Set<string>>();
+  const referencedMap = new Map<t.Node, Set<string>>();
+  const bindingMap = new Map<t.Node, Map<string, NodePath<t.Identifier>>>();
+
+  const renamedVariables = new Map<t.Node, Map<string, string>>();
+  me.obfuscator.globalState.renamedVariables = renamedVariables;
+
+  const generated = Array.from(me.obfuscator.nameGen.generatedNames);
+
+  const VariableAnalysisVisitor: Visitor = {
+    Program: {
+      enter(path) {
+        // Analyze all scopes
+        path.traverse({
+          Identifier(path) {
+            if (!isVariableIdentifier(path)) return;
+
+            let contextPaths: NodePath<t.Node>[] = [
+              getParentFunctionOrProgram(path),
+            ];
+
+            let isDefined = false;
+
+            if (path.isBindingIdentifier() && isDefiningIdentifier(path)) {
+              isDefined = true;
+
+              // Function ID is defined in the parent's function declaration
+              if (
+                path.key === "id" &&
+                path.parentPath.isFunctionDeclaration()
+              ) {
+                contextPaths = [getParentFunctionOrProgram(path.parentPath)];
+              }
+            }
+
+            contextPaths.forEach((contextPath) => {
+              // console.log(contextPath.node.type, path.node.name, isDefined);
+
+              if (isDefined) {
+                // Add to defined map
+                if (!definedMap.has(contextPath.node)) {
+                  definedMap.set(contextPath.node, new Set());
+                }
+                definedMap.get(contextPath.node).add(path.node.name);
+
+                if (!bindingMap.has(contextPath.node)) {
+                  bindingMap.set(contextPath.node, new Map());
+                }
+                bindingMap.get(contextPath.node).set(path.node.name, path);
+              } else {
+                // Add to reference map
+                if (!referencedMap.has(contextPath.node)) {
+                  referencedMap.set(contextPath.node, new Set());
+                }
+                referencedMap.get(contextPath.node).add(path.node.name);
+              }
+            });
+          },
+        });
+
+        //
+      },
+    },
+  };
+
+  const VariableRenamingVisitor: Visitor = {
+    Identifier(identifierPath) {
+      if (!isVariableIdentifier(identifierPath)) return;
+      const node = identifierPath.node;
+      const identifierName = node.name;
+
+      if (node[RENAMED]) {
+        return;
+      }
+
+      var contextPaths: NodePath[] = identifierPath.getAncestry();
+
+      // A Function ID is not in the same context as it's body
+      if (
+        identifierPath.key === "id" &&
+        identifierPath.parentPath.isFunctionDeclaration()
+      ) {
+        contextPaths = contextPaths.filter(
+          (x) => x !== identifierPath.parentPath
+        );
+      }
+
+      var newName = null;
+
+      for (let contextPath of contextPaths) {
+        const { node } = contextPath;
+
+        const defined = definedMap.get(node);
+        if (defined?.has(identifierName)) {
+          const renamed = renamedVariables.get(node);
+          if (renamed?.has(identifierName)) {
+            newName = renamed.get(identifierName);
+            break;
+          }
+        }
+      }
+
+      if (newName && typeof newName === "string") {
+        // __JS_CONFUSER_VAR__ function
+        if (isVariableFunctionIdentifier(identifierPath)) {
+          identifierPath.parentPath.replaceWith(t.stringLiteral(newName));
+          return;
+        }
+
+        // 5. Update Identifier node's 'name' property
+        node.name = newName;
+        node[RENAMED] = true;
+      }
+    },
+
+    Scopable(scopePath: NodePath<t.Scopable>) {
+      // 2. Notice this is on 'onEnter' (top-down)
+      const isGlobal = scopePath.isProgram();
+      const { node } = scopePath.scope.path;
+      if (renamedVariables.has(node)) return;
+
+      const defined = definedMap.get(node) || new Set();
+      const references = referencedMap.get(node) || new Set();
+      const bindings = bindingMap.get(node);
+
+      // No changes needed here
+      if (!defined && !renamedVariables.has(node)) {
+        renamedVariables.set(node, Object.create(null));
+        return;
+      }
+
+      const newNames = new Map<string, string>();
+
+      // Names possible to be re-used here
+      var possible = new Set<string>();
+
+      // 3. Try to re-use names when possible
+      if (reusePreviousNames && generated.length && !isGlobal) {
+        var allReferences = new Set<string>();
+        var nope = new Set(defined);
+
+        scopePath.traverse({
+          Scopable(path) {
+            const { node } = path.scope.path;
+
+            var ref = referencedMap.get(node);
+            if (ref) {
+              ref.forEach((x) => allReferences.add(x));
+            }
+
+            var def = definedMap.get(node);
+            if (def) {
+              def.forEach((x) => allReferences.add(x));
+            }
+          },
+        });
+
+        var passed = new Set<string>();
+
+        const parentPaths = scopePath.getAncestry();
+        parentPaths.forEach((p) => {
+          if (p === scopePath) return;
+
+          let changes = renamedVariables.get(p.node);
+          if (changes) {
+            for (let [oldName, newName] of changes) {
+              if (!allReferences.has(oldName) && !references.has(oldName)) {
+                passed.add(newName);
+              } else {
+                nope.add(newName);
+              }
+            }
+          }
+        });
+
+        nope.forEach((x) => passed.delete(x));
+
+        possible = passed;
+      }
+
+      function shouldRename(name: string) {
+        // __NO_JS_CONFUSER_RENAME__
+        if (name.startsWith(noRenameVariablePrefix)) return false;
+
+        // Placeholder variables should always be renamed
+        if (name.startsWith(placeholderVariablePrefix)) return true;
+
+        // Do not rename exports
+        if (isExportedIdentifier(bindings?.get(name))) return false;
+
+        if (name === me.obfuscator.getStringCompressionLibraryName())
+          return false;
+
+        // Global variables are additionally checked against user option
+        if (isGlobal) {
+          if (!computeProbabilityMap(me.options.renameGlobals, name))
+            return false;
+        }
+
+        if (!computeProbabilityMap(me.options.renameVariables, name, isGlobal))
+          return false;
+
+        return true;
+      }
+
+      // 4. Defined names to new names
+      for (var name of defined) {
+        let newName = name;
+
+        if (shouldRename(name)) {
+          me.changeData.variables++;
+
+          // Create a new name from (1) or (2) methods
+          do {
+            if (possible.size) {
+              // (1) Re-use previously generated name
+              var first = possible.values().next().value;
+              possible.delete(first);
+              newName = first;
+            } else {
+              // (2) Create a new name with global `nameGen`
+              var generatedName = me.obfuscator.nameGen.generate();
+
+              newName = generatedName;
+              generated.push(generatedName);
+            }
+          } while (
+            scopePath.scope.hasGlobal(newName) ||
+            me.obfuscator.nameGen.notSafeForReuseNames.has(newName)
+          );
+          // Ensure global names aren't overridden
+        }
+
+        newNames.set(name, newName);
+      }
+
+      // console.log(node.type, newNames);
+      renamedVariables.set(node, newNames);
+    },
+  };
 
   return {
     visitor: {
-      Program: {
-        enter(path) {
-          path.scope.crawl();
+      ...VariableAnalysisVisitor,
 
-          availableNames = Array.from(me.obfuscator.nameGen.generatedNames);
-        },
-      },
-      CallExpression: {
-        exit(path: NodePath<t.CallExpression>) {
-          if (
-            path.get("callee").isIdentifier({
-              name: variableFunctionName,
-            })
-          ) {
-            const [arg] = path.get("arguments");
-            if (arg.isIdentifier()) {
-              path.replaceWith(t.stringLiteral(arg.node.name));
-            }
-          }
-        },
-      },
-
-      Scopable: {
-        enter(path: NodePath<t.Scopable>) {
-          let { scope } = path;
-          if (scope.path?.isClassDeclaration()) return;
-
-          if (renamedScopes.has(scope)) {
-            return;
-          }
-          renamedScopes.add(scope);
-
-          var names = [];
-
-          // Collect all referenced identifiers in the current scope
-          const referencedIdentifiers = new Set();
-
-          let traversePath: NodePath = path;
-          if (path.parentPath?.isForStatement()) {
-            traversePath = path.parentPath;
-          }
-
-          traversePath.traverse({
-            Identifier(innerPath) {
-              // Use Babel's built-in method to check if the identifier is a referenced variable
-              var type = innerPath.isReferencedIdentifier()
-                ? "referenced"
-                : (innerPath as NodePath).isBindingIdentifier()
-                ? "binding"
-                : null;
-              if (type) {
-                const binding = innerPath.scope.getBinding(innerPath.node.name);
-
-                if (type === "binding" && isDefiningIdentifier(innerPath)) {
-                  /**
-                   * var a; // Program bindings = {a}
-                   * { // Block Statement bindings = {}
-                   *    var a;
-                   * }
-                   *
-                   * Add variable binding to 'a'
-                   */
-
-                  if (
-                    binding &&
-                    binding.kind === "var" &&
-                    binding.scope !== scope
-                  ) {
-                  } else {
-                    return;
-                  }
-                }
-
-                // If the binding exists and is not defined in the current scope, it is a reference
-                if (binding && binding.scope !== path.scope) {
-                  referencedIdentifiers.add(innerPath.node.name);
-                }
-              }
-            },
-          });
-
-          // console.log(scope.path.type, "Referenced", referencedIdentifiers);
-
-          var preprocessedMappings = new Map<Binding, string>();
-
-          for (let identifierName in scope.bindings) {
-            const binding = scope.bindings[identifierName];
-            if (binding.kind === "hoisted" || binding.kind === "var") {
-              // Check if already renamed - check function context
-              var functionContext = getParentFunctionOrProgram(binding.path);
-
-              const alreadyRenamed = changedScopes
-                .get(functionContext.scope)
-                ?.get(identifierName);
-
-              // console.log(
-              //   scope.path.type,
-              //   "Checking already renamed",
-              //   identifierName,
-              //   alreadyRenamed
-              // );
-
-              if (alreadyRenamed) {
-                const fnBinding =
-                  functionContext.scope.getOwnBinding(alreadyRenamed);
-                if (
-                  fnBinding &&
-                  renamedBindingIdentifiers.has(fnBinding.identifier)
-                ) {
-                  preprocessedMappings.set(binding, alreadyRenamed);
-                  referencedIdentifiers.add(alreadyRenamed);
-                }
-              }
-            }
-          }
-
-          var actuallyAvailableNames = availableNames.filter(
-            (x) => !referencedIdentifiers.has(x) && !scope.bindings[x]
-          );
-
-          const isGlobal = scope.path.isProgram();
-
-          for (let identifierName in scope.bindings) {
-            // __NO_JS_CONFUSER_RENAME__ prefix should not be renamed
-            if (identifierName.startsWith(noRenameVariablePrefix)) continue;
-
-            const isPlaceholder = identifierName.startsWith(
-              placeholderVariablePrefix
-            );
-
-            if (!isPlaceholder) {
-              // Global variables should be checked against user's options
-              if (isGlobal) {
-                if (
-                  !computeProbabilityMap(
-                    me.options.renameGlobals,
-                    (x) => x,
-                    identifierName
-                  )
-                )
-                  continue;
-              }
-
-              // Allow user to disable renaming certain variables
-              if (
-                !computeProbabilityMap(
-                  me.options.renameVariables,
-                  identifierName,
-                  isGlobal
-                )
-              )
-                continue;
-            }
-
-            const binding = scope.bindings[identifierName];
-            if (renamedBindingIdentifiers.has(binding.identifier)) continue;
-            renamedBindingIdentifiers.add(binding.identifier);
-
-            if (!binding.path.node || binding.path.node[NO_RENAME]) continue;
-
-            let newName =
-              preprocessedMappings.get(binding) ?? actuallyAvailableNames.pop();
-
-            if (!newName) {
-              while (!newName || scope.hasGlobal(newName)) {
-                newName = me.obfuscator.nameGen.generate();
-              }
-              names.push(newName);
-            }
-
-            if (!changedScopes.has(scope)) {
-              changedScopes.set(scope, new Map());
-            }
-            changedScopes.get(scope).set(identifierName, newName);
-
-            // console.log(scope.path.type, "Renamed", identifierName, newName);
-
-            me.log("Renaming", identifierName, "to", newName);
-            scope.rename(identifierName, newName);
-
-            // Extra Class Declaration scope preserve logic needed
-            if (binding.path.type === "ClassDeclaration") {
-              var newBinding = scope.bindings[newName];
-              binding.path.scope.bindings[newName] = newBinding;
-            }
-          }
-
-          availableNames.push(...names);
-        },
-      },
+      ...VariableRenamingVisitor,
     },
   };
 };

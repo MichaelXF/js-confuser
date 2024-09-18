@@ -1,5 +1,4 @@
-import { PluginObj } from "@babel/core";
-import { PluginArg } from "./plugin";
+import { PluginArg, PluginObject } from "./plugin";
 import { chance, choice } from "../utils/random-utils";
 import { deadCodeTemplates } from "../templates/deadCodeTemplates";
 import { computeProbabilityMap } from "../probability";
@@ -8,24 +7,33 @@ import * as t from "@babel/types";
 import Template from "../templates/template";
 import { NameGen } from "../utils/NameGen";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.DeadCode);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.DeadCode, {
+    changeData: {
+      deadCode: 0,
+    },
+  });
   let created = 0;
 
   return {
     visitor: {
       Block: {
         exit(path) {
-          if (path.node.body.length === 0) {
-            return;
-          }
-
           if (!computeProbabilityMap(me.options.deadCode)) {
             return;
           }
 
-          if (created > 100 && chance(created - 100)) return;
-          created++;
+          if (typeof me.options.deadCode !== "function") {
+            let suggestedMax = 25;
+            if (me.obfuscator.parentObfuscator) {
+              // RGF should contain less dead code
+              suggestedMax = 5;
+            }
+
+            if (created > suggestedMax && chance(created - suggestedMax))
+              return;
+            created++;
+          }
 
           var template = choice(deadCodeTemplates);
           var nodes = template.compile();
@@ -52,6 +60,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
             !randomProperty ||
             PrototypeCollision[randomProperty] !== undefined
           );
+
+          me.changeData.deadCode++;
 
           path.unshiftContainer(
             "body",

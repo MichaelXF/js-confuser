@@ -1,5 +1,5 @@
-import { NodePath, PluginObj } from "@babel/core";
-import { PluginArg } from "./plugin";
+import { NodePath } from "@babel/core";
+import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
 import { computeProbabilityMap } from "../probability";
 import { getRandomInteger } from "../utils/random-utils";
@@ -9,8 +9,12 @@ import { isStaticValue } from "../utils/static-utils";
 import { NodeSymbol, PREDICTABLE } from "../constants";
 import { numericLiteral } from "../utils/node";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.Shuffle);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Shuffle, {
+    changeData: {
+      arrays: 0,
+    },
+  });
 
   return {
     visitor: {
@@ -19,9 +23,9 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           if (path.node.elements.length <= 3) {
             return;
           }
-          var illegalElement = path.node.elements.find((element) => {
-            !isStaticValue(element);
-          });
+          var illegalElement = path.node.elements.find(
+            (element) => !isStaticValue(element)
+          );
 
           if (illegalElement) return;
 
@@ -67,6 +71,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           );
 
           path.skip();
+
+          me.changeData.arrays++;
         },
       },
     },

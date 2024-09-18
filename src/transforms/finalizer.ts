@@ -1,10 +1,11 @@
-import { PluginObj } from "@babel/core";
-import { PluginArg } from "./plugin";
+import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
 import { Order } from "../order";
 import stringEncoding from "./string/stringEncoding";
+import { GEN_NODE, NodeSymbol, variableFunctionName } from "../constants";
+import { ok } from "assert";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
+export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.Finalizer);
   const stringEncodingPlugin = stringEncoding(me);
 
@@ -12,6 +13,32 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     visitor: {
       // String encoding
       ...stringEncodingPlugin.visitor,
+
+      // Backup __JS_CONFUSER_VAR__ replacement
+      // While done in Preparation, Rename Variables
+      // This accounts for when Rename Variables is disabled and an inserted Template adds __JS_CONFUSER_VAR__ calls
+      ...(me.obfuscator.hasPlugin(Order.RenameVariables)
+        ? {}
+        : {
+            CallExpression: {
+              exit(path) {
+                if (
+                  path.get("callee").isIdentifier({
+                    name: variableFunctionName,
+                  })
+                ) {
+                  var args = path.get("arguments");
+                  ok(args.length === 1);
+
+                  var arg = args[0];
+                  ok(arg.isIdentifier());
+
+                  var name = arg.node.name;
+                  path.replaceWith(t.stringLiteral(name));
+                }
+              },
+            },
+          }),
 
       // Hexadecimal numbers
       NumberLiteral: {
@@ -34,7 +61,10 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
             var newStr = (isNegative ? "-" : "") + "0x" + hex;
 
-            path.replaceWith(t.identifier(newStr));
+            var id = t.identifier(newStr);
+            (id as NodeSymbol)[GEN_NODE] = true;
+
+            path.replaceWith(id);
             path.skip();
           }
         },

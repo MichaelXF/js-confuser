@@ -1,33 +1,34 @@
 import * as t from "@babel/types";
-import { NodePath, PluginObj } from "@babel/core";
+import { NodePath } from "@babel/core";
 import {
   ensureComputedExpression,
   getFunctionName,
   isDefiningIdentifier,
+  isModifiedIdentifier,
+  isStrictMode,
+  isVariableIdentifier,
   prepend,
+  prependProgram,
 } from "../utils/ast-utils";
-import { PluginArg } from "./plugin";
+import { PluginArg, PluginObject } from "./plugin";
 import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
-import { getRandomInteger } from "../utils/random-utils";
-import { NodeSymbol, UNSAFE } from "../constants";
-import { computeFunctionLength } from "../utils/function-utils";
-import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
+import { NodeSymbol, PREDICTABLE, UNSAFE } from "../constants";
+import {
+  computeFunctionLength,
+  isVariableFunctionIdentifier,
+} from "../utils/function-utils";
 import { ok } from "assert";
 import { Scope } from "@babel/traverse";
+import { NameGen } from "../utils/NameGen";
 
-const SKIP = Symbol("skip");
-interface NodeSkip {
-  [SKIP]?: boolean;
-}
-
-function skipNode<T extends t.Node>(node: T): T {
-  (node as NodeSkip)[SKIP] = true;
-  return node;
-}
-
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.Flatten);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Flatten, {
+    changeData: {
+      functions: 0,
+    },
+  });
+  const isDebug = false;
 
   function flattenFunction(fnPath: NodePath<t.Function>) {
     // Skip if already processed
@@ -37,7 +38,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     if (fnPath.node.generator) return;
 
     // Skip getter/setter methods
-    if (fnPath.isObjectMethod()) {
+    if (fnPath.isObjectMethod() || fnPath.isClassMethod()) {
       if (fnPath.node.kind !== "method") return;
     }
 
@@ -61,28 +62,34 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       return;
     }
 
+    const strictMode = fnPath.find((path) => isStrictMode(path));
+    if (strictMode === fnPath) return;
+
     me.log("Transforming", functionName);
 
     const flatObjectName = `${me.getPlaceholder()}_flat_object`;
     const newFnName = `${me.getPlaceholder()}_flat_${functionName}`;
 
-    function generateProp(originalName) {
-      var newProp;
-      do {
-        newProp = "" + originalName + getRandomInteger(0, 10);
-        // newProp = getRandomString(6);
-      } while (
-        standardProps.has(newProp) ||
-        typeofProps.has(newProp) ||
-        functionCallProps.has(newProp)
-      );
+    const nameGen = new NameGen(me.options.identifierGenerator);
 
-      return newProp;
+    function generateProp(originalName: string, type: string) {
+      var newPropertyName: string;
+      do {
+        newPropertyName = isDebug
+          ? type + "_" + originalName
+          : nameGen.generate();
+      } while (allPropertyNames.has(newPropertyName));
+
+      allPropertyNames.add(newPropertyName);
+
+      return newPropertyName;
     }
 
     const standardProps = new Map<string, string>();
+    const setterPropsNeeded = new Set<string>();
     const typeofProps = new Map<string, string>();
     const functionCallProps = new Map<string, string>();
+    const allPropertyNames = new Set();
 
     const identifierPaths: NodePath<t.Identifier>[] = [];
 
@@ -90,36 +97,25 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     fnPath.traverse({
       Identifier: {
         exit(identifierPath) {
-          const type = identifierPath.isReferencedIdentifier()
-            ? "referenced"
-            : (identifierPath as NodePath).isBindingIdentifier()
-            ? "binding"
-            : "other";
+          if (!isVariableIdentifier(identifierPath)) return;
 
-          if (!type) return;
-          if (type === "binding" && isDefiningIdentifier(identifierPath))
+          if (
+            identifierPath.isBindingIdentifier() &&
+            isDefiningIdentifier(identifierPath)
+          )
             return;
+
+          if (isVariableFunctionIdentifier(identifierPath)) return;
 
           if ((identifierPath.node as NodeSymbol)[UNSAFE]) return;
           const identifierName = identifierPath.node.name;
 
-          if (
-            t.isFunctionDeclaration(identifierPath.parent) &&
-            identifierPath.parent.id === identifierPath.node
-          )
-            return;
           if (identifierName === "arguments") return;
 
           var binding = identifierPath.scope.getBinding(identifierName);
           if (!binding) {
             return;
           }
-
-          if (
-            binding.kind === "param" &&
-            binding.identifier === identifierPath.node
-          )
-            return;
 
           var definedLocal = identifierPath.scope;
           do {
@@ -171,7 +167,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       if (isTypeof) {
         var typeofProp = typeofProps.get(identifierName);
         if (!typeofProp) {
-          typeofProp = generateProp(identifierName);
+          typeofProp = generateProp(identifierName, "typeof");
           typeofProps.set(identifierName, typeofProp);
         }
 
@@ -188,7 +184,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       } else if (isFunctionCall) {
         let functionCallProp = functionCallProps.get(identifierName);
         if (!functionCallProp) {
-          functionCallProp = generateProp(identifierName);
+          functionCallProp = generateProp(identifierName, "call");
           functionCallProps.set(identifierName, functionCallProp);
         }
 
@@ -205,8 +201,17 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       } else {
         let standardProp = standardProps.get(identifierName);
         if (!standardProp) {
-          standardProp = generateProp(identifierName);
+          standardProp = generateProp(identifierName, "standard");
           standardProps.set(identifierName, standardProp);
+        }
+
+        if (!setterPropsNeeded.has(identifierName)) {
+          // Only provide 'set' method if the variable is modified
+          var isModification = isModifiedIdentifier(identifierPath);
+
+          if (isModification) {
+            setterPropsNeeded.add(identifierName);
+          }
         }
 
         ensureComputedExpression(identifierPath);
@@ -236,7 +241,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       const [identifierName, objectProp] = entry;
 
       flatObjectProperties.push(
-        skipNode(
+        me.skip(
           t.objectMethod(
             "get",
             t.stringLiteral(objectProp),
@@ -249,35 +254,38 @@ export default ({ Plugin }: PluginArg): PluginObj => {
         )
       );
 
-      var valueArgName = me.getPlaceholder() + "_value";
-      flatObjectProperties.push(
-        skipNode(
-          t.objectMethod(
-            "set",
-            t.stringLiteral(objectProp),
-            [t.identifier(valueArgName)],
-            t.blockStatement([
-              t.expressionStatement(
-                t.assignmentExpression(
-                  "=",
-                  t.identifier(identifierName),
-                  t.identifier(valueArgName)
-                )
-              ),
-            ]),
-            false,
-            false,
-            false
+      // Not all properties need a setter
+      if (setterPropsNeeded.has(identifierName)) {
+        var valueArgName = me.getPlaceholder() + "_value";
+        flatObjectProperties.push(
+          me.skip(
+            t.objectMethod(
+              "set",
+              t.stringLiteral(objectProp),
+              [t.identifier(valueArgName)],
+              t.blockStatement([
+                t.expressionStatement(
+                  t.assignmentExpression(
+                    "=",
+                    t.identifier(identifierName),
+                    t.identifier(valueArgName)
+                  )
+                ),
+              ]),
+              false,
+              false,
+              false
+            )
           )
-        )
-      );
+        );
+      }
     }
 
     for (const entry of typeofProps) {
       const [identifierName, objectProp] = entry;
 
       flatObjectProperties.push(
-        skipNode(
+        me.skip(
           t.objectMethod(
             "get",
             t.stringLiteral(objectProp),
@@ -299,7 +307,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       const [identifierName, objectProp] = entry;
 
       flatObjectProperties.push(
-        skipNode(
+        me.skip(
           t.objectMethod(
             "method",
             t.stringLiteral(objectProp),
@@ -357,17 +365,60 @@ export default ({ Plugin }: PluginArg): PluginObj => {
     fnPath.skip();
 
     // Add the new flattened function at the top level
-    var newPath = prepend(program, flattenedFunctionDeclaration)[0];
+    var newPath = prependProgram(
+      program,
+      flattenedFunctionDeclaration
+    )[0] as NodePath<t.FunctionDeclaration>;
 
     me.skip(newPath);
+
+    // Copy over all properties except the predictable flag
+    for (var symbol of Object.getOwnPropertySymbols(fnPath.node)) {
+      if (symbol !== PREDICTABLE) {
+        newPath.node[symbol] = fnPath.node[symbol];
+      }
+    }
+
+    // Old function is no longer predictable (rest element parameter)
+    (fnPath.node as NodeSymbol)[PREDICTABLE] = false;
+    // Old function is unsafe (uses arguments, this)
+    (fnPath.node as NodeSymbol)[UNSAFE] = true;
+
+    newPath.node[PREDICTABLE] = true;
+
+    // Carry over 'use strict' directive if not already present
+    if (strictMode) {
+      newPath.node.body.directives.push(
+        t.directive(t.directiveLiteral("use strict"))
+      );
+
+      // Non-simple parameter list conversion
+      prepend(
+        newPath,
+        t.variableDeclaration("var", [
+          t.variableDeclarator(
+            t.arrayPattern(newPath.node.params),
+            t.identifier("arguments")
+          ),
+        ])
+      );
+      newPath.node.params = [];
+      // Using 'arguments' is unsafe
+      (newPath.node as NodeSymbol)[UNSAFE] = true;
+      // Params changed and using 'arguments'
+      (newPath.node as NodeSymbol)[PREDICTABLE] = false;
+    }
 
     // Ensure parameters are registered in the new function scope
     newPath.scope.crawl();
 
     newPath.skip();
+    me.skip(newPath);
 
     // Set function length
     me.setFunctionLength(fnPath, originalLength);
+
+    me.changeData.functions++;
   }
 
   return {

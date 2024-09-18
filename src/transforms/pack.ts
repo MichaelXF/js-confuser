@@ -1,104 +1,129 @@
 import * as t from "@babel/types";
 import Obfuscator from "../obfuscator";
 import Template from "../templates/template";
-import traverse, { NodePath } from "@babel/traverse";
 import {
   isDefiningIdentifier,
-  isReservedIdentifier,
+  isModifiedIdentifier,
   isVariableIdentifier,
 } from "../utils/ast-utils";
+import {
+  GEN_NODE,
+  NodeSymbol,
+  reservedIdentifiers,
+  variableFunctionName,
+  WITH_STATEMENT,
+} from "../constants";
+import { PluginArg, PluginObject } from "./plugin";
+import { Order } from "../order";
 
-export default function pack(ast: t.File, obfuscator: Obfuscator) {
-  const objectName = obfuscator.nameGen.generate();
+export default function pack({ Plugin }: PluginArg): PluginObject {
+  const me = Plugin(Order.Pack, {
+    changeData: {
+      globals: 0,
+    },
+  });
+  const objectName = me.obfuscator.nameGen.generate();
   const mappings = new Map<string, string>();
+  const setterPropsNeeded = new Set<string>();
   const typeofMappings = new Map<string, string>();
-
-  const objectProperties: t.ObjectMethod[] = [];
 
   const prependNodes: t.Statement[] = [];
 
-  for (const statement of ast.program.body) {
-    if (t.isImportDeclaration(statement)) {
-      prependNodes.push(statement);
-    }
-  }
+  return {
+    // Transform identifiers, preserve import statements
+    visitor: {
+      ImportDeclaration(path) {
+        prependNodes.push(path.node);
+        path.remove();
 
-  traverse(ast, {
-    ImportDeclaration(path) {
-      path.remove();
+        // Ensure bindings are removed -> variable becomes a global -> added to mappings object
+        path.scope.crawl();
+      },
+      Program(path) {
+        path.scope.crawl();
+      },
 
-      // Ensure bindings are removed -> variable becomes a global -> added to mappings object
-      path.scope.crawl();
-    },
-    Program(path) {
-      path.scope.crawl();
-    },
+      Identifier: {
+        exit(path) {
+          if (!isVariableIdentifier(path)) return;
 
-    Identifier: {
-      exit(path) {
-        if (!isVariableIdentifier(path)) return;
+          if (isDefiningIdentifier(path)) return;
+          if ((path.node as NodeSymbol)[GEN_NODE]) return;
+          if ((path.node as NodeSymbol)[WITH_STATEMENT]) return;
 
-        if (isDefiningIdentifier(path)) return;
+          const identifierName = path.node.name;
+          if (reservedIdentifiers.has(identifierName)) return;
+          if (me.obfuscator.options.globalVariables.has(identifierName)) return;
+          if (identifierName === variableFunctionName) return;
 
-        const identifierName = path.node.name;
-        if (obfuscator.options.globalVariables.has(identifierName)) return;
-        if (isReservedIdentifier(path.node)) return;
+          if (!path.scope.hasGlobal(identifierName)) return;
 
-        if (!path.scope.hasGlobal(identifierName)) return;
+          if (
+            path.key === "argument" &&
+            path.parentPath.isUnaryExpression({ operator: "typeof" })
+          ) {
+            const unaryExpression = path.parentPath;
 
-        if (
-          path.key === "argument" &&
-          path.parentPath.isUnaryExpression({ operator: "typeof" })
-        ) {
-          const unaryExpression = path.parentPath;
+            let propertyName = typeofMappings.get(identifierName);
+            if (!propertyName) {
+              propertyName = me.obfuscator.nameGen.generate();
+              typeofMappings.set(identifierName, propertyName);
+            }
 
-          let propertyName = typeofMappings.get(identifierName);
-          if (!propertyName) {
-            propertyName = obfuscator.nameGen.generate();
-            typeofMappings.set(identifierName, propertyName);
-
-            // get identifier() { return typeof identifier; }
-            objectProperties.push(
-              t.objectMethod(
-                "get",
+            unaryExpression.replaceWith(
+              t.memberExpression(
+                t.identifier(objectName),
                 t.stringLiteral(propertyName),
-                [],
-                t.blockStatement([
-                  t.returnStatement(
-                    t.unaryExpression("typeof", t.identifier(identifierName))
-                  ),
-                ])
+                true
               )
             );
+            return;
           }
 
-          unaryExpression.replaceWith(
+          let propertyName = mappings.get(identifierName);
+          if (!propertyName) {
+            propertyName = me.obfuscator.nameGen.generate();
+            mappings.set(identifierName, propertyName);
+          }
+
+          // Only add setter if the identifier is modified
+          if (isModifiedIdentifier(path)) {
+            setterPropsNeeded.add(identifierName);
+          }
+
+          path.replaceWith(
             t.memberExpression(
               t.identifier(objectName),
               t.stringLiteral(propertyName),
               true
             )
           );
-          return;
-        }
+        },
+      },
+    },
 
-        let propertyName = mappings.get(identifierName);
-        if (!propertyName) {
-          propertyName = obfuscator.nameGen.generate();
-          mappings.set(identifierName, propertyName);
+    // Final AST handler
+    // Very last step in the obfuscation process
+    finalASTHandler(ast) {
+      // Create object expression
+      // Very similar to flatten, maybe refactor to use the same code
+      const objectProperties: t.ObjectMethod[] = [];
 
-          // get identifier() { return identifier; }
-          objectProperties.push(
-            t.objectMethod(
-              "get",
-              t.stringLiteral(propertyName),
-              [],
-              t.blockStatement([
-                t.returnStatement(t.identifier(identifierName)),
-              ])
-            )
-          );
+      me.changeData.globals = mappings.size;
 
+      for (const [identifierName, propertyName] of mappings) {
+        // get identifier() { return identifier; }
+        objectProperties.push(
+          t.objectMethod(
+            "get",
+            t.stringLiteral(propertyName),
+            [],
+            t.blockStatement([t.returnStatement(t.identifier(identifierName))])
+          )
+        );
+
+        // Only add setter if the identifier is modified
+        if (setterPropsNeeded.has(identifierName)) {
           // set identifier(value) { return identifier = value; }
           objectProperties.push(
             t.objectMethod(
@@ -117,34 +142,54 @@ export default function pack(ast: t.File, obfuscator: Obfuscator) {
             )
           );
         }
+      }
 
-        path.replaceWith(
-          t.memberExpression(
-            t.identifier(objectName),
+      // Add typeof mappings
+      for (const [identifierName, propertyName] of typeofMappings) {
+        // get typeof identifier() { return typeof identifier; }
+        objectProperties.push(
+          t.objectMethod(
+            "get",
             t.stringLiteral(propertyName),
-            true
+            [],
+            t.blockStatement([
+              t.returnStatement(
+                t.unaryExpression("typeof", t.identifier(identifierName))
+              ),
+            ])
           )
         );
-      },
-    },
-  });
+      }
 
-  const objectExpression = t.objectExpression(objectProperties);
+      const objectExpression = t.objectExpression(objectProperties);
 
-  const outputCode = Obfuscator.generateCode(ast, {
-    ...obfuscator.options,
-    compact: true,
-  });
+      // Convert last expression to return statement
+      // This preserves the last expression in the packed code
+      var lastStatement = ast.program.body.at(-1);
+      if (lastStatement && t.isExpressionStatement(lastStatement)) {
+        Object.assign(
+          lastStatement,
 
-  var newAST = new Template(`
+          t.returnStatement(lastStatement.expression)
+        );
+      }
+
+      const outputCode = Obfuscator.generateCode(ast, {
+        ...me.obfuscator.options,
+        compact: true,
+      });
+
+      var newAST = new Template(`
     {prependNodes}
     Function({objectName}, {outputCode})({objectExpression});
   `).file({
-    objectName: () => t.stringLiteral(objectName),
-    outputCode: () => t.stringLiteral(outputCode),
-    objectExpression: objectExpression,
-    prependNodes: prependNodes,
-  });
+        objectName: () => t.stringLiteral(objectName),
+        outputCode: () => t.stringLiteral(outputCode),
+        objectExpression: objectExpression,
+        prependNodes: prependNodes,
+      });
 
-  return newAST;
+      return newAST;
+    },
+  };
 }

@@ -1,12 +1,18 @@
-import { PluginObj, NodePath } from "@babel/core";
-import { PluginArg } from "./plugin";
+import { NodePath } from "@babel/core";
+import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
 import { ok } from "assert";
 import { Order } from "../order";
 import { NodeSymbol, SKIP } from "../constants";
+import Template from "../templates/template";
+import { append } from "../utils/ast-utils";
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.AstScrambler);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.AstScrambler, {
+    changeData: {
+      expressions: 0,
+    },
+  });
   var callExprName: string;
 
   return {
@@ -14,6 +20,7 @@ export default ({ Plugin }: PluginArg): PluginObj => {
       "Block|SwitchCase": {
         exit(_path) {
           const path = _path as NodePath<t.Block | t.SwitchCase>;
+          const isProgram = path.isProgram();
 
           let containerKey: string;
           if (path.isSwitchCase()) {
@@ -42,6 +49,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               callExprName = me.getPlaceholder() + "_ast";
             }
 
+            me.changeData.expressions += expressions.length;
+
             newContainer.push(
               t.expressionStatement(
                 t.callExpression(t.identifier(callExprName), expressions)
@@ -52,6 +61,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           for (var statement of container) {
             if (
+              // Preserve last expression at the top level
+              (isProgram ? statement !== container.at(-1) : true) &&
               t.isExpressionStatement(statement) &&
               !(statement as NodeSymbol)[SKIP]
             ) {
@@ -72,13 +83,13 @@ export default ({ Plugin }: PluginArg): PluginObj => {
 
           if (path.isProgram()) {
             if (callExprName) {
-              var functionDeclaration = t.functionDeclaration(
-                t.identifier(callExprName),
-                [],
-                t.blockStatement([])
-              );
-              var p = path.unshiftContainer("body", functionDeclaration);
-              path.scope.registerDeclaration(p[0]);
+              var functionDeclaration = new Template(`
+                function ${callExprName}(){
+                  ${callExprName} = function(){};
+                }
+                `).single();
+
+              append(path, functionDeclaration);
             }
           }
         },

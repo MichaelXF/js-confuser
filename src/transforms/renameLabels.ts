@@ -1,6 +1,6 @@
 import * as t from "@babel/types";
-import { NodePath, PluginObj } from "@babel/core";
-import { PluginArg } from "./plugin";
+import { NodePath } from "@babel/core";
+import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
 import { NameGen } from "../utils/NameGen";
 import { ok } from "assert";
@@ -20,8 +20,13 @@ interface NodeLabel {
   [LABEL]?: LabelInterface;
 }
 
-export default function ({ Plugin }: PluginArg): PluginObj {
-  const me = Plugin(Order.RenameLabels);
+export default function ({ Plugin }: PluginArg): PluginObject {
+  const me = Plugin(Order.RenameLabels, {
+    changeData: {
+      labelsRenamed: 0,
+      labelsRemoved: 0,
+    },
+  });
 
   return {
     visitor: {
@@ -130,8 +135,10 @@ export default function ({ Plugin }: PluginArg): PluginObj {
               newName = nameGen.generate();
             }
             labelInterface.renamed = newName;
+            me.changeData.labelsRenamed++;
           } else {
             labelInterface.removed = true;
+            me.changeData.labelsRemoved++;
           }
         }
 

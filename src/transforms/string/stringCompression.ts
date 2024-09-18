@@ -1,5 +1,4 @@
-import { PluginObj } from "@babel/core";
-import { PluginArg } from "../plugin";
+import { PluginArg, PluginObject } from "../plugin";
 import * as t from "@babel/types";
 import { Order } from "../../order";
 import { computeProbabilityMap } from "../../probability";
@@ -14,10 +13,15 @@ import {
 } from "../../templates/stringCompressionTemplate";
 import Obfuscator from "../../obfuscator";
 import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
+import { NO_RENAME } from "../../constants";
 const pako = require("pako");
 
-export default ({ Plugin }: PluginArg): PluginObj => {
-  const me = Plugin(Order.StringCompression);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.StringCompression, {
+    changeData: {
+      strings: 0,
+    },
+  });
 
   const stringDelimiter = "|";
 
@@ -56,6 +60,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
                   stringMap.set(originalValue, index);
                 }
 
+                me.changeData.strings++;
+
                 ensureComputedExpression(path);
 
                 path.replaceWith(
@@ -79,7 +85,8 @@ export default ({ Plugin }: PluginArg): PluginObj => {
           var compressedBase64 =
             Buffer.from(compressedBuffer).toString("base64");
 
-          const StringToBuffer = me.getPlaceholder();
+          let pakoName = me.obfuscator.getStringCompressionLibraryName();
+          let insertStringCompressionLibrary = !me.obfuscator.parentObfuscator;
 
           prependProgram(
             programPath,
@@ -91,13 +98,20 @@ export default ({ Plugin }: PluginArg): PluginObj => {
               stringValue: () => t.stringLiteral(compressedBase64),
               GetGlobalTemplate: createGetGlobalTemplate(me, programPath),
               getGlobalFnName: me.getPlaceholder(),
+              pakoName: pakoName,
             })
           );
 
-          prependProgram(
-            programPath,
-            Obfuscator.parseCode(PakoInflateMin).program.body
-          );
+          if (insertStringCompressionLibrary) {
+            // RGF function should also clone the entire decompression function
+            prependProgram(
+              programPath,
+              Obfuscator.parseCode(PakoInflateMin.replace(/{pako}/g, pakoName))
+                .program.body
+            )[0]
+              .get("declarations")[0]
+              .get("id").node[NO_RENAME] = true;
+          }
         },
       },
     },
