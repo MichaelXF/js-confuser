@@ -95,8 +95,8 @@ describe("obfuscateWithProfiler", () => {
     var called = false;
 
     var callback = (log: ProfilerLog) => {
+      expect(typeof log.index).toStrictEqual("number");
       expect(typeof log.currentTransform).toStrictEqual("string");
-      expect(typeof log.currentTransformNumber).toStrictEqual("number");
       expect(typeof log.totalTransforms).toStrictEqual("number");
       if (typeof log.nextTransform !== "undefined") {
         expect(typeof log.nextTransform).toStrictEqual("string");
@@ -119,10 +119,16 @@ describe("obfuscateWithProfiler", () => {
     expect(typeof profileData.parseTime).toStrictEqual("number");
     expect(typeof profileData.totalPossibleTransforms).toStrictEqual("number");
     expect(typeof profileData.totalTransforms).toStrictEqual("number");
-    expect(typeof profileData.transformTimeMap).toStrictEqual("object");
-    expect(typeof profileData.transformTimeMap.RenameVariables).toStrictEqual(
-      "number"
+    expect(typeof profileData.transforms).toStrictEqual("object");
+    expect(typeof profileData.transforms.RenameVariables).toStrictEqual(
+      "object"
     );
+    expect(
+      typeof profileData.transforms.RenameVariables.transformTime
+    ).toStrictEqual("number");
+    expect(
+      typeof profileData.transforms.RenameVariables.changeData.variables
+    ).toStrictEqual("number");
 
     eval(code);
     expect(called).toStrictEqual(true);

@@ -1,6 +1,10 @@
 import JsConfuser from "../../../src/index";
 import { ObfuscateOptions } from "../../../src/options";
 
+// Used for tests #15 and #21
+const customIdentifierGenerator = () =>
+  "_" + Math.random().toString(36).substr(2, 9);
+
 test("Variant #1: Rename variables properly", async () => {
   var code = "var TEST_VARIABLE = 1;";
   var { code: output } = await JsConfuser.obfuscate(code, {
@@ -348,7 +352,11 @@ test("Variant #14: should not break global variable references", async () => {
   expect(value).toStrictEqual("Hello World");
 });
 
-test.each<ObfuscateOptions["identifierGenerator"]>(["randomized", "mangled"])(
+test.each<ObfuscateOptions["identifierGenerator"]>([
+  "randomized",
+  "mangled",
+  customIdentifierGenerator,
+])(
   "Variant #15: Function parameter default value",
   async (identifierGeneratorMode) => {
     /**
@@ -529,6 +537,7 @@ test.each<ObfuscateOptions["identifierGenerator"]>([
   "mangled",
   "number",
   "zeroWidth",
+  customIdentifierGenerator,
 ])(
   "Variant #21: Work with custom identifierGenerator mode",
   async (identifierGeneratorMode) => {
@@ -782,4 +791,24 @@ test("Variant #30: Non-strict mode hoisted function", async () => {
   new Function("TEST_FUNCTION", code)(TEST_FUNCTION);
 
   expect(TEST_OUTPUT).toStrictEqual(10);
+});
+
+test("Variant #31: Mangled identifier", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var outsideValue = "Correct Value";
+
+    function functionWithParameter(a) {
+      TEST_OUTPUT = outsideValue;
+    }
+
+    functionWithParameter("Incorrect Value"); // Correct Value
+    `,
+    { target: "node", renameVariables: true, identifierGenerator: "mangled" }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });

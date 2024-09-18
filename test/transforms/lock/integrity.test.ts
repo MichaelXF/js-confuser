@@ -122,7 +122,13 @@ test("Variant #4: Error when countermeasures function doesn't exist", async () =
 
 test("Variant #5: Work on High Preset", async () => {
   var { code: output } = await JsConfuser.obfuscate(
-    `TEST_OUTPUT = ("Hello World")`,
+    `
+    function MyFunction(){
+      TEST_OUTPUT = ("Hello World")
+    }
+
+    MyFunction();
+    `,
     {
       target: "node",
       preset: "high",
@@ -161,4 +167,44 @@ test("Variant #6: Work with RGF enabled", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual("Hello World");
+});
+
+test("Variant #7: Allow custom implementation for integrity", async () => {
+  var namesCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function countermeasures(){
+      throw new Error("Countermeasures was called");
+    }
+    function MyFunction1(){ // Will receive Integrity
+      
+    }
+
+    function MyFunction2(){ // Will not receive Integrity
+      TEST_OUTPUT = "Incorrect Value";
+    }
+
+    MyFunction2();
+    `,
+    {
+      target: "node",
+      lock: {
+        countermeasures: "countermeasures",
+        integrity: (fnName) => {
+          namesCollected.push(fnName);
+
+          return fnName === "MyFunction1";
+        },
+      },
+    }
+  );
+
+  expect(namesCollected).toStrictEqual(["MyFunction1", "MyFunction2"]);
+
+  code = code.replace("Incorrect Value", "Correct Value");
+
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });

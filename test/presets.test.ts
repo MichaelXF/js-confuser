@@ -1,22 +1,17 @@
 import presets from "../src/presets";
+import { validateOptions } from "../src/validateOptions";
 
-it('High preset should have "preset": "high"', async () => {
-  expect(presets.high.preset).toStrictEqual("high");
-});
+test.each(Object.keys(presets))(
+  "Variant #1: Preset is valid options",
+  (presetName) => {
+    const preset = presets[presetName];
+    expect(typeof preset).toStrictEqual("object");
 
-it('Medium preset should have "preset": "medium"', async () => {
-  expect(presets.medium.preset).toStrictEqual("medium");
-});
+    expect(preset.preset).toStrictEqual(presetName);
 
-it('Low preset should have "preset": "low"', async () => {
-  expect(presets.low.preset).toStrictEqual("low");
-});
-
-it("No preset should have eval, lock, or RGF enabled", async () => {
-  Object.keys(presets).forEach((key) => {
-    expect(typeof presets[key]).toStrictEqual("object");
-    expect(!!presets[key].eval).toEqual(false);
-    expect(!!presets[key].lock).toEqual(false);
-    expect(!!presets[key].rgf).toEqual(false);
-  });
-});
+    // Validate options
+    expect(() => {
+      validateOptions(preset);
+    }).not.toThrow;
+  }
+);

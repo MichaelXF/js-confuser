@@ -74,16 +74,24 @@ test("Variant #5: Work with compact set to true", async () => {
   expect(output).toContain("var a;var b;var c;");
 });
 
-test("Variant #6: Work with debugComments enabled", async () => {
-  var { code: output } = await JsConfuser.obfuscate(`var TEST_VARIABLE;`, {
-    target: "node",
-    renameGlobals: true,
-    renameVariables: true,
-    compact: false,
-    debugComments: true,
-  });
+test("Variant #6: Verbose option", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var object = { key: 1 };
+    TEST_OUTPUT = object.key; 
+    `,
+    {
+      target: "node",
+      compact: false,
+      verbose: true,
+      objectExtraction: true,
+    }
+  );
 
-  expect(output).not.toContain("TEST_VARIABLE");
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(1);
 });
 
 test("Variant #7: Error on invalid lock option", async () => {

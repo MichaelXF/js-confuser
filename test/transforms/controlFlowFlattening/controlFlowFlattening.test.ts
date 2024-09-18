@@ -691,6 +691,9 @@ test("Variant #23: Don't break Super calls", async () => {
   class MyClass1 {
     constructor(val){
       this.val = val;
+
+      // Ensure ControlFlowFlattening applies here
+      var a, b, c;
     }
   }
   class MyClass2 extends MyClass1 {
@@ -698,9 +701,7 @@ test("Variant #23: Don't break Super calls", async () => {
       super(10);
 
       // Ensure ControlFlowFlattening applies here
-      var filler1;
-      var filler2;
-      var filler3;
+      var a, b, c;
     }
   }
 
@@ -841,10 +842,12 @@ test("Variant #27: Work on async/generator functions", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
   async function myAsyncFunction(){
+    var a,b,c;
     await (1);
   }
 
   function* myGeneratorFunction(){
+    var a,b,c;
     yield "Correct Value";
   }
 
@@ -1356,4 +1359,73 @@ test("Variant #38: Generator function with mangled numbers", async () => {
 
   eval(code);
   expect(TEST_OUTPUT).toStrictEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+});
+
+test("Variant #38: Handle __JS_CONFUSER_VAR__ function", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var myVar = "Correct Value";
+    var output = eval(__JS_CONFUSER_VAR__(myVar));
+    TEST_OUTPUT = output;
+    `,
+    {
+      target: "node",
+      renameVariables: true,
+      controlFlowFlattening: true,
+      pack: true,
+    }
+  );
+
+  expect(code).not.toContain("__JS_CONFUSER_VAR__");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #39: Let/Const variable declarations", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function indexOf(str, substr) {
+  const len = str.length;
+  const sublen = substr.length;
+  let count = 0;
+
+  if (sublen > len) {
+    return -1;
+  }
+
+  for (let i = 0; i <= len - sublen; i++) {
+    for (let j = 0; j < sublen; j++) {
+      if (str[i + j] === substr[j]) {
+        count++;
+        if (count === sublen) {
+          return i;
+        }
+      } else {
+        count = 0;
+        break;
+      }
+    }
+  }
+
+  return -1;
+}
+
+TEST_OUTPUT = indexOf("Hello World", "World");
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+      calculator: true,
+      stringConcealing: true,
+      pack: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(6);
 });
