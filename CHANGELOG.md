@@ -17,7 +17,7 @@
 
 - Renamed `Stack` to `Variable Masking`
 
-**2.0 Changes**
+### 2.0 Changes
 
 - Added Custom String Encoding and Custom Lock Code options
 
@@ -53,6 +53,12 @@
 
 - - `String Compression` now uses zlib decompression ([Pako](https://github.com/nodeca/pako))
 
+### JS-Confuser.com Revamp
+
+A new UI for JS-Confuser.com, featuring an advanced playground and documentation pages.
+
+The previous version will remain available: [old--confuser.netlify.com](https://old--confuser.netlify.app/)
+
 **Removed features**
 
 - Removed `ES5` option - Use Babel Instead
@@ -63,12 +69,6 @@
 
 - Removed `Indent` option. [`@babel/generator`](https://www.npmjs.com/package/@babel/generator) does not allow customizing the indentation size. Use Prettier if you still wish for 4 space or tabs. Be mindful if you have `Integrity` or `Self Defending` enabled, as you should not alter the obfuscated code.
 
-
-**JS-Confuser.com Revamp**
-
-A new UI for JS-Confuser.com, featuring an advanced playground and documentation pages.
-
-The previous version will remain available: [old--confuser.netlify.com](https://old--confuser.netlify.app/)
 
 # `1.7.3`
 Tamper Protection

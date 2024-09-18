@@ -2,14 +2,19 @@
 
 JS-Confuser 2.0 is complete rewrite of the original JS-Confuser created in 2020!
 
+## API Interface changed
+
 ### JSConfuser.obfuscate() returns an object now
 
 The method `JSConfuser.obfuscate()` resolves to a object now instead of a string. This result object contains the obfuscated code on the `code` property.
 
-```js
-JSConfuser.obfuscate(sourceCode, options).then(result=>{
-  console.log(result.code);
-});
+```diff
++JSConfuser.obfuscate(sourceCode, options).then(result=>{
++  console.log(result.code);
++});
+-JSConfuser.obfuscate(sourceCode, options).then(obfuscatedCode=>{
+-  console.log(obfuscatedCode);
+-});
 ```
 
 ### Removed Anti Debug Lock / Browser Lock / OS Lock
@@ -18,14 +23,27 @@ These features have been removed but you can still add these locks using the `lo
 
 ```js
 {
+  target: "node",
+  
+  // ... Your obfuscator settings ...
+
   lock: {
     customLocks: [
       {
-        template: `if(window.navigator.userAgent.includes('Chrome')){
-        {countermeasures}
-}`,
-        percentage: 10,
-        max: 100
+        code: `
+        // This code will be sprinkled throughout your source code
+        // (Will also be obfuscated)
+
+        if( window.navigator.userAgent.includes('Chrome') ){
+          {countermeasures}
+        }
+
+        // The {countermeasures} template variable is required.
+        // Must be placed in a Block or Switch Case body
+        `,
+        percentagePerBlock: 0.1, // = 10%
+        maxCount: 100, // Default = 100 - You probably don't want an excessive amount placed
+        minCount: 1 // Default = 1 - Ensures this custom lock is placed
       }
     ]
   }
@@ -36,6 +54,4 @@ These features have been removed but you can still add these locks using the `lo
 
 The option `stack` has been renamed to `variableMasking`
 
-### Flatten renamed to Function Hoisting
-
-The option `flatten` has been renamed to `functionHoisting`
+[Similar to JScrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)

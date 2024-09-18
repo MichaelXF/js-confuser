@@ -24,7 +24,7 @@ function evalInNonStrictMode(str: string) {
 }
 
 describe("Global Concealing", () => {
-  test("Variant #1: Detect Eval tamper (no tamper)", async () => {
+  test("Variant #1: Normal behavior when eval() is un-tampered", async () => {
     var code = `
     global.TEST_GLOBAL_OUTPUT = global.TEST_GLOBAL;
     `;
@@ -48,12 +48,19 @@ describe("Global Concealing", () => {
     expect(TEST_OUTPUT).toStrictEqual(TEST_GLOBAL);
   });
 
-  test("Variant #2: Detect Eval tamper (tampered)", async () => {
+  test("Variant #2: Invoke countermeasures when eval() is tampered", async () => {
     var code = `
     function onTamperDetected(){
-      TEST_OUTPUT_SET(true);
+      TEST_OUTPUT_SET("Countermeasures Invoked");
     }
-    global.TEST_GLOBAL_VARIANT_7_OUTPUT = global.TEST_GLOBAL_VARIANT_7;
+
+    function myFunction(){
+      // Global Concealing finds native 'console.log'
+      // Adds GetGlobal template
+      // Detects 'eval' tamper
+      // Calls 'onTamperDetected'
+      console.log("This function is purposely never called.");
+    }
     `;
 
     var { code: output } = await JsConfuser.obfuscate(code, {
@@ -63,24 +70,24 @@ describe("Global Concealing", () => {
         tamperProtection: true,
         countermeasures: "onTamperDetected",
       },
+
+      // Ensure Eval renaming works
+      renameVariables: true,
     });
 
     // Inject 'eval' tamper code
     output =
-      `var _eval = eval;
-       eval = (codeStr)=>( console.log(codeStr), _eval(codeStr) );
+      `var _originalEval = eval;
+       var eval = (codeStr)=>( console.log("Eval Intercepted", codeStr), TEST_OUTPUT_SET(codeStr), _originalEval(codeStr) );
     ` + output;
-
-    var TEST_GLOBAL_VARIANT_7 = {};
-    (global as any).TEST_GLOBAL_VARIANT_7 = TEST_GLOBAL_VARIANT_7;
 
     var { error, TEST_OUTPUT } = evalInNonStrictMode(output);
 
     expect(error).toBeNull();
-    expect(TEST_OUTPUT).toStrictEqual(true);
+    expect(TEST_OUTPUT).toStrictEqual("Countermeasures Invoked");
   });
 
-  test("Variant #3: Native check on functions", async () => {
+  test("Variant #3: Normal behavior when a native function is un-tampered", async () => {
     var mockConsoleLog = (...msgs) => {
       console.log(...msgs);
     };
@@ -115,11 +122,15 @@ describe("Global Concealing", () => {
     expect(error).toBeNull();
   });
 
-  test("Variant #4: Native check on functions (tampered)", async () => {
+  test("Variant #4: Invoke countermeasures when a native function is tampered", async () => {
+    var mockInvoked = false;
+
     var mockConsoleLog = (...msgs) => {
       console.log(...msgs);
+
+      // Not good, the function was tampered
+      mockInvoked = true;
     };
-    mockConsoleLog.toString = () => "[native code]";
     (global as any).mockConsoleLog = mockConsoleLog;
 
     var { code: output } = await JsConfuser.obfuscate(
@@ -134,18 +145,19 @@ describe("Global Concealing", () => {
         target: "node",
         globalConcealing: (varName) => varName != "TEST_OUTPUT_SET",
         lock: {
-          tamperProtection: true,
+          tamperProtection: (fnName) => fnName === "mockConsoleLog",
           countermeasures: "onTamperDetected",
         },
       }
     );
 
-    (global as any).mockConsoleLog = (...str) =>
-      console.log("Tampered console.log: ", ...str);
-
     // Unfortunately the program errors dude to console.log being tampered
     var { TEST_OUTPUT, error } = evalInNonStrictMode(output);
 
+    // Ensure mockConsoleLog was not called
+    expect(mockInvoked).toStrictEqual(false);
+
+    // Ensure countermeasures was called
     expect(TEST_OUTPUT).toStrictEqual(true);
 
     // Ensure error was thrown
@@ -156,6 +168,7 @@ describe("Global Concealing", () => {
     var { code: output } = await JsConfuser.obfuscate(
       `
       a.b.c.d()
+      nonExistentFunction()
       `,
       {
         target: "node",
@@ -232,9 +245,12 @@ describe("Global Concealing", () => {
 });
 
 describe("RGF", () => {
-  test("Variant #1: Use Eval instead of new Function", async () => {
+  test("Variant #1: Detect Eval tamper (no tamper)", async () => {
     var { code: output } = await JsConfuser.obfuscate(
       `
+      function countermeasures(){
+        throw new Error("Countermeasures function should not be called");
+      }
       function myFunction1(){
         TEST_OUTPUT_SET(true);
       }
@@ -246,7 +262,10 @@ describe("RGF", () => {
         rgf: true,
         lock: {
           tamperProtection: true,
+          countermeasures: "countermeasures",
         },
+
+        // Ensure renaming countermeasures works
         renameVariables: true,
 
         // Allow RGF to transform 'myFunction1'
@@ -255,11 +274,11 @@ describe("RGF", () => {
       }
     );
 
+    // Ensure 'myFunction1' was transformed
     expect(output).not.toContain(
       "function myFunction1(){TEST_OUTPUT_SET(true)"
     );
     expect(output).toContain("eval");
-    expect(output).not.toContain("new Function");
 
     var { TEST_OUTPUT, error } = evalInNonStrictMode(output);
 
@@ -267,7 +286,7 @@ describe("RGF", () => {
     expect(TEST_OUTPUT).toStrictEqual(true);
   });
 
-  test("Variant #2: Detect Eval tamper", async () => {
+  test("Variant #2: Invoke countermeasures when eval() is tampered", async () => {
     var { code: output } = await JsConfuser.obfuscate(
       `
       function onTamperDetected(){
@@ -286,6 +305,8 @@ describe("RGF", () => {
           tamperProtection: true,
           countermeasures: "onTamperDetected",
         },
+
+        // Ensure Eval renaming works
         renameVariables: true,
 
         // Allow RGF to transform 'myFunction1'
@@ -299,8 +320,8 @@ describe("RGF", () => {
 
     // Inject 'eval' tamper code
     output =
-      `var _eval = eval;
-       eval = (code)=>( TEST_OUTPUT_SET(code), console.log(code), _eval(code) );` +
+      `var _originalEval = eval;
+       var eval = (code)=>( TEST_OUTPUT_SET(code), console.log("Eval Intercepted", code), _originalEval(code) );` +
       output;
 
     var { TEST_OUTPUT, error } = evalInNonStrictMode(output);
@@ -311,10 +332,31 @@ describe("RGF", () => {
 });
 
 describe("Strict Mode", () => {
-  test("Variant #1: Disallow Strict Mode", async () => {
-    var { code: output } = await JsConfuser.obfuscate(
-      `
+  test("Variant #1: Error when 'use strict' directive is present", async () => {
+    expect(() =>
+      JsConfuser.obfuscate(
+        `
       "use strict"; // Note: Jest testing environment is already in Strict Mode
+      function onTamperDetected(){
+        TEST_OUTPUT = true;
+      }
+      `,
+        {
+          target: "node",
+          lock: {
+            tamperProtection: true,
+            countermeasures: "onTamperDetected",
+          },
+        }
+      )
+    ).rejects.toThrow(
+      "Tamper Protection cannot be applied to code in strict mode."
+    );
+  });
+
+  test("Variant #2: Invoke countermeasures when script is executing in strict-mode", async () => {
+    var { code } = await JsConfuser.obfuscate(
+      `
       function onTamperDetected(){
         TEST_OUTPUT = true;
       }
@@ -329,7 +371,10 @@ describe("Strict Mode", () => {
     );
 
     var TEST_OUTPUT;
-    eval(output);
+
+    try {
+      eval(code);
+    } catch {}
 
     expect(TEST_OUTPUT).toStrictEqual(true);
   });

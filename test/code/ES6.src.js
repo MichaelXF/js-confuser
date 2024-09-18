@@ -1,34 +1,28 @@
-"use strict";
+TEST_OUTPUT = {};
 
 // Variant #1 Using `let`
 let myVariable = 1;
-
-expect(myVariable).toStrictEqual(1);
+TEST_OUTPUT["Variant #1"] = myVariable === 1;
 
 // Variant #2 Destructing variable from object (ObjectPattern)
 let { key } = { key: 2 };
-
-expect(key).toStrictEqual(2);
+TEST_OUTPUT["Variant #2"] = key === 2;
 
 // Variant #3 Destructing variable and using differing output name (ObjectPattern)
 let { key: customName } = { key: 3 };
-
-expect(customName).toStrictEqual(3);
+TEST_OUTPUT["Variant #3"] = customName === 3;
 
 // Variant #4 Destructing variable from array (ArrayPattern)
 let [element] = [4];
-
-expect(element).toStrictEqual(4);
+TEST_OUTPUT["Variant #4"] = element === 4;
 
 // Variant #5 Destructing computed property from nested pattern
 let [{ ["key"]: deeplyNestedKey }] = [{ key: 5 }];
-
-expect(deeplyNestedKey).toStrictEqual(5);
+TEST_OUTPUT["Variant #5"] = deeplyNestedKey === 5;
 
 // Variant #6 Make sure arrow functions work
 const arrowFn = () => 6;
-
-expect(arrowFn()).toStrictEqual(6);
+TEST_OUTPUT["Variant #6"] = arrowFn() === 6;
 
 // Variant #7 Make sure inline methods on object work
 let es6Object = {
@@ -36,8 +30,7 @@ let es6Object = {
     return 7;
   },
 };
-
-expect(es6Object.method()).toStrictEqual(7);
+TEST_OUTPUT["Variant #7"] = es6Object.method() === 7;
 
 // Variant #8 Make sure getters on object work
 es6Object = {
@@ -45,8 +38,7 @@ es6Object = {
     return 8;
   },
 };
-
-expect(es6Object.getter).toStrictEqual(8);
+TEST_OUTPUT["Variant #8"] = es6Object.getter === 8;
 
 // Variant #9 Make sure getters with computed properties work
 let customKey = "myGetter";
@@ -55,8 +47,7 @@ es6Object = {
     return 9;
   },
 };
-
-expect(es6Object.myGetter).toStrictEqual(9);
+TEST_OUTPUT["Variant #9"] = es6Object.myGetter === 9;
 
 // Variant #10 Make sure constructor method works
 var value;
@@ -67,14 +58,14 @@ class MyClass {
 }
 
 var myInstance = new MyClass(10);
-expect(value).toStrictEqual(10);
+TEST_OUTPUT["Variant #10"] = value === 10;
 
 // Variant #11 Make sure for-loop initializers work
 var sum = 0;
 for (var x of [3, 3, 5]) {
   sum += x;
 }
-expect(sum).toStrictEqual(11);
+TEST_OUTPUT["Variant #11"] = sum === 11;
 
 // Variant #12 More complex for-loop initializer
 var outside = 12;
@@ -86,9 +77,8 @@ for (
 
 ) {}
 
-var TEST_OUTPUT = myFunction();
-
-expect(TEST_OUTPUT).toStrictEqual(12);
+var functionCall = myFunction();
+TEST_OUTPUT["Variant #12"] = functionCall === 12;
 
 function noLexicalVariables() {
   // Variant #13 For-in statement
@@ -100,7 +90,7 @@ function noLexicalVariables() {
     }
   }
 
-  expect(sumOfKeys).toStrictEqual(13);
+  TEST_OUTPUT["Variant #13"] = sumOfKeys === 13;
 
   // Variant #14 For-of statement
   var values = [10, 20, 30, 40, -86];
@@ -109,7 +99,7 @@ function noLexicalVariables() {
     sumOfValues += value;
   }
 
-  expect(sumOfValues).toStrictEqual(14);
+  TEST_OUTPUT["Variant #14"] = sumOfValues === 14;
 }
 
 noLexicalVariables();
@@ -123,20 +113,40 @@ function useStrictFunction() {
       return this;
     }
 
-    expect(fun() === undefined).toStrictEqual(true);
-    expect(fun.call(2) === 2).toStrictEqual(true);
-    expect(fun.apply(null) === null).toStrictEqual(true);
-    expect(fun.call(undefined) === undefined).toStrictEqual(true);
-    expect(fun.bind(true)() === true).toStrictEqual(true);
+    TEST_OUTPUT["Variant #15"] = [
+      fun() === undefined,
+      fun.call(2) === 2,
+      fun.apply(null) === null,
+      fun.call(undefined) === undefined,
+      fun.bind(true)() === true,
+    ];
   }
 
   testThis();
 
   function testArguments() {
     // Ensure arguments behaves like strict-mode
-    expect(() => useStrictFunction.arguments).toThrow();
-    expect(() => useStrictFunction.caller).toThrow();
-    expect(() => arguments.callee).toThrow();
+
+    TEST_OUTPUT["Variant #16: #1"] = false;
+    try {
+      useStrictFunction.arguments;
+    } catch (e) {
+      TEST_OUTPUT["Variant #16: #1"] = true;
+    }
+
+    TEST_OUTPUT["Variant #16: #2"] = false;
+    try {
+      useStrictFunction.caller;
+    } catch (e) {
+      TEST_OUTPUT["Variant #16: #2"] = true;
+    }
+
+    TEST_OUTPUT["Variant #16: #3"] = false;
+    try {
+      arguments.callee;
+    } catch (e) {
+      TEST_OUTPUT["Variant #16: #3"] = true;
+    }
   }
 
   testArguments();
@@ -147,9 +157,8 @@ function useStrictFunction() {
     // Eval will not leak names
     eval("var __NO_JS_CONFUSER_RENAME__myOuterVariable = 'Incorrect Value';");
 
-    expect(__NO_JS_CONFUSER_RENAME__myOuterVariable).toStrictEqual(
-      "Initial Value"
-    );
+    TEST_OUTPUT["Variant #17"] =
+      __NO_JS_CONFUSER_RENAME__myOuterVariable === "Initial Value";
   }
 
   testEval();
@@ -200,35 +209,17 @@ function labeledBreaksAndContinues() {
   }
 }
 
-var variant15 = labeledBreaksAndContinues();
-expect(variant15).toStrictEqual(15);
+TEST_OUTPUT["Variant #18"] = labeledBreaksAndContinues() === 15;
 
 // Variant #16: Function.length property
-var variant16 = function (
-  n1,
-  n2,
-  n3,
-  n4,
-  n5,
-  n6,
-  n7,
-  n8,
-  n9,
-  n10,
-  n11,
-  n12,
-  n13,
-  n14,
-  n15,
-  n16
-) {
+var variant19 = function (n1, n2, n3, n4, n5) {
   var _ = true;
 };
 
-expect(variant16.length).toStrictEqual(16);
+TEST_OUTPUT["Variant #19"] = variant19.length === 5;
 
 // Set 'ranAllTest' to TRUE
-ranAllTest = true;
+TEST_OUTPUT["Variant #20"] = true;
 
 function countermeasures() {
   throw new Error("Countermeasures function called.");

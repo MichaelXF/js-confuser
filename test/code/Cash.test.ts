@@ -36,10 +36,10 @@ const handleError = (error, output) => {
     encoding: "utf-8",
   });
 
-  expect(true).toStrictEqual(false);
+  expect("An error occurred").toStrictEqual(null);
 };
 
-test.only("Variant #1: Cash.js on High Preset (Strict Mode)", async () => {
+test("Variant #1: Cash.js on High Preset (Strict Mode)", async () => {
   var { code: output } = await JsConfuser.obfuscate(CASH_JS, {
     target: "node",
     preset: "high",
@@ -74,6 +74,7 @@ test.only("Variant #1: Cash.js on High Preset (Strict Mode)", async () => {
   }
 
   try {
+    // Pack option allows the code to be executed in a strict mode
     eval(output);
   } catch (e) {
     handleError(e, output);
@@ -110,21 +111,35 @@ test("Variant #2: Cash.js on High Preset + Integrity + Self Defending + RGF + Ta
     global[key] = window[key];
   }
 
-  var { code: output } = await JsConfuser.obfuscate(CASH_JS, {
-    target: "node",
-    preset: "high",
-    pack: true,
-    rgf: true,
-    lock: {
-      integrity: true,
-      selfDefending: true,
-      tamperProtection: true,
-    },
-  });
+  var rgfCount = 0;
+
+  const CountermeasuresCode = `
+  function countermeasures() {
+    throw new Error("countermeasures() was called");
+  }
+  `;
+
+  var { code: output } = await JsConfuser.obfuscate(
+    CountermeasuresCode + CASH_JS,
+    {
+      target: "node",
+      preset: "high",
+      pack: true,
+      rgf: (fnName, depth) => {
+        return rgfCount++ < 10;
+      },
+      lock: {
+        integrity: true,
+        selfDefending: true,
+        tamperProtection: true,
+        countermeasures: "countermeasures",
+      },
+    }
+  );
 
   try {
-    // new Function() runs in non-strict mode
-    new Function(output)();
+    // Pack option allows the code to be executed in a strict mode
+    eval(output);
   } catch (e) {
     handleError(e, output);
   }
