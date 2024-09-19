@@ -1,8 +1,9 @@
 {
   "name": "js-confuser",
-  "version": "2.0.0-alpha",
+  "version": "2.0.0-alpha.0",
   "description": "JavaScript Obfuscation Tool.",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "index.d.ts",
   "scripts": {
     "build": "tsc && babel src --out-dir dist --extensions \".ts,.tsx\"",
     "dev": "node babel.register.js",
@@ -51,5 +52,8 @@
   "bugs": {
     "url": "https://github.com/MichaelXF/js-confuser/issues"
   },
-  "homepage": "https://js-confuser.com"
+  "homepage": "https://js-confuser.com",
+  "engines": {
+    "node": ">=12.0.0"
+  }
 }
