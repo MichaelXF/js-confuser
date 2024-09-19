@@ -1,4 +1,4 @@
-import { NodePath, PluginObj, Visitor } from "@babel/core";
+import { NodePath, Visitor } from "@babel/traverse";
 import Obfuscator from "../obfuscator";
 import { chance, choice, getRandomString } from "../utils/random-utils";
 import { Order } from "../order";

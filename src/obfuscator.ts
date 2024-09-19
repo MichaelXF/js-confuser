@@ -1,7 +1,8 @@
 import { ok } from "assert";
-import * as babel from "@babel/core";
+import * as t from "@babel/types";
 import generate from "@babel/generator";
-import { Node, Statement } from "@babel/types";
+import traverse from "@babel/traverse";
+import { parse } from "@babel/parser";
 import { ObfuscateOptions } from "./options";
 import { applyDefaultsToOptions, validateOptions } from "./validateOptions";
 import { ObfuscationResult, ProfilerCallback } from "./obfuscationResult";
@@ -62,14 +63,14 @@ export default class Obfuscator {
         sensitivityRegex: / |\n|;|,|\{|\}|\(|\)|\.|\[|\]/g,
       },
 
-      createCountermeasuresCode: (): Statement[] => {
+      createCountermeasuresCode: (): t.Statement[] => {
         throw new Error("Not implemented");
       },
     },
 
     // After RenameVariables completes, this map will contain the renamed variables
     // Most use cases involve grabbing the Program(global) mappings
-    renamedVariables: new Map<Node, Map<string, string>>(),
+    renamedVariables: new Map<t.Node, Map<string, string>>(),
 
     // Internal functions, should not be renamed/removed
     internals: {
@@ -136,7 +137,7 @@ export default class Obfuscator {
     return this.globalState.internals.stringCompressionLibraryName;
   }
 
-  getObfuscatedVariableName(originalName: string, programNode: Node) {
+  getObfuscatedVariableName(originalName: string, programNode: t.Node) {
     const renamedVariables = this.globalState.renamedVariables.get(programNode);
 
     return renamedVariables?.get(originalName) || originalName;
@@ -268,7 +269,7 @@ export default class Obfuscator {
         );
       }
 
-      babel.traverse(ast, plugin.visitor);
+      traverse(ast, plugin.visitor);
       plugin.post?.();
 
       if (plugin.finalASTHandler) {
@@ -317,14 +318,14 @@ export default class Obfuscator {
   /**
    * Calls `Obfuscator.generateCode` with the current instance options
    */
-  generateCode<T extends babel.types.Node = babel.types.File>(ast: T): string {
+  generateCode<T extends t.Node = t.File>(ast: T): string {
     return Obfuscator.generateCode(ast, this.options);
   }
 
   /**
    * Generates code from an AST using `@babel/generator`
    */
-  static generateCode<T extends babel.types.Node = babel.types.File>(
+  static generateCode<T extends t.Node = t.File>(
     ast: T,
     options: ObfuscateOptions = DEFAULT_OPTIONS
   ): string {
@@ -347,10 +348,8 @@ export default class Obfuscator {
    */
   static parseCode(sourceCode: string): babel.types.File {
     // Parse the source code into an AST
-    let ast = babel.parseSync(sourceCode, {
+    let ast = parse(sourceCode, {
       sourceType: "unambiguous",
-      babelrc: false,
-      configFile: false,
     });
 
     return ast;

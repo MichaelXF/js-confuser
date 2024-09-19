@@ -1,4 +1,4 @@
-import { NodePath } from "@babel/core";
+import { NodePath } from "@babel/traverse";
 import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
 import { chance, choice } from "../../utils/random-utils";

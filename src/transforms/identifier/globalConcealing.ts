@@ -1,5 +1,5 @@
 import * as t from "@babel/types";
-import { NodePath } from "@babel/core";
+import { NodePath } from "@babel/traverse";
 import { NameGen } from "../../utils/NameGen";
 import Template from "../../templates/template";
 import { PluginArg, PluginObject } from "../plugin";

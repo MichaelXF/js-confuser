@@ -1,4 +1,4 @@
-import { NodePath } from "@babel/core";
+import { NodePath } from "@babel/traverse";
 import { Order } from "../../order";
 import { PluginArg, PluginObject } from "../plugin";
 import { NodeSymbol, PREDICTABLE } from "../../constants";

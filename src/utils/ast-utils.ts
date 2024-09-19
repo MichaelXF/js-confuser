@@ -1,5 +1,5 @@
 import * as t from "@babel/types";
-import { NodePath } from "@babel/core";
+import { NodePath } from "@babel/traverse";
 import { ok } from "assert";
 import { deepClone } from "./node";
 
