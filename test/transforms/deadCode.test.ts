@@ -106,3 +106,36 @@ test("Variant #3: Custom probability function", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+test("Variant #4: Limit dead code by default", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+
+    {
+      TEST_OUTPUT = "Correct Value";
+    }
+
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    {};{};{};{};{};{};{};{};{};{};{};{};
+    `,
+    {
+      target: "browser",
+      deadCode: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

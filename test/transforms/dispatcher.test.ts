@@ -562,3 +562,71 @@ test("Variant #21: Ignore reassigned & redefined functions", async () => {
   expect(TEST_OUTPUT_1).toStrictEqual("Correct Value");
   expect(TEST_OUTPUT_2).toStrictEqual("Correct Value");
 });
+
+test("Variant #22: Custom implementation for Dispatcher", async () => {
+  const namesCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function transformFunction(){
+      return "Correct Value";
+    }
+    function preserveFunction(){
+      TEST_OUTPUT = transformFunction();
+    }
+    preserveFunction()
+    `,
+    {
+      target: "node",
+      dispatcher: (fnName) => {
+        namesCollected.push(fnName);
+
+        return fnName === "transformFunction";
+      },
+    }
+  );
+
+  // Ensure custom implementation was called
+  expect(namesCollected).toStrictEqual([
+    "transformFunction",
+    "preserveFunction",
+  ]);
+
+  // Ensure dispatcher applied
+  expect(code).toContain("dispatcher_0");
+  expect(code).not.toContain("transformFunction");
+
+  // Ensure preserveFunction was not obfuscated
+  expect(code).toContain("preserveFunction");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #23: Don't change async or generator functions", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    async function myAsyncFunction(){}
+    function* myGeneratorFunction(){
+      yield "Incorrect Value";
+      TEST_OUTPUT = "Correct Value";
+    }
+
+    var iterator = myGeneratorFunction();
+    TEST_OUTPUT = iterator.next().value;
+
+    iterator.next();
+    `,
+    {
+      target: "node",
+      dispatcher: true,
+    }
+  );
+
+  // Ensure code still works
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

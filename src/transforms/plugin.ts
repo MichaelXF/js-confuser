@@ -63,11 +63,11 @@ export class PluginInstance {
     }
   }
 
-  isSkipped(path: NodePath | t.Node) {
-    let any = path as any;
-    let node = any.isNodeType ? any.node : any;
-
-    return (node as NodeSymbol)[SKIP] === this.order;
+  /**
+   * Returns `true` if the given path has been skipped by this plugin.
+   */
+  isSkipped(path: NodePath) {
+    return (path.node as NodeSymbol)[SKIP] === this.order;
   }
 
   private setFunctionLengthName: string;
@@ -114,20 +114,20 @@ export class PluginInstance {
     }
   }
 
+  /**
+   * Returns a random string.
+   *
+   * Used for creating temporary variables names, typically before RenameVariables has ran.
+   *
+   * These long temp names will be converted to short, mangled names by RenameVariables.
+   */
   getPlaceholder(suffix = "") {
     return "__p_" + getRandomString(4) + (suffix ? "_" + suffix : "");
   }
 
-  log(...messages: any[]) {
-    if (this.options.verbose) {
-      console.log(`[${this.name}]`, ...messages);
-    }
-  }
-
-  hasControlObject(blockPath: NodePath<t.Block>) {
-    return (blockPath.node as NodeSymbol)[CONTROL_OBJECTS]?.length > 0;
-  }
-
+  /**
+   * Retrieves (or creates) a `ControlObject` for the given `blockPath`.
+   */
   getControlObject(blockPath: NodePath<t.Block>, createMultiple = true) {
     ok(blockPath.isBlock());
 
@@ -155,12 +155,30 @@ export class PluginInstance {
     return choice(controlObjects);
   }
 
+  /**
+   * Logs a message to the console, only if `verbose` is enabled.
+   * @param messages
+   */
+  log(...messages: any[]) {
+    if (this.options.verbose) {
+      console.log(`[${this.name}]`, ...messages);
+    }
+  }
+
+  /**
+   * Logs a warning to the console, only if `verbose` is enabled.
+   * @param messages
+   */
   warn(...messages: any[]) {
     if (this.options.verbose) {
       console.log(`WARN [${this.name}]`, ...messages);
     }
   }
 
+  /**
+   * Throws an error with the given message.
+   * @param messages
+   */
   error(...messages: any[]): never {
     throw new Error(`[${this.name}] ${messages.join(", ")}`);
   }

@@ -132,6 +132,12 @@ test("Variant #7: Force Variable declarations to be expanded", async () => {
   function myFunction(){
     var myFunctionVar1, myFunctionVar2, myFunctionVar3;
   }
+
+  for(var myForVar1, myForVar2, myForVar3; ; ){
+    break;
+  }
+
+  export var myExportVar1, myExportVar2, myExportVar3;
   `,
     {
       target: "node",
@@ -158,6 +164,16 @@ test("Variant #7: Force Variable declarations to be expanded", async () => {
   expect(output).toContain("var myIfVar1;");
   expect(output).toContain("var myIfVar2;");
   expect(output).toContain("var myIfVar3");
+
+  // Ensure the for-loop declarations got changed
+  expect(output).toContain("var myForVar1;");
+  expect(output).toContain("var myForVar2;");
+  expect(output).toContain("var myForVar3;");
+
+  // Ensure the export declarations got changed
+  expect(output).toContain("export var myExportVar1;");
+  expect(output).toContain("export var myExportVar2;");
+  expect(output).toContain("export var myExportVar3;");
 });
 
 test("Variant #8: Convert Regex Literals to `new RegExp()` constructor calls", async () => {
@@ -220,4 +236,31 @@ test("Variant #9: Convert Template Literals into equivalent String Literal", asy
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual("Hello John Doe!");
+});
+
+test("Variant #10: Preserve Tagged Template Literal", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+  // Define a tag function for syntax highlighting
+  function highlight(strings, ...values) {
+    return strings.reduce((result, string, i) => {
+      // Wrap the interpolated values in a styled span
+      const value = values[i] ? \`**\${values[i]}**\` : '';
+      return result + string + value;
+    }, '');
+  }
+
+  TEST_OUTPUT = highlight\`Hello, \${ "Internet User" }!\`;
+  `,
+    {
+      target: "node",
+      compact: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  // Ensure the tagged template literal properly executed
+  expect(TEST_OUTPUT).toContain("Hello, **Internet User**!");
 });

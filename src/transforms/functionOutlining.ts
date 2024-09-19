@@ -26,11 +26,11 @@ function isSafeForOutlining(path: NodePath): {
 
   if (
     path.isReturnStatement() ||
+    path.isYieldExpression() ||
+    path.isAwaitExpression() ||
     path.isContinueStatement() ||
     path.isBreakStatement() ||
     path.isThrowStatement() ||
-    path.isYieldExpression() ||
-    path.isAwaitExpression() ||
     path.isDebuggerStatement() ||
     path.isImportDeclaration() ||
     path.isExportDeclaration()
@@ -40,6 +40,7 @@ function isSafeForOutlining(path: NodePath): {
 
   var isSafe = true;
   var bindings: Binding[] = [];
+  var fnPath = path.getFunctionParent();
 
   var visitor: Visitor = {
     ThisExpression(path) {
@@ -56,6 +57,13 @@ function isSafeForOutlining(path: NodePath): {
       var binding = path.scope.getBinding(path.node.name);
       if (binding) {
         bindings.push(binding);
+      }
+    },
+    // Function flow guard
+    "ReturnStatement|YieldExpression|AwaitExpression"(path) {
+      if (path.getFunctionParent() === fnPath) {
+        isSafe = false;
+        path.stop();
       }
     },
   };
@@ -100,8 +108,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Extract a random number of statements
 
           var statements = blockPath.get("body");
-          var startIndex = getRandomInteger(0, statements.length);
-          var endIndex = getRandomInteger(startIndex, statements.length);
+          // var startIndex = getRandomInteger(0, statements.length);
+          // var endIndex = getRandomInteger(startIndex, statements.length);
+
+          var startIndex = 0;
+          var endIndex = statements.length;
 
           var extractedStatements = statements.slice(startIndex, endIndex);
           if (!extractedStatements.length) return;

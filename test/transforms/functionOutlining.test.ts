@@ -29,7 +29,7 @@ test("Variant #2: Don't outline expressions with 'eval' 'this' or 'arguments'", 
       function shouldNotOutline(){
         var ten = eval("10");
         if(this === expectedThis){ 
-           return ten + arguments[0];
+          return ten + arguments[0];
         }
       }
 
@@ -158,4 +158,49 @@ test("Variant #5: Handle direct invocations", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual([true, true, true, true]);
+});
+
+test("Variant #6: Handle return statements", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function fn1(){
+      return true;
+    }
+    function fn2(){
+      if(true) {
+        return true;
+      }
+    }
+    function fn3(){
+      if(false) {
+      } else {
+        return true; 
+      }
+    }
+    function fn4(){
+      for(var i = 0; i < 10; i++){
+        return true;
+      }
+    }
+    function fn5(){
+      if(true) {
+        if(true) {
+          return true;
+        }
+      }
+    }
+
+    TEST_OUTPUT = [fn1(), fn2(), fn3(), fn4(), fn5()];
+    `,
+    {
+      target: "node",
+      functionOutlining: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual([true, true, true, true, true]);
 });

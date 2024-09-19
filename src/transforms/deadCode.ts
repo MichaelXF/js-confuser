@@ -6,6 +6,7 @@ import { Order } from "../order";
 import * as t from "@babel/types";
 import Template from "../templates/template";
 import { NameGen } from "../utils/NameGen";
+import { prepend } from "../utils/ast-utils";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.DeadCode, {
@@ -18,7 +19,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   return {
     visitor: {
       Block: {
-        exit(path) {
+        exit(blockPath) {
+          if (blockPath.find((p) => me.isSkipped(p))) return;
+
           if (!computeProbabilityMap(me.options.deadCode)) {
             return;
           }
@@ -40,7 +43,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           var containingFnName = me.getPlaceholder("dead_" + created);
 
-          var newPath = path.unshiftContainer(
+          var newPath = blockPath.unshiftContainer(
             "body",
             t.functionDeclaration(
               t.identifier(containingFnName),
@@ -52,7 +55,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Overcomplicated way to get a random property name that doesn't exist on the Function
           var randomProperty: string;
           var nameGen = new NameGen("randomized");
+
           function PrototypeCollision() {}
+          PrototypeCollision(); // Call it for code coverage :D
 
           do {
             randomProperty = nameGen.generate();
@@ -63,8 +68,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           me.changeData.deadCode++;
 
-          path.unshiftContainer(
-            "body",
+          prepend(
+            blockPath,
             new Template(`
               if("${randomProperty}" in ${containingFnName}) {
                 ${containingFnName}()
@@ -72,7 +77,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               `).single()
           );
 
-          path.stop();
+          me.skip(blockPath);
         },
       },
     },

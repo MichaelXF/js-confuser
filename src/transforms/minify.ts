@@ -8,12 +8,7 @@ import {
   isUndefined,
 } from "../utils/ast-utils";
 import { Binding, Scope } from "@babel/traverse";
-import {
-  NodeSymbol,
-  placeholderVariablePrefix,
-  SKIP,
-  UNSAFE,
-} from "../constants";
+import { NodeSymbol, placeholderVariablePrefix, UNSAFE } from "../constants";
 
 const identifierMap = new Map<string, () => t.Expression>();
 identifierMap.set("undefined", () =>
@@ -288,7 +283,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           if (id.isIdentifier()) {
             // Do not remove variables in unsafe functions
             const fn = getParentFunctionOrProgram(path);
-            if ((fn as NodeSymbol)[UNSAFE]) return;
+            if ((fn.node as NodeSymbol)[UNSAFE]) return;
 
             const binding = path.scope.getBinding(id.node.name);
 
@@ -453,11 +448,22 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               !consequentReturn.returnPath &&
               !alternateReturn.returnPath
             ) {
+              function joinExpressions(expressions: t.Expression[]) {
+                // condition?():() is invalid syntax
+                // Just use 0 as a placeholder
+                if (expressions.length === 0) return t.numericLiteral(0);
+
+                // No need for sequence expression if there's only one expression
+                if (expressions.length === 1) return expressions[0];
+
+                return t.sequenceExpression(expressions);
+              }
+
               path.replaceWith(
                 t.conditionalExpression(
                   path.node.test,
-                  t.sequenceExpression(consequentReturn.expressions),
-                  t.sequenceExpression(alternateReturn.expressions)
+                  joinExpressions(consequentReturn.expressions),
+                  joinExpressions(alternateReturn.expressions)
                 )
               );
             }

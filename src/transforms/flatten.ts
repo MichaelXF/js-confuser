@@ -171,6 +171,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           typeofProps.set(identifierName, typeofProp);
         }
 
+        ensureComputedExpression(identifierPath.parentPath);
+
         identifierPath.parentPath
           .replaceWith(
             t.memberExpression(
@@ -180,13 +182,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             )
           )[0]
           .skip();
-        return;
       } else if (isFunctionCall) {
         let functionCallProp = functionCallProps.get(identifierName);
         if (!functionCallProp) {
           functionCallProp = generateProp(identifierName, "call");
           functionCallProps.set(identifierName, functionCallProp);
         }
+
+        ensureComputedExpression(identifierPath);
 
         // Replace identifier with a reference to the flat object property
         identifierPath

@@ -101,13 +101,42 @@ test("Variant #5: Work when shortening nested if-statements", async () => {
   var code = `
   var a = false;
   var b = true;
+
+  // This does nothing
+  if( b ) { b = true; }
+  if( !a ) {} else { a = false; }
+  if( false ) {}
+  if( true ) { b = b; }
+  if( false ) {} else { a = a; }
+
   if( a ) {
     if ( b ) {
 
     }
   } else {
-    input(10)
+   TEST_OUTPUT[0] = true;
   }
+
+  function advanced(){
+    var counter = 0;
+    var truthyValue = true;
+    if( truthyValue ) {
+      counter++;
+      return counter;
+    } else {
+      return; 
+    }
+  }
+
+  TEST_OUTPUT[1] = advanced() === 1;
+
+  if ( true ) {
+    { 
+      let shouldNotBeAccessible = true; 
+     shouldNotBeAccessible = "Reassigned";
+    } 
+  }
+  TEST_OUTPUT[2] = typeof shouldNotBeAccessible === "undefined";
   `;
 
   var { code: output } = await JsConfuser.obfuscate(code, {
@@ -117,12 +146,10 @@ test("Variant #5: Work when shortening nested if-statements", async () => {
 
   expect(output).not.toContain("=>");
 
-  var value = "never_called",
-    input = (x) => (value = x);
-
+  var TEST_OUTPUT = [];
   eval(output);
 
-  expect(value).toStrictEqual(10);
+  expect(TEST_OUTPUT).toStrictEqual([true, true, true]);
 });
 
 test("Variant #8: Shorten simple array destructuring", async () => {
@@ -293,40 +320,52 @@ test("Variant #11: Shorten 'Infinity' to 1/0", async () => {
   expect(output2).toContain("var x={[1/0]:1}");
 });
 
-test("Variant #12: Shorten '!false' to '!0'", async () => {
-  // Valid
-  var { code: output } = await JsConfuser.obfuscate(
-    `var x = !false; TEST_OUTPUT = x;`,
+test("Variant #12: Shorten pure logical not (!) unary expressions", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var truthy = !false; 
+    var falsy = !true;
+    
+    TEST_OUTPUT = [truthy, falsy];
+    `,
     {
       target: "node",
       minify: true,
     }
   );
 
-  expect(output).toContain("var x=!0");
+  expect(code).not.toContain("!false");
+  expect(code).not.toContain("!true");
+  expect(code).not.toContain("!!");
 
-  var TEST_OUTPUT;
-  eval(output);
+  var TEST_OUTPUT = [];
+  eval(code);
 
-  expect(TEST_OUTPUT).toStrictEqual(true);
+  expect(TEST_OUTPUT).toStrictEqual([true, false]);
 });
 
-test("Variant #13: Shorten 'false ? a : b' to 'b'", async () => {
-  // Valid
-  var { code: output } = await JsConfuser.obfuscate(
-    `var x = false ? 10 : 15; TEST_OUTPUT = x;`,
+test("Variant #13: Remove deterministic conditional expressions", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    ` 
+      TEST_OUTPUT_1 = true ? "Correct Value" : -1; 
+      TEST_OUTPUT_2 = false ? -1 : "Correct Value"; 
+    `,
     {
       target: "node",
       minify: true,
     }
   );
 
-  expect(output).toContain("var x=15");
+  // Ensure the conditional expressions were removed
+  expect(code).not.toContain("?");
 
-  var TEST_OUTPUT;
-  eval(output);
+  var TEST_OUTPUT_1;
+  var TEST_OUTPUT_2;
 
-  expect(TEST_OUTPUT).toStrictEqual(15);
+  eval(code);
+
+  expect(TEST_OUTPUT_1).toStrictEqual("Correct Value");
+  expect(TEST_OUTPUT_2).toStrictEqual("Correct Value");
 });
 
 test("Variant #14: Shorten 'var x = undefined' to 'var x'", async () => {
@@ -520,23 +559,33 @@ test("Variant #22: Properly handle Object constructor (Function Expression)", as
 });
 
 test("Variant #23: Shorten property names and method names", async () => {
-  var { code: output } = await JsConfuser.obfuscate(
+  var { code } = await JsConfuser.obfuscate(
     `
   var myObject = { "myKey": "Correct Value" };
   var myClass = class { ["myMethod"](){ return "Correct Value" } }
 
-  TEST_OUTPUT = myObject.myKey === (new myClass()).myMethod();
+  TEST_OUTPUT[0] = myObject.myKey;
+  TEST_OUTPUT[1] = (new myClass()).myMethod();
+
+  var myCustomObject = { "1": "Correct Value", "for": "Correct Value" }
+  TEST_OUTPUT[2] = myCustomObject[1];
+  TEST_OUTPUT[3] = myCustomObject["for"];
   `,
     { target: "node", minify: true }
   );
 
-  expect(output).not.toContain("'myKey'");
-  expect(output).not.toContain("'myMethod'");
+  expect(code).not.toContain("'myKey'");
+  expect(code).not.toContain("'myMethod'");
 
-  var TEST_OUTPUT;
-  eval(output);
+  var TEST_OUTPUT = [];
+  eval(code);
 
-  expect(TEST_OUTPUT).toStrictEqual(true);
+  expect(TEST_OUTPUT).toStrictEqual([
+    "Correct Value",
+    "Correct Value",
+    "Correct Value",
+    "Correct Value",
+  ]);
 });
 
 test("Variant #24: Variable grouping in switch case", async () => {
@@ -632,15 +681,30 @@ test("Variant #28: Don't break destructuring assignment", async () => {
 test("Variant #28: Remove unused variables", async () => {
   var { code } = await JsConfuser.obfuscate(
     `
-    var x = "Incorrect Value";
-    var y = "Correct Value";
+    var correctValue;
+    function setCorrectValue(_unusedParameter){
+      correctValue = "Correct Value";
+    }
+    var _unusedValue = setCorrectValue();
+    var _unusedString = "Incorrect Value";
+
+    var y = correctValue;
     TEST_OUTPUT = y;
+
+    function unsafeFunction(){
+      eval(" {}; ")
+      var keepMe = "eval() prevents removing this";
+    }
+
+    unsafeFunction();
     `,
     { target: "node", minify: true }
   );
 
-  expect(code).not.toContain("x");
+  expect(code).not.toContain("_unusedValue");
   expect(code).not.toContain("Incorrect Value");
+
+  expect(code).toContain("keepMe");
 
   var TEST_OUTPUT;
   eval(code);
@@ -714,6 +778,16 @@ test("Variant #30: Remove unreachable code after branches", async () => {
         return "Should be removed";
       default:
         return "Incorrect Value";
+        return "Should be removed";
+
+
+      case "Nested Case":
+        switch(condition){
+          default:
+            return "Incorrect Value";
+            return "Should be removed";
+        }
+        "Should be removed";
         return "Should be removed";
     }
 

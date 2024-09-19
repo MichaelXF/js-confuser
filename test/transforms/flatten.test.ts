@@ -703,8 +703,13 @@ test("Variant #23: Reference original function name", async () => {
 test("Variant #24: Typeof expression", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
+    var outsideVar = "Is Defined";
+
     function myFunction(){
-      TEST_OUTPUT = typeof nonExistentVariable === "undefined";
+      TEST_OUTPUT = [
+        typeof nonExistentVariable === "undefined",
+        typeof outsideVar !== "undefined"
+      ];
     }
 
     myFunction();
@@ -717,7 +722,7 @@ test("Variant #24: Typeof expression", async () => {
   var TEST_OUTPUT;
 
   eval(output);
-  expect(TEST_OUTPUT).toStrictEqual(true);
+  expect(TEST_OUTPUT).toStrictEqual([true, true]);
 });
 
 test("Variant #25: Handle __JS_CONFUSER_VAR__ function", async () => {
@@ -743,4 +748,26 @@ test("Variant #25: Handle __JS_CONFUSER_VAR__ function", async () => {
   var TEST_OUTPUT;
   eval(code);
   expect(TEST_OUTPUT).not.toBeUndefined();
+});
+
+test("Variant #26: Var declaration in nested block statement", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function myFunction(){
+      if(true) {
+        var x = "Correct Value";
+      }
+      TEST_OUTPUT = x;
+    }
+
+    myFunction();
+    `,
+    { target: "node", flatten: true }
+  );
+
+  expect(code).toContain("_flat_myFunction");
+
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });

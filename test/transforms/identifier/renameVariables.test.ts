@@ -671,8 +671,9 @@ test("Variant #26: Transform __JS_CONFUSER_VAR__ to access variable mappings", a
     var myVar1 = "Correct Value";
     TEST_OUTPUT =  eval( __JS_CONFUSER_VAR__(myVar1) );
   }
-  
-  myFunction();
+
+  // Work on functions too
+  eval( __JS_CONFUSER_VAR__(myFunction) + "()" ); // myFunction();
   `,
     { target: "node", renameVariables: true }
   );
