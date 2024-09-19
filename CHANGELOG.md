@@ -21,8 +21,6 @@
 
 - Added Custom String Encoding and Custom Lock Code options
 
-- Added `Function Outlining` Learn more here
-
 - Added `Rename Labels` Learn more here
 
 - Added `Pack` Learn more here

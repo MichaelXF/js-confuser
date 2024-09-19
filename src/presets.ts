@@ -40,7 +40,9 @@ const highPreset: ObfuscateOptions = {
   stringEncoding: true,
   stringSplitting: 0.75,
   astScrambler: true,
-  functionOutlining: false,
+
+  // Experimental
+  // functionOutlining: false,
 
   // Security risks
   pack: true,
