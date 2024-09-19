@@ -1,5 +1,7 @@
 # JS Confuser
 
+**⚠️ Warning: This an alpha release. This version is not stable and the likelihood of encountering bugs is significantly higher.**
+
 JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ to read. [Try the web version](https://js-confuser.com).
 
   [![NPM](https://img.shields.io/badge/NPM-%23000000.svg?style=for-the-badge&logo=npm&logoColor=white)](https://npmjs.com/package/js-confuser) [![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/MichaelXF/js-confuser) [![Netlify](https://img.shields.io/badge/netlify-%23000000.svg?style=for-the-badge&logo=netlify&logoColor=#00C7B7)](https://js-confuser.com)

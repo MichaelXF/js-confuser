@@ -1,23 +1,6 @@
 import { ok } from "assert";
 import { createObject } from "./utils/object-utils";
-
-type Stringed<V> = (V extends string ? V : never) | "true" | "false";
-
-/**
- * Configurable probabilities for obfuscator options.
- * - **`false`** = this feature is disabled
- * - **`true`** = this feature is enabled, use default mode
- * - **`0.5`** = 50% chance
- * - **`"mode"`** = enabled, use specified mode
- * - **`["mode1", "mode2"]`** - enabled, choose random mode each occurrence
- * - **`{"mode1": 0.5, "mode2": 0.5}`** - enabled, choose based on specified probabilities
- * - **`{"mode1": 50, "mode2": 50}`** - enabled, each is divided based on total
- * - **`function(x){ return "custom_implementation" }`** - enabled, use specified function
- */
-export type ProbabilityMap<
-  T,
-  F extends (...args: any[]) => any = () => boolean // Default to a generic function
-> = false | true | number | T | T[] | { [key in Stringed<T>]?: number } | F;
+import { ProbabilityMap } from "./options";
 
 /**
  * Evaluates a ProbabilityMap.

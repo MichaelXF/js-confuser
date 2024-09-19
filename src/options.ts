@@ -1,5 +1,24 @@
-import { ProbabilityMap } from "./probability";
 import Template from "./templates/template";
+
+// JS-Confuser.com imports this file for Type support, therefore some additional types are included here.
+
+type Stringed<V> = (V extends string ? V : never) | "true" | "false";
+
+/**
+ * Configurable probabilities for obfuscator options.
+ * - **`false`** = this feature is disabled
+ * - **`true`** = this feature is enabled, use default mode
+ * - **`0.5`** = 50% chance
+ * - **`"mode"`** = enabled, use specified mode
+ * - **`["mode1", "mode2"]`** - enabled, choose random mode each occurrence
+ * - **`{"mode1": 0.5, "mode2": 0.5}`** - enabled, choose based on specified probabilities
+ * - **`{"mode1": 50, "mode2": 50}`** - enabled, each is divided based on total
+ * - **`function(x){ return "custom_implementation" }`** - enabled, use specified function
+ */
+export type ProbabilityMap<
+  T,
+  F extends (...args: any[]) => any = () => boolean // Default to a generic function
+> = false | true | number | T | T[] | { [key in Stringed<T>]?: number } | F;
 
 export interface CustomLock {
   /**
