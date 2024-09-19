@@ -5,11 +5,9 @@ import presets from "./presets";
 const validProperties = new Set([
   "preset",
   "target",
-  "indent",
   "compact",
   "hexadecimalNumbers",
   "minify",
-  "es5",
   "renameVariables",
   "renameGlobals",
   "renameLabels",
@@ -158,10 +156,6 @@ export function applyDefaultsToOptions(
     options.renameLabels = true; // RenameLabels is on by default
   }
 
-  if (options.globalVariables && !(options.globalVariables instanceof Set)) {
-    options.globalVariables = new Set(Object.keys(options.globalVariables));
-  }
-
   if (options.lock) {
     ok(typeof options.lock === "object", "options.lock must be an object");
 
@@ -249,6 +243,12 @@ export function applyDefaultsToOptions(
       "WeakSet",
       "WeakMap",
       "Symbol",
+      "TextDecoder",
+      "TextEncoder",
+      "Uint8Array",
+      "Uint16Array",
+      "Uint32Array",
+      "ArrayBuffer",
     ].forEach((x) => options.globalVariables.add(x));
   }
 

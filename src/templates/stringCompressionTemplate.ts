@@ -8,7 +8,9 @@ var {stringFn};
   {GetGlobalTemplate}
 
   var __globalObject = {getGlobalFnName}() || {};
-  var _atob = __globalObject["atob"];
+
+  // Direct invocation of atob() is not allowed in some environments
+  var _atob = (s) => __globalObject["atob"](s);
   var _Uint8Array = __globalObject["Uint8Array"];
 
   function convertBase64ToArrayBuffer(base64) {

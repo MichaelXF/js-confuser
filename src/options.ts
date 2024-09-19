@@ -144,7 +144,7 @@ export interface ObfuscateOptions {
   globalConcealing?: ProbabilityMap<boolean, (globalName: string) => boolean>;
 
   /**
-   * String Compression uses LZW's compression algorithm to compress strings.
+   * String Compression uses zlib compression algorithm to compress strings.
    *
    * `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
    */

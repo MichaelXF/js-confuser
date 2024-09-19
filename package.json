@@ -1,6 +1,6 @@
 {
   "name": "js-confuser",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.2",
   "description": "JavaScript Obfuscation Tool.",
   "main": "dist/index.js",
   "types": "index.d.ts",
@@ -9,7 +9,7 @@
     "dev": "node babel.register.js",
     "test": "jest --forceExit",
     "test:coverage": "jest --coverage --coverageReporters=html",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run test && npm run build"
   },
   "keywords": [
     "obfuscator",
