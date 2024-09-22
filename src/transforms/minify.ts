@@ -8,7 +8,12 @@ import {
   isUndefined,
 } from "../utils/ast-utils";
 import { Binding, Scope } from "@babel/traverse";
-import { NodeSymbol, placeholderVariablePrefix, UNSAFE } from "../constants";
+import {
+  NO_REMOVE,
+  NodeSymbol,
+  placeholderVariablePrefix,
+  UNSAFE,
+} from "../constants";
 
 const identifierMap = new Map<string, () => t.Expression>();
 identifierMap.set("undefined", () =>
@@ -120,6 +125,19 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           }
         },
       },
+      // "a" + "b" -> "ab"
+      BinaryExpression: {
+        exit(path) {
+          if (path.node.operator !== "+") return;
+
+          const left = path.get("left");
+          const right = path.get("right");
+
+          if (!left.isStringLiteral() || !right.isStringLiteral()) return;
+
+          path.replaceWith(t.stringLiteral(left.node.value + right.node.value));
+        },
+      },
       // a["key"] -> a.key
       MemberExpression: {
         exit(path) {
@@ -215,7 +233,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           const id = path.get("id");
           if (
             id.isIdentifier() &&
-            !id.node.name.startsWith(placeholderVariablePrefix)
+            !id.node.name.startsWith(placeholderVariablePrefix) &&
+            !(path.node as NodeSymbol)[NO_REMOVE]
           ) {
             const binding = path.scope.getBinding(id.node.name);
             if (
@@ -284,6 +303,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             // Do not remove variables in unsafe functions
             const fn = getParentFunctionOrProgram(path);
             if ((fn.node as NodeSymbol)[UNSAFE]) return;
+
+            // Node explicitly marked as not to be removed
+            if ((id as NodeSymbol)[NO_REMOVE]) return;
 
             const binding = path.scope.getBinding(id.node.name);
 

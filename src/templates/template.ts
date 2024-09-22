@@ -27,7 +27,7 @@ export default class Template {
   private requiredVariables: Set<string>;
   private astVariableMappings: Map<string, string>;
   private astIdentifierPrefix = "__t_" + getRandomString(6);
-  private symbols: NodeSymbolKeys[] = [];
+  private symbols = new Set<NodeSymbolKeys>();
 
   constructor(...templates: string[]) {
     this.templates = templates;
@@ -38,7 +38,9 @@ export default class Template {
   }
 
   addSymbols(...symbols: NodeSymbolKeys[]): this {
-    this.symbols.push(...symbols);
+    symbols.forEach((symbol) => {
+      this.symbols.add(symbol);
+    });
     return this;
   }
 
@@ -174,7 +176,7 @@ export default class Template {
 
     this.interpolateAST(file, variables);
 
-    if (this.symbols.length > 0) {
+    if (this.symbols.size > 0) {
       file.program.body.forEach((node) => {
         for (const symbol of this.symbols) {
           node[symbol] = true;

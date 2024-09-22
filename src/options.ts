@@ -375,7 +375,7 @@ export interface ObfuscateOptions {
    *
    * Designed to escape strict mode constraints.
    */
-  pack?: boolean;
+  pack?: ProbabilityMap<boolean, (globalName: string) => boolean>;
 
   /**
    * Set of global variables. *Optional*.

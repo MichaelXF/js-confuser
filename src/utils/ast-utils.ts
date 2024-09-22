@@ -317,12 +317,12 @@ export function prepend(
     );
 
     if (lastImportIndex === 0 || lastImportIndex === -1) {
-      // No non-import declarations, so we can safely unshift everything
+      // No import declarations, so we can safely unshift everything
       return registerPaths(listParent.unshiftContainer("body", nodes));
-    } else {
-      // Insert the nodes after the last import declaration
-      return registerPaths(body[lastImportIndex - 1].insertAfter(nodes));
     }
+
+    // Insert the nodes after the last import declaration
+    return registerPaths(body[lastImportIndex - 1].insertAfter(nodes));
   }
 
   if (listParent.isFunction()) {
@@ -343,7 +343,9 @@ export function prepend(
 
   if (listParent.isBlock()) {
     return registerPaths(listParent.unshiftContainer("body", nodes));
-  } else if (listParent.isSwitchCase()) {
+  }
+
+  if (listParent.isSwitchCase()) {
     return registerPaths(listParent.unshiftContainer("consequent", nodes));
   }
 

@@ -101,3 +101,4 @@ const JsConfuser = {
 };
 
 export default JsConfuser;
+export { presets, Template };

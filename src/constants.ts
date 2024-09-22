@@ -59,6 +59,11 @@ export const MULTI_TRANSFORM = Symbol("multiTransform");
 export const WITH_STATEMENT = Symbol("withStatement");
 
 /**
+ * Tells minify to not remove the node.
+ */
+export const NO_REMOVE = Symbol("noRemove");
+
+/**
  * Symbols describe precomputed semantics of a node, allowing the obfuscator to make the best choices for the node.
  */
 export interface NodeSymbol {
@@ -72,6 +77,7 @@ export interface NodeSymbol {
   [GEN_NODE]?: boolean;
   [MULTI_TRANSFORM]?: boolean;
   [WITH_STATEMENT]?: boolean;
+  [NO_REMOVE]?: boolean;
 }
 
 /**

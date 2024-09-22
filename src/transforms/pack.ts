@@ -15,6 +15,7 @@ import {
 } from "../constants";
 import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
+import { computeProbabilityMap } from "../probability";
 
 export default function pack({ Plugin }: PluginArg): PluginObject {
   const me = Plugin(Order.Pack, {
@@ -57,6 +58,9 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
           if (identifierName === variableFunctionName) return;
 
           if (!path.scope.hasGlobal(identifierName)) return;
+
+          // Check user's custom implementation
+          if (!computeProbabilityMap(me.options.pack, identifierName)) return;
 
           if (
             path.key === "argument" &&

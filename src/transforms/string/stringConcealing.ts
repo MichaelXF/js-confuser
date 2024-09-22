@@ -22,6 +22,7 @@ import {
 import { CustomStringEncoding } from "../../options";
 import { createDefaultStringEncoding } from "./encoding";
 import { numericLiteral } from "../../utils/node";
+import { NO_REMOVE } from "../../constants";
 
 interface StringConcealingInterface {
   encodingImplementation: CustomStringEncoding;
@@ -271,17 +272,21 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             ok(encodingImplementation.code instanceof Template);
 
             // The decoder function
-            const decoder = encodingImplementation.code.compile({
-              fnName: decodeFnName,
-              __bufferToStringFunction__: bufferToStringName,
-            });
+            const decoder = encodingImplementation.code
+              .addSymbols(NO_REMOVE)
+              .compile({
+                fnName: decodeFnName,
+                __bufferToStringFunction__: bufferToStringName,
+              });
 
             // The main function to get the string value
             const retrieveFunctionDeclaration = new Template(`
               function ${fnName}(index) {
                 return ${decodeFnName}(${stringArrayName}[index]);
               }
-            `).single<t.FunctionDeclaration>();
+            `)
+              .addSymbols(NO_REMOVE)
+              .single<t.FunctionDeclaration>();
 
             prepend(block, [...decoder, retrieveFunctionDeclaration]);
           }

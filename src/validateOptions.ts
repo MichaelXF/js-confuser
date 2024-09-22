@@ -190,10 +190,6 @@ export function applyDefaultsToOptions(
         "alert",
         "confirm",
         "location",
-        "btoa",
-        "atob",
-        "unescape",
-        "encodeURIComponent",
       ].forEach((x) => options.globalVariables.add(x));
     } else {
       // node
@@ -248,7 +244,14 @@ export function applyDefaultsToOptions(
       "Uint8Array",
       "Uint16Array",
       "Uint32Array",
+      "Int8Array",
+      "Int16Array",
+      "Int32Array",
       "ArrayBuffer",
+      "btoa",
+      "atob",
+      "unescape",
+      "encodeURIComponent",
     ].forEach((x) => options.globalVariables.add(x));
   }
 

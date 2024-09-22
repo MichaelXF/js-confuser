@@ -876,3 +876,25 @@ test("Variant #32: Work with Eval calls", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+test("Variant #33: Fold string concatenation", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    TEST_OUTPUT = "Correct" + " " + "Value"
+    `,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
+
+  // Ensure the string concatenation was folded
+  expect(code).toContain("Correct Value");
+  expect(code).not.toContain("+");
+
+  // Ensure code still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
