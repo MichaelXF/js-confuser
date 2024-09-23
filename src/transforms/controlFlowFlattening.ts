@@ -1081,7 +1081,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   const identifierName = path.node.name;
                   if (identifierName === gotoFunctionName) return;
 
-                  var binding = basicBlock.scope.getBinding(identifierName);
+                  var binding = path.scope.getBinding(identifierName);
                   if (!binding) {
                     return;
                   }

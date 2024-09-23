@@ -1429,3 +1429,37 @@ TEST_OUTPUT = indexOf("Hello World", "World");
 
   expect(TEST_OUTPUT).toStrictEqual(6);
 });
+
+test("Variant #40: Shadow variable in for-loop / catch clause", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+  let i = "Correct Value";
+
+  function doLoop(){
+    for(let i = 0; i < 10; i++) {
+      i = "Incorrect Value 1";
+      break;
+    }
+    try {
+      throw new Error();
+    } catch(i) {
+      i = "Incorrect Value 2"; 
+    }
+  }
+
+  doLoop();
+
+  TEST_OUTPUT = i;
+  `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+      pack: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
