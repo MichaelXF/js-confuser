@@ -36,6 +36,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   });
 
   if (me.options.lock.startDate instanceof Date) {
+    // Ensure date is in the past
+    if (me.options.lock.startDate.getTime() > Date.now()) {
+      me.warn("lock.startDate is detected to be in the future");
+    }
+
     me.options.lock.customLocks.push({
       code: [
         `
@@ -54,6 +59,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   }
 
   if (me.options.lock.endDate instanceof Date) {
+    // Ensure date is in the future
+    if (me.options.lock.endDate.getTime() < Date.now()) {
+      me.warn("lock.endDate is detected to be in the past");
+    }
+
     me.options.lock.customLocks.push({
       code: [
         `
@@ -127,7 +137,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const timesMap = new WeakMap<CustomLock, number>();
 
   let countermeasuresNode: NodePath<t.Identifier>;
-  let invokeCountermeasuresFnName;
+  let invokeCountermeasuresFnName: string;
 
   if (me.options.lock.countermeasures) {
     invokeCountermeasuresFnName = me.getPlaceholder("invokeCountermeasures");

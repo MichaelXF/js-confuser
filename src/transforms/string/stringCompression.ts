@@ -103,7 +103,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           );
 
           if (insertStringCompressionLibrary) {
-            // RGF function should also clone the entire decompression function
+            // RGF functions should not clone the entire decompression function
             prependProgram(
               programPath,
               Obfuscator.parseCode(PakoInflateMin.replace(/{pako}/g, pakoName))
