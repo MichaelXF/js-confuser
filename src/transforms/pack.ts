@@ -56,6 +56,7 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
           if (reservedIdentifiers.has(identifierName)) return;
           if (me.obfuscator.options.globalVariables.has(identifierName)) return;
           if (identifierName === variableFunctionName) return;
+          if (identifierName === objectName) return;
 
           if (!path.scope.hasGlobal(identifierName)) return;
 
