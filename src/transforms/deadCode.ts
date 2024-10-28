@@ -43,8 +43,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           var containingFnName = me.getPlaceholder("dead_" + created);
 
-          var newPath = blockPath.unshiftContainer(
-            "body",
+          // Insert dummy function
+          prepend(
+            blockPath,
+
             t.functionDeclaration(
               t.identifier(containingFnName),
               [],
