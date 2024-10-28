@@ -312,17 +312,21 @@ export function prepend(
     // Preserve import declarations
     // Filter out import declarations
     const body = listParent.get("body");
-    const lastImportIndex = body.findIndex(
-      (path) => !path.isImportDeclaration()
-    );
+    let afterImport = 0;
+    for (var stmt of body) {
+      if (!stmt.isImportDeclaration()) {
+        break;
+      }
+      afterImport++;
+    }
 
-    if (lastImportIndex === 0 || lastImportIndex === -1) {
+    if (afterImport === 0) {
       // No import declarations, so we can safely unshift everything
       return registerPaths(listParent.unshiftContainer("body", nodes));
     }
 
     // Insert the nodes after the last import declaration
-    return registerPaths(body[lastImportIndex - 1].insertAfter(nodes));
+    return registerPaths(body[afterImport - 1].insertAfter(nodes));
   }
 
   if (listParent.isFunction()) {
@@ -358,6 +362,7 @@ export function prependProgram(
 ) {
   var program = path.find((p) => p.isProgram());
   ok(program);
+  ok(program.isProgram());
   return prepend(program, ...nodes);
 }
 
