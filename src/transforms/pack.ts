@@ -59,6 +59,7 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
           if (identifierName === objectName) return;
 
           if (!path.scope.hasGlobal(identifierName)) return;
+          if (path.scope.hasBinding(identifierName)) return;
 
           // Check user's custom implementation
           if (!computeProbabilityMap(me.options.pack, identifierName)) return;

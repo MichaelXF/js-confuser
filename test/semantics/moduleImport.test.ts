@@ -15,13 +15,11 @@ test("Variant #1: Import Declaration on High Preset", async () => {
     {
       target: "node",
       pack: true,
-
       preset: "high",
-
-      //
-      renameVariables: false,
     }
   );
+
+  // console.log(code.slice(0, 100));
 
   // Ensure the import declaration wasn't moved
   expect(code.startsWith("import")).toStrictEqual(true);
@@ -31,15 +29,20 @@ test("Variant #1: Import Declaration on High Preset", async () => {
     .replace(`import{createHash as `, "let {createHash: ")
     .replace(`}from"node:crypto";`, "} = require('crypto');")
 
+    // (When Compact is disabled)
+    .replace(`import { createHash as `, "let {createHash: ")
+    .replace(` } from "node:crypto";`, "} = require('crypto');")
+
     // (When Rename Variables is disabled)
     .replace(
       "import{createHash} = require('crypto');",
       "let {createHash} = require('crypto');"
-    );
+    )
 
-  writeFileSync("./dev.output.js", code, "utf-8");
+    // (When Compact and Rename Variables is disabled)
+    .replace(`import { createHash}`, "let {createHash} ");
 
-  console.log(code.slice(0, 100));
+  // writeFileSync("./dev.output.js", code, "utf-8");
 
   var TEST_OUTPUT = "";
 
