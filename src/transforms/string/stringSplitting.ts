@@ -1,10 +1,13 @@
-import { PluginArg, PluginInstance, PluginObject } from "../plugin";
+import { PluginArg, PluginObject } from "../plugin";
 import { getRandomInteger, splitIntoChunks } from "../../utils/random-utils";
 import { computeProbabilityMap } from "../../probability";
 import { binaryExpression, stringLiteral } from "@babel/types";
 import { ok } from "assert";
 import { Order } from "../../order";
-import { ensureComputedExpression } from "../../utils/ast-utils";
+import {
+  ensureComputedExpression,
+  isModuleImport,
+} from "../../utils/ast-utils";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.StringSplitting, {
@@ -18,6 +21,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       StringLiteral: {
         exit(path) {
           var object = path.node;
+
+          // Don't change module imports
+          if (isModuleImport(path)) return;
 
           var size = Math.round(
             Math.max(6, object.value.length / getRandomInteger(3, 8))

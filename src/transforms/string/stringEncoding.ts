@@ -3,6 +3,7 @@ import * as t from "@babel/types";
 import { choice } from "../../utils/random-utils";
 import { computeProbabilityMap } from "../../probability";
 import { GEN_NODE, NodeSymbol } from "../../constants";
+import { isModuleImport } from "../../utils/ast-utils";
 
 function pad(x: string, len: number): string {
   while (x.length < len) {
@@ -51,6 +52,9 @@ export default (me: PluginInstance): PluginObject => {
     visitor: {
       StringLiteral: {
         exit(path) {
+          // Ignore module imports
+          if (isModuleImport(path)) return;
+
           const { value } = path.node;
 
           // Allow percentages

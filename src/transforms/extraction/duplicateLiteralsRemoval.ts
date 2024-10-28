@@ -2,7 +2,11 @@ import * as t from "@babel/types";
 import { ok } from "assert";
 import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
-import { ensureComputedExpression, prepend } from "../../utils/ast-utils";
+import {
+  ensureComputedExpression,
+  isModuleImport,
+  prepend,
+} from "../../utils/ast-utils";
 import { createLiteral, LiteralValue, numericLiteral } from "../../utils/node";
 import { NodePath } from "@babel/traverse";
 
@@ -48,6 +52,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               const literalPath = _path as babel.NodePath<
                 t.Literal | t.Identifier
               >;
+
+              // Don't change module imports
+              if (literalPath.isStringLiteral()) {
+                if (isModuleImport(literalPath)) return;
+              }
 
               let node = literalPath.node;
               var isUndefined = false;

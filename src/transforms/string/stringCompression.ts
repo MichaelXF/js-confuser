@@ -4,6 +4,7 @@ import { Order } from "../../order";
 import { computeProbabilityMap } from "../../probability";
 import {
   ensureComputedExpression,
+  isModuleImport,
   prependProgram,
 } from "../../utils/ast-utils";
 import { numericLiteral } from "../../utils/node";
@@ -36,6 +37,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           programPath.traverse({
             StringLiteral: {
               exit: (path) => {
+                // Don't change module imports
+                if (isModuleImport(path)) return;
+
                 const originalValue = path.node.value;
 
                 // Must be at least 3 characters long
