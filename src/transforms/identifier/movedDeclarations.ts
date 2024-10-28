@@ -113,6 +113,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       },
       VariableDeclaration: {
         exit(path) {
+          if (me.isSkipped(path)) return;
           if (path.node.kind !== "var") return;
           if (path.node.declarations.length !== 1) return;
 
@@ -150,7 +151,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           let isDefinedAtTop = false;
           const parentPath = path.parentPath;
           if (parentPath.isBlock()) {
-            isDefinedAtTop = parentPath.get("body").indexOf(path) === 0;
+            isDefinedAtTop =
+              parentPath
+                .get("body")
+                .filter((x) => x.type !== "ImportDeclaration")
+                .indexOf(path) === 0;
           }
 
           // Already at the top - nothing will change
@@ -214,7 +219,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 path.isBlock()
               ) as NodePath<t.Block>;
 
-              var topNode = block.node.body[0];
+              var topNode = block.node.body.filter(
+                (x) => x.type !== "ImportDeclaration"
+              )[0];
               const variableDeclarator = t.variableDeclarator(
                 t.identifier(name)
               );
@@ -223,8 +230,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 topNode.declarations.push(variableDeclarator);
                 break;
               } else {
-                block.node.body.unshift(
-                  t.variableDeclaration("var", [variableDeclarator])
+                prepend(
+                  block,
+                  me.skip(t.variableDeclaration("var", [variableDeclarator]))
                 );
               }
 

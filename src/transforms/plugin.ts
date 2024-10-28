@@ -74,43 +74,48 @@ export class PluginInstance {
   setFunctionLength(path: NodePath<t.Function>, originalLength: number) {
     (path.node as NodeSymbol)[FN_LENGTH] = originalLength;
 
-    // Function length
-    if (this.options.preserveFunctionLength && originalLength > 0) {
-      if (!this.setFunctionLengthName) {
-        this.setFunctionLengthName = this.getPlaceholder("fnLength");
+    // Skip if user disabled this feature
+    if (!this.options.preserveFunctionLength) return;
 
-        this.skip(
-          prependProgram(
-            path,
-            SetFunctionLengthTemplate.compile({
-              fnName: this.setFunctionLengthName,
-            })
-          )
-        );
-      }
-      if (t.isFunctionDeclaration(path.node)) {
-        prepend(
-          path.parentPath,
-          t.expressionStatement(
-            t.callExpression(t.identifier(this.setFunctionLengthName), [
-              t.identifier(path.node.id.name),
-              numericLiteral(originalLength),
-            ])
-          )
-        );
-      } else if (
-        t.isFunctionExpression(path.node) ||
-        t.isArrowFunctionExpression(path.node)
-      ) {
-        path.replaceWith(
+    // Skip if function has no parameters
+    if (originalLength === 0) return;
+
+    // Create the function length setter if it doesn't exist
+    if (!this.setFunctionLengthName) {
+      this.setFunctionLengthName = this.getPlaceholder("fnLength");
+
+      this.skip(
+        prependProgram(
+          path,
+          SetFunctionLengthTemplate.compile({
+            fnName: this.setFunctionLengthName,
+          })
+        )
+      );
+    }
+
+    if (t.isFunctionDeclaration(path.node)) {
+      prepend(
+        path.parentPath,
+        t.expressionStatement(
           t.callExpression(t.identifier(this.setFunctionLengthName), [
-            path.node,
+            t.identifier(path.node.id.name),
             numericLiteral(originalLength),
           ])
-        );
-      } else {
-        // TODO
-      }
+        )
+      );
+    } else if (
+      t.isFunctionExpression(path.node) ||
+      t.isArrowFunctionExpression(path.node)
+    ) {
+      path.replaceWith(
+        t.callExpression(t.identifier(this.setFunctionLengthName), [
+          path.node,
+          numericLiteral(originalLength),
+        ])
+      );
+    } else {
+      // TODO
     }
   }
 

@@ -6,7 +6,6 @@ import { Order } from "../../order";
 import {
   noRenameVariablePrefix,
   placeholderVariablePrefix,
-  variableFunctionName,
 } from "../../constants";
 import { computeProbabilityMap } from "../../probability";
 import {
@@ -215,8 +214,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         // Placeholder variables should always be renamed
         if (name.startsWith(placeholderVariablePrefix)) return true;
 
-        // Do not rename exports
-        if (isExportedIdentifier(bindings?.get(name))) return false;
+        const binding = bindings?.get(name);
+
+        if (binding) {
+          // Do not rename exports
+          if (isExportedIdentifier(binding)) return false;
+        }
 
         if (name === me.obfuscator.getStringCompressionLibraryName())
           return false;
