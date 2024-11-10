@@ -41,7 +41,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           }),
 
       // Hexadecimal numbers
-      NumberLiteral: {
+      NumericLiteral: {
         exit(path) {
           if (me.options.hexadecimalNumbers) {
             const { value } = path.node;
