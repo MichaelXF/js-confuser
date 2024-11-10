@@ -1,7 +1,6 @@
 import { PluginArg, PluginObject } from "../plugin";
 import * as t from "@babel/types";
 import { Order } from "../../order";
-import { computeProbabilityMap } from "../../probability";
 import {
   ensureComputedExpression,
   isModuleImport,
@@ -9,13 +8,13 @@ import {
 } from "../../utils/ast-utils";
 import { numericLiteral } from "../../utils/node";
 import {
-  PakoInflateMin,
+  StringCompressionLibraryMinified,
   StringCompressionTemplate,
 } from "../../templates/stringCompressionTemplate";
 import Obfuscator from "../../obfuscator";
 import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
 import { NO_RENAME } from "../../constants";
-const pako = require("pako");
+const LZString = require("lz-string");
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.StringCompression, {
@@ -52,7 +51,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 if (typeof index === "undefined") {
                   // Allow user option to skip compression for certain strings
                   if (
-                    !computeProbabilityMap(
+                    !me.computeProbabilityMap(
                       me.options.stringCompression,
                       originalValue
                     )
@@ -85,11 +84,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           );
 
           // Compress the string
-          var compressedBuffer: Uint8Array = pako.deflate(stringPayload);
-          var compressedBase64 =
-            Buffer.from(compressedBuffer).toString("base64");
+          var compressedString = LZString.compressToUTF16(stringPayload);
 
-          let pakoName = me.obfuscator.getStringCompressionLibraryName();
+          let stringCompressionLibraryName =
+            me.obfuscator.getStringCompressionLibraryName();
           let insertStringCompressionLibrary = !me.obfuscator.parentObfuscator;
 
           prependProgram(
@@ -99,10 +97,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               stringName: me.getPlaceholder(),
               stringArray: me.getPlaceholder(),
               stringDelimiter: () => t.stringLiteral(stringDelimiter),
-              stringValue: () => t.stringLiteral(compressedBase64),
+              stringValue: () => t.stringLiteral(compressedString),
               GetGlobalTemplate: createGetGlobalTemplate(me, programPath),
               getGlobalFnName: me.getPlaceholder(),
-              pakoName: pakoName,
+              StringCompressionLibrary: stringCompressionLibraryName,
             })
           );
 
@@ -110,8 +108,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             // RGF functions should not clone the entire decompression function
             prependProgram(
               programPath,
-              Obfuscator.parseCode(PakoInflateMin.replace(/{pako}/g, pakoName))
-                .program.body
+              Obfuscator.parseCode(
+                StringCompressionLibraryMinified.replace(
+                  /{StringCompressionLibrary}/g,
+                  stringCompressionLibraryName
+                )
+              ).program.body
             )[0]
               .get("declarations")[0]
               .get("id").node[NO_RENAME] = true;

@@ -181,3 +181,27 @@ test("Variant #7: Work with Rename Variables", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Hello World");
 });
+
+test("Variant #8: Work with RGF", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var myVar = "Hello World";
+    TEST_OUTPUT = myVar;
+    `,
+    {
+      target: "node",
+      stringCompression: true,
+      rgf: true,
+      renameVariables: true,
+    }
+  );
+
+  // Ensure String Compression applied
+  expect(code).not.toContain("Hello World");
+
+  // Ensure the code still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
+});
