@@ -1,13 +1,12 @@
-import { NodePath } from "@babel/traverse";
 import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
-import { computeProbabilityMap } from "../probability";
 import { getRandomInteger } from "../utils/random-utils";
 import Template from "../templates/template";
 import { Order } from "../order";
 import { isStaticValue } from "../utils/static-utils";
-import { NodeSymbol, PREDICTABLE } from "../constants";
+import { PREDICTABLE } from "../constants";
 import { numericLiteral } from "../utils/node";
+import { prependProgram } from "../utils/ast-utils";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.Shuffle, {
@@ -15,6 +14,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       arrays: 0,
     },
   });
+
+  let fnName: string | null = null;
 
   return {
     visitor: {
@@ -29,8 +30,29 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           if (illegalElement) return;
 
-          if (!computeProbabilityMap(me.options.shuffle)) {
+          if (!me.computeProbabilityMap(me.options.shuffle)) {
             return;
+          }
+
+          // Create un-shuffling function
+          if (!fnName) {
+            fnName = me.getPlaceholder() + "_shuffle";
+
+            prependProgram(
+              path,
+              new Template(
+                `
+          function ${fnName}(arr, shift) {
+            for (var i = 0; i < shift; i++) {
+              arr["push"](arr["shift"]());
+            }
+            return arr;
+          }
+          `
+              )
+                .addSymbols(PREDICTABLE)
+                .single<t.FunctionDeclaration>()
+            );
           }
 
           var shift = getRandomInteger(
@@ -43,30 +65,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             shiftedElements.unshift(shiftedElements.pop());
           }
 
-          var block = path.find((p) => p.isBlock()) as NodePath<t.Block>;
-
-          var functionExpression = new Template(
-            `
-          (function(arr) {
-            for (var i = 0; i < {shiftNode}; i++) {
-              arr.push(arr.shift());
-            }
-            return arr;
-          })
-          `
-          ).expression<t.FunctionExpression>({
-            shiftNode: numericLiteral(shift),
-          });
-
-          (functionExpression as NodeSymbol)[PREDICTABLE] = true;
-
-          var memberExpression = me
-            .getControlObject(block)
-            .addProperty(functionExpression);
-
           path.replaceWith(
-            t.callExpression(memberExpression, [
+            t.callExpression(t.identifier(fnName), [
               t.arrayExpression(shiftedElements),
+              numericLiteral(shift),
             ])
           );
 

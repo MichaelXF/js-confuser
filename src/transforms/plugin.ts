@@ -1,13 +1,11 @@
 import { NodePath, Visitor } from "@babel/traverse";
 import Obfuscator from "../obfuscator";
-import { chance, choice, getRandomString } from "../utils/random-utils";
+import { getRandomString } from "../utils/random-utils";
 import { Order } from "../order";
 import * as t from "@babel/types";
-import { FN_LENGTH, NodeSymbol, SKIP, CONTROL_OBJECTS } from "../constants";
+import { FN_LENGTH, NodeSymbol, SKIP } from "../constants";
 import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
 import { prepend, prependProgram } from "../utils/ast-utils";
-import ControlObject from "../utils/ControlObject";
-import { ok } from "assert";
 import { numericLiteral } from "../utils/node";
 
 export interface PluginObject {
@@ -30,9 +28,14 @@ export class PluginInstance {
   constructor(
     public pluginOptions: { name?: string; order?: number },
     public obfuscator: Obfuscator
-  ) {}
+  ) {
+    this.computeProbabilityMap = obfuscator.computeProbabilityMap.bind(
+      this.obfuscator
+    );
+  }
 
   public changeData: { [key: string]: number } = {};
+  public computeProbabilityMap: Obfuscator["computeProbabilityMap"];
 
   get name() {
     return this.pluginOptions.name || "unnamed";
@@ -128,36 +131,6 @@ export class PluginInstance {
    */
   getPlaceholder(suffix = "") {
     return "__p_" + getRandomString(4) + (suffix ? "_" + suffix : "");
-  }
-
-  /**
-   * Retrieves (or creates) a `ControlObject` for the given `blockPath`.
-   */
-  getControlObject(blockPath: NodePath<t.Block>, createMultiple = true) {
-    ok(blockPath.isBlock());
-
-    var controlObjects = (blockPath.node as NodeSymbol)[CONTROL_OBJECTS];
-    if (!controlObjects) {
-      controlObjects = [];
-    }
-
-    if (
-      controlObjects.length === 0 ||
-      (createMultiple &&
-        chance(
-          controlObjects[0].propertyNames.size - 15 * controlObjects.length
-        ))
-    ) {
-      var newControlObject = new ControlObject(this, blockPath);
-
-      controlObjects.push(newControlObject);
-
-      (blockPath.node as NodeSymbol)[CONTROL_OBJECTS] = controlObjects;
-
-      return newControlObject;
-    }
-
-    return choice(controlObjects);
   }
 
   /**

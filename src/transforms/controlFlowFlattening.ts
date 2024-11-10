@@ -1,7 +1,6 @@
 import traverse, { NodePath, Scope, Visitor } from "@babel/traverse";
 import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
-import { computeProbabilityMap } from "../probability";
 import {
   ensureComputedExpression,
   getParentFunctionOrProgram,
@@ -30,7 +29,6 @@ import {
   PREDICTABLE,
   variableFunctionName,
   WITH_STATEMENT,
-  CONTROL_OBJECTS,
 } from "../constants";
 
 /**
@@ -116,7 +114,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           if (blockPath.node.body.length < 3) return;
 
           // Check user's threshold setting
-          if (!computeProbabilityMap(me.options.controlFlowFlattening)) {
+          if (!me.computeProbabilityMap(me.options.controlFlowFlattening)) {
             return;
           }
 
@@ -1579,9 +1577,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           // Reset all bindings here
           blockPath.scope.bindings = Object.create(null);
-
-          // Bindings changed - breaking control objects
-          delete (blockPath.node as NodeSymbol)[CONTROL_OBJECTS];
 
           // Register new declarations
           for (var node of blockPath.get("body")) {

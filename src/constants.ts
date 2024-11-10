@@ -1,5 +1,3 @@
-import ControlObject from "./utils/ControlObject";
-
 export const predictableFunctionTag = "__JS_PREDICT__";
 
 /**
@@ -30,8 +28,6 @@ export const SKIP = Symbol("skip");
  * Saves the original length of a function.
  */
 export const FN_LENGTH = Symbol("fnLength");
-
-export const CONTROL_OBJECTS = Symbol("controlObjects");
 
 export const NO_RENAME = Symbol("noRename");
 
@@ -71,7 +67,6 @@ export interface NodeSymbol {
   [PREDICTABLE]?: boolean;
   [SKIP]?: boolean | number;
   [FN_LENGTH]?: number;
-  [CONTROL_OBJECTS]?: ControlObject[];
   [NO_RENAME]?: string | number;
 
   [GEN_NODE]?: boolean;
