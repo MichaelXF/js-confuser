@@ -23,6 +23,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     },
   });
 
+  // String Compression is only applied to the main obfuscator
+  // Any RGF functions will not have string compression due to the size of the decompression function
+
   const stringDelimiter = "|";
 
   return {

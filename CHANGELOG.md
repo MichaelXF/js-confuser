@@ -17,6 +17,22 @@
 
 - Renamed `Stack` to `Variable Masking`
 
+- Added configurable limits to options:
+
+```js
+const options = {
+  target: "node",
+
+  rgf: {
+    value: 0.5, // = 50% of eligible functions
+    limit: 10 // Maximum of 10 changes for performance reasons
+  },
+
+  // Original format is still valid (No limit applied)
+  // rgf: 0.5
+}
+```
+
 ### 2.0 Changes
 
 - Added Custom String Encoding and Custom Lock Code options

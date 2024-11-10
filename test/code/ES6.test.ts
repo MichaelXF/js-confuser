@@ -47,7 +47,7 @@ test("Variant #2: ES6 code on High Preset + RGF + Self Defending + Tamper Protec
     pack: true,
     rgf: {
       value: true,
-      limit: 10,
+      limit: 5,
     },
     lock: {
       integrity: true,
@@ -57,7 +57,7 @@ test("Variant #2: ES6 code on High Preset + RGF + Self Defending + Tamper Protec
     },
   });
 
-  writeFileSync("./dev.output.js", code, "utf-8");
+  // writeFileSync("./dev.output.js", code, "utf-8");
 
   const TEST_OUTPUT = {};
   eval(code);

@@ -12,6 +12,7 @@ import {
   prepend,
 } from "../utils/ast-utils";
 import {
+  MULTI_TRANSFORM,
   NodeSymbol,
   PREDICTABLE,
   reservedIdentifiers,
@@ -109,7 +110,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           if (me.isSkipped(path)) return;
 
           // Skip nested functions if the parent function is already deemed eligible
-          if (path.find((p) => p.node[RGF_ELIGIBLE])) return;
+          if (path.find((p) => p.node[RGF_ELIGIBLE] || p.node[MULTI_TRANSFORM]))
+            return;
 
           // Skip async and generator functions
           if (path.node.async || path.node.generator) return;

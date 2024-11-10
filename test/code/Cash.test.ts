@@ -32,9 +32,7 @@ const handleError = (error, output) => {
   }`;
 
   console.error(error);
-  writeFileSync("dev.output.js", helperCode + "\n" + output, {
-    encoding: "utf-8",
-  });
+  // writeFileSync("dev.output.js", helperCode + "\n" + output, {  encoding: "utf-8", });
 
   expect("An error occurred").toStrictEqual(null);
 };

@@ -186,7 +186,13 @@ export default class Obfuscator {
     push(this.options.opaquePredicates, opaquePredicates);
     push(this.options.stringSplitting, stringSplitting);
     push(this.options.stringConcealing, stringConcealing);
-    push(this.options.stringCompression, stringCompression);
+    // String Compression is only applied to the main obfuscator
+    // Any RGF functions will not have string compression due to the size of the decompression function
+
+    push(
+      !parentObfuscator && this.options.stringCompression,
+      stringCompression
+    );
     push(this.options.variableMasking, variableMasking);
     push(this.options.duplicateLiteralsRemoval, duplicateLiteralsRemoval);
     push(this.options.shuffle, shuffle);
@@ -368,9 +374,9 @@ export default class Obfuscator {
     ...customImplementationArgs: F extends (...args: infer P) => any ? P : never
   ): boolean | string {
     // Check if this probability map uses the {value: ..., limit: ...} format
-    if (typeof map === "object" && "value" in map) {
+    if (typeof map === "object" && map && "value" in map) {
       // Check for the limit property
-      if ("limit" in map && typeof map.limit === "number") {
+      if ("limit" in map && typeof map.limit === "number" && map.limit >= 0) {
         // Check if the limit has been reached
         if (this.probabilityMapCounter.get(map) >= map.limit) {
           return false;

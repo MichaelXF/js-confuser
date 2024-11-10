@@ -2,12 +2,16 @@ import { NodePath } from "@babel/traverse";
 import { PluginInstance } from "../transforms/plugin";
 import Template from "./template";
 import { UNSAFE } from "../constants";
+import { isStrictMode } from "../utils/ast-utils";
 
 export const createGetGlobalTemplate = (
   pluginInstance: PluginInstance,
   path: NodePath
 ) => {
-  if (pluginInstance.options.lock?.tamperProtection) {
+  if (
+    pluginInstance.options.lock?.tamperProtection &&
+    !path.find((p) => isStrictMode(p))
+  ) {
     return new Template(`
       function {getGlobalFnName}(){
         var localVar = false;

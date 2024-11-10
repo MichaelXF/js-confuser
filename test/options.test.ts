@@ -253,3 +253,51 @@ test("Variant #15: Fine-tune options using the limit property", async () => {
   expect(code).toContain("keepMyVar4");
   expect(code).toContain("keepMyVar5");
 });
+
+test("Variant #16: Limit of not should rename any variables", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var renameMyVar1 = 1;
+    var renameMyVar2 = 2;
+    `,
+    {
+      target: "node",
+      renameVariables: {
+        value: true,
+        limit: 0,
+      },
+      identifierGenerator: "mangled",
+    }
+  );
+
+  // Ensure the variable names were preserved
+  expect(code).toContain("renameMyVar1");
+  expect(code).toContain("renameMyVar2");
+
+  expect(code).not.toContain("var a");
+  expect(code).not.toContain("var b");
+});
+
+test("Variant #17: Limit of -1 should rename all variables", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var renameMyVar1 = 1;
+    var renameMyVar2 = 2;
+    `,
+    {
+      target: "node",
+      renameVariables: {
+        value: true,
+        limit: -1,
+      },
+      identifierGenerator: "mangled",
+    }
+  );
+
+  // Ensure both variables were renamed
+  expect(code).not.toContain("renameMyVar1");
+  expect(code).not.toContain("renameMyVar2");
+
+  expect(code).toContain("var a");
+  expect(code).toContain("var b");
+});
