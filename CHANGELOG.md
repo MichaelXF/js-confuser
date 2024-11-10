@@ -3,9 +3,11 @@
 
 **⚠️ Warning: This an alpha release. This version is not stable and the likelihood of encountering bugs is significantly higher.**
 
-### Complete rewrite of JS-Confuser using Babel!
+### Complete rewrite of JS-Confuser using Babel! 🎉
 
 **⚠️ Breaking changes**
+
+> Check out the [Migration guide](./Migration.md) on how to properly update from 1.X to 2.0. The obfuscation upgrades in 2.0 are worth the small refactoring.
 
 - Revamped API Interface
 
@@ -29,17 +31,17 @@ const options = {
   },
 
   // Original format is still valid (No limit applied)
-  // rgf: 0.5
+  rgf: 0.5
 }
 ```
 
 ### 2.0 Changes
 
-- Added Custom String Encoding and Custom Lock Code options
+- Added [Custom String Encoding](https://new--confuser.netlify.app/docs/options/customStringEncodings) and [Custom Lock Code](https://new--confuser.netlify.app/docs/options/customLocks) options
 
-- Added `Rename Labels` Learn more here
+- Added `Rename Labels` [Learn more here](https://new--confuser.netlify.app/docs/options/renamelabels#rename-labels)
 
-- Added `Pack` Learn more here
+- Added `Pack` [Learn more here](https://new--confuser.netlify.app/docs/options/pack#pack)
 
 - RGF no longers uses `new Function` instead uses `eval`
 
@@ -65,7 +67,7 @@ const options = {
 
 - - [Regular expressions](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions) are now obfuscated (First converted into equivalent RegExp() constructor calls)
 
-- - `String Compression` now uses zlib decompression ([Pako](https://github.com/nodeca/pako))
+- - `String Compression` now uses LZ-string compression ([lz-string](https://www.npmjs.com/package/lz-string))
 
 ### JS-Confuser.com Revamp
 
@@ -77,7 +79,7 @@ The previous version will remain available: [old--confuser.netlify.com](https://
 
 - Removed `ES5` option - Use Babel Instead
 
-- Removed `Browser Lock` and `OS Lock` - Use Custom Locks instead
+- Removed `Browser Lock` and `OS Lock` - Use [Custom Locks](https://new--confuser.netlify.app/docs/options/customlocks#custom-locks) instead
 
 - Removed `Shuffle`'s Hash option
 
