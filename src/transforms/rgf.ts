@@ -3,7 +3,6 @@ import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
 import * as t from "@babel/types";
 import Obfuscator from "../obfuscator";
-import { computeProbabilityMap } from "../probability";
 import {
   append,
   getFunctionName,
@@ -23,6 +22,8 @@ import { computeFunctionLength } from "../utils/function-utils";
 import { numericLiteral } from "../utils/node";
 import Template from "../templates/template";
 import { createEvalIntegrityTemplate } from "../templates/tamperProtectionTemplates";
+
+const RGF_ELIGIBLE = Symbol("rgfEligible");
 
 /**
  * RGF (Runtime-Generated-Function) uses the `new Function("code")` syntax to create executable code from strings.
@@ -96,13 +97,19 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         },
       },
       "FunctionDeclaration|FunctionExpression": {
-        exit(_path) {
+        enter(_path) {
           if (!active) return;
+
+          // On enter, determine if Function is eligible for RGF transformation
+
           const path = _path as NodePath<
             t.FunctionDeclaration | t.FunctionExpression
           >;
 
           if (me.isSkipped(path)) return;
+
+          // Skip nested functions if the parent function is already deemed eligible
+          if (path.find((p) => p.node[RGF_ELIGIBLE])) return;
 
           // Skip async and generator functions
           if (path.node.async || path.node.generator) return;
@@ -111,10 +118,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           if (name === me.options.lock?.countermeasures) return;
           if (me.obfuscator.isInternalVariable(name)) return;
 
-          me.log(name);
-
           if (
-            !computeProbabilityMap(
+            !me.computeProbabilityMap(
               me.options.rgf,
               name,
               path.getFunctionParent() === null
@@ -140,13 +145,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
               const binding = idPath.scope.getBinding(name);
               if (!binding) {
-                identifierPreventingTransform = name;
-                idPath.stop();
+                // Global variables are allowed
                 return;
               }
 
+              var isOutsideVariable =
+                path.scope.parent.getBinding(name) === binding;
               // If the binding is not in the current scope, it is an outside reference
-              if (binding.scope !== path.scope) {
+              if (isOutsideVariable) {
                 identifierPreventingTransform = name;
                 idPath.stop();
               }
@@ -163,9 +169,24 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             return;
           }
 
+          me.log("Function " + name + " is eligible for RGF transformation");
+          path.node[RGF_ELIGIBLE] = true;
+        },
+        exit(_path) {
+          if (!active) return;
+
+          const path = _path as NodePath<
+            t.FunctionDeclaration | t.FunctionExpression
+          >;
+
+          if (me.isSkipped(path)) return;
+
+          // Function is not eligible for RGF transformation
+          if (!path.node[RGF_ELIGIBLE]) return;
+
           const embeddedName = me.getPlaceholder() + "_embedded";
           const replacementName = me.getPlaceholder() + "_replacement";
-          const thisName = me.getPlaceholder() + "_this";
+          const argumentsName = me.getPlaceholder() + "_args";
 
           const lastNode = t.expressionStatement(t.identifier(embeddedName));
           (lastNode as NodeSymbol)[SKIP] = true;
@@ -179,10 +200,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 t.variableDeclaration("var", [
                   t.variableDeclarator(
                     t.arrayPattern([
-                      t.identifier(thisName),
                       t.identifier(rgfArrayName),
+                      t.identifier(argumentsName),
                     ]),
-                    t.thisExpression()
+                    t.identifier("arguments")
                   ),
                 ]),
                 t.functionDeclaration(
@@ -196,7 +217,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                       t.identifier(replacementName),
                       t.identifier("apply")
                     ),
-                    [t.identifier(thisName), t.identifier("arguments")]
+                    [t.thisExpression(), t.identifier(argumentsName)]
                   )
                 ),
               ])
@@ -272,16 +293,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                       true
                     ),
                     [
+                      t.thisExpression(),
                       t.arrayExpression([
-                        t.thisExpression(),
                         t.identifier(rgfArrayName),
+                        t.identifier("arguments"),
                       ]),
-                      t.identifier("arguments"),
                     ]
                   )
                 ),
               ])
             );
+
+          path.skip();
 
           me.setFunctionLength(path, originalLength);
 

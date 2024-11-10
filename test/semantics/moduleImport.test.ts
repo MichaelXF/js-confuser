@@ -9,8 +9,6 @@ test("Variant #1: Import Declaration on High Preset", async () => {
     var inputString = "Hash this string";
     var hashed = createHash("sha256").update(inputString).digest("hex");
     TEST_OUTPUT = hashed;
-
-    console.log(TEST_OUTPUT)
     `,
     {
       target: "node",

@@ -65,8 +65,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           if (!functionPath || !(functionPath.node as NodeSymbol)[PREDICTABLE])
             return;
 
+          var fnBody = functionPath.get("body");
+
+          if (!fnBody.isBlockStatement()) return;
+
           // Must be direct child of the function
-          if (path.parentPath !== functionPath.get("body")) return;
+          if (path.parentPath !== fnBody) return;
 
           const functionName = path.node.id.name;
 
@@ -99,7 +103,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           }
 
           prepend(
-            functionPath,
+            fnBody,
             new Template(`
               if(!${functionName}) {
                 ${functionName} = {functionExpression};

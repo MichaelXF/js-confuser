@@ -2,8 +2,8 @@ import { ok } from "assert";
 import { ObfuscateOptions } from "../options";
 import { alphabeticalGenerator, createZeroWidthGenerator } from "./gen-utils";
 import { choice, getRandomHexString, getRandomInteger } from "./random-utils";
-import { computeProbabilityMap } from "../probability";
 import { reservedKeywords, reservedObjectPrototype } from "../constants";
+import Obfuscator from "../obfuscator";
 
 /**
  * Generate random names for variables and properties.
@@ -33,7 +33,9 @@ export class NameGen {
       return value;
     }
 
-    var mode = computeProbabilityMap(this.identifierGenerator);
+    var mode = Obfuscator.prototype.computeProbabilityMap(
+      this.identifierGenerator
+    );
 
     const randomizedLength = getRandomInteger(6, 8);
 

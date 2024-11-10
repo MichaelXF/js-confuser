@@ -1,6 +1,6 @@
 import { CustomStringEncoding } from "../../options";
 import Template from "../../templates/template";
-import { choice, shuffle } from "../../utils/random-utils";
+import { shuffle } from "../../utils/random-utils";
 import * as t from "@babel/types";
 
 let hasAllEncodings = false;

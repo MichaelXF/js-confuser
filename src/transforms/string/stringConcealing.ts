@@ -3,7 +3,6 @@ import { NodePath } from "@babel/traverse";
 import Template from "../../templates/template";
 import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
-import { computeProbabilityMap } from "../../probability";
 import { ok } from "assert";
 import { BufferToStringTemplate } from "../../templates/bufferToStringTemplate";
 import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
@@ -140,7 +139,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                 // Check user setting
                 if (
-                  !computeProbabilityMap(
+                  !me.computeProbabilityMap(
                     me.options.stringConcealing,
                     originalValue
                   )

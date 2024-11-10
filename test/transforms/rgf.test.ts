@@ -314,7 +314,9 @@ test("Variant #10: Configurable by custom function option", async () => {
   expect(TEST_OUTPUT_2).toStrictEqual(true);
 });
 
-test("Variant #11: Function containing function should both be changed", async function () {
+test("Variant #11: Functions containing functions should only transform the parent function", async function () {
+  var fnNamesCollected: string[] = [];
+
   var { code: output } = await JsConfuser.obfuscate(
     `
     function FunctionA(){
@@ -330,11 +332,22 @@ test("Variant #11: Function containing function should both be changed", async f
 
     TEST_OUTPUT = FunctionA();
   `,
-    { target: "node", rgf: true }
+    {
+      target: "node",
+      rgf: (fnName) => {
+        fnNamesCollected.push(fnName);
+
+        return true;
+      },
+    }
   );
 
-  // 2 means one Function changed, 3 means two Functions changed
-  expect(output.split('_rgf_eval("').length).toStrictEqual(3);
+  // Ensure only FunctionA was transformed
+  expect(fnNamesCollected).toContain("FunctionA");
+  expect(fnNamesCollected).not.toContain("FunctionB");
+
+  // Only the most parent function should be changed
+  expect(output.split('_rgf_eval("').length).toStrictEqual(2);
 
   var TEST_OUTPUT;
   eval(output);
