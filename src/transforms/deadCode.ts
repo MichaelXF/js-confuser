@@ -1,12 +1,11 @@
 import { PluginArg, PluginObject } from "./plugin";
 import { chance, choice } from "../utils/random-utils";
 import { deadCodeTemplates } from "../templates/deadCodeTemplates";
-import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
 import * as t from "@babel/types";
 import Template from "../templates/template";
-import { NameGen } from "../utils/NameGen";
 import { prepend } from "../utils/ast-utils";
+import PredicateGen from "../utils/PredicateGen";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.DeadCode, {
@@ -15,6 +14,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     },
   });
   let created = 0;
+  let predicateGen = new PredicateGen(me);
 
   return {
     visitor: {
@@ -22,7 +22,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         exit(blockPath) {
           if (blockPath.find((p) => me.isSkipped(p))) return;
 
-          if (!computeProbabilityMap(me.options.deadCode)) {
+          if (!me.computeProbabilityMap(me.options.deadCode)) {
             return;
           }
 
@@ -54,29 +54,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             )
           );
 
-          // Overcomplicated way to get a random property name that doesn't exist on the Function
-          var randomProperty: string;
-          var nameGen = new NameGen("randomized");
-
-          function PrototypeCollision() {}
-          PrototypeCollision(); // Call it for code coverage :D
-
-          do {
-            randomProperty = nameGen.generate();
-          } while (
-            !randomProperty ||
-            PrototypeCollision[randomProperty] !== undefined
-          );
-
-          me.changeData.deadCode++;
-
           prepend(
             blockPath,
             new Template(`
-              if("${randomProperty}" in ${containingFnName}) {
+              if({falsePredicate}) {
                 ${containingFnName}()
               }
-              `).single()
+              `).single({
+              falsePredicate: predicateGen.generateFalseExpression(blockPath),
+            })
           );
 
           me.skip(blockPath);

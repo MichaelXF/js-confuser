@@ -2,9 +2,8 @@ import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
 import { NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
-import { getBlock } from "../utils/ast-utils";
 import { chance, getRandomString } from "../utils/random-utils";
-import { computeProbabilityMap } from "../probability";
+import PredicateGen from "../utils/PredicateGen";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.OpaquePredicates, {
@@ -13,12 +12,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     },
   });
 
+  const predicateGen = new PredicateGen(me);
+
   function createTruePredicate(path: NodePath) {
-    const controlObject = me.getControlObject(getBlock(path));
-
-    var trueValue = controlObject.createTruePredicate();
-
-    return trueValue;
+    return predicateGen.generateTrueExpression(path);
   }
 
   let active = true;
@@ -27,7 +24,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     if (!active) return false;
     if (path.find((p) => me.isSkipped(p))) return false;
 
-    if (!computeProbabilityMap(me.options.opaquePredicates)) return false;
+    if (!me.computeProbabilityMap(me.options.opaquePredicates)) return false;
 
     transformCount++;
 
