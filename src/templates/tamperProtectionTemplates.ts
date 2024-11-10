@@ -1,7 +1,11 @@
 import { NodePath } from "@babel/traverse";
 import { PluginInstance } from "../transforms/plugin";
 import Template from "./template";
-import { MULTI_TRANSFORM, UNSAFE } from "../constants";
+import {
+  MULTI_TRANSFORM,
+  placeholderVariablePrefix,
+  UNSAFE,
+} from "../constants";
 
 export const StrictModeTemplate = new Template(`
   (function(){
@@ -109,8 +113,8 @@ export const createEvalIntegrityTemplate = (
   }
 
   return new Template(`
-    function {EvalIntegrityName}(a = true){
-      return a;
+    function {EvalIntegrityName}(${placeholderVariablePrefix}_flag = true){
+      return ${placeholderVariablePrefix}_flag;
     }
   `);
 };
