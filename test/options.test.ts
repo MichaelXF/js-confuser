@@ -1,4 +1,5 @@
 import JsConfuser from "../src/index";
+import { ObfuscateOptions } from "../src/options";
 
 test("Variant #1: Accept percentages", async () => {
   var { code: output } = await JsConfuser.obfuscate(`var TEST_VARIABLE;`, {
@@ -16,7 +17,10 @@ test("Variant #2: Accept probability arrays", async () => {
     target: "node",
     renameVariables: true,
     renameGlobals: true,
-    identifierGenerator: ["hexadecimal", "mangled"], // half hexadecimal, half randomized
+    identifierGenerator: [
+      "hexadecimal",
+      "mangled",
+    ] as ObfuscateOptions["identifierGenerator"], // half hexadecimal, half randomized
   });
 
   expect(output).not.toContain("TEST_VARIABLE");
@@ -176,4 +180,76 @@ test("Variant #13: Error when source code is not a string", async () => {
       preset: "low",
     });
   }).rejects.toThrow();
+});
+
+test("Variant #14: Rename Globals should accept a callback function", async () => {
+  var globalsCollected: string[] = [];
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var renameMe = true;
+    var doNotRenameMe = false;
+
+    TEST_OUTPUT = [renameMe, doNotRenameMe]
+    `,
+    {
+      target: "node",
+      renameVariables: true,
+      renameGlobals: (globalName) => {
+        globalsCollected.push(globalName);
+
+        if (globalName === "doNotRenameMe") {
+          return false;
+        }
+
+        return true;
+      },
+    }
+  );
+
+  // Ensure renameGlobals callback was called
+  expect(globalsCollected).toContain("renameMe");
+  expect(globalsCollected).toContain("doNotRenameMe");
+
+  // Ensure code was changed correctly
+  expect(code).not.toContain("renameMe");
+  expect(code).toContain("doNotRenameMe");
+
+  // Ensure code still works
+  var TEST_OUTPUT;
+
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual([true, false]);
+});
+
+test("Variant #15: Fine-tune options using the limit property", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var renameMyVar1 = 1;
+    var renameMyVar2 = 2;
+    var keepMyVar3 = 3;
+    var keepMyVar4 = 4;
+    var keepMyVar5 = 5;
+    `,
+    {
+      target: "node",
+      renameVariables: {
+        value: true,
+        limit: 2,
+      },
+      identifierGenerator: "mangled",
+    }
+  );
+
+  // Ensure the first two variables were renamed
+  expect(code).not.toContain("renameMyVar1");
+  expect(code).not.toContain("renameMyVar2");
+
+  expect(code).toContain("var a");
+  expect(code).toContain("var b");
+
+  // Ensure the remaining variables were not renamed
+  expect(code).toContain("keepMyVar3");
+  expect(code).toContain("keepMyVar4");
+  expect(code).toContain("keepMyVar5");
 });

@@ -1,6 +1,5 @@
 import { PluginArg, PluginObject } from "../plugin";
 import { getRandomInteger, splitIntoChunks } from "../../utils/random-utils";
-import { computeProbabilityMap } from "../../probability";
 import { binaryExpression, stringLiteral } from "@babel/types";
 import { ok } from "assert";
 import { Order } from "../../order";
@@ -38,7 +37,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           }
 
           if (
-            !computeProbabilityMap(me.options.stringSplitting, object.value)
+            !me.computeProbabilityMap(me.options.stringSplitting, object.value)
           ) {
             return;
           }

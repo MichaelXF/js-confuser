@@ -38,8 +38,6 @@ export enum Order {
 
   MovedDeclarations = 25,
 
-  FunctionOutlining = 26,
-
   RenameLabels = 27,
 
   Minify = 28,

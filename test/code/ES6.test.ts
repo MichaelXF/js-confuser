@@ -41,14 +41,13 @@ test("Variant #1: ES6 code on High Preset", async () => {
 });
 
 test("Variant #2: ES6 code on High Preset + RGF + Self Defending + Tamper Protection + Integrity", async () => {
-  let rgfCount = 0;
-
   const { code } = await JsConfuser.obfuscate(ES6_JS, {
     target: "node",
     preset: "high",
     pack: true,
-    rgf: (fnName, depth) => {
-      return rgfCount++ < 10;
+    rgf: {
+      value: true,
+      limit: 10,
     },
     lock: {
       integrity: true,

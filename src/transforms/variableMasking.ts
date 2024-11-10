@@ -2,7 +2,6 @@ import { Binding, NodePath } from "@babel/traverse";
 import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
 import Template from "../templates/template";
-import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
 import {
   NodeSymbol,
@@ -65,7 +64,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
     const functionName = getFunctionName(fnPath);
 
-    if (!computeProbabilityMap(me.options.variableMasking, functionName)) {
+    if (!me.computeProbabilityMap(me.options.variableMasking, functionName)) {
       return;
     }
 

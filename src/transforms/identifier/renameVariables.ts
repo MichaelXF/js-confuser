@@ -7,7 +7,6 @@ import {
   noRenameVariablePrefix,
   placeholderVariablePrefix,
 } from "../../constants";
-import { computeProbabilityMap } from "../../probability";
 import {
   getParentFunctionOrProgram,
   isDefiningIdentifier,
@@ -226,11 +225,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
         // Global variables are additionally checked against user option
         if (isGlobal) {
-          if (!computeProbabilityMap(me.options.renameGlobals, name))
+          if (!me.computeProbabilityMap(me.options.renameGlobals, name))
             return false;
         }
 
-        if (!computeProbabilityMap(me.options.renameVariables, name, isGlobal))
+        if (
+          !me.computeProbabilityMap(me.options.renameVariables, name, isGlobal)
+        )
           return false;
 
         return true;

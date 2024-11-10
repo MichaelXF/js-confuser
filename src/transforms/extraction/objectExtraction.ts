@@ -7,7 +7,6 @@ import {
   getObjectPropertyAsString,
   getParentFunctionOrProgram,
 } from "../../utils/ast-utils";
-import { computeProbabilityMap } from "../../probability";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.ObjectExtraction, {
@@ -152,7 +151,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         if (!isObjectSafe) return;
 
         if (
-          !computeProbabilityMap(
+          !me.computeProbabilityMap(
             me.options.objectExtraction,
             identifier.node.name
           )

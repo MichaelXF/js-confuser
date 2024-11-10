@@ -11,7 +11,6 @@ import {
   prependProgram,
 } from "../utils/ast-utils";
 import { PluginArg, PluginObject } from "./plugin";
-import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
 import { NodeSymbol, PREDICTABLE, UNSAFE } from "../constants";
 import {
@@ -58,7 +57,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       functionName = "anonymous";
     }
 
-    if (!computeProbabilityMap(me.options.flatten, functionName)) {
+    if (!me.computeProbabilityMap(me.options.flatten, functionName)) {
       return;
     }
 
@@ -117,26 +116,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             return;
           }
 
-          var definedLocal = identifierPath.scope;
-          do {
-            if (definedLocal.hasOwnBinding(identifierName)) return;
-            if (definedLocal === fnPath.scope) break;
-
-            definedLocal = definedLocal.parent;
-            if (definedLocal === program.scope)
-              ok(functionName + ":" + identifierName);
-          } while (definedLocal);
-
-          var cursor: Scope = fnPath.scope.parent;
-          var isOutsideVariable = false;
-
-          do {
-            if (cursor.hasBinding(identifierName)) {
-              isOutsideVariable = true;
-              break;
-            }
-            cursor = cursor.parent;
-          } while (cursor);
+          var isOutsideVariable =
+            fnPath.scope.parent.getBinding(identifierName) === binding;
 
           if (!isOutsideVariable) {
             return;

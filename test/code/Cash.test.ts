@@ -111,8 +111,6 @@ test("Variant #2: Cash.js on High Preset + Integrity + Self Defending + RGF + Ta
     global[key] = window[key];
   }
 
-  var rgfCount = 0;
-
   const CountermeasuresCode = `
   function countermeasures() {
     throw new Error("countermeasures() was called");
@@ -125,8 +123,9 @@ test("Variant #2: Cash.js on High Preset + Integrity + Self Defending + RGF + Ta
       target: "node",
       preset: "high",
       pack: true,
-      rgf: (fnName, depth) => {
-        return rgfCount++ < 10;
+      rgf: {
+        value: true,
+        limit: 10,
       },
       lock: {
         integrity: true,

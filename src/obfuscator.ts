@@ -3,10 +3,9 @@ import * as t from "@babel/types";
 import generate from "@babel/generator";
 import traverse from "@babel/traverse";
 import { parse } from "@babel/parser";
-import { ObfuscateOptions } from "./options";
+import { ObfuscateOptions, ProbabilityMap } from "./options";
 import { applyDefaultsToOptions, validateOptions } from "./validateOptions";
 import { ObfuscationResult, ProfilerCallback } from "./obfuscationResult";
-import { isProbabilityMapProbable } from "./probability";
 import { NameGen } from "./utils/NameGen";
 import { Order } from "./order";
 import {
@@ -22,7 +21,6 @@ import variableMasking from "./transforms/variableMasking";
 import dispatcher from "./transforms/dispatcher";
 import duplicateLiteralsRemoval from "./transforms/extraction/duplicateLiteralsRemoval";
 import objectExtraction from "./transforms/extraction/objectExtraction";
-import functionOutlining from "./transforms/functionOutlining";
 import globalConcealing from "./transforms/identifier/globalConcealing";
 import stringCompression from "./transforms/string/stringCompression";
 import deadCode from "./transforms/deadCode";
@@ -42,6 +40,7 @@ import minify from "./transforms/minify";
 import finalizer from "./transforms/finalizer";
 import integrity from "./transforms/lock/integrity";
 import pack from "./transforms/pack";
+import { createObject } from "./utils/object-utils";
 
 export const DEFAULT_OPTIONS: ObfuscateOptions = {
   target: "node",
@@ -161,7 +160,7 @@ export default class Obfuscator {
       (Object.keys(this.options.lock).filter(
         (key) =>
           key !== "customLocks" &&
-          isProbabilityMapProbable(this.options.lock[key])
+          this.isProbabilityMapProbable(this.options.lock[key])
       ).length > 0 ||
         this.options.lock.customLocks.length > 0);
 
@@ -169,7 +168,7 @@ export default class Obfuscator {
 
     const push = (probabilityMap, ...pluginFns) => {
       this.totalPossibleTransforms += pluginFns.length;
-      if (!isProbabilityMapProbable(probabilityMap)) return;
+      if (!this.isProbabilityMapProbable(probabilityMap)) return;
 
       allPlugins.push(...pluginFns);
     };
@@ -185,7 +184,6 @@ export default class Obfuscator {
     push(this.options.calculator, calculator);
     push(this.options.globalConcealing, globalConcealing);
     push(this.options.opaquePredicates, opaquePredicates);
-    push(this.options.functionOutlining, functionOutlining);
     push(this.options.stringSplitting, stringSplitting);
     push(this.options.stringConcealing, stringConcealing);
     push(this.options.stringCompression, stringCompression);
@@ -353,5 +351,142 @@ export default class Obfuscator {
     });
 
     return ast;
+  }
+
+  probabilityMapCounter = new WeakMap<Object, number>();
+
+  /**
+   * Evaluates a ProbabilityMap.
+   * @param map The setting object.
+   * @param customFnArgs Args given to user-implemented function, such as a variable name.
+   */
+  computeProbabilityMap<
+    T,
+    F extends (...args: any[]) => any = (...args: any[]) => any
+  >(
+    map: ProbabilityMap<T, F>,
+    ...customImplementationArgs: F extends (...args: infer P) => any ? P : never
+  ): boolean | string {
+    // Check if this probability map uses the {value: ..., limit: ...} format
+    if (typeof map === "object" && "value" in map) {
+      // Check for the limit property
+      if ("limit" in map && typeof map.limit === "number") {
+        // Check if the limit has been reached
+        if (this.probabilityMapCounter.get(map) >= map.limit) {
+          return false;
+        }
+      }
+
+      var value = this.computeProbabilityMap(
+        map.value as ProbabilityMap<T, F>,
+        ...customImplementationArgs
+      );
+
+      if (value) {
+        // Increment the counter for this map
+        this.probabilityMapCounter.set(
+          map,
+          this.probabilityMapCounter.get(map) + 1 || 1
+        );
+      }
+
+      return value;
+    }
+
+    if (!map) {
+      return false;
+    }
+    if (map === true || map === 1) {
+      return true;
+    }
+    if (typeof map === "number") {
+      return Math.random() < map;
+    }
+
+    if (typeof map === "function") {
+      return (map as Function)(...customImplementationArgs);
+    }
+
+    if (typeof map === "string") {
+      return map;
+    }
+
+    var asObject: { [mode: string]: number } = {};
+    if (Array.isArray(map)) {
+      map.forEach((x: any) => {
+        asObject[x.toString()] = 1;
+      });
+    } else {
+      asObject = map as any;
+    }
+
+    var total = Object.values(asObject).reduce((a, b) => a + b);
+    var percentages = createObject(
+      Object.keys(asObject),
+      Object.values(asObject).map((x) => x / total)
+    );
+
+    var ticket = Math.random();
+
+    var count = 0;
+    var winner = null;
+    Object.keys(percentages).forEach((key) => {
+      var x = Number(percentages[key]);
+
+      if (ticket >= count && ticket < count + x) {
+        winner = key;
+      }
+      count += x;
+    });
+
+    return winner;
+  }
+
+  /**
+   * Determines if a probability map can return a positive result (true, or some string mode).
+   * - Negative probability maps are used to remove transformations from running entirely.
+   * @param map
+   */
+  isProbabilityMapProbable<T>(map: ProbabilityMap<T>): boolean {
+    ok(!Number.isNaN(map), "Numbers cannot be NaN");
+
+    if (!map || typeof map === "undefined") {
+      return false;
+    }
+    if (typeof map === "function") {
+      return true;
+    }
+    if (typeof map === "number") {
+      if (map > 1 || map < 0) {
+        throw new Error(`Numbers must be between 0 and 1 for 0% - 100%`);
+      }
+    }
+    if (Array.isArray(map)) {
+      ok(
+        map.length != 0,
+        "Empty arrays are not allowed for options. Use false instead."
+      );
+
+      if (map.length == 1) {
+        return !!map[0];
+      }
+    }
+    if (typeof map === "object") {
+      if (map instanceof Date) return true;
+      if (map instanceof RegExp) return true;
+      if ("value" in map && !map.value) return false;
+      if ("limit" in map && map.limit === 0) return false;
+
+      var keys = Object.keys(map);
+      ok(
+        keys.length != 0,
+        "Empty objects are not allowed for options. Use false instead."
+      );
+
+      if (keys.length == 1) {
+        return !!map[keys[0]];
+      }
+    }
+    return true;
   }
 }

@@ -4,7 +4,6 @@ import * as t from "@babel/types";
 import Template from "../templates/template";
 import { ok } from "assert";
 import { chance, getRandomString } from "../utils/random-utils";
-import { computeProbabilityMap } from "../probability";
 import { Order } from "../order";
 import { NodeSymbol, PREDICTABLE, UNSAFE } from "../constants";
 import {
@@ -146,7 +145,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           }
 
           for (var name of functionPaths.keys()) {
-            if (!computeProbabilityMap(me.options.dispatcher, name)) {
+            if (!me.computeProbabilityMap(me.options.dispatcher, name)) {
               functionPaths.delete(name);
             }
           }

@@ -4,7 +4,6 @@ import { NameGen } from "../../utils/NameGen";
 import Template from "../../templates/template";
 import { PluginArg, PluginObject } from "../plugin";
 import { Order } from "../../order";
-import { computeProbabilityMap } from "../../probability";
 import {
   MULTI_TRANSFORM,
   reservedIdentifiers,
@@ -132,7 +131,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             if (!mapping) {
               // Allow user to disable custom global variables
               if (
-                !computeProbabilityMap(me.options.globalConcealing, globalName)
+                !me.computeProbabilityMap(
+                  me.options.globalConcealing,
+                  globalName
+                )
               )
                 continue;
 

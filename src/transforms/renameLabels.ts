@@ -4,7 +4,6 @@ import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
 import { NameGen } from "../utils/NameGen";
 import { ok } from "assert";
-import { computeProbabilityMap } from "../probability";
 
 const LABEL = Symbol("label");
 
@@ -127,7 +126,7 @@ export default function ({ Plugin }: PluginArg): PluginObject {
           if (isRequired) {
             var newName = labelInterface.label;
             if (
-              computeProbabilityMap(
+              me.computeProbabilityMap(
                 me.options.renameLabels,
                 labelInterface.label
               )

@@ -1,7 +1,6 @@
 import { PluginInstance, PluginObject } from "../plugin";
 import * as t from "@babel/types";
 import { choice } from "../../utils/random-utils";
-import { computeProbabilityMap } from "../../probability";
 import { GEN_NODE, NodeSymbol } from "../../constants";
 import { isModuleImport } from "../../utils/ast-utils";
 
@@ -58,7 +57,8 @@ export default (me: PluginInstance): PluginObject => {
           const { value } = path.node;
 
           // Allow percentages
-          if (!computeProbabilityMap(me.options.stringEncoding, value)) return;
+          if (!me.computeProbabilityMap(me.options.stringEncoding, value))
+            return;
 
           var type = choice(["hexadecimal", "unicode"]);
 

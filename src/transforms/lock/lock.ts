@@ -26,7 +26,6 @@ import {
   NativeFunctionTemplate,
   StrictModeTemplate,
 } from "../../templates/tamperProtectionTemplates";
-import { computeProbabilityMap } from "../../probability";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.Lock, {
@@ -366,7 +365,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Don't apply to invokeCountermeasures function (Intended)
           if (me.obfuscator.isInternalVariable(functionName)) return;
 
-          if (!computeProbabilityMap(me.options.lock.integrity, functionName))
+          if (
+            !me.computeProbabilityMap(me.options.lock.integrity, functionName)
+          )
             return;
 
           var newFnName = me.getPlaceholder();

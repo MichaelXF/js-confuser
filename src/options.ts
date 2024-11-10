@@ -2,7 +2,7 @@ import Template from "./templates/template";
 
 // JS-Confuser.com imports this file for Type support, therefore some additional types are included here.
 
-type Stringed<V> = (V extends string ? V : never) | "true" | "false";
+type Stringed<V> = V extends string ? V : never;
 
 /**
  * Configurable probabilities for obfuscator options.
@@ -16,9 +16,19 @@ type Stringed<V> = (V extends string ? V : never) | "true" | "false";
  * - **`function(x){ return "custom_implementation" }`** - enabled, use specified function
  */
 export type ProbabilityMap<
-  T,
+  T = boolean,
   F extends (...args: any[]) => any = () => boolean // Default to a generic function
-> = false | true | number | T | T[] | { [key in Stringed<T>]?: number } | F;
+> =
+  | false
+  | true
+  | number
+  | F
+  | (T extends never | boolean
+      ? {
+          value: ProbabilityMap<never, F>;
+          limit?: number;
+        }
+      : T | T[] | { [key in Stringed<T>]?: number });
 
 export interface CustomLock {
   /**
@@ -341,8 +351,6 @@ export interface ObfuscateOptions {
 
     customLocks?: CustomLock[];
   };
-
-  functionOutlining?: ProbabilityMap<boolean>;
 
   /**
    * Moves variable declarations to the top of the context.

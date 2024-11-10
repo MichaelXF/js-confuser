@@ -1,4 +1,8 @@
-import { isProbabilityMapProbable } from "../src/probability";
+import Obfuscator, { DEFAULT_OPTIONS } from "../src/obfuscator";
+
+const obfuscator = new Obfuscator(DEFAULT_OPTIONS);
+const isProbabilityMapProbable =
+  obfuscator.isProbabilityMapProbable.bind(obfuscator);
 
 describe("isProbabilityMapProbable", function () {
   test("Variant #1: True examples", function () {
