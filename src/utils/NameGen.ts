@@ -1,7 +1,12 @@
 import { ok } from "assert";
 import { ObfuscateOptions } from "../options";
 import { alphabeticalGenerator, createZeroWidthGenerator } from "./gen-utils";
-import { choice, getRandomHexString, getRandomInteger } from "./random-utils";
+import {
+  choice,
+  getRandomChineseString,
+  getRandomHexString,
+  getRandomInteger,
+} from "./random-utils";
 import { reservedKeywords, reservedObjectPrototype } from "../constants";
 import Obfuscator from "../obfuscator";
 
@@ -69,6 +74,9 @@ export class NameGen {
 
       case "zeroWidth":
         return this.zeroWidthGenerator.generate();
+
+      case "chinese":
+        return getRandomChineseString(randomizedLength);
 
       default:
         throw new Error(

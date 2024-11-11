@@ -135,7 +135,12 @@ export interface ObfuscateOptions {
    * JS-Confuser tries to reuse names when possible, creating very potent code.
    */
   identifierGenerator?: ProbabilityMap<
-    "hexadecimal" | "randomized" | "zeroWidth" | "mangled" | "number",
+    | "hexadecimal"
+    | "randomized"
+    | "zeroWidth"
+    | "mangled"
+    | "number"
+    | "chinese",
     () => string
   >;
 

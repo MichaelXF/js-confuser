@@ -41,6 +41,17 @@ export function getRandomHexString(length: number) {
     .toUpperCase();
 }
 
+export function getRandomChineseString(length: number) {
+  const characters: string[] = [];
+  for (let i = 0; i < length; i++)
+    characters.push(
+      String.fromCharCode(
+        Math.floor(Math.random() * (0x9fff - 0x4e00)) + 0x4e00
+      )
+    );
+  return characters.join("");
+}
+
 /**
  * Returns a random string.
  */

@@ -537,6 +537,7 @@ test.each<ObfuscateOptions["identifierGenerator"]>([
   "mangled",
   "number",
   "zeroWidth",
+  "chinese",
   customIdentifierGenerator,
 ])(
   "Variant #21: Work with custom identifierGenerator mode",
