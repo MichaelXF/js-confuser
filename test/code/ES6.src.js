@@ -211,15 +211,18 @@ function labeledBreaksAndContinues() {
 
 TEST_OUTPUT["Variant #18"] = labeledBreaksAndContinues() === 15;
 
-// Variant #16: Function.length property
+// Variant #19: Function.length property
 var variant19 = function (n1, n2, n3, n4, n5) {
   var _ = true;
 };
 
 TEST_OUTPUT["Variant #19"] = variant19.length === 5;
 
-// Set 'ranAllTest' to TRUE
-TEST_OUTPUT["Variant #20"] = true;
+// Variant #20: Function name and parameter name collision
+function fnName(fnName) {
+  TEST_OUTPUT["Variant #20"] = fnName === "Correct Value";
+}
+fnName("Correct Value");
 
 function countermeasures() {
   throw new Error("Countermeasures function called.");

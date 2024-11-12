@@ -154,6 +154,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     fnPath.traverse({
       Identifier(path) {
         if (!isVariableIdentifier(path)) return;
+        if (fnPath.get("id") === path) return; // Skip this function's name (Test #21)
 
         if (reservedIdentifiers.has(path.node.name)) return;
         if (me.options.globalVariables.has(path.node.name)) return;

@@ -660,3 +660,22 @@ test("Variant #20: Handle __JS_CONFUSER_VAR__ function", async () => {
   eval(code);
   expect(TEST_OUTPUT).not.toBeUndefined();
 });
+
+test("Variant #21: Function name and parameter name clash", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function value(value) {
+      TEST_OUTPUT = value;
+    }
+
+    value("Correct Value");
+    `,
+    { target: "node", variableMasking: true }
+  );
+
+  var TEST_OUTPUT;
+
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
