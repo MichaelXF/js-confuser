@@ -41,6 +41,9 @@ export function getRandomHexString(length: number) {
     .toUpperCase();
 }
 
+/**
+ * @see https://github.com/MichaelXF/js-confuser/issues/150#issuecomment-2466159582
+ */
 export function getRandomChineseString(length: number) {
   const characters: string[] = [];
   for (let i = 0; i < length; i++)

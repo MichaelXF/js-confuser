@@ -12,6 +12,6 @@ test.each(Object.keys(presets))(
     // Validate options
     expect(() => {
       validateOptions(preset);
-    }).not.toThrow;
+    }).not.toThrow();
   }
 );
