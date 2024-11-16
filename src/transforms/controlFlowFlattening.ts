@@ -1547,12 +1547,17 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               .scopeManager.getObjectExpression(startLabel),
           ]);
 
-          var resultVar = withIdentifier("result");
-          var allowReturns = blockPath.find((p) => p.isFunction());
+          const resultVar = withIdentifier("result");
+
+          const isTopLevel = blockPath.isProgram();
+          const allowReturns =
+            !isTopLevel && blockPath.find((p) => p.isFunction());
+
+          const startPrefix = allowReturns ? `var {resultVar} = ` : "";
 
           const startProgramStatements = new Template(`
             ${allowReturns ? `var {didReturnVar};` : ""}
-            var {resultVar} = {startProgramExpression};
+            ${startPrefix}{startProgramExpression};
             ${
               allowReturns
                 ? `
