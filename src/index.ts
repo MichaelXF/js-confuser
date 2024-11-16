@@ -96,9 +96,10 @@ const JsConfuser = {
   obfuscate,
   obfuscateAST,
   obfuscateWithProfiler,
+  Obfuscator,
   presets,
   Template,
 };
 
 export default JsConfuser;
-export { presets, Template };
+export { Obfuscator, presets, Template };
