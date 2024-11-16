@@ -15,6 +15,7 @@ import {
   getPatternIdentifierNames,
 } from "../utils/ast-utils";
 import { isVariableFunctionIdentifier } from "../utils/function-utils";
+import Template from "../templates/template";
 
 /**
  * Preparation arranges the user's code into an AST the obfuscator can easily transform.
@@ -50,6 +51,37 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       "ThisExpression|Super": {
         exit(path) {
           markFunctionUnsafe(path);
+        },
+      },
+
+      // @js-confuser-var "myVar" -> __JS_CONFUSER_VAR__(myVar)
+      StringLiteral: {
+        exit(path) {
+          // Check for @js-confuser-var comment
+          if (
+            path.node.leadingComments?.find((comment) =>
+              comment.value.includes("@js-confuser-var")
+            )
+          ) {
+            var identifierName = path.node.value;
+            ok(
+              t.isValidIdentifier(identifierName),
+              "Invalid identifier name: " + identifierName
+            );
+
+            // Create a new __JS_CONFUSER_VAR__ call with the identifier
+            var newExpression = new Template(
+              `__JS_CONFUSER_VAR__({identifier})`
+            ).expression({
+              identifier: t.identifier(identifierName),
+            });
+
+            path.replaceWith(newExpression);
+
+            // Remove comment and skip further processing
+            path.node.leadingComments = [];
+            path.skip();
+          }
         },
       },
 

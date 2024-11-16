@@ -69,6 +69,22 @@ const options = {
 
 - - `String Compression` now uses LZ-string compression ([lz-string](https://www.npmjs.com/package/lz-string))
 
+- New Comment Syntax
+
+- - `/* @js-confuser-var */ "name"` for improved variable mappings for eval() calls
+
+```js
+// Input
+var name = "Internet User";
+eval( "console.log(" + /* @js-confuser-var */ "name" + ")" );
+
+// Output
+var zC3PLKu = "Internet User";
+eval("console.log(" + "zC3PLKu" + ")");
+```
+
+The function `__JS_CONFUSER_VAR__` is identical in outcome and still be used, however, the comment syntax is preferred as the comment syntax's preserves the original script's behavior.
+
 ### JS-Confuser.com Revamp
 
 A new UI for JS-Confuser.com, featuring an advanced playground and documentation pages.

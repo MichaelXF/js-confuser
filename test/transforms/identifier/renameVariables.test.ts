@@ -663,14 +663,14 @@ test("Variant #25: Reference catch parameter", async () => {
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
 
-test("Variant #26: Transform __JS_CONFUSER_VAR__ to access variable mappings", async () => {
+test("Variant #26: Transform __JS_CONFUSER_VAR__ and @js-confuser-var to access variable mappings", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
   var myVar1 = "Incorrect Value";
 
   function myFunction(){
     var myVar1 = "Correct Value";
-    TEST_OUTPUT =  eval( __JS_CONFUSER_VAR__(myVar1) );
+    TEST_OUTPUT = eval( /* @js-confuser-var */ "myVar1" );
   }
 
   // Work on functions too
@@ -688,21 +688,22 @@ test("Variant #26: Transform __JS_CONFUSER_VAR__ to access variable mappings", a
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
 
-test("Variant #27: Transform __JS_CONFUSER_VAR__ even when Rename Variables is disabled", async () => {
+test("Variant #27: Transform __JS_CONFUSER_VAR__ and @js-confuser-var even when Rename Variables is disabled", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
   var name = "John Doe";
-  TEST_OUTPUT = __JS_CONFUSER_VAR__(name);
+  TEST_OUTPUT = __JS_CONFUSER_VAR__(name) + "-" + /* @js-confuser-var */ "name";
   `,
     { target: "node", renameVariables: false }
   );
 
   expect(output).not.toContain("__JS_CONFUSER_VAR__");
+  expect(output).not.toContain("@js-confuser-var");
 
   var TEST_OUTPUT;
 
   eval(output);
-  expect(TEST_OUTPUT).toStrictEqual("name");
+  expect(TEST_OUTPUT).toStrictEqual("name-name");
 });
 
 test("Variant #28: Transform __JS_CONFUSER_VAR__ on High Preset", async () => {
