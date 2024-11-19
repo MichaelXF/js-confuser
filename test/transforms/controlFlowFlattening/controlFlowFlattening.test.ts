@@ -578,6 +578,35 @@ test("Variant #17: Flatten with infinite for loop and break", async () => {
   expect(TEST_ARRAY).toStrictEqual([1, 2, 3, 4, 5]);
 });
 
+test("Variant #18: Multiple deletes", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+let a = {
+  key1: true,
+  key2: true,
+  key3: true,
+  last: true,
+};
+
+delete a['key1'];
+delete a['key2'];
+delete a['key3'];
+
+TEST_OUTPUT = a;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+      pack: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual({ last: true });
+});
+
 test("Variant #20: Work with redefined functions", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
