@@ -6,15 +6,20 @@ JS-Confuser 2.0 is complete rewrite of the original JS-Confuser created in 2020!
 
 ### JSConfuser.obfuscate() returns an object now
 
-The method `JSConfuser.obfuscate()` resolves to a object now instead of a string. This result object contains the obfuscated code on the `code` property.
+The method `JSConfuser.obfuscate()` resolves to a object now instead of a string. This result object contains a property `code` which is the obfuscated code.
 
 ```diff
-+JSConfuser.obfuscate(sourceCode, options).then(result=>{
-+  console.log(result.code);
-+});
--JSConfuser.obfuscate(sourceCode, options).then(obfuscatedCode=>{
--  console.log(obfuscatedCode);
--});
+const sourceCode = `console.log("Hello World")`;
+const options = {
+  target: "node",
+  preset: "high"
+};
+
+JSConfuser.obfuscate(sourceCode, options).then(result=>{
+  // 'result' is now an object
+- console.log(result);
++ console.log(result.code);
+});
 ```
 
 ### Removed Anti Debug Lock / Browser Lock / OS Lock
@@ -55,3 +60,13 @@ These features have been removed but you can still add these locks using the `lo
 The option `stack` has been renamed to `variableMasking`
 
 [Similar to JScrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)
+
+```diff
+const options = {
+  target: "node",
+  preset: "high"
+
+- stack: true,
++ variableMasking: true
+};
+```
