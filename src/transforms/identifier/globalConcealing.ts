@@ -15,7 +15,11 @@ import {
   prepend,
 } from "../../utils/ast-utils";
 import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
-import { getRandomInteger, getRandomString } from "../../utils/random-utils";
+import {
+  getRandomInteger,
+  getRandomString,
+  shuffle,
+} from "../../utils/random-utils";
 import { ok } from "assert";
 
 const ignoreGlobals = new Set([
@@ -51,19 +55,21 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     }
 
     const createSwitchStatement = () => {
-      const cases = Array.from(globalMapping.keys()).map((originalName) => {
-        var mappedKey = globalMapping.get(originalName);
+      const cases = shuffle(Array.from(globalMapping.keys())).map(
+        (originalName) => {
+          var mappedKey = globalMapping.get(originalName);
 
-        return t.switchCase(t.stringLiteral(mappedKey), [
-          t.returnStatement(
-            t.memberExpression(
-              t.identifier(globalVarName),
-              t.stringLiteral(originalName),
-              true
-            )
-          ),
-        ]);
-      });
+          return t.switchCase(t.stringLiteral(mappedKey), [
+            t.returnStatement(
+              t.memberExpression(
+                t.identifier(globalVarName),
+                t.stringLiteral(originalName),
+                true
+              )
+            ),
+          ]);
+        }
+      );
 
       return t.switchStatement(t.identifier("mapping"), cases);
     };
