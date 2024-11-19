@@ -7,6 +7,7 @@ import { Order } from "../../order";
 import {
   MULTI_TRANSFORM,
   reservedIdentifiers,
+  reservedNodeModuleIdentifiers,
   variableFunctionName,
 } from "../../constants";
 import {
@@ -23,7 +24,7 @@ import {
 import { ok } from "assert";
 
 const ignoreGlobals = new Set([
-  "require",
+  ...reservedNodeModuleIdentifiers,
   "__dirname",
   "eval",
   "arguments",

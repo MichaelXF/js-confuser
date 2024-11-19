@@ -95,6 +95,15 @@ export const reservedIdentifiers = new Set([
   "arguments",
 ]);
 
+/**
+ * Reserved Node.JS module identifiers.
+ */
+export const reservedNodeModuleIdentifiers = new Set([
+  "module",
+  "exports",
+  "require",
+]);
+
 export const reservedObjectPrototype = new Set([
   "toString",
   "valueOf",

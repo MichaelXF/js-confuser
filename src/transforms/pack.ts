@@ -10,6 +10,7 @@ import {
   GEN_NODE,
   NodeSymbol,
   reservedIdentifiers,
+  reservedNodeModuleIdentifiers,
   variableFunctionName,
   WITH_STATEMENT,
 } from "../constants";
@@ -53,7 +54,14 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
 
           const identifierName = path.node.name;
           if (reservedIdentifiers.has(identifierName)) return;
-          if (me.obfuscator.options.globalVariables.has(identifierName)) return;
+          if (
+            me.options.target === "node" &&
+            reservedNodeModuleIdentifiers.has(identifierName)
+          ) {
+            // Allow module.exports and require
+          } else {
+            if (me.options.globalVariables.has(identifierName)) return;
+          }
           if (identifierName === variableFunctionName) return;
           if (identifierName === objectName) return;
 
