@@ -5,6 +5,7 @@ import { HashFunction } from "../../templates/integrityTemplate";
 import * as t from "@babel/types";
 import Template from "../../templates/template";
 import { NodePath } from "@babel/traverse";
+import { NameGen } from "../../utils/NameGen";
 
 export interface IntegrityInterface {
   fnPath: NodePath<t.FunctionDeclaration>;
@@ -30,6 +31,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     changeData: {
       functions: 0,
     },
+  });
+
+  const nameGen = new NameGen(me.options.identifierGenerator, {
+    avoidObjectPrototype: true,
+    avoidReserved: true,
   });
 
   return {
@@ -78,12 +84,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           var hashCode = HashFunction(codeTrimmed, seed);
 
+          const selfName = funcDecPath.node.id.name;
+          const selfCacheProperty = nameGen.generate();
+          const selfCacheString = `${selfName}.${selfCacheProperty}`;
+
           // me.log(codeTrimmed, hashCode);
           me.changeData.functions++;
 
           funcDecPath.node.body = t.blockStatement(
             new Template(`
-              var hash = ${obfuscatedHashFnName}(${newFunctionDeclaration.id.name}, ${seed});
+              var hash = ${selfCacheString} || (${selfCacheString} = ${obfuscatedHashFnName}(${newFunctionDeclaration.id.name}, ${seed}));
           if(hash === ${hashCode}) {
             {originalBody}
           } else {
