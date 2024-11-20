@@ -1,5 +1,5 @@
 import { PluginArg, PluginObject } from "./plugin";
-import { chance, choice } from "../utils/random-utils";
+import { choice } from "../utils/random-utils";
 import { deadCodeTemplates } from "../templates/deadCodeTemplates";
 import { Order } from "../order";
 import * as t from "@babel/types";
@@ -13,7 +13,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       deadCode: 0,
     },
   });
-  let created = 0;
   let predicateGen = new PredicateGen(me);
 
   return {
@@ -26,22 +25,32 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             return;
           }
 
-          if (typeof me.options.deadCode !== "function") {
-            let suggestedMax = 25;
+          // Default limit on dead code
+          // May be overridden by user
+          if (
+            typeof me.options.deadCode !== "function" &&
+            typeof me.options.deadCode !== "object"
+          ) {
+            let suggestedMax = 20;
             if (me.obfuscator.parentObfuscator) {
               // RGF should contain less dead code
               suggestedMax = 5;
             }
 
-            if (created > suggestedMax && chance(created - suggestedMax))
+            if (me.changeData.deadCode >= suggestedMax) {
               return;
-            created++;
+            }
           }
+
+          // Increment dead code counter
+          me.changeData.deadCode++;
 
           var template = choice(deadCodeTemplates);
           var nodes = template.compile();
 
-          var containingFnName = me.getPlaceholder("dead_" + created);
+          var containingFnName = me.getPlaceholder(
+            "dead_" + me.changeData.deadCode
+          );
 
           // Insert dummy function
           prepend(

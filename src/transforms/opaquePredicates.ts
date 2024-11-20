@@ -30,7 +30,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
     const depth = path.getAncestry().length;
 
-    return chance(1000 - transformCount - depth * 100);
+    return chance(500 - transformCount - depth * 100);
   }
 
   function wrapWithPredicate(path: NodePath) {
