@@ -23,6 +23,45 @@ identifierMap.set("Infinity", () =>
   t.binaryExpression("/", t.numericLiteral(1), t.numericLiteral(0))
 );
 
+function trySimpleDestructuring(id, init) {
+  // Simple array/object destructuring
+  if (id.isArrayPattern() && init.isArrayExpression()) {
+    const elements = id.get("elements");
+    const initElements = init.get("elements");
+
+    if (elements.length === 1 && initElements.length === 1) {
+      id.replaceWith(elements[0]);
+      init.replaceWith(initElements[0]);
+    }
+  }
+
+  if (id.isObjectPattern() && init.isObjectExpression()) {
+    const properties = id.get("properties");
+    const initProperties = init.get("properties");
+
+    if (properties.length === 1 && initProperties.length === 1) {
+      const firstProperty = properties[0];
+      const firstInitProperty = initProperties[0];
+
+      if (
+        firstProperty.isObjectProperty() &&
+        firstInitProperty.isObjectProperty()
+      ) {
+        const firstKey = firstProperty.get("key");
+        const firstInitKey = firstInitProperty.get("key");
+        if (
+          firstKey.isIdentifier() &&
+          firstInitKey.isIdentifier() &&
+          firstKey.node.name === firstInitKey.node.name
+        ) {
+          id.replaceWith(firstProperty.node.value);
+          init.replaceWith(firstInitProperty.node.value);
+        }
+      }
+    }
+  }
+}
+
 /**
  * Minify removes unnecessary code and shortens the length for file size.
  *
@@ -260,42 +299,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           const id = path.get("id");
           const init = path.get("init");
 
-          // Simple array/object destructuring
-          if (id.isArrayPattern() && init.isArrayExpression()) {
-            const elements = id.get("elements");
-            const initElements = init.get("elements");
-
-            if (elements.length === 1 && initElements.length === 1) {
-              id.replaceWith(elements[0]);
-              init.replaceWith(initElements[0]);
-            }
-          }
-
-          if (id.isObjectPattern() && init.isObjectExpression()) {
-            const properties = id.get("properties");
-            const initProperties = init.get("properties");
-
-            if (properties.length === 1 && initProperties.length === 1) {
-              const firstProperty = properties[0];
-              const firstInitProperty = initProperties[0];
-
-              if (
-                firstProperty.isObjectProperty() &&
-                firstInitProperty.isObjectProperty()
-              ) {
-                const firstKey = firstProperty.get("key");
-                const firstInitKey = firstInitProperty.get("key");
-                if (
-                  firstKey.isIdentifier() &&
-                  firstInitKey.isIdentifier() &&
-                  firstKey.node.name === firstInitKey.node.name
-                ) {
-                  id.replaceWith(firstProperty.node.value);
-                  init.replaceWith(firstInitProperty.node.value);
-                }
-              }
-            }
-          }
+          trySimpleDestructuring(id, init);
 
           // Remove unused variables
           // Can only remove if it's pure
@@ -326,6 +330,27 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           }
         },
       },
+      // Simple destructuring
+      // Simple arithmetic operations
+      AssignmentExpression: {
+        exit(path) {
+          if (path.node.operator === "=") {
+            trySimpleDestructuring(path.get("left"), path.get("right"));
+          }
+          if (path.node.operator === "+=") {
+            const left = path.get("left");
+            const right = path.get("right");
+
+            // a += 1 -> a++
+            if (right.isNumericLiteral({ value: 1 })) {
+              if (left.isIdentifier() || left.isMemberExpression()) {
+                path.replaceWith(t.updateExpression("++", left.node));
+              }
+            }
+          }
+        },
+      },
+
       // return undefined->return
       ReturnStatement: {
         exit(path) {

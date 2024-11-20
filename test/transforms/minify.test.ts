@@ -152,48 +152,56 @@ test("Variant #5: Work when shortening nested if-statements", async () => {
   expect(TEST_OUTPUT).toStrictEqual([true, true, true]);
 });
 
-test("Variant #8: Shorten simple array destructuring", async () => {
+test("Variant #8: Shorten simple arithmetic", async () => {
   // Valid
   var { code: output } = await JsConfuser.obfuscate(
-    `var [x] = [1]; TEST_OUTPUT = x;`,
+    `var x = 1; x += 1; TEST_OUTPUT = x`,
     {
       target: "node",
       minify: true,
     }
   );
 
-  expect(output).toContain("var x=1");
+  expect(output).toContain("var x=1;x++");
 
   var TEST_OUTPUT;
   eval(output);
 
-  expect(TEST_OUTPUT).toStrictEqual(1);
-
-  // Invalid
-  var { code: output2 } = await JsConfuser.obfuscate(`var [x, y] = [1]`, {
-    target: "node",
-    minify: true,
-  });
-
-  expect(output2).toContain("var[x,y]");
+  expect(TEST_OUTPUT).toStrictEqual(2);
 });
 
-test("Variant #9: Shorten simple object destructuring", async () => {
+test("Variant #9: Shorten simple object and array destructuring", async () => {
   // Valid
   var { code: output } = await JsConfuser.obfuscate(
-    `var {x} = {x: 1}; TEST_OUTPUT = x;`,
+    `
+    var {firstName} = {firstName: "John"};
+    var [firstElement] = ["Doe"];
+
+    // Assignment expressions
+    var accountType;
+    ({type: accountType} = {type: "Checking"}); 
+
+    var balance;
+    [balance] = [100];
+
+    TEST_OUTPUT = firstName + " " + firstElement + " has a " + accountType + " account with a balance of $" + balance;
+    `,
     {
       target: "node",
       minify: true,
     }
   );
 
-  expect(output).toContain("var x=1");
+  expect(output).toContain('var firstName="John",firstElement="Doe"');
+  expect(output).toContain('accountType="Checking"');
+  expect(output).toContain("balance=100");
 
   var TEST_OUTPUT;
   eval(output);
 
-  expect(TEST_OUTPUT).toStrictEqual(1);
+  expect(TEST_OUTPUT).toStrictEqual(
+    "John Doe has a Checking account with a balance of $100"
+  );
 
   // Valid
   var { code: output2 } = await JsConfuser.obfuscate(
@@ -226,6 +234,14 @@ test("Variant #9: Shorten simple object destructuring", async () => {
   });
 
   expect(output4).toContain("var{y}=");
+
+  // Invalid
+  var { code: output5 } = await JsConfuser.obfuscate(`var [x, y] = [1]`, {
+    target: "node",
+    minify: true,
+  });
+
+  expect(output5).toContain("var[x,y]");
 });
 
 test("Variant #10: Shorten booleans", async () => {
