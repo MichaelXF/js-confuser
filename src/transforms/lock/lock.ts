@@ -116,6 +116,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             }
           }
 
+          // Prepack Breaker
+          if(Math.random() > 1) {
+            while(true) {
+            console.log("Prepack Breaker");
+            }
+          }
+
           return namedFunction();
         }
     )();
@@ -159,14 +166,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   me.globalState.lock.createCountermeasuresCode = createCountermeasuresCode;
 
   function applyLockToBlock(path: NodePath<t.Block>, customLock: CustomLock) {
-    let times = timesMap.get(customLock);
+    let times = timesMap.get(customLock) || 0;
 
-    if (typeof times === "undefined") {
-      times = 0;
-    }
-
-    let maxCount = customLock.maxCount || 100; // 100 is default max count
-    let minCount = customLock.minCount || 1; // 1 is default min count
+    let maxCount = customLock.maxCount ?? 100; // 100 is default max count
+    let minCount = customLock.minCount ?? 1; // 1 is default min count
 
     if (maxCount >= 0 && times > maxCount) {
       // Limit creation, allowing -1 to disable the limit entirely
