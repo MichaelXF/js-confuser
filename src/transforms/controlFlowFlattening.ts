@@ -31,6 +31,9 @@ import {
   WITH_STATEMENT,
 } from "../constants";
 
+// Function deemed unsafe for CFF
+const CFF_UNSAFE = Symbol("CFF_UNSAFE");
+
 /**
  * Breaks functions into DAGs (Directed Acyclic Graphs)
  *
@@ -75,13 +78,44 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
   const functionsModified = new Set<t.Node>();
 
+  function flagFunctionToAvoid(path: NodePath, reason: string) {
+    var fnOrProgram = getParentFunctionOrProgram(path);
+
+    fnOrProgram.node[CFF_UNSAFE] = reason;
+  }
+
   return {
     post: () => {
       functionsModified.forEach((node) => {
         (node as NodeSymbol)[UNSAFE] = true;
       });
     },
+
     visitor: {
+      // Unsafe detection
+      ThisExpression(path) {
+        flagFunctionToAvoid(path, "this");
+      },
+      VariableDeclaration(path) {
+        if (path.node.declarations.length !== 1) {
+          path.getAncestry().forEach((p) => {
+            p.node[CFF_UNSAFE] = "multipleDeclarations";
+          });
+        }
+      },
+      Identifier(path) {
+        if (
+          path.node.name === variableFunctionName ||
+          path.node.name === "arguments"
+        ) {
+          flagFunctionToAvoid(path, "arguments");
+        }
+      },
+      "Super|MetaProperty|AwaitExpression|YieldExpression"(path) {
+        flagFunctionToAvoid(path, "functionSpecific");
+      },
+
+      // Main CFF transformation
       "Program|Function": {
         exit(_path) {
           let programOrFunctionPath = _path as NodePath<t.Program | t.Function>;
@@ -91,6 +125,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             programOrFunctionPath.find((p) => p.isForStatement() || p.isWhile())
           )
             return;
+
+          // Exclude 'CFF_UNSAFE' functions
+          if (programOrFunctionPath.node[CFF_UNSAFE]) return;
 
           let programPath = _path.isProgram() ? _path : null;
           let functionPath = _path.isFunction() ? _path : null;
@@ -118,9 +155,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             return;
           }
 
-          // Avoid unsafe functions
-          if (functionPath && (functionPath.node as NodeSymbol)[UNSAFE]) return;
+          if (functionPath) {
+            // Avoid unsafe functions
+            if ((functionPath.node as NodeSymbol)[UNSAFE]) return;
 
+            if (functionPath.node.async || functionPath.node.generator) return;
+          }
           programOrFunctionPath.scope.crawl();
 
           const blockFnParent = getParentFunctionOrProgram(blockPath);
@@ -128,30 +168,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           let hasIllegalNode = false;
           const bindingNames = new Set<string>();
           blockPath.traverse({
-            "Super|MetaProperty|AwaitExpression|YieldExpression"(path) {
-              if (
-                getParentFunctionOrProgram(path).node === blockFnParent.node
-              ) {
-                hasIllegalNode = true;
-                path.stop();
-              }
-            },
-            VariableDeclaration(path) {
-              if (path.node.declarations.length !== 1) {
-                hasIllegalNode = true;
-                path.stop();
-              }
-            },
             Identifier(path) {
-              if (
-                path.node.name === variableFunctionName ||
-                path.node.name === "arguments"
-              ) {
-                hasIllegalNode = true;
-                path.stop();
-                return;
-              }
-
               if (!path.isBindingIdentifier()) return;
               const binding = path.scope.getBinding(path.node.name);
               if (!binding) return;
@@ -317,7 +334,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     identity: "${this.propertyName}"
                   })
                     `).expression()
-                : new Template(`Object["create"](null)`).expression();
+                : new Template(`({})`).expression();
             }
 
             getMemberExpression(name: string) {
@@ -370,6 +387,25 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               for (const key in propertyMap) {
                 properties.push(
                   t.objectProperty(t.stringLiteral(key), propertyMap[key], true)
+                );
+              }
+
+              if (this === mainScope) {
+                // Reset With logic
+                properties.push(
+                  t.objectProperty(
+                    t.stringLiteral(resetWithProperty),
+                    new Template(`
+                        (function(newStateValues, alwaysUndefined){
+                          {withMemberExpression} = alwaysUndefined;
+                          {arrayPattern} = newStateValues
+                        })
+                      `).expression({
+                      withMemberExpression: deepClone(withMemberExpression),
+                      arrayPattern: t.arrayPattern(deepClone(stateVars)),
+                    }),
+                    true
+                  )
                 );
               }
 
@@ -658,7 +694,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   !flattenFunctionDeclarations ||
                   statement.node.async ||
                   statement.node.generator ||
-                  (statement.node as NodeSymbol)[UNSAFE]
+                  (statement.node as NodeSymbol)[UNSAFE] ||
+                  (statement.node as NodeSymbol)[CFF_UNSAFE] ||
+                  isStrictMode(statement)
                 ) {
                   isIllegal = true;
                 }
@@ -869,20 +907,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           });
 
           basicBlocks.get(endLabel).allowWithDiscriminant = false;
-
-          // Add with / reset with logic
-          basicBlocks.get(startLabel).body.unshift(
-            new Template(`
-              {resetWithMemberExpression} = function(newStateValues){
-                {withMemberExpression} = undefined;
-                {arrayPattern} = newStateValues
-              }
-              `).single({
-              arrayPattern: t.arrayPattern(deepClone(stateVars)),
-              resetWithMemberExpression: deepClone(resetWithMemberExpression),
-              withMemberExpression: deepClone(withMemberExpression),
-            })
-          );
 
           if (!isDebug && addDeadCode) {
             // DEAD CODE 1/3: Add fake chunks that are never reached
@@ -1137,6 +1161,17 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                   path.replaceWith(memberExpression);
                   path.skip();
+
+                  // Preserve proper 'this' context when directly calling functions
+                  // X.Y.Z() -> (1, X.Y.Z)()
+                  if (
+                    path.parentPath.isCallExpression() &&
+                    path.key === "callee"
+                  ) {
+                    path.replaceWith(
+                      t.sequenceExpression([t.numericLiteral(1), path.node])
+                    );
+                  }
                 },
               },
 
@@ -1269,7 +1304,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           const mainScope = basicBlocks.get(startLabel).scopeManager;
           const predicateNumbers = new Map<string, number>();
           const predicateNumberCount =
-            isDebug || !addPredicateTests ? 0 : getRandomInteger(2, 5);
+            isDebug || !addPredicateTests ? 0 : getRandomInteger(1, 4);
+
           for (let i = 0; i < predicateNumberCount; i++) {
             const name = mainScope.getNewName(
               me.getPlaceholder("predicate_" + i)
@@ -1277,27 +1313,47 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             const number = getRandomInteger(-250, 250);
             predicateNumbers.set(name, number);
+          }
 
-            const createAssignment = (value: number) => {
-              return new Template(`
-                {memberExpression} = {number}
-                `).single({
-                memberExpression: mainScope.getMemberExpression(name),
-                number: numericLiteral(number),
-              });
-            };
+          const predicateSymbol = Symbol("predicate");
 
-            basicBlocks.get(startLabel).body.unshift(createAssignment(number));
+          const createAssignment = (values: number[]) => {
+            var exprStmt = new Template(`
+              ({predicateVariables} = {values})
+              `).single({
+              predicateVariables: t.arrayPattern(
+                Array.from(predicateNumbers.keys()).map((name) =>
+                  mainScope.getMemberExpression(name)
+                )
+              ),
+              values: t.arrayExpression(
+                values.map((value) => numericLiteral(value))
+              ),
+            });
 
-            // Add random assignments to impossible blocks
-            var fakeAssignmentCount = getRandomInteger(0, 3);
-            for (let i = 0; i < fakeAssignmentCount; i++) {
-              var impossibleBlock = choice(getImpossibleBasicBlocks());
-              if (impossibleBlock) {
-                impossibleBlock.body.unshift(
-                  createAssignment(getRandomInteger(-250, 250))
-                );
-              }
+            exprStmt[predicateSymbol] = true;
+
+            return exprStmt;
+          };
+
+          basicBlocks
+            .get(startLabel)
+            .body.unshift(
+              createAssignment(Array.from(predicateNumbers.values()))
+            );
+
+          // Add random assignments to impossible blocks
+          var fakeAssignmentCount = getRandomInteger(1, 3);
+
+          for (let i = 0; i < fakeAssignmentCount; i++) {
+            var impossibleBlock = choice(getImpossibleBasicBlocks());
+            if (impossibleBlock) {
+              if (impossibleBlock.body[0]?.[predicateSymbol]) continue;
+
+              var fakeValues = new Array(predicateNumberCount)
+                .fill(0)
+                .map(() => getRandomInteger(-250, 250));
+              impossibleBlock.body.unshift(createAssignment(fakeValues));
             }
           }
 
@@ -1465,9 +1521,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             ),
             t.blockStatement([
               t.withStatement(
-                new Template(
-                  `{withDiscriminant} || Object["create"](null)`
-                ).expression({
+                new Template(`{withDiscriminant} || {}`).expression({
                   withDiscriminant: deepClone(withMemberExpression),
                 }),
                 t.blockStatement([switchStatement])
@@ -1531,6 +1585,17 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             );
           }
 
+          const startProgramObjectExpression = basicBlocks
+            .get(startLabel)
+            .scopeManager.getObjectExpression(startLabel);
+
+          const mainParameters: t.FunctionDeclaration["params"] = parameters;
+          const scopeParameter = mainParameters.pop() as t.Identifier;
+
+          mainParameters.push(
+            t.assignmentPattern(scopeParameter, startProgramObjectExpression)
+          );
+
           const mainFnDeclaration = t.functionDeclaration(
             deepClone(mainFnName),
             parameters,
@@ -1542,9 +1607,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           var startProgramExpression = t.callExpression(deepClone(mainFnName), [
             ...startStateValues.map((stateValue) => numericLiteral(stateValue)),
             t.identifier("undefined"),
-            basicBlocks
-              .get(startLabel)
-              .scopeManager.getObjectExpression(startLabel),
           ]);
 
           const resultVar = withIdentifier("result");

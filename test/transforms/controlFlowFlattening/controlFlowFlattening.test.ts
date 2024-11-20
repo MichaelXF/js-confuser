@@ -607,6 +607,33 @@ TEST_OUTPUT = a;
   expect(TEST_OUTPUT).toStrictEqual({ last: true });
 });
 
+test("Variant #19: Work with this keyword", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    TEST_OUTPUT = [];
+
+    function myFunction() {
+      TEST_OUTPUT.push(
+        this === global
+          ? "global"
+          : typeof this === "string" || this instanceof String
+          ? "" + this
+          : "?"
+      );
+    }
+
+    myFunction();
+    myFunction.call(String("Other"));
+    `,
+    { target: "node", controlFlowFlattening: true, pack: true }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(["global", "Other"]);
+});
+
 test("Variant #20: Work with redefined functions", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
@@ -870,6 +897,11 @@ test("Variant #26: Add opaque predicates and still work", async () => {
 test("Variant #27: Work on async/generator functions", async () => {
   var { code: output } = await JsConfuser.obfuscate(
     `
+  // Unused functions
+  async function dummyAsync(){ var a,b,c };
+  function* dummyGenerator(){ var a,b,c };
+
+  // Used with specific keywords 'await' and 'yield'
   async function myAsyncFunction(){
     var a,b,c;
     await (1);

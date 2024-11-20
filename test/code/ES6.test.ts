@@ -26,6 +26,8 @@ const EXPECTED_RESULT = {
   "Variant #18": true,
   "Variant #19": true,
   "Variant #20": true,
+  "Variant #21": true,
+  "Variant #22": true,
 };
 
 test("Variant #1: ES6 code on High Preset", async () => {
@@ -45,10 +47,7 @@ test("Variant #2: ES6 code on High Preset + RGF + Self Defending + Tamper Protec
     target: "node",
     preset: "high",
     pack: true,
-    rgf: {
-      value: true,
-      limit: 5,
-    },
+    rgf: true,
     lock: {
       integrity: true,
       selfDefending: true,
@@ -57,7 +56,8 @@ test("Variant #2: ES6 code on High Preset + RGF + Self Defending + Tamper Protec
     },
   });
 
-  // writeFileSync("./dev.output.js", code, "utf-8");
+  // let newCode = `var TEST_OUTPUT;\n${code}\n\nconsole.log(TEST_OUTPUT);`;
+  // writeFileSync("./dev.output.js", newCode, "utf-8");
 
   const TEST_OUTPUT = {};
   eval(code);

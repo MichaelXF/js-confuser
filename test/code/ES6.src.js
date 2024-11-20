@@ -224,6 +224,25 @@ function fnName(fnName) {
 }
 fnName("Correct Value");
 
+// Variant #21, #22: Default parameter function that accesses parameter scope
+var d = "Correct Value";
+function variant21And22(
+  a,
+  b = function () {
+    a = "Correct Value";
+  },
+  c = function () {
+    return d;
+  }
+) {
+  var d = "Incorrect Value";
+  b();
+  TEST_OUTPUT["Variant #21"] = a === "Correct Value";
+  TEST_OUTPUT["Variant #22"] = c() === "Correct Value";
+}
+
+variant21And22();
+
 function countermeasures() {
   throw new Error("Countermeasures function called.");
 }
