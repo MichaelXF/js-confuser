@@ -28,6 +28,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
   const definedMap = new Map<t.Node, Set<string>>();
   const referencedMap = new Map<t.Node, Set<string>>();
+  const paramMap = new Map<t.Node, Set<string>>(); // Used for default function parameter special case
   const bindingMap = new Map<t.Node, Map<string, NodePath<t.Identifier>>>();
 
   const renamedVariables = new Map<t.Node, Map<string, string>>();
@@ -48,9 +49,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             ];
 
             let isDefined = false;
+            let isParameter = false;
 
             if (path.isBindingIdentifier() && isDefiningIdentifier(path)) {
               isDefined = true;
+              const binding = path.scope.getBinding(path.node.name);
+              if (binding?.kind === "param") isParameter = true;
 
               // Function ID is defined in the parent's function declaration
               if (
@@ -115,7 +119,30 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
       var newName = null;
 
+      const skippedPaths = new Set();
+
       for (let contextPath of contextPaths) {
+        if (skippedPaths.has(contextPath)) continue;
+
+        if (contextPath.isFunction()) {
+          var assignmentPattern = contextPath.find(
+            (p) => p.listKey === "params" && p.parentPath.isFunction()
+          );
+
+          if (assignmentPattern?.isAssignmentPattern()) {
+            var functionPath = assignmentPattern.getFunctionParent();
+
+            if (functionPath) {
+              // The parameters can be still accessed...
+              const params = paramMap.get(functionPath.node);
+              if (params?.has(identifierName)) {
+              } else {
+                skippedPaths.add(functionPath);
+              }
+            }
+          }
+        }
+
         const { node } = contextPath;
 
         const defined = definedMap.get(node);
@@ -138,6 +165,17 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         // 5. Update Identifier node's 'name' property
         node.name = newName;
         node[RENAMED] = true;
+
+        // 6. Additional parameter mapping
+        const binding = identifierPath.scope.getBinding(identifierName);
+        if (binding?.kind === "param") {
+          var mapNode = binding.scope.path.node;
+          if (!paramMap.has(mapNode)) {
+            paramMap.set(mapNode, new Set([identifierName]));
+          } else {
+            paramMap.get(mapNode).add(identifierName);
+          }
+        }
       }
     },
 

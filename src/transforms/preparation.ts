@@ -2,7 +2,6 @@ import { NodePath } from "@babel/traverse";
 import { PluginArg, PluginObject } from "./plugin";
 import * as t from "@babel/types";
 import { Order } from "../order";
-import path from "path";
 import {
   NodeSymbol,
   PREDICTABLE,
@@ -13,6 +12,7 @@ import { ok } from "assert";
 import {
   getParentFunctionOrProgram,
   getPatternIdentifierNames,
+  isVariableIdentifier,
 } from "../utils/ast-utils";
 import { isVariableFunctionIdentifier } from "../utils/function-utils";
 import Template from "../templates/template";
@@ -342,51 +342,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             }
           },
         },
-
-      // function a(param = ()=>b)
-      // _getB = ()=> ()=>b
-      // function a(param = _getB())
-      // Basically Babel scope.rename misses this edge case, so we need to manually handle it
-      // Here were essentially making the variables easier to understand
-      Function: {
-        exit(path) {
-          for (var param of path.get("params")) {
-            param.traverse({
-              "FunctionExpression|ArrowFunctionExpression"(_innerPath) {
-                let innerPath = _innerPath as NodePath<
-                  t.FunctionExpression | t.ArrowFunctionExpression
-                >;
-                const child = innerPath.find((path) =>
-                  path.parentPath?.isAssignmentPattern()
-                );
-
-                if (!child) return;
-
-                if (
-                  t.isAssignmentPattern(child.parent) &&
-                  child.parent.right === child.node
-                ) {
-                  var creatorName = me.getPlaceholder();
-                  var insertPath = path.insertBefore(
-                    t.variableDeclaration("const", [
-                      t.variableDeclarator(
-                        t.identifier(creatorName),
-                        t.arrowFunctionExpression([], innerPath.node, false)
-                      ),
-                    ])
-                  )[0];
-
-                  path.scope.parent.registerDeclaration(insertPath);
-
-                  innerPath.replaceWith(
-                    t.callExpression(t.identifier(creatorName), [])
-                  );
-                }
-              },
-            });
-          }
-        },
-      },
     },
   };
 };

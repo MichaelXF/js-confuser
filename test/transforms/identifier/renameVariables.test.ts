@@ -366,39 +366,40 @@ test.each<ObfuscateOptions["identifierGenerator"]>([
      *
      * therefore make sure `b` is NOT used as it breaks program
      */
-    var code = `
-   var a = "Filler Variables";
-   var b = "Hello World";
-   var c = "Another incorrect string";
+    const sourceCode = `
+   var outsideVariable = "Correct Value";
  
-   function myFunction(param1 = ()=>{
-     return b;
+   function accessOutsideScope(paramFn = ()=>{
+     return outsideVariable;
    }){
-    var b = param1();
-    if(false){
-      a,c;
-    }
-    input(b);
+    var outsideVariable = 'Incorrect Value';
+    TEST_OUTPUT["Variant #1"] = paramFn();
    }
  
-   myFunction();
+   accessOutsideScope();
+
+   function accessParameter(store = "Incorrect Value", paramFn = ()=> (store = "Correct Value") ){
+      paramFn();
+      TEST_OUTPUT["Variant #2"] = store;
+   }
+
+   accessParameter();
    `;
 
-    var { code: output } = await JsConfuser.obfuscate(code, {
+    const { code } = await JsConfuser.obfuscate(sourceCode, {
       target: "node",
       renameVariables: true,
       renameGlobals: true,
       identifierGenerator: identifierGeneratorMode,
     });
 
-    var value;
-    function input(valueIn) {
-      value = valueIn;
-    }
+    let TEST_OUTPUT = {};
+    eval(code);
 
-    eval(output);
-
-    expect(value).toStrictEqual("Hello World");
+    expect(TEST_OUTPUT).toStrictEqual({
+      "Variant #1": "Correct Value",
+      "Variant #2": "Correct Value",
+    });
   }
 );
 
