@@ -248,16 +248,20 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               .map((plugin) => plugin.pluginInstance.order)
           );
 
-          newObfuscator.plugins = newObfuscator.plugins.filter((plugin) => {
-            return (
-              plugin.pluginInstance.order == Order.Preparation ||
-              !hasRan.has(plugin.pluginInstance.order)
-            );
-          });
+          // Global Concealing will likely cause issues when Pack is also enabled
+          const disallowedTransforms = new Set([Order.GlobalConcealing]);
 
-          newObfuscator.obfuscateAST(evalFile, {
-            disablePack: true,
-          });
+          newObfuscator.plugins = newObfuscator.plugins.filter(
+            ({ pluginInstance }) => {
+              return (
+                (pluginInstance.order == Order.Preparation ||
+                  !hasRan.has(pluginInstance.order)) &&
+                !disallowedTransforms.has(pluginInstance.order)
+              );
+            }
+          );
+
+          newObfuscator.obfuscateAST(evalFile);
 
           const generated = Obfuscator.generateCode(evalFile);
 

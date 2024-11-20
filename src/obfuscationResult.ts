@@ -1,4 +1,5 @@
 import { PluginInstance } from "./transforms/plugin";
+import { File } from "@babel/types";
 
 /**
  * Obfuscation result object.
@@ -23,6 +24,7 @@ export interface ProfileData {
     [transformName: string]: {
       transformTime: number;
       changeData: PluginInstance["changeData"];
+      fileSize?: string;
     };
   };
 }
@@ -30,7 +32,11 @@ export interface ProfileData {
 /**
  * A callback function that is called when a transform is applied.
  */
-export type ProfilerCallback = (log: ProfilerLog) => void;
+export type ProfilerCallback = (
+  log: ProfilerLog,
+  transformEntry?: object,
+  ast?: File
+) => void;
 
 /**
  * The current progress of the obfuscation process.

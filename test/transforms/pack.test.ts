@@ -75,3 +75,25 @@ test("Variant #3: Allow custom implementation to preserve globals", async () => 
 
   expect(TEST_OUTPUT).toStrictEqual("Hello World");
 });
+
+test("Variant #4: RGF functions can access globals", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function abc() {
+      TEST_OUTPUT = "Correct Value";
+    }
+
+    abc();
+    `,
+    {
+      target: "node",
+      rgf: true,
+      pack: true,
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

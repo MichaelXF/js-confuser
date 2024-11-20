@@ -17,16 +17,36 @@ import {
 import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
 
+export interface PackInterface {
+  objectName: string;
+  mappings: Map<string, string>;
+  setterPropsNeeded: Set<string>;
+  typeofMappings: Map<string, string>;
+}
+
 export default function pack({ Plugin }: PluginArg): PluginObject {
   const me = Plugin(Order.Pack, {
     changeData: {
       globals: 0,
     },
   });
-  const objectName = me.obfuscator.nameGen.generate();
-  const mappings = new Map<string, string>();
-  const setterPropsNeeded = new Set<string>();
-  const typeofMappings = new Map<string, string>();
+
+  // RGF functions will re-use parent Pack Interface
+  let packInterface = me.obfuscator.parentObfuscator?.packInterface;
+
+  // Create new Pack Interface (root)
+  if (!packInterface) {
+    packInterface = {
+      objectName: me.obfuscator.nameGen.generate(),
+      mappings: new Map<string, string>(),
+      setterPropsNeeded: new Set<string>(),
+      typeofMappings: new Map<string, string>(),
+    };
+    me.obfuscator.packInterface = packInterface;
+  }
+
+  const { objectName, mappings, setterPropsNeeded, typeofMappings } =
+    packInterface;
 
   const prependNodes: t.Statement[] = [];
 
@@ -119,6 +139,8 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
     // Final AST handler
     // Very last step in the obfuscation process
     finalASTHandler(ast) {
+      if (me.obfuscator.parentObfuscator) return ast; // Only for root obfuscator
+
       // Create object expression
       // Very similar to flatten, maybe refactor to use the same code
       const objectProperties: t.ObjectMethod[] = [];

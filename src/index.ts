@@ -32,10 +32,16 @@ export async function obfuscateWithProfiler(
   sourceCode: string,
   options: ObfuscateOptions,
   profiler: {
-    callback: ProfilerCallback;
-    performance: { now(): number };
-  }
+    callback?: ProfilerCallback;
+    performance?: { now(): number };
+  } = {}
 ): Promise<ObfuscationResult & { profileData: ProfileData }> {
+  if (!profiler.performance) {
+    profiler.performance = {
+      now: () => Date.now(),
+    };
+  }
+
   const startTime = performance.now();
 
   const obfuscator = new Obfuscator(options);
@@ -54,12 +60,14 @@ export async function obfuscateWithProfiler(
   ast = obfuscator.obfuscateAST(ast, {
     profiler: (log: ProfilerLog) => {
       var nowTime = performance.now();
-      transformMap[log.currentTransform] = {
+      let entry = {
         transformTime: nowTime - currentTransformTime,
         changeData: {},
       };
+
+      transformMap[log.currentTransform] = entry;
       currentTransformTime = nowTime;
-      profiler.callback(log);
+      profiler.callback?.(log, entry, ast);
     },
   });
 

@@ -13,6 +13,7 @@ import {
   PluginInstance,
   PluginObject,
 } from "./transforms/plugin";
+import { createObject } from "./utils/object-utils";
 
 // Transforms
 import preparation from "./transforms/preparation";
@@ -39,8 +40,7 @@ import opaquePredicates from "./transforms/opaquePredicates";
 import minify from "./transforms/minify";
 import finalizer from "./transforms/finalizer";
 import integrity from "./transforms/lock/integrity";
-import pack from "./transforms/pack";
-import { createObject } from "./utils/object-utils";
+import pack, { PackInterface } from "./transforms/pack";
 
 export const DEFAULT_OPTIONS: ObfuscateOptions = {
   target: "node",
@@ -79,6 +79,9 @@ export default class Obfuscator {
       invokeCountermeasuresFnName: "",
     },
   };
+
+  // Pack Interface for sharing globals across RGF functions
+  packInterface: PackInterface;
 
   isInternalVariable(name: string) {
     return Object.values(this.globalState.internals).includes(name);
@@ -255,7 +258,6 @@ export default class Obfuscator {
     ast: babel.types.File,
     options?: {
       profiler?: ProfilerCallback;
-      disablePack?: boolean;
     }
   ): babel.types.File {
     let finalASTHandler: PluginObject["finalASTHandler"][] = [];
@@ -263,9 +265,6 @@ export default class Obfuscator {
     for (let i = 0; i < this.plugins.length; i++) {
       this.index = i;
       const { plugin, pluginInstance } = this.plugins[i];
-
-      // Skip pack if disabled
-      if (pluginInstance.order === Order.Pack && options?.disablePack) continue;
 
       if (this.options.verbose) {
         console.log(
