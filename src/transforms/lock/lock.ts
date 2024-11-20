@@ -165,10 +165,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   };
   me.globalState.lock.createCountermeasuresCode = createCountermeasuresCode;
 
+  const defaultMaxCount = me.options.lock.defaultMaxCount ?? 25;
+
   function applyLockToBlock(path: NodePath<t.Block>, customLock: CustomLock) {
     let times = timesMap.get(customLock) || 0;
 
-    let maxCount = customLock.maxCount ?? 100; // 100 is default max count
+    let maxCount = customLock.maxCount ?? defaultMaxCount; // 25 is default max count
     let minCount = customLock.minCount ?? 1; // 1 is default min count
 
     if (maxCount >= 0 && times > maxCount) {

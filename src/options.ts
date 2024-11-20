@@ -313,7 +313,7 @@ export interface ObfuscateOptions {
      *
      * @see https://github.com/MichaelXF/js-confuser/blob/master/TamperProtection.md
      */
-    tamperProtection?: boolean | ((varName: string) => boolean);
+    tamperProtection?: ProbabilityMap<boolean, (varName: string) => boolean>;
 
     /**
      * When the program is first able to be used. (`number` or `Date`)
@@ -355,6 +355,11 @@ export interface ObfuscateOptions {
     countermeasures?: string | boolean;
 
     customLocks?: CustomLock[];
+
+    /**
+     * The default 'maxCount' for obfuscator and custom locks. Defaults to 25.
+     */
+    defaultMaxCount?: number;
   };
 
   /**
