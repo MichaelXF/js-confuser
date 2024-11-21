@@ -126,11 +126,31 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   return;
                 }
 
+                var hasAssignmentPattern = false;
+
+                for (var param of path.get("params")) {
+                  if (param.isAssignmentPattern()) {
+                    hasAssignmentPattern = true;
+                    break;
+                  }
+                  param.traverse({
+                    AssignmentPattern(innerPath) {
+                      var fn = innerPath.getFunctionParent();
+                      if (fn === path) {
+                        hasAssignmentPattern = true;
+                        innerPath.stop();
+                      } else {
+                        innerPath.skip();
+                      }
+                    },
+                  });
+
+                  if (hasAssignmentPattern) break;
+                }
+
                 // Functions with default parameters are not fully supported
                 // (Could be a Function Expression referencing outer scope)
-                if (
-                  path.node.params.find((x) => x.type === "AssignmentPattern")
-                ) {
+                if (hasAssignmentPattern) {
                   illegalNames.add(name);
                   return;
                 }

@@ -225,20 +225,20 @@ function fnName(fnName) {
 fnName("Correct Value");
 
 // Variant #21, #22: Default parameter function that accesses parameter scope
-var d = "Correct Value";
+var _v__d = "Correct Value";
 function variant21And22(
-  a,
-  b = function () {
-    a = "Correct Value";
+  _v__a,
+  _v__b = function () {
+    _v__a = "Correct Value";
   },
-  c = function () {
-    return d;
+  _v__c = function () {
+    return _v__d;
   }
 ) {
-  var d = "Incorrect Value";
-  b();
-  TEST_OUTPUT["Variant #21"] = a === "Correct Value";
-  TEST_OUTPUT["Variant #22"] = c() === "Correct Value";
+  var _v__d = "Incorrect Value";
+  _v__b();
+  TEST_OUTPUT["Variant #21"] = _v__a === "Correct Value";
+  TEST_OUTPUT["Variant #22"] = _v__c() === "Correct Value";
 }
 
 variant21And22();

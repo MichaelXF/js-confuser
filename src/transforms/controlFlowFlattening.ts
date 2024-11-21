@@ -1245,15 +1245,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                         // console.log(oldValue, newValue);
                         if (oldValue === newValue) continue; // No diff needed if the value doesn't change
 
-                        const leftValue = jumpBlock.withDiscriminant
-                          ? jumpBlock.withDiscriminant.getMemberExpression(
-                              stateVars[i].name
-                            )
-                          : deepClone(stateVars[i]);
-
                         let assignment = t.assignmentExpression(
                           "=",
-                          leftValue,
+                          deepClone(stateVars[i]),
                           numericLiteral(newValue)
                         );
 
