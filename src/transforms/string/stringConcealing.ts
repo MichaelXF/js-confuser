@@ -38,6 +38,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.StringConcealing, {
     changeData: {
       strings: 0,
+      decryptionFunctions: 0,
     },
   });
 
@@ -93,6 +94,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       encoding.code = new Template(encoding.code);
     }
 
+    me.changeData.decryptionFunctions++;
     encodingImplementations[encoding.identity] = encoding;
 
     return encoding;
