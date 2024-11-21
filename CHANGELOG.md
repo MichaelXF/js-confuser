@@ -87,7 +87,7 @@ The function `__JS_CONFUSER_VAR__` is identical in outcome and still be used, ho
 
 ### JS-Confuser.com Revamp
 
-A new UI for JS-Confuser.com, featuring an advanced playground and documentation pages.
+A new UI for [JS-Confuser.com](https://js-confuser.com), featuring an advanced playground and documentation pages.
 
 The previous version will remain available: [old--confuser.netlify.com](https://old--confuser.netlify.app/)
 
@@ -99,7 +99,7 @@ The previous version will remain available: [old--confuser.netlify.com](https://
 
 - Removed `Shuffle`'s Hash option
 
-- Removed `Indent` option. [`@babel/generator`](https://www.npmjs.com/package/@babel/generator) does not allow customizing the indentation size. Use Prettier if you still wish for 4 space or tabs. Be mindful if you have `Integrity` or `Self Defending` enabled, as you should not alter the obfuscated code.
+- Removed `Indent` option
 
 
 # `1.7.3`

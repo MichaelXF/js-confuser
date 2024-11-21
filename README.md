@@ -21,9 +21,9 @@ JS-Confuser is a JavaScript obfuscation tool to make your programs _impossible_ 
 
 - - [FAQ](https://new--confuser.netlify.app/docs/getting-started/faq)
 
-- [Options](https://new--confuser.netlify.app/docs)
+- [Options](https://new--confuser.netlify.app/docs/options)
 
-- [Presets](https://new--confuser.netlify.app/docs)
+- [Presets](https://new--confuser.netlify.app/docs/presets)
 
 ## API Usage
 
