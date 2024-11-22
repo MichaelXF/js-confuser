@@ -97,14 +97,24 @@ export class PluginInstance {
       );
     }
 
+    const createCallArguments = (node: t.Expression): t.Expression[] => {
+      var args = [node];
+
+      // 1 is the default value in the setFunction template, can exclude it
+      if (originalLength !== 1) {
+        args.push(numericLiteral(originalLength));
+      }
+      return args;
+    };
+
     if (t.isFunctionDeclaration(path.node)) {
       prepend(
         path.parentPath,
         t.expressionStatement(
-          t.callExpression(t.identifier(this.setFunctionLengthName), [
-            t.identifier(path.node.id.name),
-            numericLiteral(originalLength),
-          ])
+          t.callExpression(
+            t.identifier(this.setFunctionLengthName),
+            createCallArguments(t.identifier(path.node.id.name))
+          )
         )
       );
     } else if (
@@ -112,10 +122,10 @@ export class PluginInstance {
       t.isArrowFunctionExpression(path.node)
     ) {
       path.replaceWith(
-        t.callExpression(t.identifier(this.setFunctionLengthName), [
-          path.node,
-          numericLiteral(originalLength),
-        ])
+        t.callExpression(
+          t.identifier(this.setFunctionLengthName),
+          createCallArguments(path.node)
+        )
       );
     } else {
       // TODO

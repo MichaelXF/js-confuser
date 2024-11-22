@@ -362,8 +362,10 @@ test("Variant #12: Preserve Function.length", async function () {
 
   }
 
+  function oneParam(a){} // Function.length = 1
+
   myFunction()
-  TEST_OUTPUT = myFunction.length
+  TEST_OUTPUT = myFunction.length + oneParam.length
   `,
     {
       target: "node",
@@ -374,5 +376,5 @@ test("Variant #12: Preserve Function.length", async function () {
   var TEST_OUTPUT;
   eval(output);
 
-  expect(TEST_OUTPUT).toStrictEqual(3);
+  expect(TEST_OUTPUT).toStrictEqual(4);
 });
