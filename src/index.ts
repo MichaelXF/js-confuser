@@ -66,8 +66,13 @@ export async function obfuscateWithProfiler(
       };
 
       transformMap[log.currentTransform] = entry;
-      currentTransformTime = nowTime;
+
+      // (JS-Confuser.com can run performance benchmark tests here)
       profiler.callback?.(log, entry, ast);
+
+      // The profiler.callback() function may take a long time to execute,
+      // so we need to update the currentTransformTime here for accurate profiling.
+      currentTransformTime = performance.now();
     },
   });
 

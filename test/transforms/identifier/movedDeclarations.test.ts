@@ -1,4 +1,3 @@
-import { predictableFunctionTag } from "../../../src/constants";
 import JsConfuser from "../../../src/index";
 
 test("Variant #1: Move variable 'y' to top", async () => {
@@ -212,19 +211,19 @@ test("Variant #9: Defined variable without an initializer + CFF + Duplicate Lite
 
 test("Variant #10: Move parameters to predictable function", async () => {
   var code = `
-  function testFunction${predictableFunctionTag}_FN(){
+  function testFunction_FN(){
     var values = [10,20,35,"40", null]
     var parseIntKey = "parseInt"
     var output = 0
     var utils = {
-      get parser${predictableFunctionTag}(){
+      get parser(){
         var fn = (value)=>{
           return global[parseIntKey](value)
         }
         return fn
       },
 
-      set setter_fn${predictableFunctionTag}(newValue){
+      set setter_fn(newValue){
         var fakeVar
       }
     }
@@ -233,7 +232,7 @@ test("Variant #10: Move parameters to predictable function", async () => {
       constructor(){
       }
 
-      get fakeGet${predictableFunctionTag}(){
+      get fakeGet(){
         var fakeVar
       }
     }
@@ -245,7 +244,7 @@ test("Variant #10: Move parameters to predictable function", async () => {
 
         default:
           var stringifiedValue = "" + value
-          var parsedValue = utils.parser${predictableFunctionTag}(stringifiedValue)
+          var parsedValue = utils.parser(stringifiedValue)
           output += parsedValue;
           break;
       }
@@ -254,7 +253,7 @@ test("Variant #10: Move parameters to predictable function", async () => {
     return output
   }
 
-  TEST_OUTPUT = testFunction${predictableFunctionTag}_FN()
+  TEST_OUTPUT = testFunction_FN()
   `;
 
   var { code: output } = await JsConfuser.obfuscate(code, {

@@ -1,5 +1,3 @@
-export const predictableFunctionTag = "__JS_PREDICT__";
-
 /**
  * A function is 'unsafe' if it requires 'eval', 'arguments' or 'this'
  *
@@ -121,6 +119,7 @@ export const reservedObjectPrototype = new Set([
 export const reservedKeywords = [
   "if",
   "in",
+  "do",
   "for",
   "let",
   "new",
@@ -129,6 +128,7 @@ export const reservedKeywords = [
   "case",
   "else",
   "null",
+  "with",
   "break",
   "catch",
   "class",
