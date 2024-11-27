@@ -5,7 +5,6 @@ import {
   ensureComputedExpression,
   getParentFunctionOrProgram,
   isDefiningIdentifier,
-  isModifiedIdentifier,
   isStrictMode,
   isVariableIdentifier,
   replaceDefiningIdentifierToMemberExpression,
@@ -163,8 +162,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           }
           programOrFunctionPath.scope.crawl();
 
-          const blockFnParent = getParentFunctionOrProgram(blockPath);
-
           let hasIllegalNode = false;
           const bindingNames = new Set<string>();
           blockPath.traverse({
@@ -231,6 +228,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             .map((_, i) => withIdentifier(`state_${i}`));
 
           const argVar = withIdentifier("_arg");
+          let usedArgVar = false;
 
           const didReturnVar = withIdentifier("return");
 
@@ -255,16 +253,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           ).expression<t.MemberExpression>();
           withMemberExpression.object[NO_RENAME] = cffIndex;
 
-          // Create 'resetWith' function - Safely resets the 'with' object to none
-          const resetWithProperty = isDebug
-            ? "resetWith"
-            : scopeNameGen.generate(false);
-
-          const resetWithMemberExpression = new Template(
-            `${scopeVar.name}["${resetWithProperty}"]`
-          ).expression<t.MemberExpression>();
-          resetWithMemberExpression.object[NO_RENAME] = cffIndex;
-
           class ScopeManager {
             isNotUsed = true;
             requiresInitializing = true;
@@ -275,8 +263,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               : new NameGen(me.options.identifierGenerator);
 
             findBestWithDiscriminant(basicBlock: BasicBlock): ScopeManager {
+              // This initializing block is forbidden to have a with discriminant
+              // (As no previous code is able to prepare the with discriminant)
               if (basicBlock !== this.initializingBasicBlock) {
-                if (this.nameMap.size > 0) return this;
+                // If no variables were defined in this scope, don't use it
+                if (Object.keys(this.scope.bindings).length > 0) return this;
               }
 
               return this.parent?.findBestWithDiscriminant(basicBlock);
@@ -337,9 +328,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 : new Template(`({})`).expression();
             }
 
-            getMemberExpression(name: string) {
+            getMemberExpression(
+              name: string,
+              object: t.Expression = this.getScopeObject()
+            ) {
               const memberExpression = t.memberExpression(
-                this.getScopeObject(),
+                object,
                 t.stringLiteral(name),
                 true
               );
@@ -353,7 +347,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               public initializingBasicBlock: BasicBlock
             ) {
               this.propertyName = isDebug
-                ? "_" + scopeCounter++
+                ? "_" + cffIndex + "_" + scopeCounter++
                 : scopeNameGen.generate();
             }
 
@@ -390,25 +384,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 );
               }
 
-              if (this === mainScope) {
-                // Reset With logic
-                properties.push(
-                  t.objectProperty(
-                    t.stringLiteral(resetWithProperty),
-                    new Template(`
-                        (function(newStateValues, alwaysUndefined){
-                          {withMemberExpression} = alwaysUndefined;
-                          {arrayPattern} = newStateValues
-                        })
-                      `).expression({
-                      withMemberExpression: deepClone(withMemberExpression),
-                      arrayPattern: t.arrayPattern(deepClone(stateVars)),
-                    }),
-                    true
-                  )
-                );
-              }
-
               return t.objectExpression(properties);
             }
 
@@ -434,7 +409,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             bestWithDiscriminant: ScopeManager;
 
             get withDiscriminant() {
-              if (!this.allowWithDiscriminant) return null;
+              if (!this.allowWithDiscriminant) return;
 
               return this.bestWithDiscriminant;
             }
@@ -774,8 +749,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   );
                 }
 
-                // Unpack parameters
+                // Unpack parameters from the parameter 'argVar'
                 if (statement.node.params.length > 0) {
+                  usedArgVar = true;
                   fnTopBlock.body.unshift(
                     t.variableDeclaration("var", [
                       t.variableDeclarator(
@@ -1099,6 +1075,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   if (!isVariableIdentifier(path)) return;
                   if (me.isSkipped(path)) return;
                   if ((path.node as NodeSymbol)[NO_RENAME] === cffIndex) return;
+                  // For identifiers using implicit with discriminant, skip
+                  if ((path.node as NodeSymbol)[WITH_STATEMENT]) return;
 
                   const identifierName = path.node.name;
                   if (identifierName === gotoFunctionName) return;
@@ -1117,8 +1095,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     return;
                   }
 
-                  // console.log("No binding found for " + identifierName);
-
                   var scopeManager = scopeToScopeManager.get(binding.scope);
                   if (!scopeManager) return;
 
@@ -1132,6 +1108,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                   scopeManager.isNotUsed = false;
 
+                  // Scope object as with discriminant? Use identifier
+                  if (typeof basicBlock.withDiscriminant === "undefined") {
+                    const id = t.identifier(scopeManager.propertyName);
+                    (id as NodeSymbol)[WITH_STATEMENT] = true;
+                    (id as NodeSymbol)[NO_RENAME] = cffIndex;
+
+                    memberExpression = scopeManager.getMemberExpression(
+                      newName,
+                      id
+                    );
+                  }
+
                   if (isDefiningIdentifier(path)) {
                     replaceDefiningIdentifierToMemberExpression(
                       path,
@@ -1142,14 +1130,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                   if (!path.container) return;
 
-                  var isModified = isModifiedIdentifier(path);
-
                   if (
                     basicBlock.withDiscriminant &&
                     basicBlock.withDiscriminant === scopeManager &&
                     basicBlock.withDiscriminant.hasOwnName(identifierName)
                   ) {
-                    if (!isModified) {
+                    // The defining mode must directly append to the scope object
+                    // Subsequent uses can use the identifier
+                    const isDefiningNode = path.node === binding.identifier;
+
+                    if (!isDefiningNode) {
                       memberExpression = basicBlock.identifier(
                         newName,
                         scopeManager
@@ -1218,7 +1208,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     } = jumpBlock;
 
                     const assignments: t.Expression[] = [];
-                    let needsIndividualAssignments = true;
 
                     if (jumpBlock.withDiscriminant) {
                       assignments.push(
@@ -1229,39 +1218,47 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                         )
                       );
                     } else if (basicBlock.withDiscriminant) {
+                      // Reset the with discriminant to undefined using fake property
+                      // scope["fake"] -> undefined
+
+                      const fakeProperty = scopeNameGen.generate();
+
                       assignments.push(
-                        t.callExpression(deepClone(resetWithMemberExpression), [
-                          t.arrayExpression(newStateValues.map(numericLiteral)),
-                        ])
+                        t.assignmentExpression(
+                          "=",
+                          deepClone(withMemberExpression),
+                          t.memberExpression(
+                            deepClone(scopeVar),
+                            t.stringLiteral(fakeProperty),
+                            true
+                          )
+                        )
                       );
-                      needsIndividualAssignments = false;
                     }
 
-                    if (needsIndividualAssignments) {
-                      for (let i = 0; i < stateVars.length; i++) {
-                        const oldValue = currentStateValues[i];
-                        const newValue = newStateValues[i];
+                    for (let i = 0; i < stateVars.length; i++) {
+                      const oldValue = currentStateValues[i];
+                      const newValue = newStateValues[i];
 
-                        // console.log(oldValue, newValue);
-                        if (oldValue === newValue) continue; // No diff needed if the value doesn't change
+                      // console.log(oldValue, newValue);
+                      if (oldValue === newValue) continue; // No diff needed if the value doesn't change
 
-                        let assignment = t.assignmentExpression(
-                          "=",
+                      let assignment = t.assignmentExpression(
+                        "=",
+                        deepClone(stateVars[i]),
+                        numericLiteral(newValue)
+                      );
+
+                      if (!isDebug && addRelativeAssignments) {
+                        // Use diffs to create confusing code
+                        assignment = t.assignmentExpression(
+                          "+=",
                           deepClone(stateVars[i]),
-                          numericLiteral(newValue)
+                          numericLiteral(newValue - oldValue)
                         );
-
-                        if (!isDebug && addRelativeAssignments) {
-                          // Use diffs to create confusing code
-                          assignment = t.assignmentExpression(
-                            "+=",
-                            deepClone(stateVars[i]),
-                            numericLiteral(newValue - oldValue)
-                          );
-                        }
-
-                        assignments.push(assignment);
                       }
+
+                      assignments.push(assignment);
                     }
 
                     // Add debug label
@@ -1515,8 +1512,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             ),
             t.blockStatement([
               t.withStatement(
-                new Template(`{withDiscriminant} || {}`).expression({
+                new Template(`{withDiscriminant} || {scopeVar}`).expression({
                   withDiscriminant: deepClone(withMemberExpression),
+                  scopeVar: deepClone(scopeVar),
                 }),
                 t.blockStatement([switchStatement])
               ),
@@ -1525,8 +1523,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           const parameters: t.Identifier[] = [
             ...stateVars,
-            argVar,
             scopeVar,
+            argVar,
           ].map((id) => deepClone(id));
 
           const parametersNames: string[] = parameters.map((id) => id.name);
@@ -1558,6 +1556,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               }
             }
 
+            // Ensure parameter is added (No effect if not added in this case)
+            usedArgVar = true;
+
             Object.assign(
               fn,
               new Template(`
@@ -1584,11 +1585,24 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             .scopeManager.getObjectExpression(startLabel);
 
           const mainParameters: t.FunctionDeclaration["params"] = parameters;
-          const scopeParameter = mainParameters.pop() as t.Identifier;
 
-          mainParameters.push(
-            t.assignmentPattern(scopeParameter, startProgramObjectExpression)
+          // First state values use the default parameter for initialization
+          // function main(..., scope = { mainScope: {} }, ...){...}
+          mainParameters.splice(
+            (mainParameters as t.Identifier[]).findIndex(
+              (p) => p.name === scopeVar.name
+            ),
+            1,
+            t.assignmentPattern(
+              deepClone(scopeVar),
+              startProgramObjectExpression
+            )
           );
+
+          // Remove parameter 'argVar' if never used (No function calls obfuscated)
+          if (!usedArgVar) {
+            mainParameters.pop();
+          }
 
           const mainFnDeclaration = t.functionDeclaration(
             deepClone(mainFnName),
@@ -1596,11 +1610,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             t.blockStatement([whileStatement])
           );
 
+          // The main function is always called with same number of arguments
           (mainFnDeclaration as NodeSymbol)[PREDICTABLE] = true;
 
           var startProgramExpression = t.callExpression(deepClone(mainFnName), [
             ...startStateValues.map((stateValue) => numericLiteral(stateValue)),
-            t.identifier("undefined"),
           ]);
 
           const resultVar = withIdentifier("result");
