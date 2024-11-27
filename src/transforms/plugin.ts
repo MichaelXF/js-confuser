@@ -168,6 +168,6 @@ export class PluginInstance {
    * @param messages
    */
   error(...messages: any[]): never {
-    throw new Error(`[${this.name}] ${messages.join(", ")}`);
+    throw new Error(`[${this.name}] ${messages.join(" ")}`);
   }
 }

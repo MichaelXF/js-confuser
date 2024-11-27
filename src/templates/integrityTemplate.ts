@@ -1,4 +1,4 @@
-import { MULTI_TRANSFORM, SKIP, UNSAFE } from "../constants";
+import { MULTI_TRANSFORM, SKIP } from "../constants";
 import Template from "./template";
 
 /**

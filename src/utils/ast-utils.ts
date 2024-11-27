@@ -215,17 +215,6 @@ export function getMemberExpressionPropertyAsString(
   return null; // If the property cannot be determined
 }
 
-function registerPaths(paths: NodePath[]) {
-  for (var path of paths) {
-    if (path.isVariableDeclaration() && path.node.kind === "var") {
-      getParentFunctionOrProgram(path).scope.registerDeclaration(path);
-    }
-    path.scope.registerDeclaration(path);
-  }
-
-  return paths;
-}
-
 function nodeListToNodes(nodesIn: (t.Statement | t.Statement[])[]) {
   var nodes: t.Statement[] = [];
   if (Array.isArray(nodesIn[0])) {
@@ -257,12 +246,12 @@ export function append(
   if (listParent.isProgram()) {
     var lastExpression = listParent.get("body").at(-1);
     if (lastExpression.isExpressionStatement()) {
-      return registerPaths(lastExpression.insertBefore(nodes));
+      return lastExpression.insertBefore(nodes);
     }
   }
 
   if (listParent.isSwitchCase()) {
-    return registerPaths(listParent.pushContainer("consequent", nodes));
+    return listParent.pushContainer("consequent", nodes);
   }
 
   if (listParent.isFunction()) {
@@ -278,11 +267,11 @@ export function append(
 
     ok(body.isBlockStatement());
 
-    return registerPaths(body.pushContainer("body", nodes));
+    return body.pushContainer("body", nodes);
   }
 
   ok(listParent.isBlock());
-  return registerPaths(listParent.pushContainer("body", nodes));
+  return listParent.pushContainer("body", nodes);
 }
 
 /**
@@ -322,11 +311,11 @@ export function prepend(
 
     if (afterImport === 0) {
       // No import declarations, so we can safely unshift everything
-      return registerPaths(listParent.unshiftContainer("body", nodes));
+      return listParent.unshiftContainer("body", nodes);
     }
 
     // Insert the nodes after the last import declaration
-    return registerPaths(body[afterImport - 1].insertAfter(nodes));
+    return body[afterImport - 1].insertAfter(nodes);
   }
 
   if (listParent.isFunction()) {
@@ -342,15 +331,15 @@ export function prepend(
 
     ok(body.isBlockStatement());
 
-    return registerPaths(body.unshiftContainer("body", nodes));
+    return body.unshiftContainer("body", nodes);
   }
 
   if (listParent.isBlock()) {
-    return registerPaths(listParent.unshiftContainer("body", nodes));
+    return listParent.unshiftContainer("body", nodes);
   }
 
   if (listParent.isSwitchCase()) {
-    return registerPaths(listParent.unshiftContainer("consequent", nodes));
+    return listParent.unshiftContainer("consequent", nodes);
   }
 
   ok(false);
@@ -564,7 +553,7 @@ export function isModifiedIdentifier(identifierPath: NodePath<t.Identifier>) {
 
 export function replaceDefiningIdentifierToMemberExpression(
   path: NodePath<t.Identifier>,
-  memberExpression: t.MemberExpression
+  memberExpression: t.MemberExpression | t.Identifier
 ) {
   // function id(){} -> var id = function() {}
   if (path.key === "id" && path.parentPath.isFunctionDeclaration()) {
