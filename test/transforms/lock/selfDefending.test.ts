@@ -1,7 +1,7 @@
 import JsConfuser from "../../../src/index";
 
 test("Variant #1: SelfDefending should forcibly enable `compact`", async () => {
-  var output = await JsConfuser.obfuscate(`console.log(1)`, {
+  var { code: output } = await JsConfuser.obfuscate(`console.log(1)`, {
     target: "node",
     compact: false,
     lock: {
@@ -13,7 +13,7 @@ test("Variant #1: SelfDefending should forcibly enable `compact`", async () => {
 });
 
 test("Variant #2: SelfDefending should not crash when unchanged", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function caught(){
     TEST_CAUGHT = true;
@@ -37,8 +37,8 @@ test("Variant #2: SelfDefending should not crash when unchanged", async () => {
   expect(TEST_CAUGHT).toStrictEqual(undefined);
 });
 
-test("Variant #2: SelfDefending should crash when changed", async () => {
-  var output = await JsConfuser.obfuscate(
+test("Variant #3: SelfDefending should crash when changed", async () => {
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function caught(){
     TEST_CAUGHT = true;
@@ -55,7 +55,7 @@ test("Variant #2: SelfDefending should crash when changed", async () => {
   );
 
   // Re-run through obfuscator without compact = new lines = crash should occur
-  var output2 = await JsConfuser.obfuscate(output, {
+  var { code: output2 } = await JsConfuser.obfuscate(output, {
     target: "node",
     compact: false,
   });

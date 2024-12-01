@@ -23,10 +23,7 @@ function TestStrictMode() {
     count++;
   }
 
-  expect(count).toStrictEqual(10);
-
-  // This function should be in strict mode
-  expect(isStrictMode()).toStrictEqual(true);
+  TEST_OUTPUT.count = count;
 }
 
 var isStrictMode = () => {
@@ -39,7 +36,7 @@ var isStrictMode = () => {
 };
 
 // Global level should be in strict mode
-expect(isStrictMode()).toStrictEqual(true);
+TEST_OUTPUT.globalStrictMode = isStrictMode();
 TestStrictMode();
 
 // Direct vs. Indirect eval usage
@@ -57,9 +54,9 @@ isStrictMode();`;
 
 // Direct eval -> Preserve global strict-mode
 var directEvalResult = eval(evalString);
-expect(directEvalResult).toStrictEqual(true);
+TEST_OUTPUT.directEvalResult = directEvalResult;
 
 // Indirect eval -> Does not inherit context strict-mode
 var _eval_ = eval;
 var indirectEvalResult = _eval_(evalString);
-expect(indirectEvalResult).toStrictEqual(false);
+TEST_OUTPUT.indirectEvalResult = indirectEvalResult;

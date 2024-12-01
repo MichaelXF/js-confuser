@@ -1,722 +1,629 @@
-import Transform from "./transform";
-import { ObfuscateOrder } from "../order";
+import { NodePath } from "@babel/traverse";
+import { PluginArg, PluginObject } from "./plugin";
+import * as t from "@babel/types";
+import { Order } from "../order";
 import {
-  Node,
-  VariableDeclaration,
-  BinaryExpression,
-  ExpressionStatement,
-  SequenceExpression,
-  Literal,
-  UnaryExpression,
-  ConditionalExpression,
-  BlockStatement,
-  ReturnStatement,
-  AssignmentExpression,
-  VariableDeclarator,
-  Identifier,
-  CallExpression,
-} from "../util/gen";
+  ensureComputedExpression,
+  getParentFunctionOrProgram,
+  isUndefined,
+} from "../utils/ast-utils";
+import { Binding, Scope } from "@babel/traverse";
 import {
-  getBlockBody,
-  clone,
-  isForInitialize,
-  append,
-  isVarContext,
-  computeFunctionLength,
-} from "../util/insert";
-import { isValidIdentifier, isEquivalent } from "../util/compare";
-import { walk, isBlock } from "../traverse";
-import { ok } from "assert";
-import { isLexicalScope } from "../util/scope";
-import Template from "../templates/template";
-import { ObjectDefineProperty } from "../templates/globals";
-import { getIdentifierInfo } from "../util/identifiers";
+  NO_REMOVE,
+  NodeSymbol,
+  placeholderVariablePrefix,
+  UNSAFE,
+} from "../constants";
 
-/**
- * Basic transformations to reduce code size.
- *
- * Examples:
- * - `if(a) { b() }` **->** `a && b()`
- * - `if(a){b()}else{c()}` **->** `a?b():c()`
- * - `x['y']` **->** `x.y`
- */
-export default class Minify extends Transform {
-  /**
-   * A helper function that is introduced preserve function semantics
-   */
-  arrowFunctionName: string;
+const identifierMap = new Map<string, () => t.Expression>();
+identifierMap.set("undefined", () =>
+  t.unaryExpression("void", t.numericLiteral(0))
+);
+identifierMap.set("Infinity", () =>
+  t.binaryExpression("/", t.numericLiteral(1), t.numericLiteral(0))
+);
 
-  constructor(o) {
-    super(o, ObfuscateOrder.Minify);
+function trySimpleDestructuring(id, init) {
+  // Simple array/object destructuring
+  if (id.isArrayPattern() && init.isArrayExpression()) {
+    const elements = id.get("elements");
+    const initElements = init.get("elements");
+
+    if (elements.length === 1 && initElements.length === 1) {
+      id.replaceWith(elements[0]);
+      init.replaceWith(initElements[0]);
+    }
   }
 
-  match(object: Node, parents: Node[]) {
-    return object.hasOwnProperty("type");
-  }
+  if (id.isObjectPattern() && init.isObjectExpression()) {
+    const properties = id.get("properties");
+    const initProperties = init.get("properties");
 
-  transform(object: Node, parents: Node[]) {
-    if (isLexicalScope(object)) {
-      return () => {
-        var body =
-          object.type == "SwitchCase"
-            ? object.consequent
-            : getBlockBody(object);
-        var earlyReturn = body.length;
-        var fnDecs: [Node, number][] = [];
-
-        body.forEach((stmt, i) => {
-          if (
-            stmt.type === "ReturnStatement" ||
-            stmt.type === "BreakStatement" ||
-            stmt.type === "ContinueStatement" ||
-            stmt.type === "ThrowStatement"
-          ) {
-            if (earlyReturn > i + 1) {
-              earlyReturn = i + 1;
-            }
-          }
-
-          if (stmt.type == "FunctionDeclaration") {
-            fnDecs.push([stmt, i]);
-          }
-        });
-
-        if (earlyReturn < body.length) {
-          body.length = earlyReturn;
-          body.push(
-            ...fnDecs.filter((x) => x[1] >= earlyReturn).map((x) => x[0])
-          );
-        }
-
-        // Now combine ExpressionStatements
-
-        if (body.length > 1) {
-          var exprs = [];
-          var startIndex = -1;
-
-          var sequences: { index: number; exprs: Node[] }[] = [];
-
-          body.forEach((stmt, i) => {
-            if (stmt.type == "ExpressionStatement" && !stmt.directive) {
-              exprs.push(stmt.expression);
-              if (startIndex == -1) {
-                startIndex = i;
-              }
-            } else {
-              if (exprs.length) {
-                sequences.push({ exprs: exprs, index: startIndex });
-              }
-              exprs = [];
-              startIndex = -1;
-            }
-          });
-
-          if (exprs.length) {
-            sequences.push({ exprs: exprs, index: startIndex });
-          }
-
-          sequences.reverse().forEach((seq) => {
-            ok(seq.index != -1);
-            body.splice(
-              seq.index,
-              seq.exprs.length,
-              ExpressionStatement(
-                seq.exprs.length == 1
-                  ? seq.exprs[0]
-                  : SequenceExpression(seq.exprs)
-              )
-            );
-          });
-        }
-
-        // Unnecessary return
-        if (
-          parents[0] &&
-          isVarContext(parents[0]) &&
-          body.length &&
-          body[body.length - 1]
-        ) {
-          var last = body[body.length - 1];
-          if (last.type == "ReturnStatement") {
-            var isUndefined = last.argument == null;
-
-            if (isUndefined) {
-              body.pop();
-            }
-          }
-        }
-
-        // Variable declaration grouping
-        // var a = 1;
-        // var b = 1;
-        // var c = 1;
-        //
-        // var a=1,b=1,c=1;
-        var lastDec = null;
-
-        var remove = [];
-        body.forEach((x, i) => {
-          if (x.type === "VariableDeclaration") {
-            if (
-              !lastDec ||
-              lastDec.kind !== x.kind ||
-              !lastDec.declarations.length
-            ) {
-              lastDec = x;
-            } else {
-              lastDec.declarations.push(...clone(x.declarations));
-              remove.unshift(i);
-            }
-          } else {
-            lastDec = null;
-          }
-        });
-
-        remove.forEach((x) => {
-          body.splice(x, 1);
-        });
-      };
-    }
-
-    /**
-     * ES6 and higher only
-     * - `function(){}` -> `()=>{}`
-     * - `function abc(){}` -> `var abc = ()=>{}`
-     */
-    if (
-      !this.options.es5 &&
-      (object.type == "FunctionExpression" ||
-        object.type == "FunctionDeclaration")
-    ) {
-      return () => {
-        // Don't touch `{get key(){...}}`
-        var propIndex = parents.findIndex(
-          (x) => x.type == "Property" || x.type == "MethodDefinition"
-        );
-        if (propIndex !== -1) {
-          if (parents[propIndex].value === (parents[propIndex - 1] || object)) {
-            if (
-              parents[propIndex].kind !== "init" ||
-              parents[propIndex].method
-            ) {
-              return;
-            }
-          }
-        }
-
-        if (object.type === "FunctionDeclaration") {
-          var body = parents[0];
-          if (!Array.isArray(body)) {
-            return;
-          }
-
-          var index = body.indexOf(object);
-          if (index == -1) {
-            return;
-          }
-
-          var before = body.slice(0, index);
-          ok(!before.includes(object));
-
-          var beforeTypes = new Set(before.map((x) => x.type));
-          beforeTypes.delete("FunctionDeclaration");
-
-          if (beforeTypes.size > 0) {
-            return;
-          }
-
-          // Test Variant #25: Don't break redefined function declaration
-          if (
-            object.id &&
-            body.find(
-              (x) =>
-                x.type === "FunctionDeclaration" &&
-                x !== object &&
-                x.id &&
-                x.id.name === object.id.name
-            )
-          ) {
-            return;
-          }
-        }
-
-        var canTransform = true;
-        walk(object.body, [], ($object, $parents) => {
-          if ($object.type == "ThisExpression") {
-            canTransform = false;
-          } else if ($object.type == "Identifier") {
-            if ($object.name == "arguments") {
-              canTransform = false;
-            }
-            if ($object.name == "this") {
-              this.error(new Error("Use ThisExpression instead"));
-            }
-          }
-        });
-
-        if (canTransform) {
-          if (!this.arrowFunctionName) {
-            this.arrowFunctionName = this.getPlaceholder();
-
-            append(
-              parents[parents.length - 1] || object,
-              new Template(`
-            function ${this.arrowFunctionName}(arrowFn, functionLength = 0){
-              var functionObject = function(){ return arrowFn(...arguments) };
-
-              ${
-                this.options.preserveFunctionLength
-                  ? `return {ObjectDefineProperty}(functionObject, "length", {
-                  "value": functionLength,
-                  "configurable": true
-                });`
-                  : `return functionObject`
-              }
-           
-            }
-            `).single({
-                ObjectDefineProperty: this.options.preserveFunctionLength
-                  ? this.createInitVariable(ObjectDefineProperty, parents)
-                  : undefined,
-              })
-            );
-          }
-
-          const wrap = (object: Node) => {
-            var args: Node[] = [clone(object)];
-            var fnLength = computeFunctionLength(object.params);
-            if (this.options.preserveFunctionLength && fnLength != 0) {
-              args.push(Literal(fnLength));
-            }
-            return CallExpression(Identifier(this.arrowFunctionName), args);
-          };
-
-          if (object.type == "FunctionExpression") {
-            object.type = "ArrowFunctionExpression";
-
-            this.replace(object, wrap(clone(object)));
-          } else {
-            var arrow = { ...clone(object), type: "ArrowFunctionExpression" };
-            this.replace(
-              object,
-              VariableDeclaration(
-                VariableDeclarator(object.id.name, wrap(arrow))
-              )
-            );
-
-            var x = this.transform(arrow, []);
-            if (typeof x === "function") {
-              x();
-            }
-          }
-        }
-      };
-    }
-
-    /**
-     * ()=>{ expr } -> ()=>expr
-     */
-    if (
-      object.type == "ArrowFunctionExpression" &&
-      object.body.type == "BlockStatement"
-    ) {
-      return () => {
-        var body = getBlockBody(object.body);
-        var stmt1 = body[0];
-
-        if (body.length == 1 && stmt1.type == "ReturnStatement") {
-          // x=>{a: 1} // Invalid syntax
-          if (stmt1.argument && stmt1.argument.type != "ObjectExpression") {
-            object.body = stmt1.argument;
-            object.expression = true;
-          }
-        } else {
-          // ()=>{exprStmt;exprStmt;} -> ()=>(expr, expr, expr, undefined)
-          var exprs = body.filter((x) => x.type == "ExpressionStatement");
-          if (exprs.length == body.length) {
-            var array: Node[] = [];
-            function flatten(expr) {
-              if (expr.type == "SequenceExpression") {
-                expr.expressions.forEach(flatten);
-              } else if (expr.type == "ExpressionStatement") {
-                flatten(expr.expression);
-              } else {
-                array.push(expr);
-              }
-            }
-
-            body.forEach(flatten);
-
-            object.body = SequenceExpression([
-              ...clone(array),
-              UnaryExpression("void", Literal(0)),
-            ]);
-          }
-        }
-      };
-    }
-
-    // (a()) -> a()
-    if (object.type == "SequenceExpression") {
-      return () => {
-        if (object.expressions.length == 1) {
-          this.replace(object, clone(object.expressions[0]));
-        }
-      };
-    }
-
-    // a += -1 -> a -= 1
-    if (object.type == "AssignmentExpression") {
-      return () => {
-        if (
-          object.operator == "+=" &&
-          object.right.type == "UnaryExpression" &&
-          object.right.operator == "-"
-        ) {
-          object.operator = "-=";
-          object.right = object.right.argument;
-        } else if (
-          // a -= -1 -> a += 1
-          object.operator == "-=" &&
-          object.right.type == "UnaryExpression" &&
-          object.right.operator == "-"
-        ) {
-          object.operator = "+=";
-          object.right = object.right.argument;
-        }
-      };
-    }
-
-    // a + -b -> a - b
-    if (object.type == "BinaryExpression") {
-      return () => {
-        if (
-          object.operator == "+" &&
-          object.right.type == "UnaryExpression" &&
-          object.right.operator == "-"
-        ) {
-          object.operator = "-";
-          object.right = object.right.argument;
-        } else if (
-          // a - -1 -> a + 1
-          object.operator == "-" &&
-          object.right.type == "UnaryExpression" &&
-          object.right.operator == "-"
-        ) {
-          object.operator = "+";
-          object.right = object.right.argument;
-        }
-      };
-    }
-
-    if (
-      object.type == "ForStatement" ||
-      object.type == "ForInStatement" ||
-      object.type == "ForOfStatement" ||
-      object.type == "WhileStatement"
-    ) {
-      if (object.body.type == "BlockStatement") {
-        return () => {
-          if (object.body.body.length === 1) {
-            object.body = object.body.body[0];
-          }
-        };
-      }
-    }
-
-    // Last switch case does not need break
-    if (object.type == "SwitchStatement") {
-      var last = object.cases[object.cases.length - 1];
-      if (last) {
-        var lastStatement = last.consequent[last.consequent.length - 1];
-        if (
-          lastStatement &&
-          lastStatement.type == "BreakStatement" &&
-          lastStatement.label == null
-        ) {
-          last.consequent.pop();
-        }
-      } else {
-        if (
-          object.cases.length == 0 &&
-          (object.discriminant.type == "Literal" ||
-            object.discriminant.type == "Identifier")
-        ) {
-          if (
-            parents[0].type == "LabeledStatement" &&
-            Array.isArray(parents[1])
-          ) {
-            return () => {
-              parents[1].splice(parents[1].indexOf(parents[0]), 1);
-            };
-          } else if (Array.isArray(parents[0])) {
-            return () => {
-              parents[0].splice(parents[0].indexOf(object), 1);
-            };
-          }
-        }
-      }
-    }
-
-    // if ( x ) { y() } -> x && y()
-    // Todo Make this shit readable
-    if (object.type == "IfStatement") {
-      if (object.consequent.type != "BlockStatement") {
-        this.replace(
-          object.consequent,
-          BlockStatement([clone(object.consequent)])
-        );
-      }
-      if (object.alternate && object.alternate.type != "BlockStatement") {
-        this.replace(
-          object.alternate,
-          BlockStatement([clone(object.alternate)])
-        );
-      }
-      var body = getBlockBody(object.consequent);
-
-      // Check for hard-coded if statements
-      if (object.test.type == "Literal") {
-        if (object.test.value || object.test.regex) {
-          // Why would anyone test just a regex literal
-          object.alternate = null;
-        } else {
-          object.consequent = BlockStatement([]);
-        }
-      }
-
-      return () => {
-        // if ( a ) { } else {b()} -> if ( !a ) b();
-        if (body.length == 0 && object.alternate) {
-          object.test = UnaryExpression("!", clone(object.test));
-          if (
-            object.alternate.type == "BlockStatement" &&
-            object.alternate.body.length == 1
-          ) {
-            object.alternate = clone(object.alternate.body[0]);
-          }
-          object.consequent = object.alternate;
-          object.alternate = null;
-        }
-
-        if (
-          object.consequent &&
-          object.consequent.body &&
-          object.consequent.body.length == 1 &&
-          object.alternate &&
-          object.alternate.body.length == 1
-        ) {
-          var stmt1 = clone(object.consequent.body[0]);
-          var stmt2 = clone(object.alternate.body[0]);
-
-          // if (a) {return b;} else {return c;} -> return a ? b : c;
-          if (
-            stmt1.type == "ReturnStatement" &&
-            stmt2.type == "ReturnStatement"
-          ) {
-            this.replace(
-              object,
-              ReturnStatement(
-                ConditionalExpression(
-                  clone(object.test),
-                  stmt1.argument || Identifier("undefined"),
-                  stmt2.argument || Identifier("undefined")
-                )
-              )
-            );
-          }
-
-          // if (a) {b = 0} else {b = 1} -> b = a ? 0 : 1;
-          if (
-            stmt1.type == "ExpressionStatement" &&
-            stmt2.type == "ExpressionStatement"
-          ) {
-            var e1 = stmt1.expression;
-            var e2 = stmt2.expression;
-
-            if (
-              e1.type == "AssignmentExpression" &&
-              e2.type == "AssignmentExpression"
-            ) {
-              if (
-                e1.operator === e2.operator &&
-                isEquivalent(e1.left, e2.left)
-              ) {
-                this.replace(
-                  object,
-                  ExpressionStatement(
-                    AssignmentExpression(
-                      e1.operator,
-                      e1.left,
-                      ConditionalExpression(
-                        clone(object.test),
-                        e1.right,
-                        e2.right
-                      )
-                    )
-                  )
-                );
-              }
-            }
-          }
-        }
-      };
-    }
-
-    // x["abc"] -> x.abc
-    if (object.type == "MemberExpression") {
-      var { object: obj, property } = object;
-
-      if (property.type == "Literal" && isValidIdentifier(property.value)) {
-        object.computed = false;
-        object.property.type = "Identifier";
-        object.property.name = clone(object.property.value);
-
-        // obj.name &&
-        //   this.log(
-        //     obj.name +
-        //       "['" +
-        //       object.property.name +
-        //       "'] -> " +
-        //       obj.name +
-        //       "." +
-        //       object.property.name
-        //   );
-      }
-    }
-
-    if (object.type == "CallExpression") {
-      if (object.callee.type == "MemberExpression") {
-        var key = object.callee.computed
-          ? object.callee.property.value
-          : object.callee.property.name;
-        if (key == "toString" && object.arguments.length == 0) {
-          this.replace(
-            object,
-            BinaryExpression("+", Literal(""), clone(object.callee.object))
-          );
-        }
-      }
-    }
-
-    // { "x": 1 } -> {x: 1}
-    if (object.type === "Property" || object.type === "MethodDefinition") {
-      if (
-        object.key.type == "SequenceExpression" &&
-        object.key.expressions.length == 1
-      ) {
-        object.key = object.key.expressions[0];
-        object.computed = true;
-      }
+    if (properties.length === 1 && initProperties.length === 1) {
+      const firstProperty = properties[0];
+      const firstInitProperty = initProperties[0];
 
       if (
-        object.key.type == "Literal" &&
-        typeof object.key.value === "string" &&
-        isValidIdentifier(object.key.value)
+        firstProperty.isObjectProperty() &&
+        firstInitProperty.isObjectProperty()
       ) {
-        object.key.type = "Identifier";
-        object.key.name = object.key.value;
-        object.computed = false;
-      }
-    }
-
-    if (object.type == "VariableDeclarator") {
-      // undefined is not necessary
-      if (object.init && object.init.type == "Identifier") {
-        if (object.init.name == "undefined") {
-          object.init = null;
-        }
-      }
-
-      if (
-        object.id.type == "ObjectPattern" &&
-        object.init &&
-        object.init.type == "ObjectExpression"
-      ) {
+        const firstKey = firstProperty.get("key");
+        const firstInitKey = firstInitProperty.get("key");
         if (
-          object.id.properties.length === 1 &&
-          object.init.properties.length === 1
+          firstKey.isIdentifier() &&
+          firstInitKey.isIdentifier() &&
+          firstKey.node.name === firstInitKey.node.name
         ) {
-          var key1 = object.id.properties[0].computed
-            ? object.id.properties[0].key.value
-            : object.id.properties[0].key.name;
-          var key2 = object.init.properties[0].computed
-            ? object.init.properties[0].key.value
-            : object.init.properties[0].key.name;
-
-          // console.log(key1, key2);
-
-          if (key1 && key2 && key1 === key2) {
-            object.id = object.id.properties[0].value;
-            object.init = object.init.properties[0].value;
-          }
+          id.replaceWith(firstProperty.node.value);
+          init.replaceWith(firstInitProperty.node.value);
         }
-      }
-
-      // check for redundant patterns
-      if (
-        object.id.type == "ArrayPattern" &&
-        object.init &&
-        typeof object.init === "object" &&
-        object.init.type == "ArrayExpression"
-      ) {
-        if (
-          object.id.elements.length == 1 &&
-          object.init.elements.length == 1
-        ) {
-          object.id = object.id.elements[0];
-          object.init = object.init.elements[0];
-        }
-      }
-    }
-
-    if (object.type == "Literal") {
-      return () => {
-        switch (typeof object.value) {
-          case "boolean":
-            this.replaceIdentifierOrLiteral(
-              object,
-              UnaryExpression("!", Literal(object.value ? 0 : 1)),
-              parents
-            );
-            break;
-        }
-      };
-    }
-    if (object.type == "Identifier") {
-      return () => {
-        var info = getIdentifierInfo(object, parents);
-        if (info.spec.isDefined || info.spec.isModified) return;
-
-        if (object.name == "undefined" && !isForInitialize(object, parents)) {
-          this.replaceIdentifierOrLiteral(
-            object,
-            UnaryExpression("void", Literal(0)),
-            parents
-          );
-        } else if (object.name == "Infinity") {
-          this.replaceIdentifierOrLiteral(
-            object,
-            BinaryExpression("/", Literal(1), Literal(0)),
-            parents
-          );
-        }
-      };
-    }
-
-    if (object.type == "UnaryExpression" && object.operator == "!") {
-      if (object.argument.type == "Literal" && !object.argument.regex) {
-        this.replace(object, Literal(!object.argument.value));
-      }
-    }
-
-    if (object.type == "ConditionalExpression") {
-      if (object.test.type == "Literal" && !object.test.regex) {
-        this.replace(
-          object,
-          object.test.value ? object.consequent : object.alternate
-        );
       }
     }
   }
 }
+
+/**
+ * Minify removes unnecessary code and shortens the length for file size.
+ *
+ * - Dead code elimination
+ * - Variable grouping
+ * - Constant folding
+ * - Shorten literals: True to !0, False to !1, Infinity to 1/0, Undefined to void 0
+ * - Remove unused variables, functions
+ */
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Minify);
+  return {
+    visitor: {
+      Program(path) {
+        path.scope.crawl();
+      },
+      // var a; var b; -> var a,b;
+      VariableDeclaration: {
+        exit(path) {
+          if (typeof path.key !== "number") return;
+          const kind = path.node.kind;
+
+          // get declaration after this
+          const nextDeclaration = path.getSibling(path.key + 1);
+          if (
+            nextDeclaration.isVariableDeclaration({
+              kind: kind,
+            })
+          ) {
+            const declarations = path.get("declarations");
+
+            // Preserve bindings!
+            // This is important for dead code elimination
+            const bindings: { [name: string]: Binding } = Object.create(null);
+            for (var declaration of declarations) {
+              for (var idPath of Object.values(
+                declaration.getBindingIdentifierPaths()
+              )) {
+                bindings[idPath.node.name] = idPath.scope.getBinding(
+                  idPath.node.name
+                );
+              }
+            }
+
+            nextDeclaration.node.declarations.unshift(
+              ...declarations.map((x) => x.node)
+            );
+
+            const newBindingIdentifierPaths =
+              nextDeclaration.getBindingIdentifierPaths();
+
+            // path.remove() unfortunately removes the bindings
+            // We must perverse the entire binding object (referencePaths, constantViolations, etc)
+            // and re-add them to the new scope
+            path.remove();
+
+            // Add bindings back
+            function addBindingsToScope(scope: Scope) {
+              for (var name in bindings) {
+                const binding = bindings[name];
+                if (binding) {
+                  binding.path = newBindingIdentifierPaths[name];
+                  scope.bindings[name] = binding;
+                }
+              }
+            }
+
+            if (kind === "var") {
+              addBindingsToScope(getParentFunctionOrProgram(path).scope);
+            }
+            addBindingsToScope(path.scope);
+          }
+        },
+      },
+      // true -> !0, false -> !1
+      BooleanLiteral: {
+        exit(path) {
+          if (path.node.value) {
+            path.replaceWith(t.unaryExpression("!", t.numericLiteral(0)));
+          } else {
+            path.replaceWith(t.unaryExpression("!", t.numericLiteral(1)));
+          }
+        },
+      },
+      // !"" -> !1
+      UnaryExpression: {
+        exit(path) {
+          if (path.node.operator === "!") {
+            var argument = path.get("argument");
+            if (argument.isNumericLiteral()) return;
+            const value = argument.evaluateTruthy();
+            const parent = getParentFunctionOrProgram(path);
+            if (parent && (parent.node as NodeSymbol)[UNSAFE]) return;
+
+            if (value === undefined) return;
+
+            path.replaceWith(
+              t.unaryExpression("!", t.numericLiteral(value ? 1 : 0))
+            );
+          }
+        },
+      },
+      // "a" + "b" -> "ab"
+      BinaryExpression: {
+        exit(path) {
+          if (path.node.operator !== "+") return;
+
+          const left = path.get("left");
+          const right = path.get("right");
+
+          if (!left.isStringLiteral() || !right.isStringLiteral()) return;
+
+          path.replaceWith(t.stringLiteral(left.node.value + right.node.value));
+        },
+      },
+      // a["key"] -> a.key
+      MemberExpression: {
+        exit(path) {
+          if (!path.node.computed) return;
+
+          const property = path.get("property");
+          if (!property.isStringLiteral()) return;
+
+          const key = property.node.value;
+          if (!t.isValidIdentifier(key)) return;
+
+          path.node.computed = false;
+          path.node.property = t.identifier(key);
+        },
+      },
+      // {["key"]: 1} -> {key: 1}
+      // {"key": 1} -> {key: 1}
+      ObjectProperty: {
+        exit(path) {
+          var key = path.get("key");
+          if (path.node.computed && key.isStringLiteral()) {
+            path.node.computed = false;
+          }
+
+          if (
+            !path.node.computed &&
+            key.isStringLiteral() &&
+            t.isValidIdentifier(key.node.value)
+          ) {
+            if (identifierMap.has(key.node.value)) {
+              path.node.computed = true;
+              key.replaceWith(identifierMap.get(key.node.value)!());
+            } else {
+              key.replaceWith(t.identifier(key.node.value));
+            }
+          }
+        },
+      },
+      // (a); -> a;
+      SequenceExpression: {
+        exit(path) {
+          if (path.node.expressions.length === 1) {
+            path.replaceWith(path.node.expressions[0]);
+          }
+        },
+      },
+      // ; -> ()
+      EmptyStatement: {
+        exit(path) {
+          path.remove();
+        },
+      },
+      // console; -> ();
+      ExpressionStatement: {
+        exit(path) {
+          if (path.get("expression").isIdentifier()) {
+            // Preserve last expression of program for RGF
+            if (
+              path.parentPath?.isProgram() &&
+              path.parentPath?.get("body").at(-1) === path
+            )
+              return;
+            path.remove();
+          }
+        },
+      },
+      // undefined -> void 0
+      // Infinity -> 1/0
+      Identifier: {
+        exit(path) {
+          if (path.isReferencedIdentifier()) {
+            if (identifierMap.has(path.node.name)) {
+              ensureComputedExpression(path);
+              path.replaceWith(identifierMap.get(path.node.name)!());
+            }
+          }
+        },
+      },
+      // true ? a : b -> a
+      ConditionalExpression: {
+        exit(path) {
+          const testValue = path.get("test").evaluateTruthy();
+          if (testValue === undefined) return;
+
+          path.replaceWith(
+            testValue ? path.node.consequent : path.node.alternate
+          );
+        },
+      },
+      // Remove unused functions
+      FunctionDeclaration: {
+        exit(path) {
+          const id = path.get("id");
+          if (
+            id.isIdentifier() &&
+            !id.node.name.startsWith(placeholderVariablePrefix) &&
+            !(path.node as NodeSymbol)[NO_REMOVE]
+          ) {
+            const binding = path.scope.getBinding(id.node.name);
+            if (
+              binding &&
+              binding.constantViolations.length === 0 &&
+              binding.referencePaths.length === 0 &&
+              !binding.referenced
+            ) {
+              path.remove();
+            }
+          }
+        },
+      },
+      // var x=undefined -> var x
+      // Remove unused variables
+      // Simple destructuring
+      VariableDeclarator: {
+        exit(path) {
+          if (isUndefined(path.get("init"))) {
+            path.node.init = null;
+          }
+
+          const id = path.get("id");
+          const init = path.get("init");
+
+          trySimpleDestructuring(id, init);
+
+          // Remove unused variables
+          // Can only remove if it's pure
+          if (id.isIdentifier()) {
+            // Do not remove variables in unsafe functions
+            const fn = getParentFunctionOrProgram(path);
+            if ((fn.node as NodeSymbol)[UNSAFE]) return;
+
+            // Node explicitly marked as not to be removed
+            if ((id as NodeSymbol)[NO_REMOVE]) return;
+
+            const binding = path.scope.getBinding(id.node.name);
+
+            if (
+              binding &&
+              binding.constantViolations.length === 0 &&
+              binding.referencePaths.length === 0
+            ) {
+              if (!init.node || init.isPure()) {
+                path.remove();
+              } else if (
+                path.parentPath.isVariableDeclaration() &&
+                path.parentPath.node.declarations.length === 1
+              ) {
+                path.parentPath.replaceWith(t.expressionStatement(init.node));
+              }
+            }
+          }
+        },
+      },
+      // Simple destructuring
+      // Simple arithmetic operations
+      AssignmentExpression: {
+        exit(path) {
+          if (path.node.operator === "=") {
+            trySimpleDestructuring(path.get("left"), path.get("right"));
+          }
+          if (path.node.operator === "+=") {
+            const left = path.get("left");
+            const right = path.get("right");
+
+            // a += 1 -> a++
+            if (right.isNumericLiteral({ value: 1 })) {
+              if (left.isIdentifier() || left.isMemberExpression()) {
+                path.replaceWith(t.updateExpression("++", left.node));
+              }
+            }
+          }
+        },
+      },
+
+      // return undefined->return
+      ReturnStatement: {
+        exit(path) {
+          if (isUndefined(path.get("argument"))) {
+            path.node.argument = null;
+          }
+        },
+      },
+      // while(true) {a();} -> while(true) a();
+      // for(;;) {a();} -> for(;;) a();
+      // with(a) {a();} -> with(a) a();
+      "While|For|WithStatement": {
+        exit(_path) {
+          var path = _path as NodePath<t.While | t.For | t.WithStatement>;
+          var body = path.get("body");
+
+          if (body.isBlock() && body.node.body.length === 1) {
+            body.replaceWith(body.node.body[0]);
+          }
+        },
+      },
+      // if(a) a(); -> a && a();
+      // if(a) { return b; } -> if(a) return b;
+      // if(a) { a(); } else { b(); } -> a ? a() : b();
+      // if(a) { return b; } else { return c; } -> return a ? b : c;
+      IfStatement: {
+        exit(path) {
+          // BlockStatement to single statement
+          const consequent = path.get("consequent");
+          const alternate = path.get("alternate");
+
+          const isMoveable = (node: t.Statement) => {
+            if (t.isDeclaration(node)) return false;
+
+            return true;
+          };
+
+          let testValue = path.get("test").evaluateTruthy();
+
+          const parent = getParentFunctionOrProgram(path);
+          if (parent && (parent.node as NodeSymbol)[UNSAFE]) {
+            testValue = undefined;
+          }
+
+          if (typeof testValue !== "undefined") {
+            if (
+              !alternate.node &&
+              consequent.isBlock() &&
+              consequent.node.body.length === 1 &&
+              isMoveable(consequent.node.body[0])
+            ) {
+              consequent.replaceWith(consequent.node.body[0]);
+            }
+
+            if (
+              alternate.node &&
+              alternate.isBlock() &&
+              alternate.node.body.length === 1 &&
+              isMoveable(alternate.node.body[0])
+            ) {
+              alternate.replaceWith(alternate.node.body[0]);
+            }
+          }
+
+          if (testValue === false) {
+            // if(false){} -> ()
+            if (!alternate.node) {
+              path.remove();
+              return;
+
+              // if(false){a()}else{b()} -> b()
+            } else {
+              path.replaceWith(alternate.node);
+              return;
+            }
+
+            // if(true){a()} -> {a()}
+          } else if (testValue === true) {
+            path.replaceWith(consequent.node);
+            return;
+          }
+
+          function getResult(path: NodePath): {
+            returnPath: NodePath<t.ReturnStatement> | null;
+            expressions: t.Expression[];
+          } {
+            if (!path.node) return null;
+
+            if (path.isReturnStatement()) {
+              return { returnPath: path, expressions: [] };
+            }
+            if (path.isExpressionStatement()) {
+              return {
+                returnPath: null,
+                expressions: [path.get("expression").node],
+              };
+            }
+
+            if (path.isBlockStatement()) {
+              var expressions = [];
+              for (var statement of path.get("body")) {
+                if (statement.isReturnStatement()) {
+                  return { returnPath: statement, expressions: expressions };
+                } else if (statement.isExpressionStatement()) {
+                  expressions.push(statement.get("expression").node);
+                } else {
+                  return null;
+                }
+              }
+
+              return { returnPath: null, expressions: expressions };
+            }
+
+            return null;
+          }
+
+          var consequentReturn = getResult(consequent);
+          var alternateReturn = getResult(alternate);
+
+          if (consequentReturn && alternateReturn) {
+            if (consequentReturn.returnPath && alternateReturn.returnPath) {
+              function createReturnArgument(
+                resultInfo: ReturnType<typeof getResult>
+              ) {
+                return t.sequenceExpression([
+                  ...resultInfo.expressions,
+                  resultInfo.returnPath.node.argument ||
+                    t.identifier("undefined"),
+                ]);
+              }
+
+              path.replaceWith(
+                t.returnStatement(
+                  t.conditionalExpression(
+                    path.node.test,
+                    createReturnArgument(consequentReturn),
+                    createReturnArgument(alternateReturn)
+                  )
+                )
+              );
+            } else if (
+              !consequentReturn.returnPath &&
+              !alternateReturn.returnPath
+            ) {
+              function joinExpressions(expressions: t.Expression[]) {
+                // condition?():() is invalid syntax
+                // Just use 0 as a placeholder
+                if (expressions.length === 0) return t.numericLiteral(0);
+
+                // No need for sequence expression if there's only one expression
+                if (expressions.length === 1) return expressions[0];
+
+                return t.sequenceExpression(expressions);
+              }
+
+              path.replaceWith(
+                t.conditionalExpression(
+                  path.node.test,
+                  joinExpressions(consequentReturn.expressions),
+                  joinExpressions(alternateReturn.expressions)
+                )
+              );
+            }
+          }
+        },
+      },
+      // Remove unreachable code
+      // Code after a return/throw/break/continue is unreachable
+      // Remove implied returns
+      // Remove code after if all branches are unreachable
+      "Block|SwitchCase": {
+        enter(path) {
+          if (path.isProgram()) {
+            path.scope.crawl();
+          }
+        },
+        exit(path) {
+          var statementList = path.isBlock()
+            ? (path.get("body") as NodePath<t.Statement>[])
+            : (path.get("consequent") as NodePath<t.Statement>[]);
+
+          var impliedReturn: NodePath<t.ReturnStatement>;
+
+          function isUnreachable(
+            statementList: NodePath<t.Statement>[],
+            topLevel = false
+          ) {
+            var unreachableState = false;
+
+            for (var statement of statementList) {
+              if (unreachableState) {
+                statement.remove();
+                continue;
+              }
+
+              if (statement.isIfStatement()) {
+                const consequent = statement.get("consequent");
+                const alternate = statement.get("alternate");
+
+                if (
+                  [consequent, alternate].every(
+                    (x) =>
+                      x.node &&
+                      x.isBlockStatement() &&
+                      isUnreachable(x.get("body"))
+                  )
+                ) {
+                  unreachableState = true;
+                  if (!topLevel) {
+                    return true;
+                  } else {
+                    continue;
+                  }
+                }
+              }
+
+              if (statement.isSwitchStatement()) {
+                // Can only remove switch statements if all cases are unreachable
+                // And all paths are exhausted
+                const cases = statement.get("cases");
+                const hasDefaultCase = cases.some((x) => !x.node.test);
+                if (
+                  hasDefaultCase &&
+                  cases.every((x) => isUnreachable(x.get("consequent")))
+                ) {
+                  unreachableState = true;
+                  if (!topLevel) {
+                    return true;
+                  } else {
+                    continue;
+                  }
+                }
+              }
+
+              if (
+                statement.isReturnStatement() ||
+                statement.isThrowStatement() ||
+                statement.isBreakStatement() ||
+                statement.isContinueStatement()
+              ) {
+                unreachableState = true;
+                if (!topLevel) {
+                  return true;
+                }
+              }
+
+              if (topLevel) {
+                if (
+                  statement == statementList.at(-1) &&
+                  statement.isReturnStatement() &&
+                  !statement.node.argument
+                ) {
+                  impliedReturn = statement;
+                }
+              }
+            }
+            return false;
+          }
+
+          isUnreachable(statementList, true);
+
+          if (impliedReturn) {
+            var functionParent = path.getFunctionParent();
+            if (
+              functionParent &&
+              t.isBlockStatement(functionParent.node.body) &&
+              functionParent.node.body === path.node
+            ) {
+              impliedReturn.remove();
+            }
+          }
+        },
+      },
+    },
+  };
+};

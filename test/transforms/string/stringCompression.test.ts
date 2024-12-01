@@ -1,20 +1,30 @@
 import JsConfuser from "../../../src/index";
 
-it("should work", async () => {
-  var output = await JsConfuser(`input("Hello World")`, {
-    target: "node",
-    stringCompression: true,
-  });
+test("Variant #1: Compress strings", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var str1 = "Hello World";
+    var str2 = "Hello World";
 
-  var value,
-    input = (x) => (value = x);
+    TEST_OUTPUT = str1 === str2 ? str1 : "No Match";
+    `,
+    {
+      target: "node",
+      stringCompression: true,
+    }
+  );
 
-  eval(output);
+  // Ensure string was compressed
+  expect(code).not.toContain("Hello World");
 
-  expect(value).toStrictEqual("Hello World");
+  // Ensure the code still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
 });
 
-it("should work on property keys", async () => {
+test("Variant #2: Handle property keys", async () => {
   var code = `
   var myObject = {
     myKey: 100
@@ -23,7 +33,7 @@ it("should work on property keys", async () => {
   TEST_VAR = myObject.myKey;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringCompression: true,
   });
@@ -34,7 +44,7 @@ it("should work on property keys", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should work on class keys", async () => {
+test("Variant #3: Handle class keys", async () => {
   var code = `
   class MyClass {
     myMethod(){
@@ -47,7 +57,7 @@ it("should work on class keys", async () => {
   TEST_VAR = myObject.myMethod();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringCompression: true,
   });
@@ -58,7 +68,7 @@ it("should work on class keys", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should not encode constructor key", async () => {
+test("Variant #4: Don't encode constructor key", async () => {
   var code = `
   class MyClass {
     constructor(){
@@ -69,7 +79,7 @@ it("should not encode constructor key", async () => {
   new MyClass();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringCompression: true,
   });
@@ -80,16 +90,16 @@ it("should not encode constructor key", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should be configurable by custom function option", async () => {
+test("Variant #5: Allow custom function option", async () => {
   var code = `
   TEST_OUTPUT_1 = "My String 1";
   TEST_OUTPUT_2 = "My String 2";
   TEST_OUTPUT_3 = "My String 3";
   `;
 
-  var stringsFound = [];
+  var stringsFound: string[] = [];
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringCompression: (strValue) => {
       stringsFound.push(strValue);
@@ -105,9 +115,9 @@ it("should be configurable by custom function option", async () => {
   expect(stringsFound).toContain("My String 3");
 
   // Ensure the strings got changed (except for "My String 2")
-  expect(output).not.toContain("TEST_OUTPUT_1='My String 1'");
-  expect(output).toContain("TEST_OUTPUT_2='My String 2'");
-  expect(output).not.toContain("TEST_OUTPUT_3='My String 3'");
+  expect(output).not.toContain('TEST_OUTPUT_1="My String 1"');
+  expect(output).toContain('TEST_OUTPUT_2="My String 2"');
+  expect(output).not.toContain('TEST_OUTPUT_3="My String 3"');
 
   // Make sure the code still works!
   var TEST_OUTPUT_1, TEST_OUTPUT_2, TEST_OUTPUT_3;
@@ -117,4 +127,81 @@ it("should be configurable by custom function option", async () => {
   expect(TEST_OUTPUT_1).toStrictEqual("My String 1");
   expect(TEST_OUTPUT_2).toStrictEqual("My String 2");
   expect(TEST_OUTPUT_3).toStrictEqual("My String 3");
+});
+
+test("Variant #6: Template strings", async () => {
+  var stringsCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    TEST_OUTPUT = \`Hello World\`
+    `,
+    {
+      target: "node",
+      stringConcealing: (strValue) => {
+        stringsCollected.push(strValue);
+
+        return true;
+      },
+    }
+  );
+
+  // Ensure the string got concealed
+  expect(code).not.toContain("Hello World");
+
+  // Ensure the custom implementation was called
+  expect(stringsCollected).toContain("Hello World");
+
+  // Ensure the code works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
+});
+
+test("Variant #7: Work with Rename Variables", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var myVar = "Hello World";
+    TEST_OUTPUT = myVar;
+    `,
+    {
+      target: "node",
+      stringCompression: true,
+      renameVariables: true,
+    }
+  );
+
+  // Ensure String Compression applied
+  expect(code).not.toContain("Hello World");
+
+  // Ensure the code still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
+});
+
+test("Variant #8: Work with RGF", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var myVar = "Hello World";
+    TEST_OUTPUT = myVar;
+    `,
+    {
+      target: "node",
+      stringCompression: true,
+      rgf: true,
+      renameVariables: true,
+    }
+  );
+
+  // Ensure String Compression applied
+  expect(code).not.toContain("Hello World");
+
+  // Ensure the code still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
 });

@@ -18,7 +18,7 @@ test("Variant #1: Extract properties", async () => {
     input(TEST_OBJECT.TEST_1, TEST_OBJECT['TEST_2'], check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -52,7 +52,7 @@ test("Variant #2: Extract function properties correctly", async () => {
     input(TEST_OBJECT.isBoolean(true), TEST_OBJECT.isString(false), check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -88,7 +88,7 @@ test("Variant #3: Not extract properties on with dynamically added keys", async 
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -123,7 +123,7 @@ test("Variant #4: Not extract properties on with dynamically added keys even whe
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -154,7 +154,7 @@ test("Variant #5: Not extract properties on objects with computed properties", a
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -185,7 +185,7 @@ test("Variant #6: Not extract properties on objects with computed properties (st
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -217,7 +217,7 @@ test("Variant #7: Not extract properties on objects when the object is reference
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -248,7 +248,7 @@ test("Variant #8: Not extract properties on objects when the variable gets redef
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -280,7 +280,7 @@ test("Variant #9: Not extract properties on objects when the variable gets reass
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -294,7 +294,6 @@ test("Variant #9: Not extract properties on objects when the variable gets reass
 
 test("Variant #10: Not extract properties on objects with methods referencing 'this'", async () => {
   var code = `
-    
     var TEST_OBJECT = {
       key: "value",
       getKey: function(){
@@ -313,7 +312,7 @@ test("Variant #10: Not extract properties on objects with methods referencing 't
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -344,7 +343,7 @@ test("Variant #11: Not extract properties on objects when properties are dynamic
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -376,7 +375,7 @@ test("Variant #12: Not extract properties on objects with computed accessors", a
     input(check);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: true,
   });
@@ -406,7 +405,7 @@ test("Variant #13: Properly use custom callback to exclude certain names from be
   `;
 
   var seen = new Set();
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     objectExtraction: (name) => {
       seen.add(name);
@@ -438,18 +437,18 @@ test("Variant #14: Not apply to objects with non-init properties (method, set, g
     };
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     objectExtraction: true,
   });
 
   expect(output).toContain("TEST_OBJECT");
-  expect(output).toContain("set ");
+  expect(output).toContain("set[");
 });
 
 // https://github.com/MichaelXF/js-confuser/issues/78
 test("Variant #15: Handle objects with spread elements", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var x = { firstName: "John", lastName: "Doe" }
     var y = { ...x };
@@ -470,7 +469,7 @@ test("Variant #15: Handle objects with spread elements", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/106
 test("Variant #16: Handle const declarations", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     const obj = {prop: 0};
     obj.prop = 1;
@@ -488,4 +487,42 @@ test("Variant #16: Handle const declarations", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual(1);
+});
+
+test("Variant #17: Extract properties on objects in functions", async () => {
+  var namesCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function getUserName(){
+      var firstName = "John";
+      var lastName = "Doe";
+
+      var user = { firstName, lastName };
+
+      return user.firstName + " " + user.lastName;
+    }
+      
+    TEST_OUTPUT = getUserName();
+    `,
+    {
+      target: "node",
+      objectExtraction: (name) => {
+        namesCollected.push(name);
+        return true;
+      },
+    }
+  );
+
+  // Ensure object was visited
+  expect(namesCollected).toContain("user");
+
+  // Ensure object was changed
+  expect(code).toContain("user_firstName");
+
+  // Make sure results are correct
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("John Doe");
 });

@@ -1,424 +1,322 @@
-import { compileJsSync } from "../compiler";
-import { predictableFunctionTag, reservedIdentifiers } from "../constants";
+import { NodePath } from "@babel/traverse";
+import { PluginArg, PluginObject } from "./plugin";
+import { Order } from "../order";
+import * as t from "@babel/types";
 import Obfuscator from "../obfuscator";
-import { ObfuscateOrder } from "../order";
-import { ComputeProbabilityMap } from "../probability";
-import { FunctionLengthTemplate } from "../templates/functionLength";
-import { ObjectDefineProperty } from "../templates/globals";
-import Template from "../templates/template";
-import { walk } from "../traverse";
 import {
-  ArrayExpression,
-  BlockStatement,
-  CallExpression,
-  ExpressionStatement,
-  Identifier,
-  Literal,
-  LogicalExpression,
-  MemberExpression,
-  NewExpression,
-  Node,
-  ReturnStatement,
-  ThisExpression,
-  VariableDeclaration,
-  VariableDeclarator,
-} from "../util/gen";
-import { getIdentifierInfo } from "../util/identifiers";
-import {
+  append,
+  getFunctionName,
+  isDefiningIdentifier,
+  isStrictMode,
+  isVariableIdentifier,
   prepend,
-  getDefiningContext,
-  computeFunctionLength,
-} from "../util/insert";
-import Integrity from "./lock/integrity";
-import Transform from "./transform";
+} from "../utils/ast-utils";
+import {
+  MULTI_TRANSFORM,
+  NodeSymbol,
+  PREDICTABLE,
+  reservedIdentifiers,
+  SKIP,
+  UNSAFE,
+} from "../constants";
+import { computeFunctionLength } from "../utils/function-utils";
+import { numericLiteral } from "../utils/node";
+import Template from "../templates/template";
+import { createEvalIntegrityTemplate } from "../templates/tamperProtectionTemplates";
+
+const RGF_ELIGIBLE = Symbol("rgfEligible");
 
 /**
- * Converts function to `new Function("..code..")` syntax as an alternative to `eval`. Eval is disabled in many environments.
+ * RGF (Runtime-Generated-Function) uses the `new Function("code")` syntax to create executable code from strings.
  *
- * `new Function("..code..")` runs in an isolated context, meaning all local variables are undefined and throw errors.
+ * Limitations:
  *
- * Rigorous checks are in place to only include pure functions.
- *
- * `flatten` can attempt to make function reference-less. Recommended to have flatten enabled with RGF.
+ * 1. Does not apply to async or generator functions
+ * 2. Does not apply to functions that reference outside variables
  */
-export default class RGF extends Transform {
-  // Array of all the `new Function` calls
-  arrayExpressionElements: Node[];
-  // The name of the array holding all the `new Function` expressions
-  arrayExpressionName: string;
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.RGF, {
+    changeData: {
+      functions: 0,
+    },
+  });
 
-  functionLengthName: string;
+  const rgfArrayName = me.getPlaceholder() + "_rgf";
+  const rgfEvalName = me.getPlaceholder() + "_rgf_eval";
+  const rgfArrayExpression = t.arrayExpression([]);
 
-  getFunctionLengthName(parents: Node[]) {
-    if (!this.functionLengthName) {
-      this.functionLengthName = this.getPlaceholder();
-    }
+  let active = true;
 
-    return this.functionLengthName;
-  }
+  return {
+    visitor: {
+      Program: {
+        enter(path) {
+          path.scope.crawl();
+        },
+        exit(path) {
+          active = false;
+          if (rgfArrayExpression.elements.length === 0) return;
 
-  constructor(o) {
-    super(o, ObfuscateOrder.RGF);
+          // Insert the RGF array at the top of the program
+          prepend(
+            path,
+            t.variableDeclaration("var", [
+              t.variableDeclarator(
+                t.identifier(rgfArrayName),
+                rgfArrayExpression
+              ),
+            ])
+          );
 
-    this.arrayExpressionName = this.getPlaceholder() + "_rgf";
-    this.arrayExpressionElements = [];
-  }
+          var rgfEvalIntegrity = me.getPlaceholder() + "_rgf_eval_integrity";
 
-  apply(tree: Node): void {
-    super.apply(tree);
-
-    // Only add the array if there were converted functions
-    if (this.arrayExpressionElements.length > 0) {
-      var variableDeclaration = VariableDeclaration(
-        VariableDeclarator(
-          Identifier(this.arrayExpressionName),
-          ArrayExpression(this.arrayExpressionElements)
-        )
-      );
-
-      var nodes: Node[] = [variableDeclaration];
-
-      if (this.options.lock?.tamperProtection) {
-        // The name of the variable flag if eval is safe to use
-        var tamperProtectionCheckName = this.getPlaceholder() + "_rgfEvalCheck";
-
-        variableDeclaration.declarations[0].init = LogicalExpression(
-          "&&",
-          Identifier(tamperProtectionCheckName),
-          { ...variableDeclaration.declarations[0].init }
-        );
-
-        nodes.unshift(
-          ...new Template(`
-            var ${tamperProtectionCheckName} = false;
-            eval(${this.jsConfuserVar(tamperProtectionCheckName)} + "=true");
-            if(!${tamperProtectionCheckName}) {
-              {countermeasures}
-            }
+          prepend(
+            path,
+            new Template(`
+            {EvalIntegrity}
+            var ${rgfEvalIntegrity} = {EvalIntegrityName}();
             `).compile({
-            countermeasures: this.lockTransform.getCounterMeasuresCode(
-              tree,
-              []
-            ),
-          })
-        );
-      }
+              EvalIntegrity: createEvalIntegrityTemplate(me, path),
+              EvalIntegrityName: me.getPlaceholder(),
+            })
+          );
 
-      prepend(tree, ...nodes);
-    }
+          append(
+            path,
+            new Template(
+              `
+              function ${rgfEvalName}(code) {
+                if (${rgfEvalIntegrity}) {
+                  return eval(code);
+                }
+              }
+              `
+            )
+              .addSymbols(UNSAFE)
+              .single()
+          );
+        },
+      },
+      "FunctionDeclaration|FunctionExpression": {
+        enter(_path) {
+          if (!active) return;
 
-    // The function.length helper function must be placed last
-    if (this.functionLengthName) {
-      prepend(
-        tree,
-        FunctionLengthTemplate.single({
-          name: this.functionLengthName,
-          ObjectDefineProperty: this.createInitVariable(ObjectDefineProperty, [
-            tree,
-          ]),
-        })
-      );
-    }
-  }
+          // On enter, determine if Function is eligible for RGF transformation
 
-  match(object, parents) {
-    return (
-      (object.type === "FunctionDeclaration" ||
-        object.type === "FunctionExpression") && // Does not apply to Arrow functions
-      !object.async && // Does not apply to async/generator functions
-      !object.generator
-    );
-  }
+          const path = _path as NodePath<
+            t.FunctionDeclaration | t.FunctionExpression
+          >;
 
-  transform(object: Node, parents: Node[]) {
-    // Discard getter/setter methods
-    if (parents[0].type === "Property" && parents[0].value === object) {
-      if (
-        parents[0].method ||
-        parents[0].kind === "get" ||
-        parents[0].kind === "set"
-      ) {
-        return;
-      }
-    }
+          if (me.isSkipped(path)) return;
 
-    // Discard class methods
-    if (parents[0].type === "MethodDefinition" && parents[0].value === object) {
-      return;
-    }
+          // Skip nested functions if the parent function is already deemed eligible
+          if (path.find((p) => p.node[RGF_ELIGIBLE] || p.node[MULTI_TRANSFORM]))
+            return;
 
-    // Avoid applying to the countermeasures function
-    if (typeof this.options.lock?.countermeasures === "string") {
-      // function countermeasures(){...}
-      if (
-        object.type === "FunctionDeclaration" &&
-        object.id.type === "Identifier" &&
-        object.id.name === this.options.lock.countermeasures
-      ) {
-        return;
-      }
+          // Skip async and generator functions
+          if (path.node.async || path.node.generator) return;
 
-      // var countermeasures = function(){...}
-      if (
-        parents[0].type === "VariableDeclarator" &&
-        parents[0].init === object &&
-        parents[0].id.type === "Identifier" &&
-        parents[0].id.name === this.options.lock.countermeasures
-      ) {
-        return;
-      }
-    }
+          const name = getFunctionName(path);
+          if (name === me.options.lock?.countermeasures) return;
+          if (me.obfuscator.isInternalVariable(name)) return;
 
-    // Check user option
-    if (!ComputeProbabilityMap(this.options.rgf, (x) => x, object?.id?.name))
-      return;
+          if (
+            !me.computeProbabilityMap(
+              me.options.rgf,
+              name,
+              path.getFunctionParent() === null
+            )
+          )
+            return;
 
-    // Discard functions that use 'eval' function
-    if (object.$requiresEval) return;
+          // Skip functions with references to outside variables
+          // Check the scope to see if this function relies on any variables defined outside the function
+          var identifierPreventingTransform: string;
 
-    // Check for 'this', 'arguments' (not allowed!)
-    var isIllegal = false;
-    walk(object, parents, (o, p) => {
-      if (
-        o.type === "ThisExpression" ||
-        o.type === "Super" ||
-        (o.type === "Identifier" && o.name === "arguments")
-      ) {
-        isIllegal = true;
-        return "EXIT";
-      }
-    });
+          path.traverse({
+            Identifier(idPath) {
+              if (!isVariableIdentifier(idPath)) return;
+              if (idPath.isBindingIdentifier() && isDefiningIdentifier(idPath))
+                return;
 
-    if (isIllegal) return;
+              const { name } = idPath.node;
+              // RGF array name is allowed, it is not considered an outside reference
+              if (name === rgfArrayName) return;
+              if (reservedIdentifiers.has(name)) return;
+              if (me.options.globalVariables.has(name)) return;
 
-    return () => {
-      // Make sure function is 'reference-less'
-      var definedMap = new Map<Node, Set<string>>();
-      var isReferenceLess = true;
-      var identifierPreventingTransformation: string;
+              const binding = idPath.scope.getBinding(name);
+              if (!binding) {
+                // Global variables are allowed
+                return;
+              }
 
-      walk(object, parents, (o, p) => {
-        if (
-          o.type === "Identifier" &&
-          o.name !== this.arrayExpressionName &&
-          !reservedIdentifiers.has(o.name) &&
-          !this.options.globalVariables.has(o.name)
-        ) {
-          var info = getIdentifierInfo(o, p);
-          if (!info.spec.isReferenced) {
+              var isOutsideVariable =
+                path.scope.parent.getBinding(name) === binding;
+              // If the binding is not in the current scope, it is an outside reference
+              if (isOutsideVariable) {
+                identifierPreventingTransform = name;
+                idPath.stop();
+              }
+            },
+          });
+
+          if (identifierPreventingTransform) {
+            me.log(
+              "Skipping function " +
+                name +
+                " due to reference to outside variable: " +
+                identifierPreventingTransform
+            );
             return;
           }
 
-          if (info.spec.isDefined) {
-            // Add to defined map
-            var definingContext = getDefiningContext(o, p);
+          me.log("Function " + name + " is eligible for RGF transformation");
+          path.node[RGF_ELIGIBLE] = true;
+        },
+        exit(_path) {
+          if (!active) return;
 
-            if (!definedMap.has(definingContext)) {
-              definedMap.set(definingContext, new Set([o.name]));
-            } else {
-              definedMap.get(definingContext).add(o.name);
-            }
-          } else {
-            // This approach is dirty and does not account for hoisted FunctionDeclarations
-            var isDefinedAbove = false;
-            for (var pNode of p) {
-              if (definedMap.has(pNode)) {
-                if (definedMap.get(pNode).has(o.name)) {
-                  isDefinedAbove = true;
-                  break;
-                }
-              }
-            }
+          const path = _path as NodePath<
+            t.FunctionDeclaration | t.FunctionExpression
+          >;
 
-            if (!isDefinedAbove) {
-              isReferenceLess = false;
-              identifierPreventingTransformation = o.name;
+          if (me.isSkipped(path)) return;
 
-              return "EXIT";
-            }
-          }
-        }
-      });
+          // Function is not eligible for RGF transformation
+          if (!path.node[RGF_ELIGIBLE]) return;
 
-      // This function is not 'reference-less', cannot be RGF'd
-      if (!isReferenceLess) {
-        if (object.id) {
-          this.log(
-            `${object?.id?.name}() cannot be transformed because of ${identifierPreventingTransformation}`
-          );
-        }
-        return;
-      }
+          const embeddedName = me.getPlaceholder() + "_embedded";
+          const replacementName = me.getPlaceholder() + "_replacement";
+          const argumentsName = me.getPlaceholder() + "_args";
 
-      // Since `new Function` is completely isolated, create an entire new obfuscator and run remaining transformations.
-      // RGF runs early and needs completed code before converting to a string.
-      // (^ the variables haven't been renamed yet)
-      var obfuscator = new Obfuscator({
-        ...this.options,
-        stringEncoding: false,
-        compact: true,
-      });
+          const lastNode = t.expressionStatement(t.identifier(embeddedName));
+          (lastNode as NodeSymbol)[SKIP] = true;
 
-      if (obfuscator.options.lock) {
-        obfuscator.options.lock = { ...obfuscator.options.lock };
-        delete obfuscator.options.lock.countermeasures;
-
-        // Integrity will not recursively apply to RGF'd functions. This is intended.
-        var lockTransform = obfuscator.transforms["Lock"];
-        if (lockTransform) {
-          lockTransform.before = lockTransform.before.filter(
-            (beforeTransform) => !(beforeTransform instanceof Integrity)
-          );
-        }
-      }
-
-      var transforms = obfuscator.array.filter(
-        (x) => x.priority > this.priority
-      );
-
-      var embeddedFunctionName = this.getPlaceholder();
-
-      var embeddedFunction = {
-        type: "FunctionDeclaration",
-        id: Identifier(embeddedFunctionName),
-        body: BlockStatement([...object.body.body]),
-        params: object.params,
-        async: false,
-        generator: false,
-      };
-
-      // The new program will look like this
-      // new Function(`
-      //  var rgf_array = this[0]
-      //  function greet(message){
-      //      console.log(message)
-      //  }
-      //  return greet.apply(this[1], arguments)
-      // `)
-      //
-      // And called like
-      // f.apply([ rgf_array, this ], arguments)
-      var tree = {
-        type: "Program",
-        body: [
-          VariableDeclaration(
-            VariableDeclarator(
-              this.arrayExpressionName,
-              MemberExpression(ThisExpression(), Literal(0))
-            )
-          ),
-          embeddedFunction,
-          ReturnStatement(
-            CallExpression(
-              MemberExpression(
-                Identifier(embeddedFunctionName),
-                Literal("apply"),
-                true
-              ),
-              [
-                MemberExpression(ThisExpression(), Literal(1)),
-                Identifier("arguments"),
-              ]
-            )
-          ),
-        ],
-      };
-
-      transforms.forEach((transform) => {
-        transform.apply(tree);
-      });
-
-      var toString = compileJsSync(tree, obfuscator.options);
-
-      // new Function(code)
-      var newFunctionExpression: Node = NewExpression(Identifier("Function"), [
-        Literal(toString),
-      ]);
-
-      if (this.options.lock?.tamperProtection) {
-        // If tamper protection is enabled, wrap the function in an eval
-        var randomName = this.getGenerator("randomized").generate();
-        newFunctionExpression = CallExpression(Identifier("eval"), [
-          Literal(`function ${randomName}(){ ${toString} } ${randomName}`),
-        ]);
-      }
-
-      // The index where this function is placed in the array
-      var newFunctionExpressionIndex = this.arrayExpressionElements.length;
-
-      // Add it to the array
-      this.arrayExpressionElements.push(newFunctionExpression);
-
-      // The member expression to retrieve this function
-      var memberExpression: Node = MemberExpression(
-        Identifier(this.arrayExpressionName),
-        Literal(newFunctionExpressionIndex),
-        true
-      );
-
-      var originalFunctionLength = computeFunctionLength(object.params);
-
-      // Replace based on type
-
-      // (1) Function Declaration:
-      // - Replace body with call to new function
-      if (object.type === "FunctionDeclaration") {
-        object.body = BlockStatement([
-          ReturnStatement(
-            CallExpression(
-              MemberExpression(memberExpression, Literal("apply"), true),
-              [
-                ArrayExpression([
-                  Identifier(this.arrayExpressionName),
-                  ThisExpression(),
+          // Transform the function
+          const evalProgram: t.Program = t.program([
+            t.functionDeclaration(
+              t.identifier(embeddedName),
+              [],
+              t.blockStatement([
+                t.variableDeclaration("var", [
+                  t.variableDeclarator(
+                    t.arrayPattern([
+                      t.identifier(rgfArrayName),
+                      t.identifier(argumentsName),
+                    ]),
+                    t.identifier("arguments")
+                  ),
                 ]),
-                Identifier("arguments"),
-              ]
-            )
-          ),
-        ]);
-
-        // The parameters are no longer needed ('arguments' is used to capture them)
-        object.params = [];
-
-        // The function is no longer guaranteed to not have extraneous parameters passed in
-        object[predictableFunctionTag] = false;
-
-        if (
-          this.options.preserveFunctionLength &&
-          originalFunctionLength !== 0
-        ) {
-          var body = parents[0] as unknown as Node[];
-
-          body.splice(
-            body.indexOf(object),
-            0,
-            ExpressionStatement(
-              CallExpression(Identifier(this.getFunctionLengthName(parents)), [
-                Identifier(object.id.name),
-                Literal(originalFunctionLength),
+                t.functionDeclaration(
+                  t.identifier(replacementName),
+                  path.node.params as (t.Identifier | t.Pattern)[],
+                  path.node.body
+                ),
+                t.returnStatement(
+                  t.callExpression(
+                    t.memberExpression(
+                      t.identifier(replacementName),
+                      t.identifier("apply")
+                    ),
+                    [t.thisExpression(), t.identifier(argumentsName)]
+                  )
+                ),
               ])
-            )
-          );
-        }
-        return;
-      }
+            ),
+            lastNode,
+          ]);
 
-      // (2) Function Expression:
-      // - Replace expression with member expression pointing to new function
-      if (object.type === "FunctionExpression") {
-        if (
-          this.options.preserveFunctionLength &&
-          originalFunctionLength !== 0
-        ) {
-          memberExpression = CallExpression(
-            Identifier(this.getFunctionLengthName(parents)),
-            [memberExpression, Literal(originalFunctionLength)]
+          const strictModeEnforcingBlock = path.find((p) => isStrictMode(p));
+          if (strictModeEnforcingBlock) {
+            // Preserve 'use strict' directive
+            // This is necessary to enure subsequent transforms (Control Flow Flattening) are aware of the strict mode directive
+            evalProgram.directives.push(
+              t.directive(t.directiveLiteral("use strict"))
+            );
+          }
+
+          const evalFile = t.file(evalProgram);
+
+          var newObfuscator = new Obfuscator(me.options, me.obfuscator);
+
+          var hasRan = new Set(
+            me.obfuscator.plugins
+              .filter((plugin, i) => {
+                return i <= me.obfuscator.index;
+              })
+              .map((plugin) => plugin.pluginInstance.order)
           );
-        }
-        this.replace(object, memberExpression);
-        return;
-      }
-    };
-  }
-}
+
+          // Global Concealing will likely cause issues when Pack is also enabled
+          const disallowedTransforms = new Set([Order.GlobalConcealing]);
+
+          newObfuscator.plugins = newObfuscator.plugins.filter(
+            ({ pluginInstance }) => {
+              return (
+                (pluginInstance.order == Order.Preparation ||
+                  !hasRan.has(pluginInstance.order)) &&
+                !disallowedTransforms.has(pluginInstance.order)
+              );
+            }
+          );
+
+          newObfuscator.obfuscateAST(evalFile);
+
+          const generated = Obfuscator.generateCode(evalFile);
+
+          var functionExpression = t.callExpression(t.identifier(rgfEvalName), [
+            t.stringLiteral(generated),
+          ]);
+
+          var index = rgfArrayExpression.elements.length;
+          rgfArrayExpression.elements.push(functionExpression);
+
+          // Params no longer needed, using 'arguments' instead
+          const originalLength = computeFunctionLength(path);
+          path.node.params = [];
+
+          // Function is now unsafe
+          (path.node as NodeSymbol)[UNSAFE] = true;
+          // Params changed and using 'arguments'
+          (path.node as NodeSymbol)[PREDICTABLE] = false;
+          me.skip(path);
+
+          // Update body to point to new function
+          path
+            .get("body")
+            .replaceWith(
+              t.blockStatement([
+                t.returnStatement(
+                  t.callExpression(
+                    t.memberExpression(
+                      t.memberExpression(
+                        t.identifier(rgfArrayName),
+                        numericLiteral(index),
+                        true
+                      ),
+                      t.stringLiteral("apply"),
+                      true
+                    ),
+                    [
+                      t.thisExpression(),
+                      t.arrayExpression([
+                        t.identifier(rgfArrayName),
+                        t.identifier("arguments"),
+                      ]),
+                    ]
+                  )
+                ),
+              ])
+            );
+
+          path.skip();
+
+          me.setFunctionLength(path, originalLength);
+
+          me.changeData.functions++;
+        },
+      },
+    },
+  };
+};

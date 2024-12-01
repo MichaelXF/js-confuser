@@ -1,380 +1,312 @@
-import { ok } from "assert";
-import { ObfuscateOrder } from "../../order";
+import * as t from "@babel/types";
+import { NodePath } from "@babel/traverse";
 import Template from "../../templates/template";
-import { getBlock } from "../../traverse";
-import { isDirective, isModuleSource } from "../../util/compare";
+import { PluginArg, PluginObject } from "../plugin";
+import { Order } from "../../order";
+import { ok } from "assert";
+import { BufferToStringTemplate } from "../../templates/bufferToStringTemplate";
+import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
 import {
-  ArrayExpression,
-  CallExpression,
-  Identifier,
-  Literal,
-  MemberExpression,
-  Node,
-  ObjectExpression,
-  Property,
-  VariableDeclaration,
-  VariableDeclarator,
-} from "../../util/gen";
-import { append, prepend } from "../../util/insert";
+  ensureComputedExpression,
+  isModuleImport,
+  prepend,
+  prependProgram,
+} from "../../utils/ast-utils";
 import {
   chance,
   choice,
   getRandomInteger,
   getRandomString,
-  shuffle,
-} from "../../util/random";
-import Transform from "../transform";
-import {
-  EncodingImplementation,
-  EncodingImplementations,
-  createEncodingImplementation,
-  hasAllEncodings,
-} from "./encoding";
-import { ComputeProbabilityMap } from "../../probability";
-import {
-  BufferToStringTemplate,
-  createGetGlobalTemplate,
-} from "../../templates/bufferToString";
-import { criticalFunctionTag, predictableFunctionTag } from "../../constants";
+} from "../../utils/random-utils";
+import { CustomStringEncoding } from "../../options";
+import { createDefaultStringEncoding } from "./encoding";
+import { numericLiteral } from "../../utils/node";
+import { NO_REMOVE } from "../../constants";
 
-interface FunctionObject {
-  block: Node;
+interface StringConcealingInterface {
+  encodingImplementation: CustomStringEncoding;
   fnName: string;
-  encodingImplementation: EncodingImplementation;
 }
 
-export default class StringConcealing extends Transform {
-  arrayExpression: Node;
-  set: Set<string>;
-  index: { [str: string]: [number, string, Node] }; // index, fnName, block
+const STRING_CONCEALING = Symbol("StringConcealing");
 
-  arrayName = this.getPlaceholder();
-  ignore = new Set<string>();
-  variablesMade = 1;
-  gen: ReturnType<Transform["getGenerator"]>;
+interface NodeStringConcealing {
+  [STRING_CONCEALING]?: StringConcealingInterface;
+}
 
-  functionObjects: FunctionObject[] = [];
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.StringConcealing, {
+    changeData: {
+      strings: 0,
+      decryptionFunctions: 0,
+    },
+  });
 
-  constructor(o) {
-    super(o, ObfuscateOrder.StringConcealing);
+  const blocks: NodePath<t.Block>[] = [];
+  const stringMap = new Map<string, number>();
+  const stringArrayName = me.getPlaceholder() + "_array";
+  const stringArrayCacheName = me.getPlaceholder() + "_cache";
 
-    this.set = new Set();
-    this.index = Object.create(null);
-    this.arrayExpression = ArrayExpression([]);
-    this.gen = this.getGenerator();
+  let encodingImplementations: { [identity: string]: CustomStringEncoding } =
+    Object.create(null);
+
+  let availableStringEncodings = me.options.customStringEncodings;
+
+  // If no custom encodings are provided, use the default encoding
+  if (!availableStringEncodings || availableStringEncodings.length === 0) {
+    availableStringEncodings = [createDefaultStringEncoding];
   }
 
-  apply(tree) {
-    super.apply(tree);
+  function hasAllEncodings() {
+    return availableStringEncodings.length === 0;
+  }
 
-    // Pad array with useless strings
-    var dead = getRandomInteger(50, 200);
-    for (var i = 0; i < dead; i++) {
-      var str = getRandomString(getRandomInteger(5, 40));
-      var fn = this.transform(Literal(str), [tree]);
-      if (fn) {
-        fn();
+  function createStringEncoding(): CustomStringEncoding {
+    var encodingIndex = getRandomInteger(0, availableStringEncodings.length);
+    var encoding = availableStringEncodings[encodingIndex];
+
+    if (typeof encoding === "function") {
+      encoding = encoding(encodingImplementations);
+
+      var duplicateIdentity =
+        typeof encoding.identity !== "undefined" &&
+        typeof encodingImplementations[encoding.identity] !== "undefined";
+
+      if (duplicateIdentity || encoding === null) {
+        // Null returned -> All encodings have been created
+        // Duplicate identity -> Most likely all encodings have been created
+
+        // No longer create new encodings using this function
+        availableStringEncodings = availableStringEncodings.filter(
+          (x) => x !== encoding
+        );
+
+        // Return a random encoding already made
+        encoding = choice(Object.values(encodingImplementations));
+        ok(encoding, "Failed to create main string encoding");
       }
     }
 
-    var cacheName = this.getPlaceholder();
-    var bufferToStringName = this.getPlaceholder() + predictableFunctionTag;
-
-    // This helper functions convert UInt8 Array to UTf-string
-    prepend(
-      tree,
-      ...BufferToStringTemplate.compile({
-        name: bufferToStringName,
-        getGlobalFnName: this.getPlaceholder() + predictableFunctionTag,
-        GetGlobalTemplate: createGetGlobalTemplate(this, tree, []),
-      })
-    );
-
-    for (var functionObject of this.functionObjects) {
-      var {
-        block,
-        fnName: getterFnName,
-        encodingImplementation,
-      } = functionObject;
-
-      var decodeFn =
-        this.getPlaceholder() + predictableFunctionTag + criticalFunctionTag;
-
-      append(
-        block,
-        encodingImplementation.template.single({
-          __fnName__: decodeFn,
-          __bufferToString__: bufferToStringName,
-        })
-      );
-      // All these are fake and never ran
-      var ifStatements = new Template(`if ( z == x ) {
-          return y[${cacheName}[z]] = ${getterFnName}(x, y);
-        }
-        if ( y ) {
-          [b, y] = [a(b), x || z]
-          return ${getterFnName}(x, b, z)
-        }
-        if ( z && a !== ${decodeFn} ) {
-          ${getterFnName} = ${decodeFn}
-          return ${getterFnName}(x, -1, z, a, b)
-        }
-        if ( a === ${getterFnName} ) {
-          ${decodeFn} = y
-          return ${decodeFn}(z)
-        }
-        if( a === undefined ) {
-          ${getterFnName} = b
-        }
-        if( z == a ) {
-          return y ? x[b[y]] : ${cacheName}[x] || (z=(b[x] || a), ${cacheName}[x] = z(${this.arrayName}[x]))
-        }
-        `).compile();
-
-      // Not all fake if-statements are needed
-      ifStatements = ifStatements.filter(() => chance(50));
-
-      // This one is always used
-      ifStatements.push(
-        new Template(`
-      if ( x !== y ) {
-        return b[x] || (b[x] = a(${this.arrayName}[x]))
-      }
-      `).single()
-      );
-
-      shuffle(ifStatements);
-
-      var varDeclaration = new Template(`
-      var ${getterFnName} = (x, y, z, a, b)=>{
-        if(typeof a === "undefined") {
-          a = ${decodeFn}
-        }
-        if(typeof b === "undefined") {
-          b = ${cacheName}
-        }
-      }
-      `).single();
-
-      varDeclaration.declarations[0].init.body.body.push(...ifStatements);
-
-      prepend(block, varDeclaration);
+    if (typeof encoding.identity === "undefined") {
+      encoding.identity = encodingIndex.toString();
     }
 
-    prepend(
-      tree,
-      VariableDeclaration([
-        VariableDeclarator(cacheName, ArrayExpression([])),
-        VariableDeclarator(this.arrayName, this.arrayExpression),
-      ])
-    );
+    if (typeof encoding.code === "string") {
+      encoding.code = new Template(encoding.code);
+    }
+
+    me.changeData.decryptionFunctions++;
+    encodingImplementations[encoding.identity] = encoding;
+
+    return encoding;
   }
 
-  match(object, parents) {
-    return (
-      object.type == "Literal" &&
-      typeof object.value === "string" &&
-      object.value.length >= 3 &&
-      !isModuleSource(object, parents) &&
-      !isDirective(object, parents) //&&
-      /*!parents.find((x) => x.$multiTransformSkip)*/
-    );
-  }
+  return {
+    visitor: {
+      Program: {
+        exit(programPath: NodePath<t.Program>) {
+          let mainEncodingImplementation: CustomStringEncoding;
 
-  transform(object: Node, parents: Node[]) {
-    return () => {
-      // Empty strings are discarded
-      if (
-        !object.value ||
-        this.ignore.has(object.value) ||
-        object.value.length == 0
-      ) {
-        return;
-      }
+          // Create a main encoder function for the Program
+          (programPath.node as NodeStringConcealing)[STRING_CONCEALING] = {
+            encodingImplementation: (mainEncodingImplementation =
+              createStringEncoding()),
+            fnName: me.getPlaceholder() + "_MAIN_STR",
+          };
+          blocks.push(programPath);
 
-      // Allow user to choose which strings get changed
-      if (
-        !ComputeProbabilityMap(
-          this.options.stringConcealing,
-          (x) => x,
-          object.value
-        )
-      ) {
-        return;
-      }
+          // Use that encoder function for these fake strings
+          const fakeStringCount = getRandomInteger(75, 125);
+          for (var i = 0; i < fakeStringCount; i++) {
+            const fakeString = getRandomString(getRandomInteger(5, 50));
+            stringMap.set(
+              mainEncodingImplementation.encode(fakeString),
+              stringMap.size
+            );
+          }
 
-      var currentBlock = getBlock(object, parents);
+          programPath.traverse({
+            StringLiteral: {
+              exit(path: NodePath<t.StringLiteral>) {
+                const originalValue = path.node.value;
 
-      // Find created functions
-      var functionObjects: FunctionObject[] = parents
-        .filter((node) => node.$stringConcealingFunctionObject)
-        .map((item) => item.$stringConcealingFunctionObject);
+                // Ignore require() calls / Import statements
+                if (isModuleImport(path)) {
+                  return;
+                }
 
-      // Choose random functionObject to use
-      var functionObject = choice(functionObjects);
+                // Minimum length of 3 characters
+                if (originalValue.length < 3) {
+                  return;
+                }
 
-      if (
-        !functionObject ||
-        (!hasAllEncodings() &&
-          chance(25 / this.functionObjects.length) &&
-          !currentBlock.$stringConcealingFunctionObject)
-      ) {
-        // No functions, create one
+                // Check user setting
+                if (
+                  !me.computeProbabilityMap(
+                    me.options.stringConcealing,
+                    originalValue
+                  )
+                ) {
+                  return;
+                }
 
-        var newFunctionObject: FunctionObject = {
-          block: currentBlock,
-          encodingImplementation: createEncodingImplementation(),
-          fnName: this.getPlaceholder() + predictableFunctionTag,
-        };
+                let block = path.findParent(
+                  (p) =>
+                    p.isBlock() &&
+                    !!(p.node as NodeStringConcealing)?.[STRING_CONCEALING]
+                ) as NodePath<t.Block>;
 
-        this.functionObjects.push(newFunctionObject);
-        currentBlock.$stringConcealingFunctionObject = newFunctionObject;
-        functionObject = newFunctionObject;
-      }
+                let stringConcealingInterface = (
+                  block?.node as NodeStringConcealing
+                )?.[STRING_CONCEALING] as StringConcealingInterface;
 
-      var { fnName, encodingImplementation } = functionObject;
+                if (
+                  !block ||
+                  (!hasAllEncodings() && chance(75 - blocks.length))
+                ) {
+                  // Create a new encoder function
+                  // Select random block parent (or Program)
+                  block = path.findParent((p) =>
+                    p.isBlock()
+                  ) as NodePath<t.Block>;
 
-      var index = -1;
+                  const stringConcealingNode =
+                    block.node as NodeStringConcealing;
 
-      // String already decoded?
-      if (this.set.has(object.value)) {
-        var row = this.index[object.value];
-        if (parents.includes(row[2])) {
-          [index, fnName] = row;
-          ok(typeof index === "number");
-        }
-      }
+                  // Ensure not to overwrite the previous encoders
+                  if (!stringConcealingNode[STRING_CONCEALING]) {
+                    // Create a new encoding function for this block
+                    const encodingImplementation = createStringEncoding();
+                    const fnName =
+                      me.getPlaceholder() + "_STR_" + blocks.length;
 
-      if (index == -1) {
-        // The decode function must return correct result
-        var encoded = encodingImplementation.encode(object.value);
-        if (encodingImplementation.decode(encoded) !== object.value) {
-          this.ignore.add(object.value);
-          this.warn(
-            encodingImplementation.identity,
-            object.value.slice(0, 100)
+                    stringConcealingInterface = {
+                      encodingImplementation,
+                      fnName: fnName,
+                    };
+
+                    // Save this info in the AST for future strings
+                    stringConcealingNode[STRING_CONCEALING] =
+                      stringConcealingInterface;
+
+                    blocks.push(block);
+                  }
+                }
+
+                ok(stringConcealingInterface);
+
+                const encodedValue =
+                  stringConcealingInterface.encodingImplementation.encode(
+                    originalValue
+                  );
+
+                // If a decoder function is provided, use it to validate each encoded string
+                if (
+                  typeof stringConcealingInterface.encodingImplementation
+                    .decode === "function"
+                ) {
+                  const decodedValue =
+                    stringConcealingInterface.encodingImplementation.decode(
+                      encodedValue
+                    );
+                  if (decodedValue !== originalValue) {
+                    return;
+                  }
+                }
+
+                let index = stringMap.get(encodedValue);
+
+                if (typeof index === "undefined") {
+                  index = stringMap.size;
+                  stringMap.set(encodedValue, index);
+                }
+
+                me.changeData.strings++;
+
+                // Ensure the string is computed so we can replace it with complex call expression
+                ensureComputedExpression(path);
+
+                // Replace the string literal with a call to the decoder function
+                path.replaceWith(
+                  t.callExpression(
+                    t.identifier(stringConcealingInterface.fnName),
+                    [numericLiteral(index)]
+                  )
+                );
+
+                // Skip the transformation for the newly created node
+                path.skip();
+              },
+            },
+          });
+
+          const bufferToStringName = me.getPlaceholder() + "_bufferToString";
+          const getGlobalFnName = me.getPlaceholder() + "_getGlobal";
+
+          const bufferToStringCode = BufferToStringTemplate.compile({
+            GetGlobalTemplate: createGetGlobalTemplate(me, programPath),
+            getGlobalFnName: getGlobalFnName,
+            BufferToString: bufferToStringName,
+          });
+
+          prependProgram(programPath, bufferToStringCode);
+
+          // Create the string array
+          prependProgram(
+            programPath,
+            t.variableDeclaration("var", [
+              t.variableDeclarator(
+                t.identifier(stringArrayName),
+                t.arrayExpression(
+                  Array.from(stringMap.keys()).map((x) => t.stringLiteral(x))
+                )
+              ),
+            ])
           );
-          delete EncodingImplementations[encodingImplementation.identity];
 
-          return;
-        }
+          // Create the string cache
+          prependProgram(
+            programPath,
+            new Template(`
+            var {stringArrayCacheName} = {};
+            `).single({
+              stringArrayCacheName,
+            })
+          );
 
-        this.arrayExpression.elements.push(Literal(encoded));
-        index = this.arrayExpression.elements.length - 1;
-        this.index[object.value] = [index, fnName, currentBlock];
+          for (var block of blocks) {
+            const { encodingImplementation, fnName } = (
+              block.node as NodeStringConcealing
+            )[STRING_CONCEALING] as StringConcealingInterface;
 
-        this.set.add(object.value);
-      }
+            const decodeFnName = fnName + "_decode";
 
-      ok(index != -1, "index == -1");
+            ok(encodingImplementation.code instanceof Template);
 
-      var callExpr = CallExpression(Identifier(fnName), [Literal(index)]);
+            // The decoder function
+            const decoder = encodingImplementation.code
+              .addSymbols(NO_REMOVE)
+              .compile({
+                fnName: decodeFnName,
+                __bufferToStringFunction__: bufferToStringName,
+              });
 
-      // use `.apply` to fool automated de-obfuscators
-      if (chance(10)) {
-        callExpr = CallExpression(
-          MemberExpression(Identifier(fnName), Literal("apply"), true),
-          [Identifier("undefined"), ArrayExpression([Literal(index)])]
-        );
-      }
+            // The main function to get the string value
+            const retrieveFunctionDeclaration = new Template(`
+              function ${fnName}(index) {
+                if (typeof ${stringArrayCacheName}[index] === 'undefined') {
+                  return ${stringArrayCacheName}[index] = ${decodeFnName}(${stringArrayName}[index]);
+                }
+                return ${stringArrayCacheName}[index];
+              }
+            `)
+              .addSymbols(NO_REMOVE)
+              .single<t.FunctionDeclaration>();
 
-      // use `.call`
-      else if (chance(10)) {
-        callExpr = CallExpression(
-          MemberExpression(Identifier(fnName), Literal("call"), true),
-          [Identifier("undefined"), Literal(index)]
-        );
-      }
-
-      var referenceType = "call";
-      if (parents.length && chance(50 - this.variablesMade)) {
-        referenceType = "constantReference";
-      }
-
-      var newExpr: Node = callExpr;
-
-      if (referenceType === "constantReference") {
-        // Define the string earlier, reference the name here
-        this.variablesMade++;
-
-        var constantReferenceType = choice(["variable", "array", "object"]);
-
-        var place = currentBlock;
-        if (!place) {
-          this.error(new Error("No lexical block to insert code"));
-        }
-
-        switch (constantReferenceType) {
-          case "variable":
-            var name = this.getPlaceholder();
-
-            prepend(
-              place,
-              VariableDeclaration(VariableDeclarator(name, callExpr))
-            );
-
-            newExpr = Identifier(name);
-            break;
-          case "array":
-            if (!place.$stringConcealingArray) {
-              place.$stringConcealingArray = ArrayExpression([]);
-              place.$stringConcealingArrayName = this.getPlaceholder();
-
-              prepend(
-                place,
-                VariableDeclaration(
-                  VariableDeclarator(
-                    place.$stringConcealingArrayName,
-                    place.$stringConcealingArray
-                  )
-                )
-              );
-            }
-
-            var arrayIndex = place.$stringConcealingArray.elements.length;
-
-            place.$stringConcealingArray.elements.push(callExpr);
-
-            var memberExpression = MemberExpression(
-              Identifier(place.$stringConcealingArrayName),
-              Literal(arrayIndex),
-              true
-            );
-
-            newExpr = memberExpression;
-            break;
-          case "object":
-            if (!place.$stringConcealingObject) {
-              place.$stringConcealingObject = ObjectExpression([]);
-              place.$stringConcealingObjectName = this.getPlaceholder();
-
-              prepend(
-                place,
-                VariableDeclaration(
-                  VariableDeclarator(
-                    place.$stringConcealingObjectName,
-                    place.$stringConcealingObject
-                  )
-                )
-              );
-            }
-
-            var propName = this.gen.generate();
-            var property = Property(Literal(propName), callExpr, true);
-            place.$stringConcealingObject.properties.push(property);
-
-            var memberExpression = MemberExpression(
-              Identifier(place.$stringConcealingObjectName),
-              Literal(propName),
-              true
-            );
-
-            newExpr = memberExpression;
-            break;
-        }
-      }
-
-      this.replaceIdentifierOrLiteral(object, newExpr, parents);
-    };
-  }
-}
+            prepend(block, [...decoder, retrieveFunctionDeclaration]);
+          }
+        },
+      },
+    },
+  };
+};

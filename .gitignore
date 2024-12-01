@@ -112,6 +112,7 @@ dev.error.js
 dev.input.js
 dev.output.js
 dev.ts
+dev.profile.json
 
 package-lock.json
 

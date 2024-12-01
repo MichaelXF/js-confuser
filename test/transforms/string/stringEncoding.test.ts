@@ -3,7 +3,7 @@ import JsConfuser from "../../../src/index";
 test("Variant #1: Encode strings", async () => {
   var code = `var TEST_STRING = "encoded."`;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringEncoding: true,
   });
@@ -20,7 +20,7 @@ test("Variant #1: Encode strings", async () => {
 test("Variant #2: Encode strings AND still have same result", async () => {
   var code = `input("encoded.")`;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringEncoding: true,
   });
@@ -46,7 +46,10 @@ test("Variant #2: Encode strings AND still have same result", async () => {
 test("Variant #3: Encode object property keys", async () => {
   var code = `TEST_OUTPUT = { myProperty1: true, "myProperty2": true }`;
 
-  var output = await JsConfuser(code, { target: "node", stringEncoding: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "node",
+    stringEncoding: true,
+  });
 
   // Ensure the strings got changed
   expect(output).not.toContain("myProperty1");
@@ -62,7 +65,10 @@ test("Variant #3: Encode object property keys", async () => {
 test("Variant #4: Encode object destructuring property keys", async () => {
   var code = `({ ["myDestructedKey"]: TEST_OUTPUT } = { myDestructedKey: true })`;
 
-  var output = await JsConfuser(code, { target: "node", stringEncoding: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "node",
+    stringEncoding: true,
+  });
 
   // Ensure the string(s) got changed
   expect(output).not.toContain("myDestructedKey");
@@ -86,10 +92,11 @@ test("Variant #5: Preserve 'use strict' directive", async () => {
   var anotherVar = "use strict";
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     preset: "high",
+    pack: false,
   });
 
-  expect(output.startsWith("'use strict'")).toStrictEqual(true);
+  expect(output.startsWith('"use strict"')).toStrictEqual(true);
 });

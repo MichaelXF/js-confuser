@@ -1,7 +1,7 @@
 import JsConfuser from "../../src/index";
 
 test("Variant #1: Positive integer to hexadecimal", async () => {
-  var output = await JsConfuser.obfuscate(`TEST_VAR = 10;`, {
+  var { code: output } = await JsConfuser.obfuscate(`TEST_VAR = 10;`, {
     target: "node",
     hexadecimalNumbers: true,
   });
@@ -17,7 +17,7 @@ test("Variant #1: Positive integer to hexadecimal", async () => {
 });
 
 test("Variant #2: Negative integer to hexadecimal", async () => {
-  var output = await JsConfuser.obfuscate(`TEST_VAR = -10;`, {
+  var { code: output } = await JsConfuser.obfuscate(`TEST_VAR = -10;`, {
     target: "node",
     hexadecimalNumbers: true,
   });
@@ -33,10 +33,13 @@ test("Variant #2: Negative integer to hexadecimal", async () => {
 });
 
 test("Variant #3: Don't change floats", async () => {
-  var output = await JsConfuser.obfuscate(`var TEST_VAR = [15.5, -75.9];`, {
-    target: "node",
-    hexadecimalNumbers: true,
-  });
+  var { code: output } = await JsConfuser.obfuscate(
+    `var TEST_VAR = [15.5, -75.9];`,
+    {
+      target: "node",
+      hexadecimalNumbers: true,
+    }
+  );
 
   expect(output).toContain("15.5");
   expect(output).toContain("-75.9");
@@ -44,7 +47,7 @@ test("Variant #3: Don't change floats", async () => {
 });
 
 test("Variant #4: Work even on large numbers", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `TEST_VAR = 10000000000000000000000000000;`,
     {
       target: "node",

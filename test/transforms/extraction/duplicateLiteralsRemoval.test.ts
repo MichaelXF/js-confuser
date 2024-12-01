@@ -6,7 +6,7 @@ test("Variant #1: Remove duplicate literals", async () => {
   var TEST_ARRAY = [5,5];
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     duplicateLiteralsRemoval: true,
   });
@@ -21,7 +21,7 @@ test("Variant #2: Remove duplicate literals and execute correctly", async () => 
   TEST_ARRAY = [5,5];
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     duplicateLiteralsRemoval: true,
   });
@@ -42,7 +42,7 @@ test("Variant #3: Remove 'undefined' and 'null' values", async () => {
   TEST_ARRAY = [undefined,undefined,null,null];
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     duplicateLiteralsRemoval: true,
   });
@@ -66,12 +66,12 @@ test("Variant #4: Do not remove empty strings", async () => {
   TEST_ARRAY = ['','','',''];
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     duplicateLiteralsRemoval: true,
   });
 
-  expect(output).toContain("'','','',''");
+  expect(output).toContain('"","","",""');
 
   var TEST_ARRAY;
 
@@ -86,7 +86,7 @@ test("Variant #5: Work with NaN values", async () => {
   TEST_ARRAY = [NaN];
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     duplicateLiteralsRemoval: true,
   });
@@ -111,7 +111,7 @@ test("Variant #6: Work on property keys", async () => {
   TEST_VAR = myObject.myKey;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     duplicateLiteralsRemoval: true,
   });
@@ -137,7 +137,7 @@ test("Variant #7: Work on class keys", async () => {
   TEST_VAR = myObject.myMethod();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     duplicateLiteralsRemoval: true,
   });
@@ -167,7 +167,7 @@ test("Variant #8: Do not encode constructor key", async () => {
   new MyClass();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     duplicateLiteralsRemoval: true,
   });
@@ -180,7 +180,7 @@ test("Variant #8: Do not encode constructor key", async () => {
 
 // https://github.com/MichaelXF/js-confuser/issues/105
 test("Variant #9: Undefined as variable name", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   var undefined = 0;
   var undefined = 1;
@@ -194,7 +194,7 @@ test("Variant #9: Undefined as variable name", async () => {
     { target: "node", duplicateLiteralsRemoval: true }
   );
 
-  expect(output).toContain("(undefined=");
+  expect(output).toContain("undefined=");
 
   eval(output);
 });

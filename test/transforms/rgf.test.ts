@@ -1,8 +1,8 @@
 import { writeFileSync } from "fs";
 import JsConfuser from "../../src/index";
 
-test("Variant #1: Convert Function Declaration into 'new Function' code", async () => {
-  var output = await JsConfuser.obfuscate(
+test("Variant #1: Convert Function Declaration into 'eval' code", async () => {
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(a, b){
       return a + b;
@@ -16,7 +16,7 @@ test("Variant #1: Convert Function Declaration into 'new Function' code", async 
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("_rgf_eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -24,8 +24,8 @@ test("Variant #1: Convert Function Declaration into 'new Function' code", async 
   expect(TEST_OUTPUT).toStrictEqual(15);
 });
 
-test("Variant #2: Convert Function Expression into 'new Function' code", async () => {
-  var output = await JsConfuser.obfuscate(
+test("Variant #2: Convert Function Expression into 'eval' code", async () => {
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var addTwoNumbers = function(a, b){
       return a + b;
@@ -39,7 +39,7 @@ test("Variant #2: Convert Function Expression into 'new Function' code", async (
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("_rgf_eval(");
 
   var TEST_OUTPUT;
   eval(output);
@@ -48,7 +48,7 @@ test("Variant #2: Convert Function Expression into 'new Function' code", async (
 });
 
 test("Variant #3: Convert functions that use global variables", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function floorNumber(num){
       return Math.floor(num);
@@ -62,7 +62,7 @@ test("Variant #3: Convert functions that use global variables", async () => {
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -71,7 +71,7 @@ test("Variant #3: Convert functions that use global variables", async () => {
 });
 
 test("Variant #4: Don't convert functions that rely on outside-scoped variables", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var _Math = Math;
 
@@ -87,7 +87,7 @@ test("Variant #4: Don't convert functions that rely on outside-scoped variables"
     }
   );
 
-  expect(output).not.toContain("new Function");
+  expect(output).not.toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -96,7 +96,7 @@ test("Variant #4: Don't convert functions that rely on outside-scoped variables"
 });
 
 test("Variant #5: Don't convert functions that rely on outside-scoped variables (trap)", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var _Math = Math;
 
@@ -115,7 +115,7 @@ test("Variant #5: Don't convert functions that rely on outside-scoped variables 
     }
   );
 
-  expect(output).not.toContain("new Function");
+  expect(output).not.toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -124,7 +124,7 @@ test("Variant #5: Don't convert functions that rely on outside-scoped variables 
 });
 
 test("Variant #6: Work on High Preset", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(a, b){
       return a + b;
@@ -136,17 +136,18 @@ test("Variant #6: Work on High Preset", async () => {
       target: "node",
       preset: "high",
       rgf: true,
+      pack: true,
     }
   );
 
   var TEST_OUTPUT;
-  eval(output);
+  eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual(15);
 });
 
 test("Variant #7: Don't convert arrow, async, or generator functions", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var arrowFunction = ()=>{};
     async function asyncFunction(){
@@ -164,7 +165,7 @@ test("Variant #7: Don't convert arrow, async, or generator functions", async () 
     }
   );
 
-  expect(output).not.toContain("new Function");
+  expect(output).not.toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -173,7 +174,7 @@ test("Variant #7: Don't convert arrow, async, or generator functions", async () 
 });
 
 test("Variant #8: Modified Function", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(x,y){
       return x + y;
@@ -195,7 +196,7 @@ test("Variant #8: Modified Function", async () => {
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -204,7 +205,7 @@ test("Variant #8: Modified Function", async () => {
 });
 
 test("Variant #8: Modified Function (non function value)", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function addTwoNumbers(x,y){
       return x+y;
@@ -220,7 +221,7 @@ test("Variant #8: Modified Function (non function value)", async () => {
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
   var TEST_OUTPUT;
   eval(output);
@@ -229,10 +230,11 @@ test("Variant #8: Modified Function (non function value)", async () => {
 });
 
 test("Variant #9: Work with Flatten on any function", async () => {
-  var output = await JsConfuser.obfuscate(
+  var { code: output } = await JsConfuser.obfuscate(
     `
     var outsideCounter = 0;
     var outsideFlag = false;
+    var TEST_OUTPUT
 
     function incrementOutsideCounter(){
       outsideCounter++;
@@ -251,6 +253,8 @@ test("Variant #9: Work with Flatten on any function", async () => {
     incrementOutsideCounter();
     incrementTimes(8);
     incrementTimes(1); 
+
+    TEST_OUTPUT_OUT = TEST_OUTPUT;
     `,
     {
       target: "node",
@@ -259,46 +263,25 @@ test("Variant #9: Work with Flatten on any function", async () => {
     }
   );
 
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
 
-  var TEST_OUTPUT;
+  var TEST_OUTPUT_OUT;
   eval(output);
 
-  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+  expect(TEST_OUTPUT_OUT).toStrictEqual("Correct Value");
 });
 
 test("Variant #10: Configurable by custom function option", async () => {
   var functionNames: string[] = [];
 
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
-  "use strict";
-
-  // By checking strict-mode, we can check if the function was RGF or not
   function rgfThisFunction(){
-    var isStrictMode = () => {
-      try {
-        undefined = true;
-      } catch (E) {
-        return true;
-      }
-      return false;
-    }
-
-    return isStrictMode();
+    return true;
   }
-
+  
   function doNotRgfThisFunction(){
-    var isStrictMode = () => {
-      try {
-        undefined = true;
-      } catch (E) {
-        return true;
-      }
-      return false;
-    }
-
-    return isStrictMode();
+    return true;
   }
 
   TEST_OUTPUT_1 = rgfThisFunction();
@@ -310,6 +293,7 @@ test("Variant #10: Configurable by custom function option", async () => {
         functionNames.push(name);
         return name !== "doNotRgfThisFunction";
       },
+      pack: true,
     }
   );
 
@@ -317,18 +301,23 @@ test("Variant #10: Configurable by custom function option", async () => {
     "rgfThisFunction",
     "doNotRgfThisFunction",
   ]);
-  expect(output).toContain("new Function");
+  expect(output).toContain("eval");
+
+  expect(output).not.toContain("rgfThisFunction(){return true");
+  expect(output).toContain("doNotRgfThisFunction(){return true");
 
   var TEST_OUTPUT_1;
   var TEST_OUTPUT_2;
 
   eval(output);
-  expect(TEST_OUTPUT_1).toStrictEqual(false);
+  expect(TEST_OUTPUT_1).toStrictEqual(true);
   expect(TEST_OUTPUT_2).toStrictEqual(true);
 });
 
-test("Variant #11: Function containing function should both be changed", async function () {
-  var output = await JsConfuser(
+test("Variant #11: Functions containing functions should only transform the parent function", async function () {
+  var fnNamesCollected: string[] = [];
+
+  var { code: output } = await JsConfuser.obfuscate(
     `
     function FunctionA(){
       function FunctionB(){
@@ -343,11 +332,22 @@ test("Variant #11: Function containing function should both be changed", async f
 
     TEST_OUTPUT = FunctionA();
   `,
-    { target: "node", rgf: true }
+    {
+      target: "node",
+      rgf: (fnName) => {
+        fnNamesCollected.push(fnName);
+
+        return true;
+      },
+    }
   );
 
-  // 2 means one Function changed, 3 means two Functions changed
-  expect(output.split("new Function").length).toStrictEqual(3);
+  // Ensure only FunctionA was transformed
+  expect(fnNamesCollected).toContain("FunctionA");
+  expect(fnNamesCollected).not.toContain("FunctionB");
+
+  // Only the most parent function should be changed
+  expect(output.split('_rgf_eval("').length).toStrictEqual(2);
 
   var TEST_OUTPUT;
   eval(output);
@@ -356,14 +356,16 @@ test("Variant #11: Function containing function should both be changed", async f
 });
 
 test("Variant #12: Preserve Function.length", async function () {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   function myFunction(a,b,c,d = ""){ // Function.length = 3
 
   }
 
+  function oneParam(a){} // Function.length = 1
+
   myFunction()
-  TEST_OUTPUT = myFunction.length
+  TEST_OUTPUT = myFunction.length + oneParam.length
   `,
     {
       target: "node",
@@ -374,5 +376,5 @@ test("Variant #12: Preserve Function.length", async function () {
   var TEST_OUTPUT;
   eval(output);
 
-  expect(TEST_OUTPUT).toStrictEqual(3);
+  expect(TEST_OUTPUT).toStrictEqual(4);
 });

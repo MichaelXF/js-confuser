@@ -1,19 +1,25 @@
 import JsConfuser from "../../src/index";
 
-it("should hide binary expressions", async () => {
+test("Variant #1: Hide binary expressions", async () => {
   var code = `5 + 5`;
 
-  var output = await JsConfuser(code, { target: "browser", calculator: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    calculator: true,
+  });
 
   expect(output).not.toContain("5+5");
   expect(output).not.toContain("5 + 5");
   expect(output).toContain("switch");
 });
 
-it("should result with correct values", async () => {
+test("Variant #2: Result with correct values", async () => {
   var code = `input(5 + 5)`;
 
-  var output = await JsConfuser(code, { target: "browser", calculator: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    calculator: true,
+  });
 
   function input(x) {
     expect(x).toStrictEqual(10);
@@ -22,10 +28,13 @@ it("should result with correct values", async () => {
   eval(output);
 });
 
-it("should execute property with complex operations", async () => {
-  var code = `input((40 * 35 + 4) * 4 + 2)`;
+test("Variant #3: Execute property with complex operations", async () => {
+  var code = `input((40 * 35 + 4) * 4 + 2 + -20)`;
 
-  var output = await JsConfuser(code, { target: "browser", calculator: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "browser",
+    calculator: true,
+  });
 
   var value;
   function input(x) {
@@ -34,40 +43,18 @@ it("should execute property with complex operations", async () => {
 
   eval(output);
 
-  expect(value).toStrictEqual(5618);
+  expect(value).toStrictEqual(5598);
 });
 
-it("should apply to unary operators", async () => {
-  var code = `
-  var one = +1;
-  var negativeOne = -one;
-
-  var trueValue = true;
-  var falseValue = !trueValue;
-
-  TEST_OUTPUT = typeof (1, falseValue) === "boolean" && negativeOne === ~~-1 && void 0 === undefined;
-  `;
-
-  var output = await JsConfuser(code, { target: "node", calculator: true });
-
-  expect(output).toContain("_calc");
-  expect(output).not.toContain("+1");
-  expect(output).not.toContain("-one");
-  expect(output).not.toContain("typeof(1,falseValue)");
-  expect(output).not.toContain("void 0");
-
-  var TEST_OUTPUT = true;
-  eval(output);
-
-  expect(TEST_OUTPUT).toStrictEqual(true);
-});
-
-it("should not break typeof expressions", async () => {
+test("Variant #4: Don't break typeof expressions", async () => {
   var code = `
     TEST_OUTPUT = typeof nonExistentVariable === "undefined";
     `;
 
-  var output = await JsConfuser(code, { target: "node", calculator: true });
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "node",
+    calculator: true,
+  });
 
   expect(output).not.toContain("_calc");
 
@@ -75,4 +62,26 @@ it("should not break typeof expressions", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+test("Variant #5: Work with all binary operators", async () => {
+  var code = `
+  let result = (
+    (((5 + 3) * 2 - (6 / 3) % 4 + (10 ** 2) - (8 << 2) + (256 >> 3) | (15 & 7) ^ 12) * 3)
+    + (42 | 24) 
+    + ((9 & 5) ^ (2 ^ 1))
+  ) + (14 * (18 >>> 2)) - ((35 * 2) | (7 & 3)) + (50 ^ 21) + (~5) + (9 << 1) - (100 >> 2);
+
+  TEST_OUTPUT = result;
+  `;
+
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "node",
+    calculator: true,
+  });
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(440);
 });

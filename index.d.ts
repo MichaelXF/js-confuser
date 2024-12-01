@@ -1,19 +1,17 @@
-import TransformClass from "./src/transforms/transform";
-import ObfuscatorClass from "./src/obfuscator";
-import {
-  IJsConfuser as JsConfuser,
-  IJsConfuserDebugObfuscation,
-  IJsConfuserDebugTransformations,
-  IJsConfuserObfuscate,
-  IJsConfuserObfuscateAST,
-  IJsConfuserPresets,
-} from "./src/types";
+// Export all the types from the index file
+export * from "./src/index";
+export { default } from "./src/index";
 
-export default JsConfuser;
-export const obfuscate: IJsConfuserObfuscate;
-export const obfuscateAST: IJsConfuserObfuscateAST;
-export const presets: IJsConfuserPresets;
-export const debugTransformations: IJsConfuserDebugTransformations;
-export const debugObfuscation: IJsConfuserDebugObfuscation;
-export const Obfuscator: typeof ObfuscatorClass;
-export const Transform: typeof TransformClass;
+// Export useful types
+export type {
+  ObfuscateOptions,
+  ProbabilityMap,
+  CustomLock,
+  CustomStringEncoding,
+} from "./src/options";
+export type {
+  ObfuscationResult,
+  ProfileData,
+  ProfilerCallback,
+  ProfilerLog,
+} from "./src/obfuscationResult";

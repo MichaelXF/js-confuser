@@ -9,7 +9,7 @@ assignees: ''
 
 **Describe the bug:**
 
-The program gets stuck in a infinite loop
+The program enters an infinite loop and does not produce the expected output.
 
 **Config and Small code sample**
 
@@ -30,12 +30,14 @@ console.log("My Small Code Sample");
 
 **Expected behavior**
 
-The program should output "My Small Code Sample"
+Example: The program should output "My Small Code Sample"
 
 **Actual behavior**
 
-The program stalls forever and never outputs anything
+Example: The program stalls indefinitely and never outputs the expected message.
 
 **Additional context**
 
-Seems the program gets stuck in a infinite loop due to Control Flow Flattening. Disabling the feature seems to rid of the bug.
+Example: It appears that the issue is caused by Control Flow Flattening. Disabling this feature resolves the problem.
+
+

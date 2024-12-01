@@ -83,11 +83,13 @@ test("Variant #4: Should work when countermeasures is variable declaration", asy
 
 // https://github.com/MichaelXF/js-confuser/issues/66
 test("Variant #5: Should work with RGF enabled", async () => {
-  await JsConfuser.obfuscate(
+  var { code } = await JsConfuser.obfuscate(
     `
   function myCountermeasuresFunction(){
 
   }
+
+  TEST_OUTPUT = true;
   `,
     {
       target: "node",
@@ -97,4 +99,29 @@ test("Variant #5: Should work with RGF enabled", async () => {
       rgf: true,
     }
   );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+test("Variant #6: Disallow reassignments to the countermeasures function", async () => {
+  const sourceCode = `
+  function myCountermeasuresFunction(){
+
+  }
+  myCountermeasuresFunction = function(){
+    console.log("This is not allowed");
+  }
+  `;
+
+  expect(async () => {
+    return JsConfuser.obfuscate(sourceCode, {
+      target: "node",
+      lock: {
+        countermeasures: "myCountermeasuresFunction",
+      },
+    });
+  }).rejects.toThrow("Countermeasures function cannot be reassigned");
 });

@@ -1,3 +1,105 @@
+# `2.0.0`
+2.0 Rewrite 🎉
+
+### Complete rewrite of JS-Confuser using Babel! 🎉
+
+**⚠️ Breaking changes**
+
+> Check out the [Migration guide](./Migration.md) on how to properly update from 1.X to 2.0. The obfuscation upgrades in 2.0 are worth the small refactoring.
+
+- Revamped API Interface
+
+- - JSConfuser.obfuscate() resolves to an object
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `code` | `string` | The obfuscated code. |
+
+- Renamed `Stack` to `Variable Masking`
+
+- Added configurable limits to options:
+
+```js
+const options = {
+  target: "node",
+
+  rgf: {
+    value: 0.5, // = 50% of eligible functions
+    limit: 10 // Maximum of 10 changes for performance reasons
+  },
+
+  // Original format is still valid (No limit applied)
+  rgf: 0.5
+}
+```
+
+### 2.0 Changes
+
+- Added [Custom String Encoding](https://js-confuser.com/docs/options/customStringEncodings) and [Custom Lock Code](https://js-confuser.com/docs/options/customLocks) options
+
+- Added `Rename Labels` [Learn more here](https://js-confuser.com/docs/options/renamelabels#rename-labels)
+
+- Added `Pack` [Learn more here](https://js-confuser.com/docs/options/pack#pack)
+
+- RGF no longers uses `new Function` instead uses `eval`
+
+- Improved code transforms!
+
+- Improved `Control Flow Flattening`
+
+- - Obfuscates the [Call Graph](https://en.wikipedia.org/wiki/Call_graph)
+
+- - Now supports lexical bindings (`let`, `const`, `class`)
+
+- - `with () { }` statement obfuscation
+
+- Improved `Minify`
+
+- - Removes unused variables and functions
+
+- Improved `Moved Declaration` ability to move variables as unused function parameters
+
+- Improved `String` transforms
+
+- - [Template literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals) are now obfuscated (First converted into equivalent String Literal)
+
+- - [Regular expressions](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions) are now obfuscated (First converted into equivalent RegExp() constructor calls)
+
+- - `String Compression` now uses LZ-string compression ([lz-string](https://www.npmjs.com/package/lz-string))
+
+- New Comment Syntax
+
+- - `/* @js-confuser-var */ "name"` for improved variable mappings, such as eval() calls
+
+```js
+// Input
+var name = "Internet User";
+eval( "console.log(" + /* @js-confuser-var */ "name" + ")" );
+
+// Output
+var zC3PLKu = "Internet User";
+eval("console.log(" + "zC3PLKu" + ")");
+```
+
+Note: The function `__JS_CONFUSER_VAR__` is still supported.
+
+### JS-Confuser.com Revamp
+
+A new UI for [JS-Confuser.com](https://js-confuser.com), featuring an advanced playground and documentation pages.
+
+The previous version will remain available at [old--confuser.netlify.com](https://old--confuser.netlify.app/).
+
+**Removed features**
+
+- Removed `ES5` option - Use Babel Instead
+
+- Removed `Browser Lock` and `OS Lock` - Use [Custom Locks](https://js-confuser.com/docs/options/customlocks#custom-locks) instead
+
+- Removed `Shuffle`'s Hash option
+
+- Removed `Indent` option
+
+
 # `1.7.3`
 Tamper Protection
 
@@ -30,7 +132,7 @@ eval('console.log(' + 'CA1HU0' + ')');
 
 - Improve `String Compression`
 
-- New Web UI sneak peak: https://new--confuser.netlify.app/
+- New Web UI sneak peak: https://js-confuser.com/
 
 
 # `1.7.2`

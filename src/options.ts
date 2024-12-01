@@ -1,264 +1,215 @@
-import { ok } from "assert";
-import presets from "./presets";
-import { ProbabilityMap } from "./probability";
+import Template from "./templates/template";
+
+// JS-Confuser.com imports this file for Type support, therefore some additional types are included here.
+
+type Stringed<V> = V extends string ? V : never;
+
+/**
+ * Configurable probabilities for obfuscator options.
+ * - **`false`** = this feature is disabled
+ * - **`true`** = this feature is enabled, use default mode
+ * - **`0.5`** = 50% chance
+ * - **`"mode"`** = enabled, use specified mode
+ * - **`["mode1", "mode2"]`** - enabled, choose random mode each occurrence
+ * - **`{"mode1": 0.5, "mode2": 0.5}`** - enabled, choose based on specified probabilities
+ * - **`{"mode1": 50, "mode2": 50}`** - enabled, each is divided based on total
+ * - **`function(x){ return "custom_implementation" }`** - enabled, use specified function
+ */
+export type ProbabilityMap<
+  T = boolean,
+  F extends (...args: any[]) => any = () => boolean // Default to a generic function
+> =
+  | false
+  | true
+  | number
+  | F
+  | (T extends never | boolean
+      ? {
+          value: ProbabilityMap<never, F>;
+          limit?: number;
+        }
+      : T | T[] | { [key in Stringed<T>]?: number });
+
+export interface CustomLock {
+  /**
+   * Template lock code that must contain:
+   *
+   * - `{countermeasures}`
+   *
+   * The countermeasures function will be invoked when the lock is triggered.
+   *
+   * ```js
+   * if(window.navigator.userAgent.includes('Chrome')){
+   *   {countermeasures}
+   * }
+   * ```
+   *
+   * Multiple templates can be passed a string array, a random one will be chosen each time.
+   */
+  code: string | string[] | Template;
+  percentagePerBlock: number;
+  maxCount?: number;
+  minCount?: number;
+}
+
+export interface CustomStringEncoding {
+  /**
+   * Template string decoder that must contain:
+   *
+   * - `{fnName}`
+   *
+   * This function will be invoked by the obfuscated code to DECODE the string.
+   *
+   * ```js
+   * function {fnName}(str){
+   *   return Buffer.from(str, 'base64').toString('utf-8')
+   * }
+   * ```
+   */
+  code?: string | Template;
+  encode: (str: string) => string;
+
+  /**
+   * Optional. A decoder function can be provided to ensure the string is able to decode properly.
+   * @param str
+   * @returns
+   */
+  decode?: (str: string) => string;
+
+  /**
+   * Should be used when created 'shuffled' variants of the same encoding.
+   */
+  identity?: string;
+}
 
 export interface ObfuscateOptions {
   /**
-   * ### `preset`
-   *
-   * JS-Confuser comes with three presets built into the obfuscator.
-   *
-   * | Preset | Transforms | Performance Reduction | Sample |
-   * | --- | --- | --- | --- |
-   * | High | 22/25 | 98% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/high.js) |
-   * | Medium | 19/25 | 52% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/medium.js) |
-   * | Low | 15/25 | 30% | [Sample](https://github.com/MichaelXF/js-confuser/blob/master/samples/low.js) |
-   *
-   * You can extend each preset or all go without them entirely. (`"high"/"medium"/"low"`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * The preset to use for obfuscation.
    */
   preset?: "high" | "medium" | "low" | false;
 
   /**
-   * ### `target`
-   *
    * The execution context for your output. _Required_.
    *
    * 1. `"node"`
    * 2. `"browser"`
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   target: "node" | "browser";
 
   /**
-   * ### `indent`
-   *
-   * Controls the indentation of the output.
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-   */
-  indent?: 2 | 4 | "tabs";
-
-  /**
-   * ### `compact`
-   *
-   * Remove's whitespace from the final output. (`true/false`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Remove's whitespace from the final output.
    */
   compact?: boolean;
 
   /**
-   * ### `hexadecimalNumbers`
-   *
-   * Uses the hexadecimal representation for numbers. (`true/false`)
+   * Uses the hexadecimal representation for numbers.
    */
   hexadecimalNumbers?: boolean;
 
   /**
-   * ### `minify`
-   *
-   * Minifies redundant code. (`true/false`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Minifies redundant code.
    */
   minify?: boolean;
 
   /**
-   * ### `es5`
-   *
-   * Converts output to ES5-compatible code. (`true/false`)
-   *
-   * Does not cover all cases such as Promises or Generator functions. Use [Babel](https://babel.dev/).
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Renames labeled statements. Enabled by default.
    */
-  es5?: boolean;
+  renameLabels?: ProbabilityMap<boolean, (labelName: string) => boolean>;
 
   /**
-   * ### `renameVariables`
-   *
-   * Determines if variables should be renamed. (`true/false`)
-   * - Potency High
-   * - Resilience High
-   * - Cost Medium
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Determines if variables should be renamed.
    */
-  renameVariables?: ProbabilityMap<boolean>;
-
-  /**
-   * ### `renameGlobals`
-   *
-   * Renames top-level variables, turn this off for web-related scripts. Enabled by default. (`true/false`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-   */
-  renameGlobals?: ProbabilityMap<boolean>;
-
-  /**
-   * ### `identifierGenerator`
-   *
-   * Determines how variables are renamed.
-   *
-   * | Mode | Description | Example |
-   * | --- | --- | --- |
-   * | `"hexadecimal"` | Random hex strings | \_0xa8db5 |
-   * | `"randomized"` | Random characters | w$Tsu4G |
-   * | `"zeroWidth"` | Invisible characters | U+200D |
-   * | `"mangled"` | Alphabet sequence | a, b, c |
-   * | `"number"` | Numbered sequence | var_1, var_2 |
-   * | `<function>` | Write a custom name generator | See Below |
-   *
-   * ```js
-   * // Custom implementation
-   * JsConfuser.obfuscate(code, {
-   *   target: "node",
-   *   renameVariables: true,
-   *   identifierGenerator: function () {
-   *     return "$" + Math.random().toString(36).substring(7);
-   *   },
-   * });
-   *
-   * // Numbered variables
-   * var counter = 0;
-   * JsConfuser.obfuscate(code, {
-   *   target: "node",
-   *   renameVariables: true,
-   *   identifierGenerator: function () {
-   *     return "var_" + (counter++);
-   *   },
-   * });
-   * ```
-   *
-   * JSConfuser tries to reuse names when possible, creating very potent code.
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-   */
-  identifierGenerator?: ProbabilityMap<
-    "hexadecimal" | "randomized" | "zeroWidth" | "mangled" | "number"
+  renameVariables?: ProbabilityMap<
+    boolean,
+    (variableName: string, topLevel: boolean) => boolean
   >;
 
   /**
-   * ### `controlFlowFlattening`
+   * Renames top-level variables, turn this off for web-related scripts. Enabled by default.
+   */
+  renameGlobals?: ProbabilityMap<boolean, (variableName: string) => boolean>;
+
+  /**
+   * Determines how variables are renamed.
    *
+   * JS-Confuser tries to reuse names when possible, creating very potent code.
+   */
+  identifierGenerator?: ProbabilityMap<
+    | "hexadecimal"
+    | "randomized"
+    | "zeroWidth"
+    | "mangled"
+    | "number"
+    | "chinese",
+    () => string
+  >;
+
+  /**
    * ⚠️ Significantly impacts performance, use sparingly!
    *
-   * Control-flow Flattening hinders program comprehension by creating convoluted switch statements. (`true/false/0-1`)
+   * Control-flow Flattening hinders program comprehension by creating convoluted switch statements.
    *
    * Use a number to control the percentage from 0 to 1.
-   *
-   * - Potency High
-   * - Resilience High
-   * - Cost High
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   controlFlowFlattening?: ProbabilityMap<boolean>;
 
   /**
-   * ### `globalConcealing`
-   *
-   * Global Concealing hides global variables being accessed. (`true/false`)
-   *
-   * - Potency Medium
-   * - Resilience High
-   * - Cost Low
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Global Concealing hides global variables being accessed.
    */
-  globalConcealing?: ProbabilityMap<boolean>;
+  globalConcealing?: ProbabilityMap<boolean, (globalName: string) => boolean>;
 
   /**
-   * ### `stringCompression`
-   *
-   * String Compression uses LZW's compression algorithm to compress strings. (`true/false/0-1`)
+   * String Compression uses zlib compression algorithm to compress strings.
    *
    * `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
-   *
-   * - Potency High
-   * - Resilience Medium
-   * - Cost Medium
    */
-  stringCompression?: ProbabilityMap<boolean>;
+  stringCompression?: ProbabilityMap<boolean, (strValue: string) => boolean>;
 
   /**
-   * ### `stringConcealing`
-   *
-   * String Concealing involves encoding strings to conceal plain-text values. (`true/false/0-1`)
+   * String Concealing involves encoding strings to conceal plain-text values.
    *
    * `"console"` -> `decrypt('<~@rH7+Dert~>')`
-   *
-   * - Potency High
-   * - Resilience Medium
-   * - Cost Medium
    */
-  stringConcealing?: ProbabilityMap<boolean>;
+  stringConcealing?: ProbabilityMap<boolean, (strValue: string) => boolean>;
 
   /**
-   * ### `stringEncoding`
-   *
-   * String Encoding transforms a string into an encoded representation. (`true/false/0-1`)
+   * Custom String Encodings allows you to define your own string encoding/decoding functions.
+   */
+  customStringEncodings?: (
+    | CustomStringEncoding
+    | ((encodingImplementations: {
+        [identity: string]: CustomStringEncoding;
+      }) => CustomStringEncoding | null)
+  )[];
+
+  /**
+   * String Encoding transforms a string into an escaped unicode representation.
    *
    * `"console"` -> `'\x63\x6f\x6e\x73\x6f\x6c\x65'`
-   *
-   * - Potency Low
-   * - Resilience Low
-   * - Cost Low
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  stringEncoding?: ProbabilityMap<boolean>;
+  stringEncoding?: ProbabilityMap<boolean, (strValue: string) => boolean>;
 
   /**
-   * ### `stringSplitting`
-   *
-   * String Splitting splits your strings into multiple expressions. (`true/false/0-1`)
+   * String Splitting splits your strings into multiple expressions.
    *
    * `"console"` -> `String.fromCharCode(99) + 'ons' + 'ole'`
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Medium
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  stringSplitting?: ProbabilityMap<boolean>;
+  stringSplitting?: ProbabilityMap<boolean, (strValue: string) => boolean>;
 
   /**
-   * ### `duplicateLiteralsRemoval`
-   *
-   * Duplicate Literals Removal replaces duplicate literals with a single variable name. (`true/false`)
-   *
-   * - Potency Medium
-   * - Resilience Low
-   * - Cost High
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Duplicate Literals Removal replaces duplicate literals with a single variable name.
    */
   duplicateLiteralsRemoval?: ProbabilityMap<boolean>;
 
   /**
-   * ### `dispatcher`
-   *
-   * Creates a middleman function to process function calls. (`true/false/0-1`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost High
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Creates a middleman function to process function calls.
    */
-  dispatcher?: ProbabilityMap<boolean>;
+  dispatcher?: ProbabilityMap<boolean, (fnName: string) => boolean>;
 
   /**
-   * ### `rgf`
+   * RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings.
    *
-   * RGF (Runtime-Generated-Functions) uses the [`new Function(code...)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) syntax to construct executable code from strings. (`"all"/true/false`)
-   *
-   * - **This can break your code.
+   * - **This can break your code.**
    * - **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
    * - The arbitrary code is also obfuscated.
    *
@@ -274,20 +225,13 @@ export interface ObfuscateOptions {
    * var C6z0jyO=[new Function('a2Fjjl',"function OqNW8x(OqNW8x){console['log'](OqNW8x)}return OqNW8x(...Array.prototype.slice.call(arguments,1))")];(function(){return C6z0jyO[0](C6z0jyO,...arguments)}('Hello World'))
    * ```
    *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  rgf?: ProbabilityMap<boolean>;
+  rgf?: ProbabilityMap<boolean, (fnName: string, isGlobal: boolean) => boolean>;
 
   /**
-   * ### `stack`
-   *
    * Local variables are consolidated into a rotating array.
    *
    * [Similar to Jscrambler's Variable Masking](https://docs.jscrambler.com/code-integrity/documentation/transformations/variable-masking)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
    *
    * ```js
    * // Input
@@ -302,16 +246,10 @@ export interface ObfuscateOptions {
    * };
    * ```
    */
-  stack?: ProbabilityMap<boolean>;
+  variableMasking?: ProbabilityMap<boolean, (fnName: string) => boolean>;
 
   /**
-   * ### `objectExtraction`
-   *
-   * Extracts object properties into separate variables. (`true/false`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
+   * Extracts object properties into separate variables.
    *
    * ```js
    * // Input
@@ -330,569 +268,140 @@ export interface ObfuscateOptions {
    *   // ...
    * }
    * ```
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  objectExtraction?: ProbabilityMap<boolean>;
+  objectExtraction?: ProbabilityMap<boolean, (objectName: string) => boolean>;
 
   /**
-   * ### `flatten`
-   *
-   * Brings independent declarations to the highest scope. (`true/false`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost High
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Declares functions at the top of the program, preserving their original scope.
    */
-  flatten?: ProbabilityMap<boolean>;
+  flatten?: ProbabilityMap<boolean, (fnName: string) => boolean>;
 
   /**
-   * ### `deadCode`
-   *
-   * Randomly injects dead code. (`true/false/0-1`)
+   * Randomly injects dead code.
    *
    * Use a number to control the percentage from 0 to 1.
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   deadCode?: ProbabilityMap<boolean>;
 
   /**
-   * ### `calculator`
+   * Creates a calculator function to handle arithmetic and logical expressions.
    *
-   * Creates a calculator function to handle arithmetic and logical expressions. (`true/false/0-1`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
   calculator?: ProbabilityMap<boolean>;
 
   lock?: {
     /**
-     * ### `lock.selfDefending`
-     *
      * Prevents the use of code beautifiers or formatters against your code.
      *
      * [Identical to Obfuscator.io's Self Defending](https://github.com/javascript-obfuscator/javascript-obfuscator#selfdefending)
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     selfDefending?: boolean;
 
     /**
-     * ### `lock.antiDebug`
-     *
-     * Adds `debugger` statements throughout the code. Additionally adds a background function for DevTools detection. (`true/false/0-1`)
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     * Adds `debugger` statements throughout the code.
      */
     antiDebug?: ProbabilityMap<boolean>;
 
     /**
-     * ### `lock.context`
-     *
-     * Properties that must be present on the `window` object (or `global` for NodeJS). (`string[]`)
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-     */
-    context?: string[];
-
-    /**
-     * ### `lock.tamperProtection`
-     *
-     * Tamper Protection safeguards the runtime behavior from being altered by JavaScript pitfalls. (`true/false`)
+     * Tamper Protection safeguards the runtime behavior from being altered by JavaScript pitfalls.
      *
      * **⚠️ Tamper Protection requires eval and ran in a non-strict mode environment!**
      *
      * - **This can break your code.**
      * - **Due to the security concerns of arbitrary code execution, you must enable this yourself.**
      *
-     * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/TamperProtection.md).
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     * @see https://github.com/MichaelXF/js-confuser/blob/master/TamperProtection.md
      */
-    tamperProtection?: boolean | ((varName: string) => boolean);
+    tamperProtection?: ProbabilityMap<boolean, (varName: string) => boolean>;
 
     /**
-     * ### `lock.startDate`
-     *
      * When the program is first able to be used. (`number` or `Date`)
      *
      * Number should be in milliseconds.
-     *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     startDate?: number | Date | false;
 
     /**
-     * ### `lock.endDate`
-     *
      * When the program is no longer able to be used. (`number` or `Date`)
      *
      * Number should be in milliseconds.
-     *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
      */
     endDate?: number | Date | false;
 
     /**
-     * ### `lock.domainLock`
-     * Array of regex strings that the `window.location.href` must follow. (`Regex[]` or `string[]`)
-     *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     * Array of regex strings that the `window.location.href` must follow.
      */
     domainLock?: RegExp[] | string[] | false;
 
     /**
-     * ### `lock.osLock`
-     * Array of operating-systems where the script is allowed to run. (`string[]`)
+     * Integrity ensures the source code is unchanged.
      *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
-     * Allowed values: `"linux"`, `"windows"`, `"osx"`, `"android"`, `"ios"`
-     *
-     * Example: `["linux", "windows"]`
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     * @see https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md
      */
-    osLock?: ("linux" | "windows" | "osx" | "android" | "ios")[] | false;
+    integrity?: ProbabilityMap<boolean, (fnName: string) => boolean>;
 
     /**
-     * ### `lock.browserLock`
-     * Array of browsers where the script is allowed to run. (`string[]`)
-     *
-     * - Potency Low
-     * - Resilience Medium
-     * - Cost Medium
-     *
-     * Allowed values: `"firefox"`, `"chrome"`, `"iexplorer"`, `"edge"`, `"safari"`, `"opera"`
-     *
-     * Example: `["firefox", "chrome"]`
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-     */
-    browserLock?:
-      | ("firefox" | "chrome" | "iexplorer" | "edge" | "safari" | "opera")[]
-      | false;
-
-    /**
-     * ### `lock.integrity`
-     *
-     * Integrity ensures the source code is unchanged. (`true/false/0-1`)
-     *
-     * [Learn more here](https://github.com/MichaelXF/js-confuser/blob/master/Integrity.md).
-     *
-     * - Potency Medium
-     * - Resilience High
-     * - Cost High
-     *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-     */
-    integrity?: ProbabilityMap<boolean>;
-
-    /**
-     * ### `lock.countermeasures`
-     *
      * A custom callback function to invoke when a lock is triggered. (`string/false`)
      *
      * This could be due to an invalid domain, incorrect time, or code's integrity changed.
      *
-     * [Learn more about the rules of your countermeasures function](https://github.com/MichaelXF/js-confuser/blob/master/Countermeasures.md).
+     * If no countermeasures function is provided (`undefined` or `true`), the obfuscator falls back to crashing the process.
      *
-     * Otherwise, the obfuscator falls back to crashing the process.
+     * If `countermeasures` is `false`, no crash will occur.
      *
-     * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+     * @see https://github.com/MichaelXF/js-confuser/blob/master/Countermeasures.md
      */
     countermeasures?: string | boolean;
+
+    customLocks?: CustomLock[];
+
+    /**
+     * The default 'maxCount' for obfuscator and custom locks. Defaults to 25.
+     */
+    defaultMaxCount?: number;
   };
 
   /**
-   * ### `movedDeclarations`
-   *
-   * Moves variable declarations to the top of the context. (`true/false`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Moves variable declarations to the top of the context.
    */
   movedDeclarations?: ProbabilityMap<boolean>;
 
   /**
-   * ### `opaquePredicates`
-   *
    * An [Opaque Predicate](https://en.wikipedia.org/wiki/Opaque_predicate) is a predicate(true/false) that is evaluated at runtime, this can confuse reverse engineers
-   * understanding your code. (`true/false`)
-   *
-   * - Potency Medium
-   * - Resilience Medium
-   * - Cost Low
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * understanding your code.
    */
   opaquePredicates?: ProbabilityMap<boolean>;
 
   /**
-   * ### `shuffle`
-   *
    * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false/0-1`)
-   *
-   * - Potency Medium
-   * - Resilience Low
-   * - Cost Low
-   *
-   * | Mode | Description |
-   * | --- | --- |
-   * | `"hash"`| Array is shifted based on hash of the elements  |
-   * | `true`| Arrays are shifted *n* elements, unshifted at runtime |
-   * | `false` | Feature disabled |
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
    */
-  shuffle?: ProbabilityMap<boolean | "hash">;
+  shuffle?: ProbabilityMap<boolean>;
 
   /**
-   * ### `verbose`
-   *
-   * Enable logs to view the obfuscator's state. (`true/false`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Modified functions will retain the correct `function.length` property. Enabled by default.
    */
-  verbose?: boolean;
+  preserveFunctionLength?: boolean;
 
   /**
-   * ### `globalVariables`
+   * Semantically changes the AST to bypass automated tools.
+   */
+  astScrambler?: boolean;
+
+  /**
+   * Packs the output code into a single `Function()` call.
    *
-   * Set of global variables. *Optional*. (`Set<string>`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Designed to escape strict mode constraints.
+   */
+  pack?: ProbabilityMap<boolean, (globalName: string) => boolean>;
+
+  /**
+   * Set of global variables. *Optional*.
    */
   globalVariables?: Set<string>;
 
   /**
-   * ### `debugComments`
-   *
-   * Enable debug comments. (`true/false`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
+   * Enable logs to view the obfuscator's state.
    */
-  debugComments?: boolean;
-
-  /**
-   * ### `preserveFunctionLength`
-   *
-   * Modified functions will retain the correct `function.length` property. Enabled by default. (`true/false`)
-   *
-   * [See all settings here](https://github.com/MichaelXF/js-confuser/blob/master/README.md#options)
-   */
-  preserveFunctionLength?: boolean;
-}
-
-const validProperties = new Set([
-  "preset",
-  "target",
-  "indent",
-  "compact",
-  "hexadecimalNumbers",
-  "minify",
-  "es5",
-  "renameVariables",
-  "renameGlobals",
-  "identifierGenerator",
-  "controlFlowFlattening",
-  "globalConcealing",
-  "stringCompression",
-  "stringConcealing",
-  "stringEncoding",
-  "stringSplitting",
-  "duplicateLiteralsRemoval",
-  "dispatcher",
-  "rgf",
-  "objectExtraction",
-  "flatten",
-  "deadCode",
-  "calculator",
-  "lock",
-  "movedDeclarations",
-  "opaquePredicates",
-  "shuffle",
-  "stack",
-  "verbose",
-  "globalVariables",
-  "debugComments",
-  "preserveFunctionLength",
-]);
-
-const validLockProperties = new Set([
-  "selfDefending",
-  "antiDebug",
-  "context",
-  "tamperProtection",
-  "startDate",
-  "endDate",
-  "domainLock",
-  "osLock",
-  "browserLock",
-  "integrity",
-  "countermeasures",
-]);
-
-const validOses = new Set(["windows", "linux", "osx", "ios", "android"]);
-const validBrowsers = new Set([
-  "firefox",
-  "chrome",
-  "iexplorer",
-  "edge",
-  "safari",
-  "opera",
-]);
-
-export function validateOptions(options: ObfuscateOptions) {
-  if (!options || Object.keys(options).length <= 1) {
-    /**
-     * Give a welcoming introduction to those who skipped the documentation.
-     */
-    var line = `You provided zero obfuscation options. By default everything is disabled.\nYou can use a preset with:\n\n> {target: '${
-      options.target || "node"
-    }', preset: 'high' | 'medium' | 'low'}.\n\n\nView all settings here:\nhttps://github.com/MichaelXF/js-confuser#options`;
-    throw new Error(
-      `\n\n` +
-        line
-          .split("\n")
-          .map((x) => `\t${x}`)
-          .join("\n") +
-        `\n\n`
-    );
-  }
-
-  ok(options, "options cannot be null");
-  ok(
-    options.target,
-    "Missing options.target option (required, must one the following: 'browser' or 'node')"
-  );
-
-  ok(
-    ["browser", "node"].includes(options.target),
-    `'${options.target}' is not a valid target mode`
-  );
-
-  Object.keys(options).forEach((key) => {
-    if (!validProperties.has(key)) {
-      throw new TypeError("Invalid option: '" + key + "'");
-    }
-  });
-
-  if (
-    options.target === "node" &&
-    options.lock &&
-    options.lock.browserLock &&
-    options.lock.browserLock.length
-  ) {
-    throw new TypeError('browserLock can only be used when target="browser"');
-  }
-
-  if (options.lock) {
-    ok(typeof options.lock === "object", "options.lock must be an object");
-    Object.keys(options.lock).forEach((key) => {
-      if (!validLockProperties.has(key)) {
-        throw new TypeError("Invalid lock option: '" + key + "'");
-      }
-    });
-
-    // Validate browser-lock option
-    if (
-      options.lock.browserLock &&
-      typeof options.lock.browserLock !== "undefined"
-    ) {
-      ok(
-        Array.isArray(options.lock.browserLock),
-        "browserLock must be an array"
-      );
-      ok(
-        !options.lock.browserLock.find(
-          (browserName) => !validBrowsers.has(browserName)
-        ),
-        'Invalid browser name. Allowed: "firefox", "chrome", "iexplorer", "edge", "safari", "opera"'
-      );
-    }
-    // Validate os-lock option
-    if (options.lock.osLock && typeof options.lock.osLock !== "undefined") {
-      ok(Array.isArray(options.lock.osLock), "osLock must be an array");
-      ok(
-        !options.lock.osLock.find((osName) => !validOses.has(osName)),
-        'Invalid OS name. Allowed: "windows", "linux", "osx", "ios", "android"'
-      );
-    }
-    // Validate domain-lock option
-    if (
-      options.lock.domainLock &&
-      typeof options.lock.domainLock !== "undefined"
-    ) {
-      ok(Array.isArray(options.lock.domainLock), "domainLock must be an array");
-    }
-
-    // Validate context option
-    if (options.lock.context && typeof options.lock.context !== "undefined") {
-      ok(Array.isArray(options.lock.context), "context must be an array");
-    }
-
-    // Validate start-date option
-    if (
-      typeof options.lock.startDate !== "undefined" &&
-      options.lock.startDate
-    ) {
-      ok(
-        typeof options.lock.startDate === "number" ||
-          options.lock.startDate instanceof Date,
-        "startDate must be Date object or number"
-      );
-    }
-
-    // Validate end-date option
-    if (typeof options.lock.endDate !== "undefined" && options.lock.endDate) {
-      ok(
-        typeof options.lock.endDate === "number" ||
-          options.lock.endDate instanceof Date,
-        "endDate must be Date object or number"
-      );
-    }
-  }
-
-  if (options.preset) {
-    if (!presets[options.preset]) {
-      throw new TypeError("Unknown preset of '" + options.preset + "'");
-    }
-  }
-}
-
-/**
- * Corrects the user's options. Sets the default values and validates the configuration.
- * @param options
- * @returns
- */
-export async function correctOptions(
-  options: ObfuscateOptions
-): Promise<ObfuscateOptions> {
-  if (options.preset) {
-    // Clone and allow overriding
-    options = Object.assign({}, presets[options.preset], options);
-  }
-
-  if (!options.hasOwnProperty("debugComments")) {
-    options.debugComments = false; // debugComments is off by default
-  }
-
-  if (!options.hasOwnProperty("compact")) {
-    options.compact = true; // Compact is on by default
-  }
-  if (!options.hasOwnProperty("renameGlobals")) {
-    options.renameGlobals = true; // RenameGlobals is on by default
-  }
-  if (!options.hasOwnProperty("preserveFunctionLength")) {
-    options.preserveFunctionLength = true; // preserveFunctionLength is on by default
-  }
-
-  if (options.globalVariables && !(options.globalVariables instanceof Set)) {
-    options.globalVariables = new Set(Object.keys(options.globalVariables));
-  }
-
-  if (options.lock) {
-    if (options.lock.selfDefending) {
-      options.compact = true; // self defending forcibly enables this
-    }
-  }
-
-  // options.globalVariables outlines generic globals that should be present in the execution context
-  if (!options.hasOwnProperty("globalVariables")) {
-    options.globalVariables = new Set([]);
-
-    if (options.target == "browser") {
-      // browser
-      [
-        "window",
-        "document",
-        "postMessage",
-        "alert",
-        "confirm",
-        "location",
-        "btoa",
-        "atob",
-        "unescape",
-        "encodeURIComponent",
-      ].forEach((x) => options.globalVariables.add(x));
-    } else {
-      // node
-      [
-        "global",
-        "Buffer",
-        "require",
-        "process",
-        "exports",
-        "module",
-        "__dirname",
-        "__filename",
-      ].forEach((x) => options.globalVariables.add(x));
-    }
-
-    [
-      "globalThis",
-      "console",
-      "parseInt",
-      "parseFloat",
-      "Math",
-      "JSON",
-      "Promise",
-      "String",
-      "Boolean",
-      "Function",
-      "Object",
-      "Array",
-      "Proxy",
-      "Error",
-      "TypeError",
-      "ReferenceError",
-      "RangeError",
-      "EvalError",
-      "setTimeout",
-      "clearTimeout",
-      "setInterval",
-      "clearInterval",
-      "setImmediate",
-      "clearImmediate",
-      "queueMicrotask",
-      "isNaN",
-      "isFinite",
-      "Set",
-      "Map",
-      "WeakSet",
-      "WeakMap",
-      "Symbol",
-    ].forEach((x) => options.globalVariables.add(x));
-  }
-
-  return options;
+  verbose?: boolean;
 }

@@ -1,153 +1,251 @@
-import Transform from "../transform";
-import { isBlock } from "../../traverse";
+import { NodePath } from "@babel/traverse";
+import { Order } from "../../order";
+import { PluginArg, PluginObject } from "../plugin";
+import { NodeSymbol, PREDICTABLE } from "../../constants";
+import * as t from "@babel/types";
+import { isStaticValue } from "../../utils/static-utils";
 import {
-  ExpressionStatement,
-  AssignmentExpression,
-  Identifier,
-  Node,
-  VariableDeclarator,
-  AssignmentPattern,
-} from "../../util/gen";
-import {
-  isForInitialize,
-  isFunction,
-  isStrictModeFunction,
+  getPatternIdentifierNames,
+  isStrictMode,
   prepend,
-} from "../../util/insert";
-import { ok } from "assert";
-import { ObfuscateOrder } from "../../order";
-import { choice } from "../../util/random";
-import { predictableFunctionTag } from "../../constants";
-import { isIndependent, isMoveable } from "../../util/compare";
-import { getFunctionParameters } from "../../util/identifiers";
-import { isLexicalScope } from "../../util/scope";
+} from "../../utils/ast-utils";
+import Template from "../../templates/template";
 
 /**
- * Defines all the names at the top of every lexical block.
+ * Moved Declarations moves variables in two ways:
+ *
+ * 1) Move variables to top of the current block
+ * 2) Move variables as unused function parameters
  */
-export default class MovedDeclarations extends Transform {
-  constructor(o) {
-    super(o, ObfuscateOrder.MovedDeclarations);
-  }
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.MovedDeclarations, {
+    changeData: {
+      variableDeclarations: 0,
+      functionParameters: 0,
+    },
+  });
 
-  match(object, parents) {
-    return (
-      object.type === "VariableDeclaration" &&
-      object.kind === "var" &&
-      object.declarations.length === 1 &&
-      object.declarations[0].id.type === "Identifier"
+  function isFunctionEligibleForParameterPacking(
+    functionPath: NodePath<t.Function>,
+    proposedParameterName: string
+  ) {
+    // Getter/setter functions must have zero or one formal parameter
+    // We cannot add extra parameters to them
+    if (functionPath.isObjectMethod() || functionPath.isClassMethod()) {
+      if (functionPath.node.kind !== "method") {
+        return false;
+      }
+    }
+
+    // Rest params check
+    if (functionPath.get("params").find((p) => p.isRestElement())) return false;
+
+    // Max 1,000 parameters
+    if (functionPath.get("params").length > 1_000) return false;
+
+    // Check for duplicate parameter names
+    var bindingIdentifiers = getPatternIdentifierNames(
+      functionPath.get("params")
     );
+
+    // Duplicate parameter name not allowed
+    if (bindingIdentifiers.has(proposedParameterName)) return false;
+
+    return true;
   }
 
-  transform(object: Node, parents: Node[]) {
-    return () => {
-      var forInitializeType = isForInitialize(object, parents);
+  return {
+    visitor: {
+      FunctionDeclaration: {
+        exit(path) {
+          var functionPath = path.findParent((path) =>
+            path.isFunction()
+          ) as NodePath<t.Function>;
 
-      // Get the block statement or Program node
-      var blockIndex = parents.findIndex((x) => isLexicalScope(x));
-      var block = parents[blockIndex];
-      var body: Node[] =
-        block.type === "SwitchCase" ? block.consequent : block.body;
-      ok(Array.isArray(body), "No body array found.");
+          if (!functionPath || !(functionPath.node as NodeSymbol)[PREDICTABLE])
+            return;
 
-      var bodyObject = parents[blockIndex - 2] || object;
-      var index = body.indexOf(bodyObject);
+          var fnBody = functionPath.get("body");
 
-      var varName = object.declarations[0].id.name;
-      ok(typeof varName === "string");
+          if (!fnBody.isBlockStatement()) return;
 
-      var predictableFunctionIndex = parents.findIndex((x) => isFunction(x));
-      var predictableFunction = parents[predictableFunctionIndex];
+          // Must be direct child of the function
+          if (path.parentPath !== fnBody) return;
 
-      var deleteStatement = false;
+          const functionName = path.node.id.name;
 
-      if (
-        predictableFunction &&
-        ((predictableFunction.id &&
-          predictableFunction.id.name.includes(predictableFunctionTag)) ||
-          predictableFunction[predictableFunctionTag]) && // Must have predictableFunctionTag in the name, or on object
-        predictableFunction[predictableFunctionTag] !== false && // If === false, the function is deemed not predictable
-        predictableFunction.params.length < 1000 && // Max 1,000 parameters
-        !predictableFunction.params.find((x) => x.type === "RestElement") && // Cannot add parameters after spread operator
-        !(
-          ["Property", "MethodDefinition"].includes(
-            parents[predictableFunctionIndex + 1]?.type
-          ) && parents[predictableFunctionIndex + 1]?.kind !== "init"
-        ) && // Preserve getter/setter methods
-        !getFunctionParameters(
-          predictableFunction,
-          parents.slice(predictableFunctionIndex)
-        ).find((entry) => entry[0].name === varName) // Ensure not duplicate param name
-      ) {
-        // Use function f(..., x, y, z) to declare name
+          // Must be eligible for parameter packing
+          if (
+            !isFunctionEligibleForParameterPacking(functionPath, functionName)
+          )
+            return;
 
-        var value = object.declarations[0].init;
-        var isPredictablyComputed =
-          predictableFunction.body === block &&
-          !isStrictModeFunction(predictableFunction) &&
-          value &&
-          isIndependent(value, []) &&
-          isMoveable(value, [object.declarations[0], object, ...parents]);
+          var strictMode = isStrictMode(functionPath);
 
-        var defineWithValue = isPredictablyComputed;
+          // Default parameters are not allowed when 'use strict' is declared
+          if (strictMode) return;
 
-        if (defineWithValue) {
-          predictableFunction.params.push(
-            AssignmentPattern(Identifier(varName), value)
+          var functionExpression = path.node as t.Node as t.FunctionExpression;
+          functionExpression.type = "FunctionExpression";
+          functionExpression.id = null;
+
+          var identifier = t.identifier(functionName);
+          functionPath.node.params.push(identifier);
+
+          var paramPath = functionPath.get("params").at(-1);
+
+          // Update binding to point to new path
+          const binding = functionPath.scope.getBinding(functionName);
+          if (binding) {
+            binding.kind = "param";
+            binding.path = paramPath;
+            binding.identifier = identifier;
+          }
+
+          prepend(
+            fnBody,
+            new Template(`
+              if(!${functionName}) {
+                ${functionName} = {functionExpression};
+              }
+              `).single({ functionExpression: functionExpression })
           );
-          object.declarations[0].init = null;
-          deleteStatement = true;
-        } else {
-          predictableFunction.params.push(Identifier(varName));
-        }
-      } else {
-        // Use 'var x, y, z' to declare name
 
-        // Make sure in the block statement, and not already at the top of it
-        if (index === -1 || index === 0) return;
+          path.remove();
+          me.changeData.functionParameters++;
+        },
+      },
+      VariableDeclaration: {
+        exit(path) {
+          if (me.isSkipped(path)) return;
+          if (path.node.kind !== "var") return;
+          if (path.node.declarations.length !== 1) return;
 
-        var topVariableDeclaration;
-        if (body[0].type === "VariableDeclaration" && body[0].kind === "var") {
-          topVariableDeclaration = body[0];
-        } else {
-          topVariableDeclaration = {
-            type: "VariableDeclaration",
-            declarations: [],
-            kind: "var",
-          };
+          var insertionMethod = "variableDeclaration";
+          var functionPath = path.findParent((path) =>
+            path.isFunction()
+          ) as NodePath<t.Function>;
 
-          prepend(block, topVariableDeclaration);
-        }
+          const declaration = path.node.declarations[0];
+          if (!t.isIdentifier(declaration.id)) return;
+          const varName = declaration.id.name;
 
-        // Add `var x` at the top of the block
-        topVariableDeclaration.declarations.push(
-          VariableDeclarator(Identifier(varName))
-        );
-      }
+          var allowDefaultParamValue = true;
 
-      var assignmentExpression = AssignmentExpression(
-        "=",
-        Identifier(varName),
-        object.declarations[0].init || Identifier(varName)
-      );
+          if (functionPath && (functionPath.node as NodeSymbol)[PREDICTABLE]) {
+            // Check for "use strict" directive
+            // Strict mode disallows non-simple parameters
+            // So we can't move the declaration to the function parameters
+            var strictMode = isStrictMode(functionPath);
+            if (strictMode) {
+              allowDefaultParamValue = false;
+            }
 
-      if (forInitializeType) {
-        if (forInitializeType === "initializer") {
-          // Replace `for (var i = 0...)` to `for (i = 0...)`
-          this.replace(object, assignmentExpression);
-        } else if (forInitializeType === "left-hand") {
-          // Replace `for (var k in...)` to `for (k in ...)`
+            // Cannot add variables after rest element
+            // Cannot add over 1,000 parameters
+            if (isFunctionEligibleForParameterPacking(functionPath, varName)) {
+              insertionMethod = "functionParameter";
+            }
+          }
 
-          this.replace(object, Identifier(varName));
-        }
-      } else {
-        if (deleteStatement && index !== -1) {
-          body.splice(index, 1);
-        } else {
-          // Replace `var x = value` to `x = value`
-          this.replace(object, ExpressionStatement(assignmentExpression));
-        }
-      }
-    };
-  }
-}
+          const { name } = declaration.id;
+          const value = declaration.init || t.identifier("undefined");
+
+          const isStatic = isStaticValue(value);
+          let isDefinedAtTop = false;
+          const parentPath = path.parentPath;
+          if (parentPath.isBlock()) {
+            isDefinedAtTop =
+              parentPath
+                .get("body")
+                .filter((x) => x.type !== "ImportDeclaration")
+                .indexOf(path) === 0;
+          }
+
+          // Already at the top - nothing will change
+          if (insertionMethod === "variableDeclaration" && isDefinedAtTop) {
+            return;
+          }
+
+          let defaultParamValue: t.Expression;
+
+          if (
+            insertionMethod === "functionParameter" &&
+            isStatic &&
+            isDefinedAtTop &&
+            allowDefaultParamValue
+          ) {
+            defaultParamValue = value;
+            path.remove();
+          } else {
+            // For-in / For-of can only reference the variable name
+            if (
+              parentPath.isForInStatement() ||
+              parentPath.isForOfStatement()
+            ) {
+              path.replaceWith(t.identifier(name));
+            } else {
+              path.replaceWith(
+                t.assignmentExpression(
+                  "=",
+                  t.identifier(name),
+                  declaration.init || t.identifier("undefined")
+                )
+              );
+            }
+          }
+
+          switch (insertionMethod) {
+            case "functionParameter":
+              var identifier = t.identifier(name);
+
+              var param: t.Pattern | t.Identifier = identifier;
+              if (allowDefaultParamValue && defaultParamValue) {
+                param = t.assignmentPattern(param, defaultParamValue);
+              }
+
+              functionPath.node.params.push(param);
+
+              var paramPath = functionPath.get("params").at(-1);
+
+              // Update binding to point to new path
+              const binding = functionPath.scope.getBinding(name);
+              if (binding) {
+                binding.kind = "param";
+                binding.path = paramPath;
+                binding.identifier = identifier;
+              }
+
+              me.changeData.functionParameters++;
+              break;
+            case "variableDeclaration":
+              var block = path.findParent((path) =>
+                path.isBlock()
+              ) as NodePath<t.Block>;
+
+              var topNode = block.node.body.filter(
+                (x) => x.type !== "ImportDeclaration"
+              )[0];
+              const variableDeclarator = t.variableDeclarator(
+                t.identifier(name)
+              );
+
+              if (t.isVariableDeclaration(topNode) && topNode.kind === "var") {
+                topNode.declarations.push(variableDeclarator);
+                break;
+              } else {
+                prepend(
+                  block,
+                  me.skip(t.variableDeclaration("var", [variableDeclarator]))
+                );
+              }
+
+              me.changeData.variableDeclarations++;
+
+              break;
+          }
+        },
+      },
+    },
+  };
+};

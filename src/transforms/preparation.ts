@@ -1,19 +1,21 @@
-import Transform from "./transform";
-
+import { NodePath } from "@babel/traverse";
+import { PluginArg, PluginObject } from "./plugin";
+import * as t from "@babel/types";
+import { Order } from "../order";
 import {
-  BlockStatement,
-  Identifier,
-  LabeledStatement,
-  Literal,
-  Node,
-  ReturnStatement,
-} from "../util/gen";
-import { ObfuscateOrder } from "../order";
-import { clone, getFunction } from "../util/insert";
-import { getIdentifierInfo } from "../util/identifiers";
-import { isLoop } from "../util/compare";
-import { ExitCallback, walk } from "../traverse";
-import { variableFunctionName } from "../constants";
+  NodeSymbol,
+  PREDICTABLE,
+  UNSAFE,
+  variableFunctionName,
+} from "../constants";
+import { ok } from "assert";
+import {
+  getParentFunctionOrProgram,
+  getPatternIdentifierNames,
+  isVariableIdentifier,
+} from "../utils/ast-utils";
+import { isVariableFunctionIdentifier } from "../utils/function-utils";
+import Template from "../templates/template";
 
 /**
  * Preparation arranges the user's code into an AST the obfuscator can easily transform.
@@ -29,226 +31,317 @@ import { variableFunctionName } from "../constants";
  * - `x => x * 2` -> `x => { return x * 2 }` // Change into Block Statements
  * - `if(true) return` -> `if (true) { return }`
  * - `while(a) a--;` -> `while(a) { a-- }`
- *
- * Label
- * - `for(...) { break; }` -> `_1: for(...) { break _1; }`
- * - `switch(v) { case 1...break }` -> `_2: switch(v) { case 1...break _2; }`
- * - // Control Flow Flattening can safely apply now
  */
-export default class Preparation extends Transform {
-  constructor(o) {
-    super(o, ObfuscateOrder.Preparation);
-  }
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Preparation);
 
-  match(object: Node, parents: Node[]) {
-    return !!object.type;
-  }
+  const markFunctionUnsafe = (path: NodePath<t.Node>) => {
+    const functionPath = path.findParent(
+      (path) => path.isFunction() || path.isProgram()
+    );
+    if (!functionPath) return;
 
-  transform(object: Node, parents: Node[]): void | ExitCallback {
-    // ExplicitIdentifiers
-    if (object.type === "Identifier") {
-      return this.transformExplicitIdentifiers(object, parents);
-    }
+    const functionNode = functionPath.node;
 
-    // __JS_CONFUSER_VAR__ - Remove when Rename Variables is disabled
-    if (
-      object.type === "CallExpression" &&
-      object.callee.type === "Identifier" &&
-      object.callee.name === variableFunctionName
-    ) {
-      if (object.arguments[0].type === "Identifier") {
-        if (!this.obfuscator.transforms["RenameVariables"]) {
-          return () => {
-            this.replace(object, Literal(object.arguments[0].name));
-          };
-        }
-      }
-    }
+    (functionNode as NodeSymbol)[UNSAFE] = true;
+  };
 
-    // ExplicitDeclarations
-    if (object.type === "VariableDeclaration") {
-      return this.transformExplicitDeclarations(object, parents);
-    }
+  return {
+    visitor: {
+      "ThisExpression|Super": {
+        exit(path) {
+          markFunctionUnsafe(path);
+        },
+      },
 
-    // Block
-    switch (object.type) {
-      /**
-       * People use shortcuts and its harder to parse.
-       *
-       * - `if (a) b()` -> `if (a) { b() }`
-       * - Ensures all bodies are `BlockStatement`, not individual expression statements
-       */
-      case "IfStatement":
-        if (object.consequent.type != "BlockStatement") {
-          object.consequent = BlockStatement([clone(object.consequent)]);
-        }
-        if (object.alternate && object.alternate.type != "BlockStatement") {
-          object.alternate = BlockStatement([clone(object.alternate)]);
-        }
-        break;
+      // @js-confuser-var "myVar" -> __JS_CONFUSER_VAR__(myVar)
+      StringLiteral: {
+        exit(path) {
+          // Check for @js-confuser-var comment
+          if (
+            path.node.leadingComments?.find((comment) =>
+              comment.value.includes("@js-confuser-var")
+            )
+          ) {
+            var identifierName = path.node.value;
+            ok(
+              t.isValidIdentifier(identifierName),
+              "Invalid identifier name: " + identifierName
+            );
 
-      case "WhileStatement":
-      case "WithStatement":
-      case "ForStatement":
-      case "ForOfStatement":
-      case "ForInStatement":
-        if (object.body.type != "BlockStatement") {
-          object.body = BlockStatement([clone(object.body)]);
-        }
-        break;
+            // Create a new __JS_CONFUSER_VAR__ call with the identifier
+            var newExpression = new Template(
+              `__JS_CONFUSER_VAR__({identifier})`
+            ).expression({
+              identifier: t.identifier(identifierName),
+            });
 
-      case "ArrowFunctionExpression":
-        if (object.body.type !== "BlockStatement" && object.expression) {
-          object.body = BlockStatement([ReturnStatement(clone(object.body))]);
-          object.expression = false;
-        }
-        break;
-    }
+            path.replaceWith(newExpression);
 
-    // Label
-    if (
-      isLoop(object) ||
-      (object.type == "BlockStatement" &&
-        parents[0] &&
-        parents[0].type == "LabeledStatement" &&
-        parents[0].body === object)
-    ) {
-      return this.transformLabel(object, parents);
-    }
-  }
-
-  /**
-   * Ensures every break; statement has a label to point to.
-   *
-   * This is because Control Flow Flattening adds For Loops which label-less break statements point to the nearest,
-   * when they actually need to point to the original statement.
-   */
-  transformLabel(object: Node, parents: Node[]) {
-    return () => {
-      var currentLabel =
-        parents[0].type == "LabeledStatement" && parents[0].label.name;
-
-      var label = currentLabel || this.getPlaceholder();
-
-      walk(object, parents, (o, p) => {
-        if (o.type == "BreakStatement" || o.type == "ContinueStatement") {
-          function isContinuableStatement(x) {
-            return isLoop(x) && x.type !== "SwitchStatement";
+            // Remove comment and skip further processing
+            path.node.leadingComments = [];
+            path.skip();
           }
-          function isBreakableStatement(x) {
-            return isLoop(x) || (o.label && x.type == "BlockStatement");
+        },
+      },
+
+      // `Hello ${username}` -> "Hello " + username
+      TemplateLiteral: {
+        exit(path) {
+          // Check if this is a tagged template literal, if yes, skip it
+          if (t.isTaggedTemplateExpression(path.parent)) {
+            return;
           }
 
-          var fn =
-            o.type == "ContinueStatement"
-              ? isContinuableStatement
-              : isBreakableStatement;
+          const { quasis, expressions } = path.node;
 
-          var loop = p.find(fn);
-          if (object == loop) {
-            if (!o.label) {
-              o.label = Identifier(label);
+          // Start with the first quasi (template string part)
+          let binaryExpression: t.Expression = t.stringLiteral(
+            quasis[0].value.cooked
+          );
+
+          // Loop over the remaining quasis and expressions, concatenating them
+          for (let i = 0; i < expressions.length; i++) {
+            // Add the expression as part of the binary concatenation
+            binaryExpression = t.binaryExpression(
+              "+",
+              binaryExpression,
+              expressions[i] as t.Expression
+            );
+
+            // Add the next quasi (template string part)
+            if (quasis[i + 1].value.cooked !== "") {
+              binaryExpression = t.binaryExpression(
+                "+",
+                binaryExpression,
+                t.stringLiteral(quasis[i + 1].value.cooked)
+              );
             }
           }
-        }
-      });
 
-      // Append label statement as this loop has none
-      if (!currentLabel) {
-        this.replace(object, LabeledStatement(label, { ...object }));
-      }
-    };
-  }
+          // Replace the template literal with the constructed binary expression
+          path.replaceWith(binaryExpression);
+        },
+      },
 
-  /**
-   * Transforms Identifiers (a.IDENTIFIER, {IDENTIFIER:...}) into string properties
-   */
-  transformExplicitIdentifiers(object: Node, parents: Node[]) {
-    // Mark functions containing 'eval'
-    // Some transformations avoid functions that have 'eval' to not break them
-    if (object.name === "eval") {
-      var fn = getFunction(object, parents);
-      if (fn) {
-        fn.$requiresEval = true;
-      }
-    }
+      // /Hello World/g -> new RegExp("Hello World", "g")
+      RegExpLiteral: {
+        exit(path) {
+          const { pattern, flags } = path.node;
 
-    var info = getIdentifierInfo(object, parents);
-    if (info.isPropertyKey || info.isAccessor) {
-      var propIndex = parents.findIndex(
-        (x) => x.type == "MethodDefinition" || x.type == "Property"
-      );
+          // Create a new RegExp() expression using the pattern and flags
+          const newRegExpCall = t.newExpression(
+            t.identifier("RegExp"), // Identifier for RegExp constructor
+            [
+              t.stringLiteral(pattern), // First argument: the pattern (no extra escaping needed)
+              flags ? t.stringLiteral(flags) : t.stringLiteral(""), // Second argument: the flags (if any)
+            ]
+          );
 
-      // Don't change constructor!
-      if (propIndex !== -1) {
-        if (
-          parents[propIndex].type == "MethodDefinition" &&
-          parents[propIndex].kind == "constructor"
-        ) {
-          return;
-        }
-      }
+          // Replace the literal regex with the new RegExp() call
+          path.replaceWith(newRegExpCall);
+        },
+      },
 
-      this.replace(object, Literal(object.name));
-      parents[0].computed = true;
-      parents[0].shorthand = false;
-    }
-  }
+      ReferencedIdentifier: {
+        exit(path) {
+          const { name } = path.node;
+          if (["arguments", "eval"].includes(name)) {
+            markFunctionUnsafe(path);
+          }
 
-  /**
-   * Transforms VariableDeclaration into single declarations.
-   */
-  transformExplicitDeclarations(object: Node, parents: Node[]) {
-    // for ( var x in ... ) {...}
-    var forIndex = parents.findIndex(
-      (x) => x.type == "ForInStatement" || x.type == "ForOfStatement"
-    );
-    if (
-      forIndex != -1 &&
-      parents[forIndex].left == (parents[forIndex - 1] || object)
-    ) {
-      object.declarations.forEach((x) => {
-        x.init = null;
-      });
-      return;
-    }
+          // When Rename Variables is disabled, __JS_CONFUSER_VAR__ must still be removed
+          if (
+            !me.obfuscator.hasPlugin(Order.RenameVariables) &&
+            isVariableFunctionIdentifier(path)
+          ) {
+            ok(
+              path.parentPath.isCallExpression(),
+              variableFunctionName + " must be directly called"
+            );
 
-    var body = parents[0];
-    if (isLoop(body) || body.type == "LabeledStatement") {
-      return;
-    }
+            var argument = path.parentPath.node.arguments[0];
+            t.assertIdentifier(argument);
 
-    if (body.type == "ExportNamedDeclaration") {
-      return;
-    }
+            // Remove the variableFunctionName call
+            path.parentPath.replaceWith(t.stringLiteral(argument.name));
+          }
+        },
+      },
 
-    if (!Array.isArray(body)) {
-      this.error(new Error("body is " + body.type));
-    }
+      FunctionDeclaration: {
+        exit(path) {
+          // A function is 'predictable' if the parameter lengths are guaranteed to be known
+          // a(true) -> predictable
+          // (a || b)(true) -> unpredictable (Must be directly in a Call Expression)
+          // a(...args) -> unpredictable (Cannot use SpreadElement)
 
-    if (object.declarations.length > 1) {
-      // Make singular
+          const { name } = path.node.id;
 
-      var index = body.indexOf(object);
-      if (index == -1) {
-        this.error(new Error("index is -1"));
-      }
+          var binding = path.scope.getBinding(name);
+          var predictable = true;
+          var maxArgLength = 0;
 
-      var after = object.declarations.slice(1);
+          for (var referencePath of binding.referencePaths) {
+            if (!referencePath.parentPath.isCallExpression()) {
+              predictable = false;
+              break;
+            }
 
-      body.splice(
-        index + 1,
-        0,
-        ...after.map((x) => {
-          return {
-            type: "VariableDeclaration",
-            declarations: [clone(x)],
-            kind: object.kind,
-          };
-        })
-      );
+            var argsPath = referencePath.parentPath.get("arguments");
+            for (var arg of argsPath) {
+              if (arg.isSpreadElement()) {
+                predictable = false;
+                break;
+              }
+            }
 
-      object.declarations.length = 1;
-    }
-  }
-}
+            if (argsPath.length > maxArgLength) {
+              maxArgLength = argsPath.length;
+            }
+          }
+
+          var definedArgLength = path.get("params").length;
+          if (predictable && definedArgLength >= maxArgLength) {
+            (path.node as NodeSymbol)[PREDICTABLE] = true;
+          }
+        },
+      },
+
+      // console.log() -> console["log"]();
+      MemberExpression: {
+        exit(path) {
+          if (!path.node.computed && path.node.property.type === "Identifier") {
+            path.node.property = t.stringLiteral(path.node.property.name);
+            path.node.computed = true;
+          }
+        },
+      },
+
+      // { key: true } -> { "key": true }
+      "Property|Method": {
+        exit(_path) {
+          let path = _path as NodePath<t.Property | t.Method>;
+
+          if (t.isClassPrivateProperty(path.node)) return;
+
+          if (!path.node.computed && path.node.key.type === "Identifier") {
+            // Don't change constructor key
+            if (t.isClassMethod(path.node) && path.node.kind === "constructor")
+              return;
+
+            path.node.key = t.stringLiteral(path.node.key.name);
+            path.node.computed = true;
+          }
+        },
+      },
+
+      // var a,b,c -> var a; var b; var c;
+      VariableDeclaration: {
+        exit(path) {
+          if (path.node.declarations.length > 1) {
+            // E.g. for (var i = 0, j = 1;;)
+            if (path.key === "init" && path.parentPath.isForStatement()) {
+              if (
+                !path.parentPath.node.test &&
+                !path.parentPath.node.update &&
+                path.node.kind === "var"
+              ) {
+                path.parentPath.insertBefore(
+                  path.node.declarations.map((declaration) =>
+                    t.variableDeclaration(path.node.kind, [declaration])
+                  )
+                );
+                path.remove();
+              }
+            } else {
+              if (path.parentPath.isExportNamedDeclaration()) {
+                path.parentPath.replaceWithMultiple(
+                  path.node.declarations.map((declaration) =>
+                    t.exportNamedDeclaration(
+                      t.variableDeclaration(path.node.kind, [declaration])
+                    )
+                  )
+                );
+              } else {
+                path
+                  .replaceWithMultiple(
+                    path.node.declarations.map((declaration, i) => {
+                      var names = Array.from(
+                        getPatternIdentifierNames(path.get("declarations")[i])
+                      );
+                      names.forEach((name) => {
+                        path.scope.removeBinding(name);
+                      });
+
+                      var newNode = t.variableDeclaration(path.node.kind, [
+                        declaration,
+                      ]);
+                      return newNode;
+                    })
+                  )
+                  .forEach((newPath) => {
+                    if (newPath.node.kind === "var") {
+                      var functionOrProgram =
+                        getParentFunctionOrProgram(newPath);
+                      functionOrProgram.scope.registerDeclaration(newPath);
+                    }
+                    newPath.scope.registerDeclaration(newPath);
+                  });
+              }
+            }
+          }
+        },
+      },
+
+      // () => a() -> () => { return a(); }
+      ArrowFunctionExpression: {
+        exit(path: NodePath<t.ArrowFunctionExpression>) {
+          if (path.node.body.type !== "BlockStatement") {
+            path.node.expression = false;
+            path.node.body = t.blockStatement([
+              t.returnStatement(path.node.body),
+            ]);
+          }
+        },
+      },
+
+      // if (a) b() -> if (a) { b(); }
+      // if (a) {b()} else c() -> if (a) { b(); } else { c(); }
+      IfStatement: {
+        exit(path) {
+          if (path.node.consequent.type !== "BlockStatement") {
+            path.node.consequent = t.blockStatement([path.node.consequent]);
+          }
+
+          if (
+            path.node.alternate &&
+            path.node.alternate.type !== "BlockStatement"
+          ) {
+            path.node.alternate = t.blockStatement([path.node.alternate]);
+          }
+        },
+      },
+
+      // for() d() -> for() { d(); }
+      // while(a) b() -> while(a) { b(); }
+      // with(a) b() -> with(a) { b(); }
+      "ForStatement|ForInStatement|ForOfStatement|WhileStatement|WithStatement":
+        {
+          exit(_path) {
+            var path = _path as NodePath<
+              | t.ForStatement
+              | t.ForInStatement
+              | t.ForOfStatement
+              | t.WhileStatement
+              | t.WithStatement
+            >;
+
+            if (path.node.body.type !== "BlockStatement") {
+              path.node.body = t.blockStatement([path.node.body]);
+            }
+          },
+        },
+    },
+  };
+};

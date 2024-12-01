@@ -1,640 +1,450 @@
-import { walk } from "../traverse";
-import {
-  ArrayExpression,
-  AssignmentExpression,
-  BinaryExpression,
-  CallExpression,
-  ExpressionStatement,
-  FunctionDeclaration,
-  FunctionExpression,
-  Identifier,
-  IfStatement,
-  Literal,
-  Node,
-  Location,
-  MemberExpression,
-  ObjectExpression,
-  Property,
-  ReturnStatement,
-  VariableDeclaration,
-  SequenceExpression,
-  NewExpression,
-  UnaryExpression,
-  BlockStatement,
-  LogicalExpression,
-  ThisExpression,
-  VariableDeclarator,
-  RestElement,
-} from "../util/gen";
-import { getIdentifierInfo } from "../util/identifiers";
-import {
-  deleteDirect,
-  getBlockBody,
-  getVarContext,
-  isVarContext,
-  prepend,
-  append,
-  computeFunctionLength,
-  isFunction,
-} from "../util/insert";
-import Transform from "./transform";
-import { isInsideType } from "../util/compare";
-import { choice, shuffle } from "../util/random";
-import { ComputeProbabilityMap } from "../probability";
-import { predictableFunctionTag, reservedIdentifiers } from "../constants";
-import { ObfuscateOrder } from "../order";
+import { PluginArg, PluginObject } from "./plugin";
+import { NodePath } from "@babel/traverse";
+import * as t from "@babel/types";
 import Template from "../templates/template";
-import { FunctionLengthTemplate } from "../templates/functionLength";
-import { ObjectDefineProperty } from "../templates/globals";
-import { getLexicalScope } from "../util/scope";
-import { isJSConfuserVar } from "../util/guard";
+import { ok } from "assert";
+import { chance, getRandomString } from "../utils/random-utils";
+import { Order } from "../order";
+import { NodeSymbol, PREDICTABLE, UNSAFE } from "../constants";
+import {
+  computeFunctionLength,
+  isVariableFunctionIdentifier,
+} from "../utils/function-utils";
+import { SetFunctionLengthTemplate } from "../templates/setFunctionLengthTemplate";
+import { numericLiteral } from "../utils/node";
+import {
+  isStrictMode,
+  isVariableIdentifier,
+  prependProgram,
+} from "../utils/ast-utils";
 
-/**
- * A Dispatcher processes function calls. All the function declarations are brought into a dictionary.
- *
- * ```js
- * var param1;
- * function dispatcher(key){
- *     var fns = {
- *         'fn1': function(){
- *             var [arg1] = [param1];
- *             console.log(arg1);
- *         }
- *     }
- *     return fns[key]();
- * };
- * param1 = "Hello World";
- * dispatcher('fn1'); // > "Hello World"
- * ```
- *
- * Can break code with:
- *
- * 1. testing function equality,
- * 2. using `arguments.callee`,
- * 3. using `this`
- */
-export default class Dispatcher extends Transform {
-  // Debug mode preserves function names
-  isDebug = false;
-  count: number;
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Dispatcher, {
+    changeData: {
+      functions: 0,
+    },
+  });
+  let dispatcherCounter = 0;
 
-  functionLengthName: string;
+  const setFunctionLength = me.getPlaceholder("d_fnLength");
 
-  constructor(o) {
-    super(o, ObfuscateOrder.Dispatcher);
+  // in Debug mode, function names are preserved
+  const isDebug = false;
 
-    this.count = 0;
-  }
+  return {
+    visitor: {
+      "Program|Function": {
+        exit(_path) {
+          const blockPath = _path as NodePath<t.Program | t.Function>;
 
-  apply(tree: Node): void {
-    super.apply(tree);
+          if (blockPath.isProgram()) {
+            blockPath.scope.crawl();
 
-    if (this.options.preserveFunctionLength && this.functionLengthName) {
-      prepend(
-        tree,
-        FunctionLengthTemplate.single({
-          name: this.functionLengthName,
-          ObjectDefineProperty: this.createInitVariable(ObjectDefineProperty, [
-            tree,
-          ]),
-        })
-      );
-    }
-  }
+            // Don't insert function length code when disabled
+            // Instead insert empty function as the identifier is still referenced
+            var insertNode = t.functionDeclaration(
+              t.identifier(setFunctionLength),
+              [],
+              t.blockStatement([])
+            );
 
-  match(object: Node, parents: Node[]) {
-    if (isInsideType("AwaitExpression", object, parents)) {
-      return false;
-    }
+            if (me.options.preserveFunctionLength) {
+              // Insert function length code
+              insertNode = SetFunctionLengthTemplate.single({
+                fnName: setFunctionLength,
+              });
+            }
 
-    return (
-      isVarContext(object) &&
-      object.type !== "ArrowFunctionExpression" &&
-      !object.$multiTransformSkip &&
-      !parents.find((x) => x.$multiTransformSkip)
-    );
-  }
+            me.skip(prependProgram(_path, insertNode));
+          }
 
-  transform(object: Node, parents: Node[]) {
-    return () => {
-      if (ComputeProbabilityMap(this.options.dispatcher, (mode) => mode)) {
-        if (object.type != "Program" && object.body.type != "BlockStatement") {
-          return;
-        }
+          if ((blockPath.node as NodeSymbol)[UNSAFE]) return;
 
-        // Map of FunctionDeclarations
-        var functionDeclarations: { [name: string]: Location } =
-          Object.create(null);
+          // For testing
+          // if (!blockPath.isProgram()) return;
 
-        // Array of Identifier nodes
-        var identifiers: Location[] = [];
-        var illegalFnNames: Set<string> = new Set();
+          var blockStatement: NodePath<t.Block> = blockPath.isProgram()
+            ? blockPath
+            : (blockPath.get("body") as NodePath<t.BlockStatement>);
 
-        // New Names for Functions
-        var newFnNames: { [name: string]: string } = Object.create(null); // [old name]: randomized name
+          // Track functions and illegal ones
+          // A function is illegal if:
+          // - the function is async or generator
+          // - the function is redefined
+          // - the function uses 'this', 'eval', or 'arguments'
+          var functionPaths = new Map<
+            string,
+            NodePath<t.FunctionDeclaration>
+          >();
+          var illegalNames = new Set<string>();
 
-        var context = isVarContext(object)
-          ? object
-          : getVarContext(object, parents);
+          // Scan for function declarations
+          blockPath.traverse({
+            // Check for reassigned / redefined functions
+            BindingIdentifier: {
+              exit(path: NodePath<t.Identifier>) {
+                if (!isVariableIdentifier(path)) return;
 
-        var lexicalScope = isFunction(context) ? context.body : context;
+                const name = path.node.name;
+                if (!path.parentPath?.isFunctionDeclaration()) {
+                  illegalNames.add(name);
+                }
+              },
+            },
+            // Find functions eligible for dispatching
+            FunctionDeclaration: {
+              exit(path: NodePath<t.FunctionDeclaration>) {
+                const name = path.node.id.name;
+                // If the function is not named, we can't dispatch it
+                if (!name) {
+                  return;
+                }
 
-        walk(object, parents, (o: Node, p: Node[]) => {
-          if (object == o) {
-            // Fix 1
+                // Do not apply to async or generator functions
+                if (path.node.async || path.node.generator) {
+                  return;
+                }
+
+                // Do not apply to functions in nested scopes
+                if (path.parentPath !== blockStatement || me.isSkipped(path)) {
+                  illegalNames.add(name);
+                  return;
+                }
+
+                if (isStrictMode(path)) {
+                  illegalNames.add(name);
+                  return;
+                }
+
+                // Do not apply to unsafe functions, redefined functions, or internal obfuscator functions
+                if (
+                  (path.node as NodeSymbol)[UNSAFE] ||
+                  functionPaths.has(name) ||
+                  me.obfuscator.isInternalVariable(name)
+                ) {
+                  illegalNames.add(name);
+                  return;
+                }
+
+                var hasAssignmentPattern = false;
+
+                for (var param of path.get("params")) {
+                  if (param.isAssignmentPattern()) {
+                    hasAssignmentPattern = true;
+                    break;
+                  }
+                  param.traverse({
+                    AssignmentPattern(innerPath) {
+                      var fn = innerPath.getFunctionParent();
+                      if (fn === path) {
+                        hasAssignmentPattern = true;
+                        innerPath.stop();
+                      } else {
+                        innerPath.skip();
+                      }
+                    },
+                  });
+
+                  if (hasAssignmentPattern) break;
+                }
+
+                // Functions with default parameters are not fully supported
+                // (Could be a Function Expression referencing outer scope)
+                if (hasAssignmentPattern) {
+                  illegalNames.add(name);
+                  return;
+                }
+
+                functionPaths.set(name, path);
+              },
+            },
+          });
+
+          for (let name of illegalNames) {
+            functionPaths.delete(name);
+          }
+
+          for (var name of functionPaths.keys()) {
+            if (!me.computeProbabilityMap(me.options.dispatcher, name)) {
+              functionPaths.delete(name);
+            }
+          }
+
+          // No functions here to change
+          if (functionPaths.size === 0) {
             return;
           }
 
-          var c = getVarContext(o, p);
-          if (o.type == "FunctionDeclaration") {
-            c = getVarContext(p[0], p.slice(1));
-          }
+          me.changeData.functions += functionPaths.size;
 
-          if (context === c) {
-            if (o.type == "FunctionDeclaration" && o.id.name) {
-              var name = o.id.name;
+          const dispatcherName =
+            me.getPlaceholder() + "_dispatcher_" + dispatcherCounter++;
+          const payloadName = me.getPlaceholder() + "_payload";
+          const cacheName = me.getPlaceholder() + "_cache";
+          const newNameMapping = new Map<string, string>();
 
-              if (
-                o.$requiresEval ||
-                o.async ||
-                o.generator ||
-                p.find(
-                  (x) => x.$multiTransformSkip || x.type == "MethodDefinition"
-                ) ||
-                o.body.type != "BlockStatement"
-              ) {
-                illegalFnNames.add(name);
-                return;
-              }
+          const keys = {
+            placeholderNoMeaning: isDebug ? "noMeaning" : getRandomString(10),
+            clearPayload: isDebug ? "clearPayload" : getRandomString(10),
+            nonCall: isDebug ? "nonCall" : getRandomString(10),
+            returnAsObject: isDebug ? "returnAsObject" : getRandomString(10),
+            returnAsObjectProperty: isDebug
+              ? "returnAsObjectProperty"
+              : getRandomString(10),
+          };
 
-              // Must defined in the same block as the current function being scanned
-              // Solves 'let' and 'class' declaration issue
-              var ls = getLexicalScope(o, p);
-              if (ls !== lexicalScope) {
-                illegalFnNames.add(name);
-                return;
-              }
-
-              // If dupe, no routing
-              if (functionDeclarations[name]) {
-                illegalFnNames.add(name);
-                return;
-              }
-
-              walk(o, p, (oo, pp) => {
-                if (
-                  (oo.type == "Identifier" && oo.name == "arguments") ||
-                  oo.type == "ThisExpression" ||
-                  oo.type == "Super"
-                ) {
-                  if (getVarContext(oo, pp) === o) {
-                    illegalFnNames.add(name);
-                    return "EXIT";
-                  }
-                }
-
-                // Avoid functions with function expressions as they have a different scope
-                if (
-                  (oo.type === "FunctionExpression" ||
-                    oo.type === "ArrowFunctionExpression") &&
-                  pp.find((x) => x == o.params)
-                ) {
-                  illegalFnNames.add(name);
-                  return "EXIT";
-                }
-              });
-
-              functionDeclarations[name] = [o, p];
-            }
-          }
-
-          if (o.type == "Identifier") {
-            if (reservedIdentifiers.has(o.name)) {
-              return;
-            }
-            var info = getIdentifierInfo(o, p);
-            if (!info.spec.isReferenced) {
-              return;
-            }
-            if (isJSConfuserVar(p)) {
-              illegalFnNames.add(o.name);
-            }
-            if (info.spec.isDefined) {
-              if (info.isFunctionDeclaration) {
-                if (
-                  p[0].id &&
-                  (!functionDeclarations[p[0].id.name] ||
-                    functionDeclarations[p[0].id.name][0] !== p[0])
-                ) {
-                  illegalFnNames.add(o.name);
-                }
-              } else {
-                illegalFnNames.add(o.name);
-              }
-            } else if (info.spec.isModified) {
-              illegalFnNames.add(o.name);
-            } else {
-              identifiers.push([o, p]);
-            }
-          }
-        });
-
-        illegalFnNames.forEach((name) => {
-          delete functionDeclarations[name];
-        });
-
-        // map original name->new game
-        var gen = this.getGenerator();
-        Object.keys(functionDeclarations).forEach((name) => {
-          newFnNames[name] = this.isDebug
-            ? "_dispatcher_" + this.count + "_" + name
-            : gen.generate();
-        });
-        // set containing new name
-        var set = new Set(Object.keys(newFnNames));
-
-        // Only make a dispatcher function if it caught any functions
-        if (set.size > 0) {
-          if (!this.functionLengthName) {
-            this.functionLengthName = this.getPlaceholder();
-          }
-
-          var payloadArg =
-            this.getPlaceholder() + "_dispatcher_" + this.count + "_payload";
-
-          var dispatcherFnName =
-            this.getPlaceholder() +
-            "_dispatcher_" +
-            this.count +
-            predictableFunctionTag;
-
-          this.log(dispatcherFnName, set);
-          this.count++;
-
-          var expectedGet = gen.generate();
-          var expectedClearArgs = gen.generate();
-          var expectedNew = gen.generate();
-
-          var returnProp = gen.generate();
-          var newReturnMemberName = gen.generate();
-
-          var shuffledKeys = shuffle(Object.keys(functionDeclarations));
-          var mapName = this.getPlaceholder();
-
-          var cacheName = this.getPlaceholder();
-
-          // creating the dispatcher function
-          // 1. create function map
-          var map = VariableDeclaration(
-            VariableDeclarator(
-              mapName,
-              ObjectExpression(
-                shuffledKeys.map((name) => {
-                  var [def, defParents] = functionDeclarations[name];
-                  var body = getBlockBody(def.body);
-
-                  var functionExpression: Node = {
-                    ...def,
-                    expression: false,
-                    type: "FunctionExpression",
-                    id: null,
-                    params: [],
-                    [predictableFunctionTag]: true,
-                  };
-                  this.addComment(functionExpression, name);
-
-                  if (def.params.length > 0) {
-                    const fixParam = (param: Node) => {
-                      return param;
-                    };
-
-                    var variableDeclaration = VariableDeclaration(
-                      VariableDeclarator(
-                        {
-                          type: "ArrayPattern",
-                          elements: def.params.map(fixParam),
-                        },
-                        Identifier(payloadArg)
-                      )
-                    );
-
-                    prepend(def.body, variableDeclaration);
-                  }
-
-                  // For logging purposes
-                  var signature =
-                    name +
-                    "(" +
-                    def.params.map((x) => x.name || "<>").join(",") +
-                    ")";
-                  this.log("Added", signature);
-
-                  // delete ref in block
-                  if (defParents.length) {
-                    deleteDirect(def, defParents[0]);
-                  }
-
-                  this.addComment(functionExpression, signature);
-                  return Property(
-                    Literal(newFnNames[name]),
-                    functionExpression,
-                    false
-                  );
-                })
-              )
-            )
-          );
-
-          var getterArgName = this.getPlaceholder();
-
-          var x = this.getPlaceholder();
-          var y = this.getPlaceholder();
-          var z = this.getPlaceholder();
-
-          function getAccessor() {
-            return MemberExpression(Identifier(mapName), Identifier(x), true);
-          }
-
-          // 2. define it
-          var fn = FunctionDeclaration(
-            dispatcherFnName,
-            [Identifier(x), Identifier(y), Identifier(z)],
-            [
-              // Define map of callable functions
-              map,
-
-              // Set returning variable to undefined
-              VariableDeclaration(VariableDeclarator(returnProp)),
-
-              // Arg to clear the payload
-              IfStatement(
-                BinaryExpression(
-                  "==",
-                  Identifier(y),
-                  Literal(expectedClearArgs)
-                ),
-                [
-                  ExpressionStatement(
-                    AssignmentExpression(
-                      "=",
-                      Identifier(payloadArg),
-                      ArrayExpression([])
-                    )
-                  ),
-                ],
-                null
-              ),
-
-              VariableDeclaration(
-                VariableDeclarator(
-                  Identifier("lengths"),
-                  ObjectExpression(
-                    !this.options.preserveFunctionLength
-                      ? []
-                      : shuffledKeys
-                          .map((name) => {
-                            var [def, defParents] = functionDeclarations[name];
-
-                            return {
-                              key: newFnNames[name],
-                              value: computeFunctionLength(def.params),
-                            };
-                          })
-                          .filter((item) => item.value !== 0)
-                          .map((item) =>
-                            Property(Literal(item.key), Literal(item.value))
-                          )
-                  )
-                )
-              ),
-
-              new Template(`
-              function makeFn${predictableFunctionTag}(){
-                var fn = function(...args){
-                  ${payloadArg} = args;
-                  return ${mapName}[${x}].call(this)
-                }, a = lengths[${x}]
-
-                ${
-                  this.options.preserveFunctionLength
-                    ? `if(a){
-                    return ${this.functionLengthName}(fn, a)
-                  }`
-                    : ""
-                }
-                
-                return fn
-              }
-              `).single(),
-
-              // Arg to get a function reference
-              IfStatement(
-                BinaryExpression("==", Identifier(y), Literal(expectedGet)),
-                [
-                  // Getter flag: return the function object
-                  ExpressionStatement(
-                    AssignmentExpression(
-                      "=",
-                      Identifier(returnProp),
-                      LogicalExpression(
-                        "||",
-                        MemberExpression(
-                          Identifier(cacheName),
-                          Identifier(x),
-                          true
-                        ),
-                        AssignmentExpression(
-                          "=",
-                          MemberExpression(
-                            Identifier(cacheName),
-                            Identifier(x),
-                            true
-                          ),
-                          CallExpression(
-                            Identifier(`makeFn${predictableFunctionTag}`),
-                            []
-                          )
-                        )
-                      )
-                    )
-                  ),
-                ],
-                [
-                  // Call the function, return result
-                  ExpressionStatement(
-                    AssignmentExpression(
-                      "=",
-                      Identifier(returnProp),
-                      CallExpression(getAccessor(), [])
-                    )
-                  ),
-                ]
-              ),
-
-              // Check how the function was invoked (new () vs ())
-              IfStatement(
-                BinaryExpression("==", Identifier(z), Literal(expectedNew)),
-                [
-                  // Wrap in object
-                  ReturnStatement(
-                    ObjectExpression([
-                      Property(
-                        Identifier(newReturnMemberName),
-                        Identifier(returnProp),
-                        false
-                      ),
-                    ])
-                  ),
-                ],
-                [
-                  // Return raw result
-                  ReturnStatement(Identifier(returnProp)),
-                ]
-              ),
-            ]
-          );
-
-          append(object, fn);
-
-          if (payloadArg) {
-            prepend(
-              object,
-              VariableDeclaration(
-                VariableDeclarator(payloadArg, ArrayExpression([]))
-              )
+          for (var name of functionPaths.keys()) {
+            newNameMapping.set(
+              name,
+              isDebug ? "_" + name : getRandomString(6) /**  "_" + name */
             );
           }
 
-          identifiers.forEach(([o, p]) => {
-            if (o.type != "Identifier") {
-              return;
-            }
+          // Find identifiers calling/referencing the functions
+          blockPath.traverse({
+            ReferencedIdentifier: {
+              exit(path: NodePath<t.Identifier | t.JSXIdentifier>) {
+                if (path.isJSX()) return;
+                if (isVariableFunctionIdentifier(path)) return;
+                const name = path.node.name;
 
-            var newName = newFnNames[o.name];
-            if (!newName || typeof newName !== "string") {
-              return;
-            }
+                var fnPath = functionPaths.get(name);
+                if (!fnPath) return;
 
-            if (!functionDeclarations[o.name]) {
-              this.error(new Error("newName, missing function declaration"));
-            }
+                var newName = newNameMapping.get(name);
 
-            var info = getIdentifierInfo(o, p);
-            if (
-              info.isFunctionCall &&
-              p[0].type == "CallExpression" &&
-              p[0].callee === o
-            ) {
-              // Invoking call expression: `a();`
-
-              if (o.name == dispatcherFnName) {
-                return;
-              }
-
-              this.log(
-                `${o.name}(${p[0].arguments
-                  .map((_) => "<>")
-                  .join(",")}) -> ${dispatcherFnName}('${newName}')`
-              );
-
-              var assignmentExpressions: Node[] = [];
-              var dispatcherArgs: Node[] = [Literal(newName)];
-
-              if (p[0].arguments.length) {
-                assignmentExpressions = [
-                  AssignmentExpression(
-                    "=",
-                    Identifier(payloadArg),
-                    ArrayExpression(p[0].arguments)
-                  ),
-                ];
-              } else {
-                dispatcherArgs.push(Literal(expectedClearArgs));
-              }
-
-              var type = choice(["CallExpression", "NewExpression"]);
-              var callExpression = null;
-
-              switch (type) {
-                case "CallExpression":
-                  callExpression = CallExpression(
-                    Identifier(dispatcherFnName),
-                    dispatcherArgs
-                  );
-                  break;
-
-                case "NewExpression":
-                  if (dispatcherArgs.length == 1) {
-                    dispatcherArgs.push(Identifier("undefined"));
-                  }
-                  callExpression = MemberExpression(
-                    NewExpression(Identifier(dispatcherFnName), [
-                      ...dispatcherArgs,
-                      Literal(expectedNew),
-                    ]),
-                    Identifier(newReturnMemberName),
-                    false
-                  );
-                  break;
-              }
-
-              this.addComment(
-                callExpression,
-                "Calling " +
-                  o.name +
-                  "(" +
-                  p[0].arguments.map((x) => x.name).join(", ") +
-                  ")"
-              );
-
-              var expr: Node = assignmentExpressions.length
-                ? SequenceExpression([...assignmentExpressions, callExpression])
-                : callExpression;
-
-              // Replace the parent call expression
-              this.replace(p[0], expr);
-            } else {
-              // Non-invoking reference: `a`
-
-              if (info.spec.isDefined) {
-                if (info.isFunctionDeclaration) {
-                  this.log(
-                    "Skipped getter " + o.name + " (function declaration)"
-                  );
-                } else {
-                  this.log("Skipped getter " + o.name + " (defined)");
+                // Do not replace if not referencing the actual function
+                if (path.scope.getBinding(name).path !== fnPath) {
+                  return;
                 }
-                return;
-              }
-              if (info.spec.isModified) {
-                this.log("Skipped getter " + o.name + " (modified)");
-                return;
-              }
 
-              this.log(
-                `(getter) ${o.name} -> ${dispatcherFnName}('${newName}')`
-              );
-              this.replace(
-                o,
-                CallExpression(Identifier(dispatcherFnName), [
-                  Literal(newName),
-                  Literal(expectedGet),
-                ])
-              );
-            }
+                const createDispatcherCall = (name, flagArg?) => {
+                  var dispatcherArgs = [t.stringLiteral(name)];
+                  if (flagArg) {
+                    dispatcherArgs.push(t.stringLiteral(flagArg));
+                  }
+
+                  var asObject = chance(50);
+
+                  if (asObject) {
+                    if (dispatcherArgs.length < 2) {
+                      dispatcherArgs.push(
+                        t.stringLiteral(keys.placeholderNoMeaning)
+                      );
+                    }
+                    dispatcherArgs.push(t.stringLiteral(keys.returnAsObject));
+                  }
+
+                  var callExpression: t.CallExpression | t.NewExpression =
+                    t.callExpression(
+                      t.identifier(dispatcherName),
+                      dispatcherArgs
+                    );
+
+                  if (!asObject) {
+                    return callExpression;
+                  }
+
+                  if (chance(50)) {
+                    (callExpression as t.Node).type = "NewExpression";
+                  }
+
+                  return t.memberExpression(
+                    callExpression,
+                    t.stringLiteral(keys.returnAsObjectProperty),
+                    true
+                  );
+                };
+
+                // Replace the identifier with a call to the function
+                const parentPath = path.parentPath;
+                if (path.key === "callee" && parentPath?.isCallExpression()) {
+                  var expressions: t.Expression[] = [];
+                  var callArguments = parentPath.node.arguments;
+
+                  if (callArguments.length === 0) {
+                    expressions.push(
+                      // Call the function
+                      createDispatcherCall(newName, keys.clearPayload)
+                    );
+                  } else {
+                    expressions.push(
+                      // Prepare the payload arguments
+                      t.assignmentExpression(
+                        "=",
+                        t.identifier(payloadName),
+                        t.arrayExpression(callArguments as t.Expression[])
+                      ),
+
+                      // Call the function
+                      createDispatcherCall(newName)
+                    );
+                  }
+
+                  const output =
+                    expressions.length === 1
+                      ? expressions[0]
+                      : t.sequenceExpression(expressions);
+
+                  if (!parentPath.container) return;
+                  parentPath.replaceWith(output);
+                } else {
+                  if (!path.container) return;
+                  // Replace non-invocation references with a 'cached' version of the function
+                  path.replaceWith(createDispatcherCall(newName, keys.nonCall));
+                }
+              },
+            },
           });
 
-          prepend(
-            object,
-            VariableDeclaration(
-              VariableDeclarator(
-                Identifier(cacheName),
-                new Template(`Object.create(null)`).single().expression
-              )
-            )
+          const fnLengthProperties = [];
+
+          // Create the dispatcher function
+          const objectExpression = t.objectExpression(
+            Array.from(newNameMapping).map(([name, newName]) => {
+              const originalPath = functionPaths.get(name);
+              const originalFn = originalPath.node;
+
+              if (me.options.preserveFunctionLength) {
+                const fnLength = computeFunctionLength(originalPath);
+
+                if (fnLength >= 1) {
+                  // 0 is already the default
+                  fnLengthProperties.push(
+                    t.objectProperty(
+                      t.stringLiteral(newName),
+                      numericLiteral(fnLength)
+                    )
+                  );
+                }
+              }
+
+              const newBody = [...originalFn.body.body];
+              ok(Array.isArray(newBody));
+
+              // Unpack parameters
+              if (originalFn.params.length > 0) {
+                newBody.unshift(
+                  t.variableDeclaration("var", [
+                    t.variableDeclarator(
+                      t.arrayPattern([...originalFn.params]),
+                      t.identifier(payloadName)
+                    ),
+                  ])
+                );
+              }
+
+              // Add debug label
+              if (isDebug) {
+                newBody.unshift(
+                  t.expressionStatement(
+                    t.stringLiteral(`Dispatcher: ${name} -> ${newName}`)
+                  )
+                );
+              }
+
+              const functionExpression = t.functionExpression(
+                null,
+                [],
+                t.blockStatement(newBody)
+              );
+
+              for (var symbol of Object.getOwnPropertySymbols(originalFn)) {
+                (functionExpression as any)[symbol] = (originalFn as any)[
+                  symbol
+                ];
+              }
+
+              (functionExpression as NodeSymbol)[PREDICTABLE] = true;
+
+              return t.objectProperty(
+                t.stringLiteral(newName),
+
+                functionExpression
+              );
+            })
           );
-        }
-      }
-    };
-  }
-}
+
+          const fnLengths = t.objectExpression(fnLengthProperties);
+
+          const dispatcher = new Template(`
+            function ${dispatcherName}(name, flagArg, returnTypeArg, fnLengths = {fnLengthsObjectExpression}) {
+              var output;
+              var fns = {objectExpression};
+
+              if(flagArg === "${keys.clearPayload}") {
+                ${payloadName} = [];
+              }
+              if(flagArg === "${keys.nonCall}") {
+                function createFunction(){
+                  var fn = function(...args){ 
+                    ${payloadName} = args;
+                    return fns[name].apply(this);
+                  }
+
+                  var fnLength = fnLengths[name];
+                  if(fnLength) {
+                    ${setFunctionLength}(fn, fnLength);
+                  }
+
+                  return fn;
+                }
+                output = ${cacheName}[name] || (${cacheName}[name] = createFunction());
+              } else {
+                output = fns[name]();
+              }
+
+              if(returnTypeArg === "${keys.returnAsObject}") {
+                return { "${keys.returnAsObjectProperty}": output };
+              } else {
+                return output;
+              }
+            }
+            `).single({
+            objectExpression,
+            fnLengthsObjectExpression: fnLengths,
+          });
+
+          (dispatcher as NodeSymbol)[PREDICTABLE] = true;
+
+          /**
+           * Prepends the node into the block. (And registers the declaration)
+           * @param node
+           */
+          function prepend(node: t.Statement) {
+            var newPath = blockStatement.unshiftContainer<any, any, any>(
+              "body",
+              node
+            )[0];
+            blockStatement.scope.registerDeclaration(newPath);
+          }
+
+          // Insert the dispatcher function
+          prepend(dispatcher);
+
+          // Insert the payload variable
+          prepend(
+            t.variableDeclaration("var", [
+              t.variableDeclarator(t.identifier(payloadName)),
+            ])
+          );
+
+          // Insert the cache variable
+          prepend(
+            t.variableDeclaration("var", [
+              t.variableDeclarator(
+                t.identifier(cacheName),
+                new Template(`Object["create"](null)`).expression()
+              ),
+            ])
+          );
+
+          // Remove original functions
+          for (let path of functionPaths.values()) {
+            path.remove();
+          }
+        },
+      },
+    },
+  };
+};

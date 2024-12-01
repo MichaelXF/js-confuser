@@ -1,650 +1,418 @@
-import Transform from "../transform";
-import {
-  Node,
-  IfStatement,
-  ExpressionStatement,
-  AssignmentExpression,
-  Identifier,
-  BinaryExpression,
-  CallExpression,
-  MemberExpression,
-  Literal,
-  UnaryExpression,
-  NewExpression,
-  VariableDeclaration,
-  ThisExpression,
-  VariableDeclarator,
-  Location,
-  LogicalExpression,
-  SequenceExpression,
-} from "../../util/gen";
-import traverse, { getBlock, isBlock } from "../../traverse";
-import { choice, getRandomInteger } from "../../util/random";
-import { CrashTemplate1, CrashTemplate2 } from "../../templates/crash";
-import { getBlockBody, getVarContext, prepend } from "../../util/insert";
+import { NodePath } from "@babel/traverse";
+import { PluginArg, PluginObject } from "../plugin";
+import { Order } from "../../order";
+import { chance, choice } from "../../utils/random-utils";
 import Template from "../../templates/template";
-import { ObfuscateOrder } from "../../order";
-import Integrity from "./integrity";
-import AntiDebug from "./antiDebug";
-import { getIdentifierInfo } from "../../util/identifiers";
-import { isLoop, isValidIdentifier } from "../../util/compare";
-import { ok } from "assert";
-import { variableFunctionName } from "../../constants";
-import { IndexOfTemplate } from "../../templates/core";
+import * as t from "@babel/types";
+import { CustomLock } from "../../options";
+import {
+  getFunctionName,
+  getParentFunctionOrProgram,
+  isDefiningIdentifier,
+  isVariableIdentifier,
+  prependProgram,
+} from "../../utils/ast-utils";
+import { INTEGRITY, NodeIntegrity } from "./integrity";
+import { HashTemplate } from "../../templates/integrityTemplate";
+import {
+  MULTI_TRANSFORM,
+  NodeSymbol,
+  PREDICTABLE,
+  SKIP,
+  UNSAFE,
+} from "../../constants";
+import {
+  IndexOfTemplate,
+  NativeFunctionTemplate,
+  StrictModeTemplate,
+} from "../../templates/tamperProtectionTemplates";
 
-/**
- * Applies browser & date locks.
- */
-export default class Lock extends Transform {
-  globalVar: string;
-  counterMeasuresNode: Location;
-  iosDetectFn: string;
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Lock, {
+    changeData: {
+      locksInserted: 0,
+    },
+  });
 
-  /**
-   * This is a boolean variable injected into the source code determining wether the countermeasures function has been called.
-   * This is used to prevent infinite loops from happening
-   */
-  counterMeasuresActivated: string;
-
-  /**
-   * The name of the native function that is used to check runtime calls for tampering
-   */
-  nativeFunctionName: string;
-
-  made: number;
-
-  shouldTransformNativeFunction(nameAndPropertyPath: string[]) {
-    if (!this.options.lock.tamperProtection) {
-      return false;
+  if (me.options.lock.startDate instanceof Date) {
+    // Ensure date is in the past
+    if (me.options.lock.startDate.getTime() > Date.now()) {
+      me.warn("lock.startDate is detected to be in the future");
     }
 
-    if (typeof this.options.lock.tamperProtection === "function") {
-      return this.options.lock.tamperProtection(nameAndPropertyPath.join("."));
-    }
-
-    if (
-      this.options.target === "browser" &&
-      nameAndPropertyPath.length === 1 &&
-      nameAndPropertyPath[0] === "fetch"
-    ) {
-      return true;
-    }
-
-    // TODO: Allow user to customize this behavior
-    var globalObject = typeof window !== "undefined" ? window : global;
-    var fn = globalObject;
-    for (var item of nameAndPropertyPath) {
-      fn = fn[item];
-      if (typeof fn === "undefined") return false;
-    }
-
-    var hasNativeCode =
-      typeof fn === "function" && ("" + fn).includes("[native code]");
-
-    return hasNativeCode;
-  }
-
-  constructor(o) {
-    super(o, ObfuscateOrder.Lock);
-
-    // Removed feature
-    // if (this.options.lock.startDate && this.options.lock.endDate) {
-    //   this.before.push(new LockStrings(o));
-    // }
-
-    if (this.options.lock.integrity) {
-      this.before.push(new Integrity(o, this));
-    }
-
-    if (this.options.lock.antiDebug) {
-      this.before.push(new AntiDebug(o, this));
-    }
-
-    this.made = 0;
-  }
-
-  apply(tree) {
-    if (
-      typeof this.options.lock.countermeasures === "string" &&
-      isValidIdentifier(this.options.lock.countermeasures)
-    ) {
-      traverse(tree, (object, parents) => {
-        if (
-          object.type == "Identifier" &&
-          object.name === this.options.lock.countermeasures
-        ) {
-          var info = getIdentifierInfo(object, parents);
-          if (info.spec.isDefined) {
-            if (this.counterMeasuresNode) {
-              throw new Error(
-                "Countermeasures function was already defined, it must have a unique name from the rest of your code"
-              );
-            } else {
-              var definingContext = getVarContext(parents[0], parents.slice(1));
-              if (definingContext != tree) {
-                throw new Error(
-                  "Countermeasures function must be defined at the global level"
-                );
-              }
-              var chain: Location = [object, parents];
-              if (info.isFunctionDeclaration) {
-                chain = [parents[0], parents.slice(1)];
-              } else if (info.isVariableDeclaration) {
-                chain = [parents[1], parents.slice(2)];
-              }
-
-              this.counterMeasuresNode = chain;
-            }
-          }
-        }
-      });
-
-      if (!this.counterMeasuresNode) {
-        throw new Error(
-          "Countermeasures function named '" +
-            this.options.lock.countermeasures +
-            "' was not found."
-        );
+    me.options.lock.customLocks.push({
+      code: [
+        `
+      if(Date.now()<${me.options.lock.startDate.getTime()}) {
+        {countermeasures}
       }
-    }
-
-    super.apply(tree);
-
-    if (this.options.lock.tamperProtection) {
-      this.nativeFunctionName = this.getPlaceholder() + "_lockNative";
-
-      // Ensure program is not in strict mode
-      // Tamper Protection forces non-strict mode
-
-      var strictModeCheck = new Template(`
-        (function(){
-          function isStrictMode(){
-            try {
-              var arr = []
-              delete arr["length"]
-            } catch(e) {
-              return true;
-            }
-            return false;
-          }
-
-          if(isStrictMode()) {
-            {countermeasures}
-            ${this.nativeFunctionName} = undefined;
-          }
-        })()
-        `).single({
-        countermeasures: this.getCounterMeasuresCode(tree, []),
-      });
-
-      // $multiTransformSkip is used to prevent scoping between transformations
-      strictModeCheck.$multiTransformSkip = true;
-
-      prepend(tree, strictModeCheck);
-
-      var nativeFunctionCheck = new Template(`
-        function ${this.nativeFunctionName}() {
-          {IndexOfTemplate}
-        
-          function checkFunction(fn){
-            if (indexOf("" + fn, '{ [native code] }') === -1
-            ||
-            typeof Object.getOwnPropertyDescriptor(fn, "toString") !== "undefined"
-            ) {
-              {countermeasures}
-              return undefined
-            }
-
-            return fn;
-          }
-
-          var args = arguments
-          if(args.length === 1) {
-            return checkFunction(args[0]);
-          } else if (args.length === 2) {
-            var object = args[0];
-            var property = args[1];
-
-            var fn = object[property];
-            fn = checkFunction(fn);
-
-            return fn.bind(object);
-          }
-        }`).single({
-        IndexOfTemplate: IndexOfTemplate,
-        countermeasures: this.getCounterMeasuresCode(tree, []),
-      });
-
-      // $multiTransformSkip is used to prevent scoping between transformations
-      nativeFunctionCheck.$multiTransformSkip = true;
-
-      prepend(tree, nativeFunctionCheck);
-    }
-  }
-
-  getCounterMeasuresCode(object: Node, parents: Node[]): Node[] {
-    var opt = this.options.lock.countermeasures;
-
-    if (opt === false) {
-      return null;
-    }
-
-    // Call function
-    if (typeof opt === "string") {
-      if (!this.counterMeasuresActivated) {
-        this.counterMeasuresActivated = this.getPlaceholder();
-
-        prepend(
-          parents[parents.length - 1] || object,
-          VariableDeclaration(VariableDeclarator(this.counterMeasuresActivated))
-        );
+      `,
+        `
+      if((new Date()).getTime()<${me.options.lock.startDate.getTime()}) {
+        {countermeasures}
       }
-
-      // Since Lock occurs before variable renaming, we are using the pre-obfuscated function name
-      return [
-        ExpressionStatement(
-          LogicalExpression(
-            "||",
-            Identifier(this.counterMeasuresActivated),
-            SequenceExpression([
-              AssignmentExpression(
-                "=",
-                Identifier(this.counterMeasuresActivated),
-                Literal(true)
-              ),
-              CallExpression(new Template(opt).single().expression, []),
-            ])
-          )
-        ),
-      ];
-    }
-
-    // Default fallback to infinite loop
-    var varName = this.getPlaceholder();
-    return choice([CrashTemplate1, CrashTemplate2]).compile({
-      var: varName,
+      `,
+      ],
+      percentagePerBlock: 0.5,
     });
   }
 
-  /**
-   * Converts Dates to numbers, then applies some randomness
-   * @param object
-   */
-  getTime(object: Date | number | false): number {
-    if (!object) {
-      return 0;
-    }
-    if (object instanceof Date) {
-      return this.getTime(object.getTime());
+  if (me.options.lock.endDate instanceof Date) {
+    // Ensure date is in the future
+    if (me.options.lock.endDate.getTime() < Date.now()) {
+      me.warn("lock.endDate is detected to be in the past");
     }
 
-    return object + getRandomInteger(-4000, 4000);
+    me.options.lock.customLocks.push({
+      code: [
+        `
+      if(Date.now()>${me.options.lock.endDate.getTime()}) {
+        {countermeasures}
+      }
+      `,
+        `
+      if((new Date()).getTime()>${me.options.lock.endDate.getTime()}) {
+        {countermeasures}
+      }
+      `,
+      ],
+      percentagePerBlock: 0.5,
+    });
   }
 
-  match(object: Node, parents: Node[]) {
-    return isBlock(object);
+  if (me.options.lock.domainLock) {
+    var domainArray = Array.isArray(me.options.lock.domainLock)
+      ? me.options.lock.domainLock
+      : [me.options.lock.domainLock];
+
+    for (const regexString of domainArray) {
+      me.options.lock.customLocks.push({
+        code: new Template(`
+          if(!new RegExp({regexString}).test(window.location.href)) {
+            {countermeasures}
+          }
+          `).setDefaultVariables({
+          regexString: () => t.stringLiteral(regexString.toString()),
+        }),
+        percentagePerBlock: 0.5,
+      });
+    }
   }
 
-  transform(object: Node, parents: Node[]) {
-    if (parents.find((x) => isLoop(x) && x.type != "SwitchStatement")) {
+  if (me.options.lock.selfDefending) {
+    me.options.lock.customLocks.push({
+      code: `
+      (
+        function(){
+          // Breaks any code formatter
+          var namedFunction = function(){
+            const test = function(){
+              const regExp= new RegExp('\\n');
+              return regExp['test'](namedFunction)
+            };
+
+            if(test()) {
+              {countermeasures}
+            }
+          }
+
+          return namedFunction();
+        }
+    )();
+      `,
+      percentagePerBlock: 0.5,
+    });
+  }
+
+  if (me.options.lock.antiDebug) {
+    me.options.lock.customLocks.push({
+      code: `
+      debugger;
+      `,
+      percentagePerBlock: 0.5,
+    });
+  }
+
+  const timesMap = new WeakMap<CustomLock, number>();
+
+  let countermeasuresNode: NodePath<t.Identifier>;
+  let invokeCountermeasuresFnName: string;
+
+  if (me.options.lock.countermeasures) {
+    invokeCountermeasuresFnName = me.getPlaceholder("invokeCountermeasures");
+
+    me.globalState.internals.invokeCountermeasuresFnName =
+      invokeCountermeasuresFnName;
+  }
+
+  var createCountermeasuresCode = () => {
+    if (invokeCountermeasuresFnName) {
+      return new Template(`${invokeCountermeasuresFnName}()`).compile();
+    }
+
+    if (me.options.lock.countermeasures === false) {
+      return [];
+    }
+
+    return new Template(`while(true){}`).compile();
+  };
+  me.globalState.lock.createCountermeasuresCode = createCountermeasuresCode;
+
+  const defaultMaxCount = me.options.lock.defaultMaxCount ?? 25;
+
+  function applyLockToBlock(path: NodePath<t.Block>, customLock: CustomLock) {
+    let times = timesMap.get(customLock) || 0;
+
+    let maxCount = customLock.maxCount ?? defaultMaxCount; // 25 is default max count
+    let minCount = customLock.minCount ?? 1; // 1 is default min count
+
+    if (maxCount >= 0 && times > maxCount) {
+      // Limit creation, allowing -1 to disable the limit entirely
       return;
     }
 
-    // no check in countermeasures code, otherwise it will infinitely call itself
+    // The Program always gets a lock
+    // Else based on the percentage
+    // Try to reach the minimum count
     if (
-      this.counterMeasuresNode &&
-      (object == this.counterMeasuresNode[0] ||
-        parents.indexOf(this.counterMeasuresNode[0]) !== -1)
+      !path.isProgram() &&
+      !chance(customLock.percentagePerBlock * 100) &&
+      times >= minCount
     ) {
       return;
     }
 
-    var block = getBlock(object, parents);
+    // Increment the times
+    timesMap.set(customLock, times + 1);
 
-    var choices = [];
-    if (this.options.lock.startDate) {
-      choices.push("startDate");
-    }
-    if (this.options.lock.endDate) {
-      choices.push("endDate");
-    }
-    if (this.options.lock.domainLock && this.options.lock.domainLock.length) {
-      choices.push("domainLock");
-    }
+    const lockCode = Array.isArray(customLock.code)
+      ? choice(customLock.code)
+      : customLock.code;
 
-    if (this.options.lock.context && this.options.lock.context.length) {
-      choices.push("context");
-    }
-    if (this.options.lock.browserLock && this.options.lock.browserLock.length) {
-      choices.push("browserLock");
-    }
-    if (this.options.lock.osLock && this.options.lock.osLock.length) {
-      choices.push("osLock");
-    }
-    if (this.options.lock.selfDefending) {
-      choices.push("selfDefending");
-    }
+    const template =
+      typeof lockCode === "string" ? new Template(lockCode) : lockCode;
+    const lockNodes = template.compile({
+      countermeasures: () => createCountermeasuresCode(),
+    });
+    var p = path.unshiftContainer("body", lockNodes);
+    p.forEach((p) => p.skip());
 
-    if (!choices.length) {
-      return;
-    }
+    me.changeData.locksInserted++;
+  }
 
-    return () => {
-      this.made++;
-      if (this.made > 150) {
-        return;
-      }
+  return {
+    visitor: {
+      BindingIdentifier(path) {
+        if (path.node.name !== me.options.lock.countermeasures) {
+          return;
+        }
 
-      var type = choice(choices);
-      var nodes = [];
+        // Exclude labels
+        if (!isVariableIdentifier(path)) return;
 
-      var dateNow: Node = CallExpression(
-        MemberExpression(Identifier("Date"), Literal("now"), true),
-        []
-      );
-      if (Math.random() > 0.5) {
-        dateNow = CallExpression(
-          MemberExpression(
-            NewExpression(Identifier("Date"), []),
-            Literal("getTime")
-          ),
-          []
-        );
-      }
-      if (Math.random() > 0.5) {
-        dateNow = CallExpression(
-          MemberExpression(
-            MemberExpression(
-              MemberExpression(Identifier("Date"), Literal("prototype"), true),
-              Literal("getTime"),
-              true
-            ),
-            Literal("call"),
-            true
-          ),
-          [NewExpression(Identifier("Date"), [])]
-        );
-      }
+        if (!isDefiningIdentifier(path)) {
+          // Reassignments are not allowed
 
-      var test;
-      var offset = 0;
+          me.error("Countermeasures function cannot be reassigned");
+        }
 
-      switch (type) {
-        case "selfDefending":
-          // A very simple mechanism inspired from https://github.com/javascript-obfuscator/javascript-obfuscator/blob/master/src/custom-code-helpers/self-defending/templates/SelfDefendingNoEvalTemplate.ts
-          // regExp checks for a newline, formatters add these
-          var callExpression = new Template(
-            `
-            (
-              function(){
-                // Breaks JSNice.org, beautifier.io
-                var namedFunction = function(){
-                  const test = function(){
-                    const regExp=new RegExp('\\n');
-                    return regExp['test'](namedFunction)
-                  };
-                  return test()
-                }
+        if (countermeasuresNode) {
+          // Disallow multiple countermeasures functions
 
-                return namedFunction();
-              }
-            )()
-            `
-          ).single().expression;
-
-          nodes.push(
-            IfStatement(
-              callExpression,
-              this.getCounterMeasuresCode(object, parents) || [],
-              null
-            )
+          me.error(
+            "Countermeasures function was already defined, it must have a unique name from the rest of your code"
           );
+        }
 
-          break;
-
-        case "startDate":
-          test = BinaryExpression(
-            "<",
-            dateNow,
-            Literal(this.getTime(this.options.lock.startDate))
+        if (
+          path.scope.getBinding(path.node.name).scope !==
+          path.scope.getProgramParent()
+        ) {
+          me.error(
+            "Countermeasures function must be defined at the global level"
           );
+        }
 
-          nodes.push(
-            IfStatement(
-              test,
-              this.getCounterMeasuresCode(object, parents) || [],
-              null
-            )
-          );
+        countermeasuresNode = path;
+      },
 
-          break;
-
-        case "endDate":
-          test = BinaryExpression(
-            ">",
-            dateNow,
-            Literal(this.getTime(this.options.lock.endDate))
-          );
-
-          nodes.push(
-            IfStatement(
-              test,
-              this.getCounterMeasuresCode(object, parents) || [],
-              null
-            )
-          );
-
-          break;
-
-        case "context":
-          var prop = choice(this.options.lock.context);
-
-          var code = this.getCounterMeasuresCode(object, parents) || [];
-
-          // Todo: Alternative to `this`
-          if (!this.globalVar) {
-            offset = 1;
-            this.globalVar = this.getPlaceholder();
-            prepend(
-              parents[parents.length - 1] || block,
-              VariableDeclaration(
-                VariableDeclarator(
-                  this.globalVar,
-                  LogicalExpression(
-                    "||",
-                    Identifier(
-                      this.options.globalVariables.keys().next().value
-                    ),
-                    ThisExpression()
-                  )
-                )
-              )
-            );
+      Block: {
+        exit(path) {
+          var customLock = choice(me.options.lock.customLocks);
+          if (customLock) {
+            applyLockToBlock(path, customLock);
           }
+        },
+      },
 
-          test = UnaryExpression(
-            "!",
-            MemberExpression(Identifier(this.globalVar), Literal(prop), true)
-          );
-          nodes.push(IfStatement(test, code, null));
-
-          break;
-
-        case "osLock":
-          var navigatorUserAgent = new Template(
-            `window.navigator.userAgent.toLowerCase()`
-          ).single().expression;
-
-          ok(this.options.lock.osLock);
-
-          var code = this.getCounterMeasuresCode(object, parents) || [];
-
-          this.options.lock.osLock.forEach((osName) => {
-            var agentMatcher = {
-              windows: "Win",
-              linux: "Linux",
-              osx: "Mac",
-              android: "Android",
-              ios: "---",
-            }[osName];
-            var thisTest: Node = CallExpression(
-              MemberExpression(navigatorUserAgent, Literal("match"), true),
-              [Literal(agentMatcher.toLowerCase())]
-            );
-            if (osName == "ios" && this.options.target === "browser") {
-              if (!this.iosDetectFn) {
-                this.iosDetectFn = this.getPlaceholder();
-                prepend(
-                  parents[parents.length - 1] || object,
-                  new Template(`function ${this.iosDetectFn}() {
-                  return [
-                    'iPad Simulator',
-                    'iPhone Simulator',
-                    'iPod Simulator',
-                    'iPad',
-                    'iPhone',
-                    'iPod'
-                  ].includes(navigator.platform)
-                  // iPad on iOS 13 detection
-                  || (navigator.userAgent.includes("Mac") && "ontouchend" in document)
-                }`).single()
+      Program: {
+        exit(path) {
+          // Insert nativeFunctionCheck
+          if (me.options.lock.tamperProtection) {
+            // Disallow strict mode
+            // Tamper Protection uses non-strict mode features:
+            // - eval() with local scope assignments
+            const directives = path.get("directives");
+            for (var directive of directives) {
+              if (directive.node.value.value === "use strict") {
+                me.error(
+                  "Tamper Protection cannot be applied to code in strict mode. Disable strict mode by removing the 'use strict' directive, or disable Tamper Protection."
                 );
               }
-
-              thisTest = CallExpression(Identifier(this.iosDetectFn), []);
             }
 
-            if (this.options.target === "node") {
-              var platformName =
-                { windows: "win32", osx: "darwin", ios: "darwin" }[osName] ||
-                osName;
-              thisTest = new Template(
-                `require('os').platform()==="${platformName}"`
-              ).single().expression;
-            }
+            var nativeFunctionName =
+              me.getPlaceholder() + "_nativeFunctionCheck";
 
-            if (!test) {
-              test = thisTest;
-            } else {
-              test = LogicalExpression("||", { ...test }, thisTest);
-            }
-          });
+            me.obfuscator.globalState.internals.nativeFunctionName =
+              nativeFunctionName;
 
-          test = UnaryExpression("!", { ...test });
-          nodes.push(IfStatement(test, code, null));
-          break;
-
-        case "browserLock":
-          var navigatorUserAgent = new Template(
-            `window.navigator.userAgent.toLowerCase()`
-          ).single().expression;
-
-          ok(this.options.lock.browserLock);
-
-          this.options.lock.browserLock.forEach((browserName) => {
-            var thisTest: Node = CallExpression(
-              MemberExpression(navigatorUserAgent, Literal("match"), true),
-              [
-                Literal(
-                  browserName == "iexplorer"
-                    ? "msie"
-                    : browserName.toLowerCase()
-                ),
-              ]
+            // Ensure program is not in strict mode
+            // Tamper Protection forces non-strict mode
+            prependProgram(
+              path,
+              StrictModeTemplate.compile({
+                nativeFunctionName,
+                countermeasures: createCountermeasuresCode(),
+              })
             );
 
-            if (browserName === "safari") {
-              thisTest = new Template(
-                `/^((?!chrome|android).)*safari/i.test(navigator.userAgent)`
-              ).single().expression;
-            }
+            const nativeFunctionDeclaration = NativeFunctionTemplate.single({
+              nativeFunctionName,
+              countermeasures: createCountermeasuresCode(),
+              IndexOfTemplate: IndexOfTemplate,
+            });
 
-            if (!test) {
-              test = thisTest;
-            } else {
-              test = LogicalExpression("||", { ...test }, thisTest);
-            }
-          });
-
-          test = UnaryExpression("!", { ...test });
-          nodes.push(
-            IfStatement(
-              test,
-              this.getCounterMeasuresCode(object, parents) || [],
-              null
-            )
-          );
-          break;
-
-        case "domainLock":
-          function removeSlashes(path: string) {
-            var count = path.length - 1;
-            var index = 0;
-
-            while (path.charCodeAt(index) === 47 && ++index);
-            while (path.charCodeAt(count) === 47 && --count);
-
-            return path.slice(index, count + 1);
+            // Checks function's toString() value for [native code] signature
+            prependProgram(path, nativeFunctionDeclaration);
           }
 
-          var locationHref = MemberExpression(
-            Identifier("location"),
-            Literal("href"),
-            true
-          );
-
-          var random = choice(this.options.lock.domainLock as any);
-          if (random) {
-            test = CallExpression(
-              MemberExpression(locationHref, Literal("match"), true),
-              [
-                {
-                  type: "Literal",
-                  regex: {
-                    pattern:
-                      random instanceof RegExp
-                        ? random.source
-                        : removeSlashes(random + ""),
-                    flags: random instanceof RegExp ? "" : "",
-                  },
-                },
-              ]
-            );
-
-            test = UnaryExpression("!", test);
-            if (Math.random() > 0.5) {
-              test = LogicalExpression(
-                "||",
-                BinaryExpression(
-                  "==",
-                  UnaryExpression("typeof", Identifier("location")),
-                  Literal("undefined")
-                ),
-                test
+          // Insert invokeCountermeasures function
+          if (invokeCountermeasuresFnName) {
+            if (!countermeasuresNode) {
+              me.error(
+                "Countermeasures function named '" +
+                  me.options.lock.countermeasures +
+                  "' was not found."
               );
             }
-            nodes.push(
-              IfStatement(
-                test,
-                this.getCounterMeasuresCode(object, parents) || [],
-                null
-              )
-            );
+
+            var hasInvoked = me.getPlaceholder("hasInvoked");
+            var statements = new Template(`
+                var ${hasInvoked} = false;
+                function ${invokeCountermeasuresFnName}(){
+                  if(${hasInvoked}) return;
+                  ${hasInvoked} = true;
+                  ${me.options.lock.countermeasures}();
+                }
+                `)
+              .addSymbols(MULTI_TRANSFORM)
+              .compile();
+
+            prependProgram(path, statements).forEach((p) => p.skip());
           }
 
-          break;
-      }
+          if (me.options.lock.integrity) {
+            const hashFnName = me.getPlaceholder() + "_hash";
+            const imulFnName = me.getPlaceholder() + "_imul";
 
-      if (nodes.length) {
-        var body = getBlockBody(block);
-        var randomIndex = getRandomInteger(0, body.length) + offset;
+            const { sensitivityRegex } = me.globalState.lock.integrity;
+            me.globalState.internals.integrityHashName = hashFnName;
 
-        if (randomIndex >= body.length) {
-          body.push(...nodes);
-        } else {
-          body.splice(randomIndex, 0, ...nodes);
-        }
-      }
-    };
-  }
-}
+            const hashCode = HashTemplate.compile({
+              imul: imulFnName,
+              name: hashFnName,
+              hashingUtilFnName: me.getPlaceholder(),
+              sensitivityRegex: () =>
+                t.newExpression(t.identifier("RegExp"), [
+                  t.stringLiteral(sensitivityRegex.source),
+                  t.stringLiteral(sensitivityRegex.flags),
+                ]),
+            });
+
+            prependProgram(path, hashCode);
+          }
+        },
+      },
+
+      // Integrity first pass
+      // Functions are prepared for Integrity by simply extracting the function body
+      // The extracted function is hashed in the 'integrity' plugin
+      FunctionDeclaration: {
+        exit(funcDecPath) {
+          if (!me.options.lock.integrity) return;
+
+          // Mark functions for integrity
+          // Don't apply to async or generator functions
+          if (funcDecPath.node.async || funcDecPath.node.generator) return;
+
+          if (funcDecPath.find((p) => !!(p.node as NodeSymbol)[SKIP])) return;
+
+          var program = getParentFunctionOrProgram(funcDecPath);
+          // Only top-level functions
+          if (!program.isProgram()) return;
+
+          // Check user's custom implementation
+          const functionName = getFunctionName(funcDecPath);
+          // Don't apply to the countermeasures function (Intended)
+          if (
+            me.options.lock.countermeasures &&
+            functionName === me.options.lock.countermeasures
+          )
+            return;
+          // Don't apply to invokeCountermeasures function (Intended)
+          if (me.obfuscator.isInternalVariable(functionName)) return;
+
+          if (
+            !me.computeProbabilityMap(me.options.lock.integrity, functionName)
+          )
+            return;
+
+          var newFnName = me.getPlaceholder();
+          var newFunctionDeclaration = t.functionDeclaration(
+            t.identifier(newFnName),
+            funcDecPath.node.params,
+            funcDecPath.node.body
+          );
+
+          // Clone semantic symbols like (UNSAFE, PREDICTABLE, MULTI_TRANSFORM, etc)
+          const source = funcDecPath.node;
+          Object.getOwnPropertySymbols(source).forEach((symbol) => {
+            newFunctionDeclaration[symbol] = source[symbol];
+          });
+
+          (newFunctionDeclaration as NodeSymbol)[SKIP] = true;
+
+          var [newFnPath] = program.unshiftContainer(
+            "body",
+            newFunctionDeclaration
+          );
+
+          // Function simply calls the new function
+          // In the case Integrity cannot transform the function, the original behavior is preserved
+          funcDecPath.node.body = t.blockStatement(
+            new Template(`
+              return  ${newFnName}(...arguments);
+              `).compile(),
+            funcDecPath.node.body.directives
+          );
+
+          // Parameters no longer needed, using 'arguments' instead
+          funcDecPath.node.params = [];
+
+          // Mark the function as unsafe - use of 'arguments' is unsafe
+          (funcDecPath.node as NodeSymbol)[UNSAFE] = true;
+
+          // Params changed - function is no longer predictable
+          (funcDecPath.node as NodeSymbol)[PREDICTABLE] = false;
+
+          // Mark the function for integrity
+          (funcDecPath.node as NodeIntegrity)[INTEGRITY] = {
+            fnPath: newFnPath,
+            fnName: newFnName,
+          };
+        },
+      },
+    },
+  };
+};

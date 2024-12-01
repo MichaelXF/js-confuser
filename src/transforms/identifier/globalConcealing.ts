@@ -1,297 +1,295 @@
+import * as t from "@babel/types";
+import { NodePath } from "@babel/traverse";
+import { NameGen } from "../../utils/NameGen";
 import Template from "../../templates/template";
-import Transform from "../transform";
-import { ObfuscateOrder } from "../../order";
+import { PluginArg, PluginObject } from "../plugin";
+import { Order } from "../../order";
 import {
-  Node,
-  Location,
-  CallExpression,
-  Identifier,
-  Literal,
-  FunctionDeclaration,
-  ReturnStatement,
-  MemberExpression,
-  SwitchStatement,
-  SwitchCase,
-  LogicalExpression,
-  VariableDeclarator,
-  FunctionExpression,
-  ExpressionStatement,
-  AssignmentExpression,
-  VariableDeclaration,
-  BreakStatement,
-} from "../../util/gen";
-import { append, prepend } from "../../util/insert";
-import { chance, getRandomInteger } from "../../util/random";
-import {
-  predictableFunctionTag,
+  MULTI_TRANSFORM,
   reservedIdentifiers,
+  reservedNodeModuleIdentifiers,
   variableFunctionName,
 } from "../../constants";
-import { ComputeProbabilityMap } from "../../probability";
-import GlobalAnalysis from "./globalAnalysis";
-import { createGetGlobalTemplate } from "../../templates/bufferToString";
-import { isJSConfuserVar } from "../../util/guard";
+import {
+  getMemberExpressionPropertyAsString,
+  isVariableIdentifier,
+  prepend,
+} from "../../utils/ast-utils";
+import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
+import {
+  getRandomInteger,
+  getRandomString,
+  shuffle,
+} from "../../utils/random-utils";
+import { ok } from "assert";
 
-/**
- * Global Concealing hides global variables being accessed.
- *
- * - Any variable that is not defined is considered "global"
- */
-export default class GlobalConcealing extends Transform {
-  globalAnalysis: GlobalAnalysis;
-  ignoreGlobals = new Set([
-    "require",
-    "__dirname",
-    "eval",
-    variableFunctionName,
-  ]);
+const ignoreGlobals = new Set([
+  ...reservedNodeModuleIdentifiers,
+  "__dirname",
+  "eval",
+  "arguments",
+  variableFunctionName,
+  ...reservedIdentifiers,
+]);
 
-  constructor(o) {
-    super(o, ObfuscateOrder.GlobalConcealing);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.GlobalConcealing, {
+    changeData: {
+      globals: 0,
+      nativeFunctions: 0,
+    },
+  });
 
-    this.globalAnalysis = new GlobalAnalysis(o);
-    this.before.push(this.globalAnalysis);
-  }
+  var globalMapping = new Map<string, string>(),
+    globalFnName = me.getPlaceholder() + "_getGlobal",
+    globalVarName = me.getPlaceholder() + "_globalVar",
+    gen = new NameGen();
 
-  match(object: Node, parents: Node[]) {
-    return object.type == "Program";
-  }
+  // Create the getGlobal function using a template
+  function createGlobalConcealingFunction(): t.FunctionDeclaration {
+    // Create fake global mappings
 
-  transform(object: Node, parents: Node[]) {
-    return () => {
-      var globals: { [name: string]: Location[] } = this.globalAnalysis.globals;
-      this.globalAnalysis.notGlobals.forEach((del) => {
-        delete globals[del];
-      });
+    var fakeCount = getRandomInteger(20, 40);
+    for (var i = 0; i < fakeCount; i++) {
+      var fakeName = getRandomString(getRandomInteger(6, 8));
+      globalMapping.set(gen.generate(), fakeName);
+    }
 
-      for (var varName of this.ignoreGlobals) {
-        delete globals[varName];
-      }
+    const createSwitchStatement = () => {
+      const cases = shuffle(Array.from(globalMapping.keys())).map(
+        (originalName) => {
+          var mappedKey = globalMapping.get(originalName);
 
-      reservedIdentifiers.forEach((x) => {
-        delete globals[x];
-      });
-
-      Object.keys(globals).forEach((x) => {
-        if (this.globalAnalysis.globals[x].length < 1) {
-          delete globals[x];
-        } else if (
-          !ComputeProbabilityMap(this.options.globalConcealing, (x) => x, x)
-        ) {
-          delete globals[x];
+          return t.switchCase(t.stringLiteral(mappedKey), [
+            t.returnStatement(
+              t.memberExpression(
+                t.identifier(globalVarName),
+                t.stringLiteral(originalName),
+                true
+              )
+            ),
+          ]);
         }
-      });
+      );
 
-      if (Object.keys(globals).length > 0) {
-        var usedStates = new Set<number>();
+      return t.switchStatement(t.identifier("mapping"), cases);
+    };
 
-        // Make getter function
+    return t.functionDeclaration(
+      t.identifier(globalFnName),
+      [t.identifier("mapping")],
+      t.blockStatement([createSwitchStatement()])
+    );
+  }
 
-        // holds "window" or "global"
-        var globalVar = this.getPlaceholder();
+  return {
+    visitor: {
+      Program: {
+        exit(programPath: NodePath<t.Program>) {
+          var illegalGlobals = new Set<string>();
+          var pendingReplacements = new Map<string, NodePath[]>();
 
-        var getGlobalVariableFnName =
-          this.getPlaceholder() + predictableFunctionTag;
+          programPath.traverse({
+            Identifier(identifierPath) {
+              if (!isVariableIdentifier(identifierPath)) return;
 
-        // Returns global variable or fall backs to `this`
-        var getGlobalVariableFn = createGetGlobalTemplate(
-          this,
-          object,
-          parents
-        ).compile({
-          getGlobalFnName: getGlobalVariableFnName,
-        });
+              var identifierName = identifierPath.node.name;
 
-        // 2. Replace old accessors
-        var globalFn = this.getPlaceholder() + predictableFunctionTag;
+              if (ignoreGlobals.has(identifierName)) return;
 
-        var newNames: { [globalVarName: string]: number } = Object.create(null);
+              const binding = identifierPath.scope.getBinding(identifierName);
+              if (binding) {
+                illegalGlobals.add(identifierName);
+                return;
+              }
 
-        Object.keys(globals).forEach((name) => {
-          var locations: Location[] = globals[name];
-          var state: number;
-          do {
-            state = getRandomInteger(-1000, 1000 + usedStates.size);
-          } while (usedStates.has(state));
-          usedStates.add(state);
+              if (!identifierPath.scope.hasGlobal(identifierName)) {
+                return;
+              }
 
-          newNames[name] = state;
-
-          locations.forEach(([node, p]) => {
-            if (p.find((x) => x.$multiTransformSkip)) {
-              return;
-            }
-
-            var newExpression = CallExpression(Identifier(globalFn), [
-              Literal(state),
-            ]);
-
-            this.replace(node, newExpression);
-
-            if (
-              this.options.lock?.tamperProtection &&
-              this.lockTransform.nativeFunctionName
-            ) {
-              var isMemberExpression = false;
-              var nameAndPropertyPath = [name];
-              var callExpression: Node;
-
-              var index = 0;
-              do {
-                if (p[index].type === "CallExpression") {
-                  callExpression = p[index];
-                  break;
-                }
-
-                var memberExpression = p[index];
-                if (memberExpression.type !== "MemberExpression") return;
-                var property = memberExpression.property;
-                var stringValue =
-                  property.type === "Literal"
-                    ? property.value
-                    : memberExpression.computed
-                    ? null
-                    : property.type === "Identifier"
-                    ? property.name
-                    : null;
-
-                if (!stringValue) return;
-
-                isMemberExpression = true;
-                nameAndPropertyPath.push(stringValue);
-                index++;
-              } while (index < p.length);
-
+              var assignmentChild = identifierPath.find((p) =>
+                p.parentPath?.isAssignmentExpression()
+              );
               if (
-                !this.lockTransform.shouldTransformNativeFunction(
-                  nameAndPropertyPath
+                assignmentChild &&
+                t.isAssignmentExpression(assignmentChild.parent) &&
+                assignmentChild.parent.left === assignmentChild.node &&
+                !t.isMemberExpression(identifierPath.parent)
+              ) {
+                illegalGlobals.add(identifierName);
+                return;
+              }
+
+              if (!pendingReplacements.has(identifierName)) {
+                pendingReplacements.set(identifierName, [identifierPath]);
+              } else {
+                pendingReplacements.get(identifierName).push(identifierPath);
+              }
+            },
+          });
+
+          // Remove illegal globals
+          illegalGlobals.forEach((globalName) => {
+            pendingReplacements.delete(globalName);
+          });
+
+          for (var [globalName, paths] of pendingReplacements) {
+            var mapping = globalMapping.get(globalName);
+            if (!mapping) {
+              // Allow user to disable custom global variables
+              if (
+                !me.computeProbabilityMap(
+                  me.options.globalConcealing,
+                  globalName
                 )
               )
-                return;
+                continue;
 
-              if (callExpression && callExpression.type === "CallExpression") {
-                if (isMemberExpression) {
-                  callExpression.callee = CallExpression(
-                    Identifier(this.lockTransform.nativeFunctionName),
-                    [
-                      callExpression.callee.object,
-                      callExpression.callee.computed
-                        ? callExpression.callee.property
-                        : Literal(
-                            callExpression.callee.property.name ||
-                              callExpression.callee.property.value
-                          ),
-                    ]
-                  );
-                } else {
-                  callExpression.callee = CallExpression(
-                    Identifier(this.lockTransform.nativeFunctionName),
-                    [{ ...callExpression.callee }]
-                  );
-                }
-              }
+              mapping = gen.generate();
+              globalMapping.set(globalName, mapping);
             }
-          });
-        });
 
-        // Adds all global variables to the switch statement
-        this.options.globalVariables.forEach((name) => {
-          if (!newNames[name]) {
-            var state;
-            do {
-              state = getRandomInteger(
-                0,
-                1000 + usedStates.size + this.options.globalVariables.size * 100
-              );
-            } while (usedStates.has(state));
-            usedStates.add(state);
+            // Replace global reference with getGlobal("name")
+            const callExpression = t.callExpression(
+              t.identifier(globalFnName),
+              [t.stringLiteral(mapping)]
+            );
 
-            newNames[name] = state;
-          }
-        });
+            const { nativeFunctionName } = me.globalState.internals;
 
-        var indexParamName = this.getPlaceholder();
-        var returnName = this.getPlaceholder();
+            for (let path of paths) {
+              const replaceExpression = t.cloneNode(callExpression);
+              me.skip(replaceExpression);
 
-        var functionDeclaration = FunctionDeclaration(
-          globalFn,
-          [Identifier(indexParamName)],
-          [
-            VariableDeclaration(VariableDeclarator(returnName)),
-            SwitchStatement(
-              Identifier(indexParamName),
-              Object.keys(newNames).map((name) => {
-                var code = newNames[name];
-                var body: Node[] = [
-                  ReturnStatement(
-                    MemberExpression(Identifier(globalVar), Literal(name), true)
-                  ),
-                ];
-                if (chance(50)) {
-                  body = [
-                    ExpressionStatement(
-                      AssignmentExpression(
-                        "=",
-                        Identifier(returnName),
-                        LogicalExpression(
-                          "||",
-                          Literal(name),
-                          MemberExpression(
-                            Identifier(globalVar),
-                            Literal(name),
-                            true
+              if (
+                // Native Function will only be populated if tamper protection is enabled
+                nativeFunctionName &&
+                // Avoid maximum call stack error
+                !path.find((p) => p.node[MULTI_TRANSFORM] || me.isSkipped(p))
+              ) {
+                // First extract the member expression chain
+                let nameAndPropertyPath = [globalName];
+                let cursorPath = path;
+                let callExpressionPath: NodePath<t.CallExpression> | null =
+                  null;
+
+                const checkForCallExpression = () => {
+                  if (
+                    cursorPath.parentPath?.isCallExpression() &&
+                    cursorPath.key === "callee"
+                  ) {
+                    callExpressionPath = cursorPath.parentPath;
+                    return true;
+                  }
+                };
+
+                if (!checkForCallExpression()) {
+                  cursorPath = cursorPath?.parentPath;
+                  while (cursorPath?.isMemberExpression()) {
+                    let propertyString = getMemberExpressionPropertyAsString(
+                      cursorPath.node
+                    );
+                    if (!propertyString || typeof propertyString !== "string") {
+                      break;
+                    }
+
+                    nameAndPropertyPath.push(propertyString);
+
+                    if (checkForCallExpression()) break;
+                    cursorPath = cursorPath.parentPath;
+                  }
+                }
+
+                // Eligible member-expression/identifier
+                if (callExpressionPath) {
+                  // Check user's custom implementation
+                  var shouldTransform =
+                    me.obfuscator.shouldTransformNativeFunction(
+                      nameAndPropertyPath
+                    );
+                  if (shouldTransform) {
+                    path.replaceWith(replaceExpression);
+
+                    // console.log("Hello World") ->
+                    // checkNative(getGlobal("console")["log"])("Hello World")
+
+                    // Parent-most member expression must be wrapped
+                    // This to preserve proper 'this' binding in member expression invocations
+                    let callee = callExpressionPath.get(
+                      "callee"
+                    ) as NodePath<t.Expression>;
+                    let callArgs: t.Expression[] = [callee.node];
+
+                    if (callee.isMemberExpression()) {
+                      const additionalPropertyString =
+                        getMemberExpressionPropertyAsString(callee.node);
+                      ok(
+                        additionalPropertyString,
+                        "Expected additional property to be a string"
+                      );
+                      callee = callee.get("object");
+                      callArgs = [
+                        callee.node,
+                        t.stringLiteral(additionalPropertyString),
+                      ];
+                    }
+
+                    // Method supports two signatures:
+                    // checkNative(fetch)(...)
+                    // checkNative(console, "log")(...)
+
+                    callExpressionPath
+                      .get("callee")
+                      .replaceWith(
+                        me.skip(
+                          t.callExpression(
+                            t.identifier(nativeFunctionName),
+                            callArgs
                           )
                         )
-                      )
-                    ),
-                    BreakStatement(),
-                  ];
+                      );
+
+                    me.changeData.nativeFunctions++;
+                    continue;
+                  }
                 }
+              }
 
-                return SwitchCase(Literal(code), body);
-              })
-            ),
-            ReturnStatement(
-              MemberExpression(
-                Identifier(globalVar),
-                Identifier(returnName),
-                true
-              )
-            ),
-          ]
-        );
+              me.changeData.globals++;
 
-        var tempVar = this.getPlaceholder();
+              // Regular replacement
+              // console -> getGlobal("console")
+              path.replaceWith(replaceExpression);
+            }
+          }
 
-        var variableDeclaration = new Template(`
-        var ${globalVar};
-        `).single();
+          // No globals changed, no need to insert the getGlobal function
+          if (globalMapping.size === 0) return;
 
-        variableDeclaration.declarations.push(
-          VariableDeclarator(
-            tempVar,
-            CallExpression(
-              MemberExpression(
-                FunctionExpression(
-                  [],
-                  [
-                    ...getGlobalVariableFn,
-                    new Template(
-                      `return ${globalVar} = ${getGlobalVariableFnName}["call"](this)`
-                    ).single(),
-                  ]
-                ),
-                Literal("call"),
-                true
-              ),
-              []
-            )
-          )
-        );
+          // The Global Concealing function returns the global variable from the specified parameter
+          const globalConcealingFunction = createGlobalConcealingFunction();
 
-        prepend(object, variableDeclaration);
-        append(object, functionDeclaration);
-      }
-    };
-  }
-}
+          prepend(programPath, globalConcealingFunction);
+
+          const getGlobalVarFnName = me.getPlaceholder() + "_getGlobalVarFn";
+
+          // Insert the get global function
+          prepend(
+            programPath,
+            createGetGlobalTemplate(me, programPath).compile({
+              getGlobalFnName: getGlobalVarFnName,
+            })
+          );
+
+          // Call the get global function and store result in 'globalVarName'
+          prepend(
+            programPath,
+            new Template(
+              `var ${globalVarName} = ${getGlobalVarFnName}()`
+            ).single<t.Statement>()
+          );
+        },
+      },
+    },
+  };
+};

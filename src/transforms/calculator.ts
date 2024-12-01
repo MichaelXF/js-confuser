@@ -1,229 +1,99 @@
-import Transform from "./transform";
-import {
-  Node,
-  FunctionDeclaration,
-  ReturnStatement,
-  CallExpression,
-  Identifier,
-  Literal,
-  BinaryExpression,
-  SwitchCase,
-  SwitchStatement,
-  AssignmentExpression,
-  VariableDeclaration,
-  VariableDeclarator,
-  UnaryExpression,
-} from "../util/gen";
-import { prepend } from "../util/insert";
-import { choice, getRandomInteger } from "../util/random";
-import { ObfuscateOrder } from "../order";
+import { PluginArg, PluginObject } from "./plugin";
+import * as t from "@babel/types";
+import { Order } from "../order";
 import { ok } from "assert";
-import { OPERATOR_PRECEDENCE } from "../precedence";
-import Template from "../templates/template";
-import { ComputeProbabilityMap } from "../probability";
+import { NameGen } from "../utils/NameGen";
+import { prependProgram } from "../utils/ast-utils";
 
-const allowedBinaryOperators = new Set(["+", "-", "*", "/"]);
-const allowedUnaryOperators = new Set(["!", "void", "typeof", "-", "~", "+"]);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Calculator, {
+    changeData: {
+      expressions: 0,
+    },
+  });
 
-export default class Calculator extends Transform {
-  gen: ReturnType<Transform["getGenerator"]>;
-  ops: { [operator: string]: number };
-  statesUsed: Set<string>;
-  calculatorFn: string;
-  calculatorOpVar: string;
-  calculatorSetOpFn: string;
+  const nameGen = new NameGen(me.options.identifierGenerator);
 
-  constructor(o) {
-    super(o, ObfuscateOrder.Calculator);
+  return {
+    visitor: {
+      Program: {
+        exit(programPath) {
+          const allowedBinaryOperators = new Set(["+", "-", "*", "/"]);
+          var operatorsMap = new Map<string, string>();
+          var calculatorFnName = me.getPlaceholder() + "_calc";
 
-    this.ops = Object.create(null);
-    this.statesUsed = new Set();
-    this.calculatorFn = this.getPlaceholder() + "_calc";
-    this.calculatorOpVar = this.getPlaceholder();
-    this.calculatorSetOpFn = this.getPlaceholder();
+          programPath.traverse({
+            BinaryExpression: {
+              exit(path) {
+                const { operator } = path.node;
 
-    this.gen = this.getGenerator();
-  }
+                if (t.isPrivate(path.node.left)) return;
 
-  apply(tree) {
-    super.apply(tree);
+                // TODO: Improve precedence handling or remove this transformation entirely
+                if (!t.isNumericLiteral(path.node.right)) return;
+                if (!t.isNumericLiteral(path.node.left)) return;
 
-    if (Object.keys(this.ops).length == 0) {
-      return;
-    }
+                if (!allowedBinaryOperators.has(operator)) return;
 
-    var leftArg = this.getPlaceholder();
-    var rightArg = this.getPlaceholder();
-    var switchCases = [];
+                const mapKey = "binaryExpression_" + operator;
+                let operatorKey = operatorsMap.get(mapKey);
 
-    Object.keys(this.ops).forEach((opKey) => {
-      var [type, operator] = opKey.split("_");
+                // Add binary operator to the map if it doesn't exist
+                if (typeof operatorKey === "undefined") {
+                  operatorKey = nameGen.generate();
+                  operatorsMap.set(mapKey, operatorKey);
+                }
 
-      var code = this.ops[opKey];
-      var body = [];
+                ok(operatorKey);
 
-      if (type === "Binary") {
-        body = [
-          ReturnStatement(
-            BinaryExpression(
-              operator,
-              Identifier(leftArg),
-              Identifier(rightArg)
+                me.changeData.expressions++;
+
+                path.replaceWith(
+                  t.callExpression(t.identifier(calculatorFnName), [
+                    t.stringLiteral(operatorKey),
+                    path.node.left,
+                    path.node.right,
+                  ])
+                );
+              },
+            },
+          });
+
+          // No operators created
+          if (operatorsMap.size < 1) {
+            return;
+          }
+
+          // Create the calculator function and insert into program path
+          var switchCases: t.SwitchCase[] = Array.from(
+            operatorsMap.entries()
+          ).map(([mapKey, key]) => {
+            const [type, operator] = mapKey.split("_");
+
+            let expression = t.binaryExpression(
+              operator as any,
+              t.identifier("a"),
+              t.identifier("b")
+            );
+
+            return t.switchCase(t.stringLiteral(key), [
+              t.returnStatement(expression),
+            ]);
+          });
+
+          prependProgram(
+            programPath,
+
+            t.functionDeclaration(
+              t.identifier(calculatorFnName),
+              [t.identifier("operator"), t.identifier("a"), t.identifier("b")],
+              t.blockStatement([
+                t.switchStatement(t.identifier("operator"), switchCases),
+              ])
             )
-          ),
-        ];
-      } else if (type === "Unary") {
-        body = [
-          ReturnStatement(UnaryExpression(operator, Identifier(leftArg))),
-        ];
-      } else {
-        throw new Error("Unknown type: " + type);
-      }
-
-      switchCases.push(SwitchCase(Literal(code), body));
-    });
-
-    var func = FunctionDeclaration(
-      this.calculatorFn,
-      [leftArg, rightArg].map((x) => Identifier(x)),
-      [SwitchStatement(Identifier(this.calculatorOpVar), switchCases)]
-    );
-
-    prepend(
-      tree,
-      VariableDeclaration(VariableDeclarator(this.calculatorOpVar))
-    );
-
-    prepend(
-      tree,
-      new Template(`function {name}(a){
-        a = {b} + ({b}=a, 0);
-        return a;
-      }`).single({ name: this.calculatorSetOpFn, b: this.calculatorOpVar })
-    );
-
-    prepend(tree, func);
-  }
-
-  match(object: Node, parents: Node[]) {
-    return (
-      object.type === "BinaryExpression" || object.type === "UnaryExpression"
-    );
-  }
-
-  transform(object: Node, parents: Node[]) {
-    // Allow percentage
-    if (!ComputeProbabilityMap(this.options.calculator)) {
-      return;
-    }
-
-    var operator = object.operator;
-
-    var type;
-
-    if (object.type === "BinaryExpression") {
-      type = "Binary";
-
-      if (!allowedBinaryOperators.has(operator)) {
-        return;
-      }
-
-      // Additional checks to ensure complex expressions still work
-      var myPrecedence =
-        OPERATOR_PRECEDENCE[operator] +
-        Object.keys(OPERATOR_PRECEDENCE).indexOf(operator) / 100;
-      var precedences = parents.map(
-        (x) =>
-          x.type == "BinaryExpression" &&
-          OPERATOR_PRECEDENCE[x.operator] +
-            Object.keys(OPERATOR_PRECEDENCE).indexOf(x.operator) / 100
-      );
-
-      // corrupt AST
-      if (precedences.find((x) => x >= myPrecedence)) {
-        return;
-      }
-      if (
-        parents.find(
-          (x) => x.$multiTransformSkip || x.type == "BinaryExpression"
-        )
-      ) {
-        return;
-      }
-    }
-
-    if (object.type === "UnaryExpression") {
-      type = "Unary";
-
-      if (!allowedUnaryOperators.has(operator)) {
-        return;
-      }
-
-      // Typeof expression fix
-      if (operator === "typeof" && object.argument.type === "Identifier") {
-        // `typeof name` is special because it can reference the variable `name` without
-        // throwing any errors. If changed, an error could be thrown, breaking the users code
-        return;
-      }
-    }
-
-    return () => {
-      const opKey = type + "_" + operator;
-
-      if (typeof this.ops[opKey] !== "number") {
-        var newState;
-        do {
-          newState = getRandomInteger(
-            -50,
-            50 + Object.keys(this.ops).length * 5
           );
-        } while (this.statesUsed.has(newState));
-
-        ok(!isNaN(newState));
-
-        this.statesUsed.add(newState);
-        this.ops[opKey] = newState;
-
-        if (type === "Binary") {
-          this.log(
-            `left ${operator} right ->`,
-            `${this.calculatorFn}((${newState}, left, right)`
-          );
-        } else if (type === "Unary") {
-          this.log(
-            `${operator}(argument) ->`,
-            `${this.calculatorFn}(${newState}, argument)`
-          );
-        }
-      }
-
-      // The operator expression sets the operator to be used
-      var operatorExpression = choice([
-        AssignmentExpression(
-          "=",
-          Identifier(this.calculatorOpVar),
-          Literal(this.ops[opKey])
-        ),
-        CallExpression(Identifier(this.calculatorSetOpFn), [
-          Literal(this.ops[opKey]),
-        ]),
-      ]);
-
-      var newExpression;
-      if (type === "Binary") {
-        newExpression = CallExpression(Identifier(this.calculatorFn), [
-          object.left,
-          object.right,
-          operatorExpression,
-        ]);
-      } else {
-        newExpression = CallExpression(Identifier(this.calculatorFn), [
-          object.argument,
-          operatorExpression,
-        ]);
-      }
-
-      this.replace(object, newExpression);
-    };
-  }
-}
+        },
+      },
+    },
+  };
+};

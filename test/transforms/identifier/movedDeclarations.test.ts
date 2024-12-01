@@ -1,4 +1,3 @@
-import { predictableFunctionTag } from "../../../src/constants";
 import JsConfuser from "../../../src/index";
 
 test("Variant #1: Move variable 'y' to top", async () => {
@@ -8,7 +7,7 @@ test("Variant #1: Move variable 'y' to top", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -30,7 +29,7 @@ test("Variant #2: Move variable 'y' and 'z' to top", async () => {
     TEST_VARIABLE = x + y + z;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -52,12 +51,12 @@ test("Variant #3: Don't move 'y' (destructuring)", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
 
-  expect(output).toContain("var [y]=[15];");
+  expect(output).toContain("var[y]=[15];");
 
   var TEST_VARIABLE;
   eval(output);
@@ -77,7 +76,7 @@ test("Variant #4: Move 'y' (nested lexical scope)", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -99,7 +98,7 @@ test("Variant #5: Move 'y' (for statement initializer)", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -121,7 +120,7 @@ test("Variant #6: Move 'y' (for-in left-hand initializer)", async () => {
     TEST_VARIABLE = x + parseInt(y);
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -145,7 +144,7 @@ test("Variant #7: Don't move const or let variables", async () => {
     TEST_VARIABLE = x + y;
   `;
 
-  var output = await JsConfuser.obfuscate(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -172,13 +171,15 @@ test("Variant #8: Work with 'use strict'", async () => {
   TEST_OUTPUT = myFunction();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
 
   // Ensure movedDeclarations applied and 'use strict' is still first
-  expect(output).toContain("function myFunction(){'use strict';var x;");
+  // 'x' can still be moved but we can't store the static value as a default value
+  // Strict mode functions disallow non-simple parameters
+  expect(output).toContain('function myFunction(x){"use strict";x=1;');
 
   var TEST_OUTPUT;
   eval(output);
@@ -186,7 +187,7 @@ test("Variant #8: Work with 'use strict'", async () => {
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
 
-test("Variant #9: Defined variable without an initializer", async () => {
+test("Variant #9: Defined variable without an initializer + CFF + Duplicate Literals Removal", async () => {
   var code = `
   var x;
   x = 1;
@@ -195,40 +196,34 @@ test("Variant #9: Defined variable without an initializer", async () => {
   TEST_OUTPUT = x + y;
   `;
 
-  var output1 = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
     controlFlowFlattening: true,
     duplicateLiteralsRemoval: true,
-  });
-
-  var output2 = await JsConfuser(output1, {
-    target: "node",
-    movedDeclarations: true,
-    controlFlowFlattening: true,
-    duplicateLiteralsRemoval: true,
+    pack: true,
   });
 
   var TEST_OUTPUT;
-  eval(output2);
+  eval(output);
   expect(TEST_OUTPUT).toStrictEqual(3);
 });
 
 test("Variant #10: Move parameters to predictable function", async () => {
   var code = `
-  function testFunction${predictableFunctionTag}_FN(){
+  function testFunction_FN(){
     var values = [10,20,35,"40", null]
     var parseIntKey = "parseInt"
     var output = 0
     var utils = {
-      get parser${predictableFunctionTag}(){
+      get parser(){
         var fn = (value)=>{
           return global[parseIntKey](value)
         }
         return fn
       },
 
-      set setter_fn${predictableFunctionTag}(newValue){
+      set setter_fn(newValue){
         var fakeVar
       }
     }
@@ -237,7 +232,7 @@ test("Variant #10: Move parameters to predictable function", async () => {
       constructor(){
       }
 
-      get fakeGet${predictableFunctionTag}(){
+      get fakeGet(){
         var fakeVar
       }
     }
@@ -249,7 +244,7 @@ test("Variant #10: Move parameters to predictable function", async () => {
 
         default:
           var stringifiedValue = "" + value
-          var parsedValue = utils.parser${predictableFunctionTag}(stringifiedValue)
+          var parsedValue = utils.parser(stringifiedValue)
           output += parsedValue;
           break;
       }
@@ -258,10 +253,10 @@ test("Variant #10: Move parameters to predictable function", async () => {
     return output
   }
 
-  TEST_OUTPUT = testFunction${predictableFunctionTag}_FN()
+  TEST_OUTPUT = testFunction_FN()
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     movedDeclarations: true,
   });
@@ -272,4 +267,113 @@ test("Variant #10: Move parameters to predictable function", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual(105);
+});
+
+test("Variant #11: Predictable function called with extraneous parameters", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function addTen(myArg){
+      var ten = 10;
+      return ten + myArg;
+    }
+
+    TEST_OUTPUT = addTen(5, -5000);
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    }
+  );
+
+  expect(code).not.toContain("addTen(myArg,ten");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(15);
+});
+
+test("Variant #12: Move function declaration as parameter", async () => {
+  var code = `
+  var outsideVar = "Correct Value";
+
+  function myFunction(){
+    function getCorrectValue1(){
+      return "Correct Value";
+    }
+
+    let var1 = "Correct Value";
+    function getCorrectValue2(){
+      return var1;
+    }
+
+    let var2;
+    var2 = "Correct Value";
+
+    function getCorrectValue3(){
+      return var2;
+    }
+
+    function getCorrectValue4(){
+      if(var2) {
+        return outsideVar;
+      }
+    }
+
+    TEST_OUTPUT = [
+      getCorrectValue1(),
+      getCorrectValue2(),
+      getCorrectValue3(),
+      getCorrectValue4()
+    ];
+  }
+
+  myFunction();
+  `;
+
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "node",
+    movedDeclarations: true,
+  });
+
+  expect(output).toContain(
+    "myFunction(getCorrectValue1,getCorrectValue2,getCorrectValue3,getCorrectValue4"
+  );
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual([
+    "Correct Value",
+    "Correct Value",
+    "Correct Value",
+    "Correct Value",
+  ]);
+});
+
+test("Variant #13: Variable and parameter with the same name", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function abc(a, b, c) {
+      var c = a + b + c;
+
+      TEST_OUTPUT = c;
+    }
+
+    abc(1, 2, 3);
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+
+      // Harden the test by renaming variables
+      renameVariables: true,
+      identifierGenerator: "mangled",
+    }
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(6);
 });

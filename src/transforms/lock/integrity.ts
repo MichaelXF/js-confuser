@@ -1,282 +1,117 @@
-import Transform from "../transform";
+import { PluginArg, PluginObject } from "../plugin";
+import { Order } from "../../order";
+import { getRandomInteger } from "../../utils/random-utils";
+import { HashFunction } from "../../templates/integrityTemplate";
+import * as t from "@babel/types";
 import Template from "../../templates/template";
-import {
-  VariableDeclaration,
-  IfStatement,
-  Identifier,
-  BinaryExpression,
-  Literal,
-  CallExpression,
-  BlockStatement,
-  ExpressionStatement,
-  Node,
-  FunctionExpression,
-  VariableDeclarator,
-} from "../../util/gen";
-import { clone, isFunction } from "../../util/insert";
-import { getRandomInteger } from "../../util/random";
-import Lock from "./lock";
-import { ok } from "assert";
-import { compileJsSync } from "../../compiler";
+import { NodePath } from "@babel/traverse";
+import { NameGen } from "../../utils/NameGen";
 
-/**
- * Hashing Algorithm for function integrity
- * @param str
- * @param seed
- */
-function cyrb53(str, seed = 0) {
-  let h1 = 0xdeadbeef ^ seed,
-    h2 = 0x41c6ce57 ^ seed;
-  for (let i = 0, ch; i < str.length; i++) {
-    ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 =
-    Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^
-    Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 =
-    Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^
-    Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+export interface IntegrityInterface {
+  fnPath: NodePath<t.FunctionDeclaration>;
+  fnName: string;
 }
 
-// In template form to be inserted into code
-const HashTemplate = new Template(`
-function {name}(str, seed) {
-  var h1 = 0xdeadbeef ^ seed;
-  var h2 = 0x41c6ce57 ^ seed;
-  for (var i = 0, ch; i < str.length; i++) {
-      ch = str.charCodeAt(i);
-      h1 = {imul}(h1 ^ ch, 2654435761);
-      h2 = {imul}(h2 ^ ch, 1597334677);
-  }
-  h1 = {imul}(h1 ^ (h1>>>16), 2246822507) ^ {imul}(h2 ^ (h2>>>13), 3266489909);
-  h2 = {imul}(h2 ^ (h2>>>16), 2246822507) ^ {imul}(h1 ^ (h1>>>13), 3266489909);
-  return 4294967296 * (2097151 & h2) + (h1>>>0);
-};`);
+export const INTEGRITY = Symbol("Integrity");
 
-// Math.imul polyfill for ES5
-const ImulTemplate = new Template(`
-var {name} = Math.imul || function(opA, opB){
-  opB |= 0; // ensure that opB is an integer. opA will automatically be coerced.
-  // floating points give us 53 bits of precision to work with plus 1 sign bit
-  // automatically handled for our convienence:
-  // 1. 0x003fffff /*opA & 0x000fffff*/ * 0x7fffffff /*opB*/ = 0x1fffff7fc00001
-  //    0x1fffff7fc00001 < Number.MAX_SAFE_INTEGER /*0x1fffffffffffff*/
-  var result = (opA & 0x003fffff) * opB;
-  // 2. We can remove an integer coersion from the statement above because:
-  //    0x1fffff7fc00001 + 0xffc00000 = 0x1fffffff800001
-  //    0x1fffffff800001 < Number.MAX_SAFE_INTEGER /*0x1fffffffffffff*/
-  if (opA & 0xffc00000 /*!== 0*/) result += (opA & 0xffc00000) * opB |0;
-  return result |0;
-};`);
-
-// Simple function that returns .toString() value with spaces replaced out
-const StringTemplate = new Template(`
-  function {name}(x){
-    return x.toString().replace(/ |\\n|;|,|\\{|\\}|\\(|\\)|\\.|\\[|\\]/g, "");
-  }
-`);
+export interface NodeIntegrity {
+  [INTEGRITY]?: IntegrityInterface;
+}
 
 /**
- * Integrity protects functions by using checksum techniques to verify their code has not changed.
+ * Integrity has two passes:
  *
- * If an attacker modifies a function, the modified function will not execute.
+ * - First in the 'lock' plugin to select functions and prepare them for Integrity
+ * - Secondly here to apply the integrity check
  *
- * How it works:
- *
- * - By using `.toString()` JavaScript will expose a function's source code.
- * - We can hash it and use an if statement in the code to ensure the function's code is unchanged.
- *
- * This is the most complicated Transformation for JSConfuser so here I'll explain:
- * - The Program is wrapped in an IIFE (Function Expression that is called instantly)
- * - Every function including ^ are generated out and evaluated for their .toString() value
- * - Hashed using cyrb53's hashing algorithm
- * - Check the checksum before running the code.
- *
- * - The hashing function is placed during this transformation,
- * - A hidden identifier is placed to keep track of the name.
+ * This transformation must run last as any changes to the code will break the hash
  */
-export default class Integrity extends Transform {
-  hashFn: Node;
-  imulFn: Node;
-  stringFn: Node;
-  seed: number;
-  lock: Lock;
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Integrity, {
+    changeData: {
+      functions: 0,
+    },
+  });
 
-  constructor(o, lock) {
-    super(o);
-    this.lock = lock;
+  const nameGen = new NameGen(me.options.identifierGenerator, {
+    avoidObjectPrototype: true,
+    avoidReserved: true,
+  });
 
-    this.seed = getRandomInteger(0, 1000);
-  }
+  return {
+    visitor: {
+      Program: {
+        enter(path) {
+          path.scope.crawl();
+        },
+      },
+      FunctionDeclaration: {
+        exit(funcDecPath) {
+          const integrityInterface = (funcDecPath.node as NodeIntegrity)[
+            INTEGRITY
+          ];
+          if (!integrityInterface) return;
 
-  match(object: Node, parents: Node[]) {
-    // ArrowFunctions are excluded!
-    return (
-      object.type == "Program" ||
-      (isFunction(object) && object.type !== "ArrowFunctionExpression")
-    );
-  }
+          const newFnPath = integrityInterface.fnPath;
+          if (newFnPath.removed) return;
 
-  transform(object: Node, parents: Node[]) {
-    if (object.type == "Program") {
-      return () => {
-        var hashingUtils: Node[] = [];
-
-        var imulName = this.getPlaceholder();
-        var imulVariableDeclaration = ImulTemplate.single({ name: imulName });
-
-        imulVariableDeclaration.$multiTransformSkip = true;
-
-        this.imulFn = imulVariableDeclaration._hiddenId = Identifier(imulName);
-        hashingUtils.push(imulVariableDeclaration);
-
-        var hashName = this.getPlaceholder();
-        var hashFunctionDeclaration = HashTemplate.single({
-          name: hashName,
-          imul: imulName,
-        });
-        this.hashFn = hashFunctionDeclaration._hiddenId = Identifier(hashName);
-        hashingUtils.push(hashFunctionDeclaration);
-
-        hashFunctionDeclaration.$multiTransformSkip = true;
-
-        var stringName = this.getPlaceholder();
-        var stringFunctionDeclaration = StringTemplate.single({
-          name: stringName,
-        });
-        this.stringFn = stringFunctionDeclaration._hiddenId =
-          Identifier(stringName);
-        hashingUtils.push(stringFunctionDeclaration);
-
-        stringFunctionDeclaration.$multiTransformSkip = true;
-
-        var functionExpression = FunctionExpression([], clone(object.body));
-
-        object.body = [
-          ExpressionStatement(CallExpression(functionExpression, [])),
-        ];
-
-        object.$multiTransformSkip = true;
-
-        object._hiddenHashingUtils = hashingUtils;
-
-        var ok = this.transform(functionExpression, [
-          object.body[0],
-          object.body,
-          object,
-        ]);
-        if (ok) {
-          ok();
-        }
-
-        object.$eval = () => {
+          const newFunctionDeclaration = newFnPath.node;
           if (
-            isFunction(functionExpression) &&
-            functionExpression.body.type == "BlockStatement"
-          ) {
-            if (this.lock.counterMeasuresNode) {
-              functionExpression.body.body.unshift(
-                clone(this.lock.counterMeasuresNode[0])
-              );
-            }
+            !newFunctionDeclaration ||
+            !t.isFunctionDeclaration(newFunctionDeclaration)
+          )
+            return;
 
-            functionExpression.body.body.unshift(...hashingUtils);
+          const { integrityHashName: hashFnName } = me.globalState.internals;
+          const obfuscatedHashFnName = me.obfuscator.getObfuscatedVariableName(
+            hashFnName,
+            funcDecPath.find((p) => p.isProgram()).node
+          );
+
+          const newFnName = newFunctionDeclaration.id.name;
+          const binding = newFnPath.scope.getBinding(newFnName);
+
+          // Function is redefined, do not apply integrity
+          if (!binding || binding.constantViolations.length > 0) return;
+
+          var code = me.obfuscator.generateCode(newFunctionDeclaration);
+          var codeTrimmed = code.replace(
+            me.globalState.lock.integrity.sensitivityRegex,
+            ""
+          );
+
+          var seed = getRandomInteger(0, 10000000);
+
+          var hashCode = HashFunction(codeTrimmed, seed);
+
+          const selfName = funcDecPath.node.id.name;
+          const selfCacheProperty = nameGen.generate();
+          const selfCacheString = `${selfName}.${selfCacheProperty}`;
+
+          // me.log(codeTrimmed, hashCode);
+          me.changeData.functions++;
+
+          const hashName = nameGen.generate();
+
+          funcDecPath.node.body = t.blockStatement(
+            new Template(`
+              var {hashName} = ${selfCacheString} || (${selfCacheString} = ${obfuscatedHashFnName}(${newFunctionDeclaration.id.name}, ${seed}));
+          if({hashName} === ${hashCode}) {
+            {originalBody}
+          } else {
+            {countermeasures}  
           }
-        };
-      };
-    }
-    ok(isFunction(object));
-
-    if (object.generator || object.async) {
-      return;
-    }
-
-    return () => {
-      object.__hiddenCountermeasures = this.lock.getCounterMeasuresCode(
-        object,
-        parents
-      );
-
-      object.$eval = () => {
-        var functionName = this.generateIdentifier();
-        var hashName = this.generateIdentifier();
-
-        var functionDeclaration = {
-          ...clone(object),
-          type: "FunctionDeclaration",
-          id: Identifier(functionName),
-          params: object.params || [],
-          body: object.body || BlockStatement([]),
-          expression: false,
-          $multiTransformSkip: true,
-        };
-
-        var toString = compileJsSync(functionDeclaration, this.options);
-
-        if (!toString) {
-          return;
-        }
-
-        var minified = toString.replace(/ |\n|;|,|\{|\}|\(|\)|\.|\[|\]/g, "");
-        var hash = cyrb53(minified, this.seed);
-
-        this.log(
-          (object.id ? object.id.name : "function") + " -> " + hash,
-          minified
-        );
-
-        var ifStatement = IfStatement(
-          BinaryExpression("==", Identifier(hashName), Literal(hash)),
-          [
-            new Template(`return {functionName}.apply(this, arguments)`).single(
-              {
-                functionName: functionName,
-              }
-            ),
-          ]
-        );
-        if (
-          object.__hiddenCountermeasures &&
-          object.__hiddenCountermeasures.length
-        ) {
-          ifStatement.alternate = BlockStatement(
-            object.__hiddenCountermeasures
-          );
-        }
-
-        object.body = BlockStatement([
-          functionDeclaration,
-          VariableDeclaration(
-            VariableDeclarator(
+          `).compile({
+              originalBody: funcDecPath.node.body.body,
               hashName,
-              CallExpression(clone(this.hashFn), [
-                CallExpression(clone(this.stringFn), [
-                  Identifier(functionName),
-                ]),
-                Literal(this.seed),
-              ])
-            )
-          ),
-          ifStatement,
-        ]);
-
-        // Make sure the countermeasures activation variable is present
-        if (this.lock.counterMeasuresActivated) {
-          object.body.body.unshift(
-            VariableDeclaration(
-              VariableDeclarator(this.lock.counterMeasuresActivated)
-            )
+              countermeasures: () =>
+                me.globalState.lock.createCountermeasuresCode(),
+            }),
+            // Preserve directives
+            funcDecPath.node.body.directives
           );
-        }
-
-        if (object.type == "ArrowFunctionExpression") {
-          object.type = "FunctionExpression";
-          object.expression = false;
-        }
-      };
-    };
-  }
-}
+        },
+      },
+    },
+  };
+};

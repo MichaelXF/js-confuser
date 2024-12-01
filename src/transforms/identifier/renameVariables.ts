@@ -1,300 +1,321 @@
-import { ok } from "assert";
-import { ObfuscateOrder } from "../../order";
-import { walk } from "../../traverse";
-import { Literal, Node } from "../../util/gen";
-import { getIdentifierInfo } from "../../util/identifiers";
-import {
-  isVarContext,
-  isContext,
-  isLexContext,
-  clone,
-  isFunction,
-} from "../../util/insert";
-import Transform from "../transform";
+import { NodePath } from "@babel/traverse";
+import { Visitor } from "@babel/traverse";
+import { PluginArg, PluginObject } from "../plugin";
+import * as t from "@babel/types";
+import { Order } from "../../order";
 import {
   noRenameVariablePrefix,
   placeholderVariablePrefix,
-  reservedIdentifiers,
-  variableFunctionName,
 } from "../../constants";
-import { ComputeProbabilityMap } from "../../probability";
-import VariableAnalysis from "./variableAnalysis";
+import {
+  getParentFunctionOrProgram,
+  isDefiningIdentifier,
+  isExportedIdentifier,
+  isVariableIdentifier,
+} from "../../utils/ast-utils";
+import { isVariableFunctionIdentifier } from "../../utils/function-utils";
 
-/**
- * Rename variables to randomly generated names.
- *
- * - 1. First collect data on identifiers in all scope using 'VariableAnalysis'
- * - 2. After 'VariableAnalysis' is finished start applying to each scope (top-down)
- * - 3. Each scope, find the all names used here and exclude those names from being re-named
- * - 4. Now loop through all the defined names in this scope and set it to a random name (or re-use previously generated name)
- * - 5. Update all the Identifiers node's 'name' property to reflect this change
- */
-export default class RenameVariables extends Transform {
-  // Names already used
-  generated: string[];
+const RENAMED = Symbol("Renamed");
 
-  // Map of Context->Object of changes
-  changed: Map<Node, { [name: string]: string }>;
+const reusePreviousNames = true;
 
-  // Ref to VariableAnalysis data
-  variableAnalysis: VariableAnalysis;
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.RenameVariables, {
+    changeData: {
+      variables: 0,
+    },
+  });
 
-  // Option to re-use previously generated names
-  reusePreviousNames = true;
+  const definedMap = new Map<t.Node, Set<string>>();
+  const referencedMap = new Map<t.Node, Set<string>>();
+  const paramMap = new Map<t.Node, Set<string>>(); // Used for default function parameter special case
+  const bindingMap = new Map<t.Node, Map<string, NodePath<t.Identifier>>>();
 
-  constructor(o) {
-    super(o, ObfuscateOrder.RenameVariables);
+  const renamedVariables = new Map<t.Node, Map<string, string>>();
+  me.obfuscator.globalState.renamedVariables = renamedVariables;
 
-    this.changed = new Map();
+  const generated = Array.from(me.obfuscator.nameGen.generatedNames);
 
-    // 1.
-    this.variableAnalysis = new VariableAnalysis(o);
-    this.before.push(this.variableAnalysis);
-    this.generated = [];
-  }
+  const VariableAnalysisVisitor: Visitor = {
+    Program: {
+      enter(path) {
+        // Analyze all scopes
+        path.traverse({
+          Identifier(path) {
+            if (!isVariableIdentifier(path)) return;
 
-  match(object: Node, parents: Node[]) {
-    return isContext(object) || object.type === "Identifier";
-  }
+            let contextPaths: NodePath<t.Node>[] = [
+              getParentFunctionOrProgram(path),
+            ];
 
-  transformContext(object: Node, parents: Node[]) {
-    // 2. Notice this is on 'onEnter' (top-down)
-    var isGlobal = object.type == "Program";
-    var type = isGlobal
-      ? "root"
-      : isVarContext(object)
-      ? "var"
-      : isLexContext(object)
-      ? "lex"
-      : undefined;
+            let isDefined = false;
+            let isParameter = false;
 
-    ok(type);
+            if (path.isBindingIdentifier() && isDefiningIdentifier(path)) {
+              isDefined = true;
+              const binding = path.scope.getBinding(path.node.name);
+              if (binding?.kind === "param") isParameter = true;
 
-    var newNames = Object.create(null);
-
-    var defined = this.variableAnalysis.defined.get(object) || new Set();
-    var references = this.variableAnalysis.references.get(object) || new Set();
-
-    // No changes needed here
-    if (!defined && !this.changed.has(object)) {
-      this.changed.set(object, Object.create(null));
-      return;
-    }
-
-    // Names possible to be re-used here
-    var possible = new Set<string>();
-
-    // 3. Try to re-use names when possible
-    if (this.reusePreviousNames && this.generated.length && !isGlobal) {
-      var allReferences = new Set<string>();
-      var nope = new Set(defined);
-      walk(object, [], (o, p) => {
-        var ref = this.variableAnalysis.references.get(o);
-        if (ref) {
-          ref.forEach((x) => allReferences.add(x));
-        }
-
-        var def = this.variableAnalysis.defined.get(o);
-        if (def) {
-          def.forEach((x) => allReferences.add(x));
-        }
-      });
-
-      var passed = new Set<string>();
-      parents.forEach((p) => {
-        var changes = this.changed.get(p);
-        if (changes) {
-          Object.keys(changes).forEach((x) => {
-            var name = changes[x];
-
-            if (!allReferences.has(x) && !references.has(x)) {
-              passed.add(name);
-            } else {
-              nope.add(name);
+              // Function ID is defined in the parent's function declaration
+              if (
+                path.key === "id" &&
+                path.parentPath.isFunctionDeclaration()
+              ) {
+                contextPaths = [getParentFunctionOrProgram(path.parentPath)];
+              }
             }
-          });
-        }
-      });
 
-      nope.forEach((x) => passed.delete(x));
+            contextPaths.forEach((contextPath) => {
+              // console.log(contextPath.node.type, path.node.name, isDefined);
 
-      possible = passed;
-    }
+              if (isDefined) {
+                // Add to defined map
+                if (!definedMap.has(contextPath.node)) {
+                  definedMap.set(contextPath.node, new Set());
+                }
+                definedMap.get(contextPath.node).add(path.node.name);
 
-    // 4. Defined names to new names
-    for (var name of defined) {
+                if (!bindingMap.has(contextPath.node)) {
+                  bindingMap.set(contextPath.node, new Map());
+                }
+                bindingMap.get(contextPath.node).set(path.node.name, path);
+              } else {
+                // Add to reference map
+                if (!referencedMap.has(contextPath.node)) {
+                  referencedMap.set(contextPath.node, new Set());
+                }
+                referencedMap.get(contextPath.node).add(path.node.name);
+              }
+            });
+          },
+        });
+
+        //
+      },
+    },
+  };
+
+  const VariableRenamingVisitor: Visitor = {
+    Identifier(identifierPath) {
+      if (!isVariableIdentifier(identifierPath)) return;
+      const node = identifierPath.node;
+      const identifierName = node.name;
+
+      if (node[RENAMED]) {
+        return;
+      }
+
+      var contextPaths: NodePath[] = identifierPath.getAncestry();
+
+      // A Function ID is not in the same context as it's body
       if (
-        !name.startsWith(noRenameVariablePrefix) && // Variables prefixed with '__NO_JS_CONFUSER_RENAME__' are never renamed
-        (isGlobal && !name.startsWith(placeholderVariablePrefix) // Variables prefixed with '__p_' are created by the obfuscator, always renamed
-          ? ComputeProbabilityMap(this.options.renameGlobals, (x) => x, name)
-          : true) &&
-        ComputeProbabilityMap(
-          // Check the user's option for renaming variables
-          this.options.renameVariables,
-          (x) => x,
-          name,
-          isGlobal
-        )
+        identifierPath.key === "id" &&
+        identifierPath.parentPath.isFunctionDeclaration()
       ) {
-        // Create a new name from (1) or (2) methods
-        var newName: string;
-        do {
-          if (possible.size) {
-            // (1) Re-use previously generated name
-            var first = possible.values().next().value;
-            possible.delete(first);
-            newName = first;
-          } else {
-            // (2) Create a new name with `generateIdentifier` function
-            var generatedName = this.generateIdentifier();
-
-            newName = generatedName;
-            this.generated.push(generatedName);
-          }
-        } while (this.variableAnalysis.globals.has(newName)); // Ensure global names aren't overridden
-
-        newNames[name] = newName;
-      } else {
-        // This variable name was deemed not to be renamed.
-        newNames[name] = name;
-      }
-    }
-
-    // console.log(object.type, newNames);
-    this.changed.set(object, newNames);
-  }
-
-  transformIdentifier(object: Node, parents: Node[]) {
-    const identifierName = object.name;
-    if (
-      reservedIdentifiers.has(identifierName) ||
-      this.options.globalVariables.has(identifierName)
-    ) {
-      return;
-    }
-
-    if (object.$renamed) {
-      return;
-    }
-
-    var info = getIdentifierInfo(object, parents);
-
-    if (info.spec.isExported) {
-      return;
-    }
-
-    if (!info.spec.isReferenced) {
-      return;
-    }
-
-    var contexts = [object, ...parents].filter((x) => isContext(x));
-    var newName = null;
-
-    // Function default parameter check!
-    var functionIndices = [];
-    for (var i in parents) {
-      if (isFunction(parents[i])) {
-        functionIndices.push(i);
-      }
-    }
-
-    for (var functionIndex of functionIndices) {
-      if (parents[functionIndex].id === object) {
-        // This context is not referenced, so remove it
-        contexts = contexts.filter(
-          (context) => context != parents[functionIndex]
+        contextPaths = contextPaths.filter(
+          (x) => x !== identifierPath.parentPath
         );
-        continue;
       }
-      if (parents[functionIndex].params === parents[functionIndex - 1]) {
-        var isReferencedHere = true;
 
-        var slicedParents = parents.slice(0, functionIndex);
-        var forIndex = 0;
-        for (var parent of slicedParents) {
-          var childNode = slicedParents[forIndex - 1] || object;
+      var newName = null;
 
-          if (
-            parent.type === "AssignmentPattern" &&
-            parent.right === childNode
-          ) {
-            isReferencedHere = false;
+      const skippedPaths = new Set();
+
+      for (let contextPath of contextPaths) {
+        if (skippedPaths.has(contextPath)) continue;
+
+        if (contextPath.isFunction()) {
+          var assignmentPattern = contextPath.find(
+            (p) => p.listKey === "params" && p.parentPath.isFunction()
+          );
+
+          if (assignmentPattern?.isAssignmentPattern()) {
+            var functionPath = assignmentPattern.getFunctionParent();
+
+            if (functionPath) {
+              // The parameters can be still accessed...
+              const params = paramMap.get(functionPath.node);
+              if (params?.has(identifierName)) {
+              } else {
+                skippedPaths.add(functionPath);
+              }
+            }
+          }
+        }
+
+        const { node } = contextPath;
+
+        const defined = definedMap.get(node);
+        if (defined?.has(identifierName)) {
+          const renamed = renamedVariables.get(node);
+          if (renamed?.has(identifierName)) {
+            newName = renamed.get(identifierName);
             break;
           }
-
-          forIndex++;
-        }
-
-        if (!isReferencedHere) {
-          // This context is not referenced, so remove it
-          contexts = contexts.filter(
-            (context) => context != parents[functionIndex]
-          );
-        }
-      }
-    }
-
-    for (var check of contexts) {
-      if (
-        this.variableAnalysis.defined.has(check) &&
-        this.variableAnalysis.defined.get(check).has(identifierName)
-      ) {
-        if (
-          this.changed.has(check) &&
-          this.changed.get(check)[identifierName]
-        ) {
-          newName = this.changed.get(check)[identifierName];
-          break;
-        }
-      }
-    }
-
-    if (newName && typeof newName === "string") {
-      // Strange behavior where the `local` and `imported` objects are the same
-      if (info.isImportSpecifier) {
-        var importSpecifierIndex = parents.findIndex(
-          (x) => x.type === "ImportSpecifier"
-        );
-        if (
-          importSpecifierIndex != -1 &&
-          parents[importSpecifierIndex].imported ===
-            (parents[importSpecifierIndex - 1] || object) &&
-          parents[importSpecifierIndex].imported &&
-          parents[importSpecifierIndex].imported.type === "Identifier"
-        ) {
-          parents[importSpecifierIndex].imported = clone(
-            parents[importSpecifierIndex - 1] || object
-          );
         }
       }
 
-      if (
-        parents[1] &&
-        parents[1].type === "CallExpression" &&
-        parents[1].arguments === parents[0]
-      ) {
-        if (
-          parents[1].callee.type === "Identifier" &&
-          parents[1].callee.name === variableFunctionName
-        ) {
-          this.replace(parents[1], Literal(newName));
+      if (newName && typeof newName === "string") {
+        // __JS_CONFUSER_VAR__ function
+        if (isVariableFunctionIdentifier(identifierPath)) {
+          identifierPath.parentPath.replaceWith(t.stringLiteral(newName));
           return;
         }
+
+        // 5. Update Identifier node's 'name' property
+        node.name = newName;
+        node[RENAMED] = true;
+
+        // 6. Additional parameter mapping
+        const binding = identifierPath.scope.getBinding(identifierName);
+        if (binding?.kind === "param") {
+          var mapNode = binding.scope.path.node;
+          if (!paramMap.has(mapNode)) {
+            paramMap.set(mapNode, new Set([identifierName]));
+          } else {
+            paramMap.get(mapNode).add(identifierName);
+          }
+        }
+      }
+    },
+
+    Scopable(scopePath: NodePath<t.Scopable>) {
+      // 2. Notice this is on 'onEnter' (top-down)
+      const isGlobal = scopePath.isProgram();
+      const { node } = scopePath.scope.path;
+      if (renamedVariables.has(node)) return;
+
+      const defined = definedMap.get(node) || new Set();
+      const references = referencedMap.get(node) || new Set();
+      const bindings = bindingMap.get(node);
+
+      // No changes needed here
+      if (!defined && !renamedVariables.has(node)) {
+        renamedVariables.set(node, Object.create(null));
+        return;
       }
 
-      // console.log(o.name, "->", newName);
-      // 5. Update Identifier node's 'name' property
-      object.name = newName;
-      object.$renamed = true;
-    }
-  }
+      const newNames = new Map<string, string>();
 
-  transform(object: Node, parents: Node[]) {
-    var matchType = object.type === "Identifier" ? "Identifier" : "Context";
-    if (matchType === "Identifier") {
-      this.transformIdentifier(object, parents);
-    } else {
-      this.transformContext(object, parents);
-    }
-  }
-}
+      // Names possible to be re-used here
+      var possible = new Set<string>();
+
+      // 3. Try to re-use names when possible
+      if (reusePreviousNames && generated.length && !isGlobal) {
+        var allReferences = new Set<string>();
+        var nope = new Set(defined);
+
+        scopePath.traverse({
+          Scopable(path) {
+            const { node } = path.scope.path;
+
+            var ref = referencedMap.get(node);
+            if (ref) {
+              ref.forEach((x) => allReferences.add(x));
+            }
+
+            var def = definedMap.get(node);
+            if (def) {
+              def.forEach((x) => allReferences.add(x));
+            }
+          },
+        });
+
+        var passed = new Set<string>();
+
+        const parentPaths = scopePath.getAncestry();
+        parentPaths.forEach((p) => {
+          if (p === scopePath) return;
+
+          let changes = renamedVariables.get(p.node);
+          if (changes) {
+            for (let [oldName, newName] of changes) {
+              if (!allReferences.has(oldName) && !references.has(oldName)) {
+                passed.add(newName);
+              } else {
+                nope.add(newName);
+              }
+            }
+          }
+        });
+
+        nope.forEach((x) => passed.delete(x));
+
+        possible = passed;
+      }
+
+      function shouldRename(name: string) {
+        // __NO_JS_CONFUSER_RENAME__
+        if (name.startsWith(noRenameVariablePrefix)) return false;
+
+        // Placeholder variables should always be renamed
+        if (name.startsWith(placeholderVariablePrefix)) return true;
+
+        const binding = bindings?.get(name);
+
+        if (binding) {
+          // Do not rename exports
+          if (isExportedIdentifier(binding)) return false;
+        }
+
+        if (name === me.obfuscator.getStringCompressionLibraryName())
+          return false;
+
+        // Global variables are additionally checked against user option
+        if (isGlobal) {
+          if (!me.computeProbabilityMap(me.options.renameGlobals, name))
+            return false;
+        }
+
+        if (
+          !me.computeProbabilityMap(me.options.renameVariables, name, isGlobal)
+        )
+          return false;
+
+        return true;
+      }
+
+      // 4. Defined names to new names
+      for (var name of defined) {
+        let newName = name;
+
+        if (shouldRename(name)) {
+          me.changeData.variables++;
+
+          // Create a new name from (1) or (2) methods
+          do {
+            if (possible.size) {
+              // (1) Re-use previously generated name
+              var first = possible.values().next().value;
+              possible.delete(first);
+              newName = first;
+            } else {
+              // (2) Create a new name with global `nameGen`
+              var generatedName = me.obfuscator.nameGen.generate();
+
+              newName = generatedName;
+              generated.push(generatedName);
+            }
+          } while (
+            scopePath.scope.hasGlobal(newName) ||
+            me.obfuscator.nameGen.notSafeForReuseNames.has(newName)
+          );
+          // Ensure global names aren't overridden
+        }
+
+        newNames.set(name, newName);
+      }
+
+      // console.log(node.type, newNames);
+      renamedVariables.set(node, newNames);
+    },
+  };
+
+  return {
+    visitor: {
+      ...VariableAnalysisVisitor,
+
+      ...VariableRenamingVisitor,
+    },
+  };
+};

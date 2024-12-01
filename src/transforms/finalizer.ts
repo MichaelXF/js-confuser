@@ -1,75 +1,74 @@
-import { ObfuscateOrder } from "../order";
-import { ExitCallback } from "../traverse";
-import { Identifier, Node } from "../util/gen";
-import StringEncoding from "./string/stringEncoding";
-import Transform from "./transform";
+import { PluginArg, PluginObject } from "./plugin";
+import * as t from "@babel/types";
+import { Order } from "../order";
+import stringEncoding from "./string/stringEncoding";
+import { GEN_NODE, NodeSymbol, variableFunctionName } from "../constants";
+import { ok } from "assert";
 
-/**
- * The Finalizer is the last transformation before the code is ready to be generated.
- *
- * Hexadecimal numbers:
- * - Convert integer literals into `Identifier` nodes with the name being a hexadecimal number
- *
- * BigInt support:
- * - Convert BigInt literals into `Identifier` nodes with the name being the raw BigInt string value + "n"
- *
- * String Encoding:
- * - Convert String literals into `Identifier` nodes with the name being a unicode escaped string
- */
-export default class Finalizer extends Transform {
-  stringEncoding: StringEncoding;
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Finalizer);
+  const stringEncodingPlugin = stringEncoding(me);
 
-  constructor(o) {
-    super(o, ObfuscateOrder.Finalizer);
+  return {
+    visitor: {
+      // String encoding
+      ...stringEncodingPlugin.visitor,
 
-    this.stringEncoding = new StringEncoding(o);
-  }
+      // Backup __JS_CONFUSER_VAR__ replacement
+      // While done in Preparation, Rename Variables
+      // This accounts for when Rename Variables is disabled and an inserted Template adds __JS_CONFUSER_VAR__ calls
+      ...(me.obfuscator.hasPlugin(Order.RenameVariables)
+        ? {}
+        : {
+            CallExpression: {
+              exit(path) {
+                if (
+                  path.get("callee").isIdentifier({
+                    name: variableFunctionName,
+                  })
+                ) {
+                  var args = path.get("arguments");
+                  ok(args.length === 1);
 
-  isNumberLiteral(object: Node) {
-    return (
-      object.type === "Literal" &&
-      typeof object.value === "number" &&
-      Math.floor(object.value) === object.value
-    );
-  }
+                  var arg = args[0];
+                  ok(arg.isIdentifier());
 
-  isBigIntLiteral(object: Node) {
-    return object.type === "Literal" && typeof object.value === "bigint";
-  }
+                  var name = arg.node.name;
+                  path.replaceWith(t.stringLiteral(name));
+                }
+              },
+            },
+          }),
 
-  match(object, parents) {
-    return object.type === "Literal";
-  }
+      // Hexadecimal numbers
+      NumericLiteral: {
+        exit(path) {
+          if (me.options.hexadecimalNumbers) {
+            const { value } = path.node;
 
-  transform(object: Node, parents: Node[]): void | ExitCallback {
-    // Hexadecimal Numbers
-    if (this.options.hexadecimalNumbers && this.isNumberLiteral(object)) {
-      return () => {
-        // Technically, a Literal will never be negative because it's supposed to be inside a UnaryExpression with a "-" operator.
-        // This code handles it regardless
-        var isNegative = object.value < 0;
-        var hex = Math.abs(object.value).toString(16);
+            if (
+              Number.isNaN(value) ||
+              !Number.isFinite(value) ||
+              Math.floor(value) !== value
+            ) {
+              return;
+            }
 
-        var newStr = (isNegative ? "-" : "") + "0x" + hex;
+            // Technically, a Literal will never be negative because it's supposed to be inside a UnaryExpression with a "-" operator.
+            // This code handles it regardless
+            var isNegative = value < 0;
+            var hex = Math.abs(value).toString(16);
 
-        this.replace(object, Identifier(newStr));
-      };
-    }
+            var newStr = (isNegative ? "-" : "") + "0x" + hex;
 
-    // BigInt support
-    if (this.isBigIntLiteral(object)) {
-      // https://github.com/MichaelXF/js-confuser/issues/79
-      return () => {
-        // Use an Identifier with the raw string
-        this.replace(object, Identifier(object.raw));
-      };
-    }
+            var id = t.identifier(newStr);
+            (id as NodeSymbol)[GEN_NODE] = true;
 
-    if (
-      this.options.stringEncoding &&
-      this.stringEncoding.match(object, parents)
-    ) {
-      return this.stringEncoding.transform(object, parents);
-    }
-  }
-}
+            path.replaceWith(id);
+            path.skip();
+          }
+        },
+      },
+    },
+  };
+};

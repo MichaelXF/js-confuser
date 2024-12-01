@@ -1,26 +1,22 @@
 /**
  * Describes the order of transformations.
  */
-export enum ObfuscateOrder {
+export enum Order {
   Preparation = 0,
 
   ObjectExtraction = 1,
 
   Flatten = 2,
 
-  RGF = 3,
+  Lock = 3,
 
-  Lock = 4, // Includes Integrity & Anti Debug
+  RGF = 4,
 
   Dispatcher = 6,
 
   DeadCode = 8,
 
   Calculator = 9,
-
-  ControlFlowFlattening = 10,
-
-  Eval = 11,
 
   GlobalConcealing = 12,
 
@@ -32,25 +28,27 @@ export enum ObfuscateOrder {
 
   StringCompression = 18,
 
-  Stack = 20,
+  VariableMasking = 20,
 
   DuplicateLiteralsRemoval = 22,
 
-  Shuffle = 24,
+  Shuffle = 23,
 
-  NameRecycling = 25,
+  ControlFlowFlattening = 24,
 
-  MovedDeclarations = 26,
+  MovedDeclarations = 25,
 
   RenameLabels = 27,
 
   Minify = 28,
 
-  AntiTooling = 29,
+  AstScrambler = 29,
 
   RenameVariables = 30,
 
-  ES5 = 31,
-
   Finalizer = 35,
+
+  Pack = 36,
+
+  Integrity = 37, // Must run last
 }

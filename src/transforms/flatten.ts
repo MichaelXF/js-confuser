@@ -1,557 +1,418 @@
-import { ok } from "assert";
+import * as t from "@babel/types";
+import { NodePath } from "@babel/traverse";
 import {
-  noRenameVariablePrefix,
-  predictableFunctionTag,
-  reservedIdentifiers,
-} from "../constants";
-import { ObfuscateOrder } from "../order";
-import { walk } from "../traverse";
-import {
-  Identifier,
-  ReturnStatement,
-  VariableDeclaration,
-  VariableDeclarator,
-  CallExpression,
-  MemberExpression,
-  ExpressionStatement,
-  AssignmentExpression,
-  Node,
-  BlockStatement,
-  ArrayPattern,
-  FunctionExpression,
-  ObjectExpression,
-  Property,
-  Literal,
-  AwaitExpression,
-  FunctionDeclaration,
-  SpreadElement,
-  UnaryExpression,
-  RestElement,
-} from "../util/gen";
-import { getIdentifierInfo } from "../util/identifiers";
-import {
-  getBlockBody,
+  ensureComputedExpression,
+  getFunctionName,
+  isDefiningIdentifier,
+  isModifiedIdentifier,
+  isStrictMode,
+  isVariableIdentifier,
   prepend,
-  clone,
-  getDefiningContext,
+  prependProgram,
+} from "../utils/ast-utils";
+import { PluginArg, PluginObject } from "./plugin";
+import { Order } from "../order";
+import { NodeSymbol, PREDICTABLE, UNSAFE } from "../constants";
+import {
   computeFunctionLength,
-} from "../util/insert";
-import { shuffle } from "../util/random";
-import Transform from "./transform";
-import { FunctionLengthTemplate } from "../templates/functionLength";
-import { ObjectDefineProperty } from "../templates/globals";
+  isVariableFunctionIdentifier,
+} from "../utils/function-utils";
+import { NameGen } from "../utils/NameGen";
 
-/**
- * Flatten takes functions and isolates them from their original scope, and brings it to the top level of the program.
- *
- * An additional `flatObject` parameter is passed in, giving access to the original scoped variables.
- *
- * The `flatObject` uses `get` and `set` properties to allow easy an AST transformation:
- *
- * ```js
- * // Input
- * function myFunction(myParam){
- *    modified = true;
- *    if(reference) {
- *
- *    }
- *    ...
- *    console.log(myParam);
- * }
- *
- * // Output
- * function myFunction_flat([myParam], flatObject){
- *    flatObject["set_modified"] = true;
- *    if(flatObject["get_reference"]) {
- *
- *    }
- *    ...
- *    console.log(myParam)
- * }
- *
- * function myFunction(){
- *    var flatObject = {
- *        set set_modified(v) { modified = v }
- *        get get_reference() { return reference }
- *    }
- *    return myFunction_flat([...arguments], flatObject)
- * }
- * ```
- *
- * Flatten is used to make functions eligible for the RGF transformation.
- *
- * - `myFunction_flat` is now eligible because it does not rely on outside scoped variables
- */
-export default class Flatten extends Transform {
-  isDebug = false;
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.Flatten, {
+    changeData: {
+      functions: 0,
+    },
+  });
+  const isDebug = false;
 
-  definedNames: Map<Node, Set<string>>;
+  function flattenFunction(fnPath: NodePath<t.Function>) {
+    // Skip if already processed
+    if (me.isSkipped(fnPath)) return;
 
-  // Array of FunctionDeclaration nodes
-  flattenedFns: Node[];
-  gen: ReturnType<Transform["getGenerator"]>;
+    // Don't apply to generator functions
+    if (fnPath.node.generator) return;
 
-  functionLengthName: string;
-
-  constructor(o) {
-    super(o, ObfuscateOrder.Flatten);
-
-    this.definedNames = new Map();
-    this.flattenedFns = [];
-    this.gen = this.getGenerator("mangled");
-
-    if (this.isDebug) {
-      console.warn("Flatten debug mode");
+    // Skip getter/setter methods
+    if (fnPath.isObjectMethod() || fnPath.isClassMethod()) {
+      if (fnPath.node.kind !== "method") return;
     }
-  }
 
-  apply(tree) {
-    super.apply(tree);
+    // Do not apply to arrow functions
+    if (t.isArrowFunctionExpression(fnPath.node)) return;
+    if (!t.isBlockStatement(fnPath.node.body)) return;
 
-    if (this.flattenedFns.length) {
-      prepend(tree, ...this.flattenedFns);
+    // Skip if marked as unsafe
+    if ((fnPath.node as NodeSymbol)[UNSAFE]) return;
+
+    var program = fnPath.findParent((p) =>
+      p.isProgram()
+    ) as NodePath<t.Program>;
+
+    let functionName = getFunctionName(fnPath);
+    if (!t.isValidIdentifier(functionName, true)) {
+      functionName = "anonymous";
     }
-  }
 
-  match(object: Node, parents: Node[]) {
-    return (
-      (object.type == "FunctionDeclaration" ||
-        object.type === "FunctionExpression") &&
-      object.body.type == "BlockStatement" &&
-      !object.$requiresEval &&
-      !object.generator &&
-      !object.params.find((x) => x.type !== "Identifier")
-    );
-  }
+    if (!me.computeProbabilityMap(me.options.flatten, functionName)) {
+      return;
+    }
 
-  transform(object: Node, parents: Node[]) {
-    return () => {
-      if (parents[0]) {
-        // Don't change class methods
-        if (
-          parents[0].type === "MethodDefinition" &&
-          parents[0].value === object
-        ) {
-          return;
-        }
+    const strictMode = fnPath.find((path) => isStrictMode(path));
+    if (strictMode === fnPath) return;
 
-        // Don't change getter/setter methods
-        if (
-          parents[0].type === "Property" &&
-          parents[0].value === object &&
-          (parents[0].kind !== "init" || parents[0].method)
-        ) {
-          return;
-        }
-      }
+    me.log("Transforming", functionName);
 
-      ok(
-        object.type === "FunctionDeclaration" ||
-          object.type === "FunctionExpression"
-      );
+    const flatObjectName = `${me.getPlaceholder()}_flat_object`;
+    const newFnName = `${me.getPlaceholder()}_flat_${functionName}`;
 
-      // The name is purely for debugging purposes
-      var currentFnName =
-        object.type === "FunctionDeclaration"
-          ? object.id?.name
-          : parents[0]?.type === "VariableDeclarator" &&
-            parents[0].id?.type === "Identifier" &&
-            parents[0].id?.name;
+    const nameGen = new NameGen(me.options.identifierGenerator);
 
-      if (parents[0]?.type === "Property" && parents[0]?.key) {
-        currentFnName = currentFnName || String(parents[0]?.key?.name);
-      }
+    function generateProp(originalName: string, type: string) {
+      var newPropertyName: string;
+      do {
+        newPropertyName = isDebug
+          ? type + "_" + originalName
+          : nameGen.generate();
+      } while (allPropertyNames.has(newPropertyName));
 
-      if (!currentFnName) currentFnName = "unnamed";
+      allPropertyNames.add(newPropertyName);
 
-      var definedMap = new Map<Node, Set<string>>();
+      return newPropertyName;
+    }
 
-      var illegal = new Set<string>();
-      var isIllegal = false;
+    const standardProps = new Map<string, string>();
+    const setterPropsNeeded = new Set<string>();
+    const typeofProps = new Map<string, string>();
+    const functionCallProps = new Map<string, string>();
+    const allPropertyNames = new Set();
 
-      var identifierNodes: [
-        Node,
-        Node[],
-        ReturnType<typeof getIdentifierInfo>
-      ][] = [];
+    const identifierPaths: NodePath<t.Identifier>[] = [];
 
-      walk(object, parents, (o, p) => {
-        if (
-          (o.type === "Identifier" && o.name === "arguments") ||
-          (o.type === "UnaryExpression" && o.operator === "delete") ||
-          o.type == "ThisExpression" ||
-          o.type == "Super" ||
-          o.type == "MetaProperty"
-        ) {
-          isIllegal = true;
-          return "EXIT";
-        }
-
-        if (
-          o.type == "Identifier" &&
-          o !== object.id &&
-          !this.options.globalVariables.has(o.name) &&
-          !reservedIdentifiers.has(o.name)
-        ) {
-          var info = getIdentifierInfo(o, p);
-          if (!info.spec.isReferenced) {
-            return;
-          }
+    // Traverse function to identify variables to be replaced with flat object properties
+    fnPath.traverse({
+      Identifier: {
+        exit(identifierPath) {
+          if (!isVariableIdentifier(identifierPath)) return;
 
           if (
-            info.spec.isExported ||
-            o.name.startsWith(noRenameVariablePrefix)
-          ) {
-            illegal.add(o.name);
+            identifierPath.isBindingIdentifier() &&
+            isDefiningIdentifier(identifierPath)
+          )
+            return;
 
+          if (isVariableFunctionIdentifier(identifierPath)) return;
+
+          if ((identifierPath.node as NodeSymbol)[UNSAFE]) return;
+          const identifierName = identifierPath.node.name;
+
+          if (identifierName === "arguments") return;
+
+          var binding = identifierPath.scope.getBinding(identifierName);
+          if (!binding) {
             return;
           }
 
-          if (info.spec.isDefined) {
-            var definingContext = getDefiningContext(o, p);
+          var isOutsideVariable =
+            fnPath.scope.parent.getBinding(identifierName) === binding;
 
-            if (!definedMap.has(definingContext)) {
-              definedMap.set(definingContext, new Set([o.name]));
-            } else {
-              definedMap.get(definingContext).add(o.name);
-            }
+          if (!isOutsideVariable) {
             return;
           }
 
-          var isDefined = p.find(
-            (x) => definedMap.has(x) && definedMap.get(x).has(o.name)
-          );
+          identifierPaths.push(identifierPath);
+        },
+      },
+    });
 
-          if (!isDefined) {
-            identifierNodes.push([o, p, info]);
-          }
-        }
+    me.log(
+      `Function ${functionName}`,
+      "requires",
+      Array.from(new Set(identifierPaths.map((x) => x.node.name)))
+    );
 
-        if (o.type == "TryStatement") {
-          isIllegal = true;
-          return "EXIT";
-        }
+    for (var identifierPath of identifierPaths) {
+      const identifierName = identifierPath.node.name;
+      if (typeof identifierName !== "string") continue;
+
+      const isTypeof = identifierPath.parentPath.isUnaryExpression({
+        operator: "typeof",
       });
+      const isFunctionCall =
+        identifierPath.parentPath.isCallExpression() &&
+        identifierPath.parentPath.node.callee === identifierPath.node;
 
-      if (isIllegal) {
-        return;
+      if (isTypeof) {
+        var typeofProp = typeofProps.get(identifierName);
+        if (!typeofProp) {
+          typeofProp = generateProp(identifierName, "typeof");
+          typeofProps.set(identifierName, typeofProp);
+        }
+
+        ensureComputedExpression(identifierPath.parentPath);
+
+        identifierPath.parentPath
+          .replaceWith(
+            t.memberExpression(
+              t.identifier(flatObjectName),
+              t.stringLiteral(typeofProp),
+              true
+            )
+          )[0]
+          .skip();
+      } else if (isFunctionCall) {
+        let functionCallProp = functionCallProps.get(identifierName);
+        if (!functionCallProp) {
+          functionCallProp = generateProp(identifierName, "call");
+          functionCallProps.set(identifierName, functionCallProp);
+        }
+
+        ensureComputedExpression(identifierPath);
+
+        // Replace identifier with a reference to the flat object property
+        identifierPath
+          .replaceWith(
+            t.memberExpression(
+              t.identifier(flatObjectName),
+              t.stringLiteral(functionCallProp),
+              true
+            )
+          )[0]
+          .skip();
+      } else {
+        let standardProp = standardProps.get(identifierName);
+        if (!standardProp) {
+          standardProp = generateProp(identifierName, "standard");
+          standardProps.set(identifierName, standardProp);
+        }
+
+        if (!setterPropsNeeded.has(identifierName)) {
+          // Only provide 'set' method if the variable is modified
+          var isModification = isModifiedIdentifier(identifierPath);
+
+          if (isModification) {
+            setterPropsNeeded.add(identifierName);
+          }
+        }
+
+        ensureComputedExpression(identifierPath);
+
+        // Replace identifier with a reference to the flat object property
+        identifierPath
+          .replaceWith(
+            t.memberExpression(
+              t.identifier(flatObjectName),
+              t.stringLiteral(standardProp),
+              true
+            )
+          )[0]
+          .skip();
       }
-      if (illegal.size) {
-        return;
-      }
+    }
 
-      var newFnName =
-        this.getPlaceholder() +
-        "_flat_" +
-        currentFnName +
-        predictableFunctionTag;
-      var flatObjectName = this.getPlaceholder() + "_flat_object";
+    // for (const prop of [...typeofProps.keys(), ...functionCallProps.keys()]) {
+    //   if (!standardProps.has(prop)) {
+    //     standardProps.set(prop, generateProp());
+    //   }
+    // }
 
-      const getFlatObjectMember = (propertyName: string) => {
-        return MemberExpression(
-          Identifier(flatObjectName),
-          Literal(propertyName),
-          true
-        );
-      };
+    const flatObjectProperties: t.ObjectMember[] = [];
 
-      var getterPropNames: { [identifierName: string]: string } =
-        Object.create(null);
-      var setterPropNames: { [identifierName: string]: string } =
-        Object.create(null);
-      var typeofPropNames: { [identifierName: string]: string } =
-        Object.create(null);
-      var callPropNames: { [identifierName: string]: string } =
-        Object.create(null);
+    for (var entry of standardProps) {
+      const [identifierName, objectProp] = entry;
 
-      for (var [o, p, info] of identifierNodes) {
-        var identifierName: string = o.name;
-        if (
-          p.find(
-            (x) => definedMap.has(x) && definedMap.get(x).has(identifierName)
+      flatObjectProperties.push(
+        me.skip(
+          t.objectMethod(
+            "get",
+            t.stringLiteral(objectProp),
+            [],
+            t.blockStatement([t.returnStatement(t.identifier(identifierName))]),
+            false,
+            false,
+            false
           )
         )
-          continue;
-
-        ok(!info.spec.isDefined);
-
-        var type = info.spec.isModified ? "setter" : "getter";
-
-        switch (type) {
-          case "setter":
-            var setterPropName = setterPropNames[identifierName];
-            if (typeof setterPropName === "undefined") {
-              // No getter function made yet, make it (Try to re-use getter name if available)
-              setterPropName =
-                getterPropNames[identifierName] ||
-                (this.isDebug ? "set_" + identifierName : this.gen.generate());
-              setterPropNames[identifierName] = setterPropName;
-            }
-
-            // If an update expression, ensure a getter function is also available. Ex: a++
-            if (p[0].type === "UpdateExpression") {
-              getterPropNames[identifierName] = setterPropName;
-            } else {
-              // If assignment on member expression, ensure a getter function is also available: Ex. myObject.property = ...
-              var assignmentIndex = p.findIndex(
-                (x) => x.type === "AssignmentExpression"
-              );
-              if (
-                assignmentIndex !== -1 &&
-                p[assignmentIndex].left.type !== "Identifier"
-              ) {
-                getterPropNames[identifierName] = setterPropName;
-              }
-            }
-
-            // calls flatObject.set_identifier_value(newValue)
-            this.replace(o, getFlatObjectMember(setterPropName));
-            break;
-
-          case "getter":
-            var getterPropName = getterPropNames[identifierName];
-            if (typeof getterPropName === "undefined") {
-              // No getter function made yet, make it (Try to re-use setter name if available)
-              getterPropName =
-                setterPropNames[identifierName] ||
-                (this.isDebug ? "get_" + identifierName : this.gen.generate());
-              getterPropNames[identifierName] = getterPropName;
-            }
-
-            // Typeof expression check
-            if (
-              p[0].type === "UnaryExpression" &&
-              p[0].operator === "typeof" &&
-              p[0].argument === o
-            ) {
-              var typeofPropName = typeofPropNames[identifierName];
-              if (typeof typeofPropName === "undefined") {
-                // No typeof getter function made yet, make it (Don't re-use getter/setter names)
-                typeofPropName = this.isDebug
-                  ? "get_typeof_" + identifierName
-                  : this.gen.generate();
-                typeofPropNames[identifierName] = typeofPropName;
-              }
-
-              // Replace the entire unary expression not just the identifier node
-              // calls flatObject.get_typeof_identifier()
-              this.replace(p[0], getFlatObjectMember(typeofPropName));
-              break;
-            }
-
-            // Bound call-expression check
-            if (p[0].type === "CallExpression" && p[0].callee === o) {
-              var callPropName = callPropNames[identifierName];
-              if (typeof callPropName === "undefined") {
-                callPropName = this.isDebug
-                  ? "call_" + identifierName
-                  : this.gen.generate();
-                callPropNames[identifierName] = callPropName;
-              }
-
-              // Replace the entire call expression not just the identifier node
-              // calls flatObject.call_identifier(...arguments)
-              this.replace(
-                p[0],
-                CallExpression(
-                  getFlatObjectMember(callPropName),
-                  p[0].arguments
-                )
-              );
-              break;
-            }
-
-            // calls flatObject.get_identifier_value()
-            this.replace(o, getFlatObjectMember(getterPropName));
-            break;
-        }
-      }
-
-      // Create the getter and setter functions
-      var flatObjectProperties: Node[] = [];
-
-      // Getter functions
-      for (var identifierName in getterPropNames) {
-        var getterPropName = getterPropNames[identifierName];
-
-        flatObjectProperties.push(
-          Property(
-            Literal(getterPropName),
-            FunctionExpression(
-              [],
-              [ReturnStatement(Identifier(identifierName))]
-            ),
-            true,
-            "get"
-          )
-        );
-      }
-
-      // Get typeof functions
-      for (var identifierName in typeofPropNames) {
-        var typeofPropName = typeofPropNames[identifierName];
-
-        flatObjectProperties.push(
-          Property(
-            Literal(typeofPropName),
-            FunctionExpression(
-              [],
-              [
-                ReturnStatement(
-                  UnaryExpression("typeof", Identifier(identifierName))
-                ),
-              ]
-            ),
-            true,
-            "get"
-          )
-        );
-      }
-
-      // Call functions
-      for (var identifierName in callPropNames) {
-        var callPropName = callPropNames[identifierName];
-        var argumentsName = this.getPlaceholder();
-        flatObjectProperties.push(
-          Property(
-            Literal(callPropName),
-            FunctionExpression(
-              [RestElement(Identifier(argumentsName))],
-              [
-                ReturnStatement(
-                  CallExpression(Identifier(identifierName), [
-                    SpreadElement(Identifier(argumentsName)),
-                  ])
-                ),
-              ]
-            ),
-            true
-          )
-        );
-      }
-
-      // Setter functions
-      for (var identifierName in setterPropNames) {
-        var setterPropName = setterPropNames[identifierName];
-        var newValueParameterName = this.getPlaceholder();
-
-        flatObjectProperties.push(
-          Property(
-            Literal(setterPropName),
-            FunctionExpression(
-              [Identifier(newValueParameterName)],
-              [
-                ExpressionStatement(
-                  AssignmentExpression(
-                    "=",
-                    Identifier(identifierName),
-                    Identifier(newValueParameterName)
-                  )
-                ),
-              ]
-            ),
-            true,
-            "set"
-          )
-        );
-      }
-
-      if (!this.isDebug) {
-        shuffle(flatObjectProperties);
-      }
-
-      var newBody = getBlockBody(object.body);
-
-      // Remove 'use strict' directive
-      if (newBody.length > 0 && newBody[0].directive) {
-        newBody.shift();
-      }
-
-      var newFunctionDeclaration = FunctionDeclaration(
-        newFnName,
-        [ArrayPattern(clone(object.params)), Identifier(flatObjectName)],
-        newBody
       );
 
-      newFunctionDeclaration.async = !!object.async;
-      newFunctionDeclaration.generator = false;
-
-      this.flattenedFns.push(newFunctionDeclaration);
-
-      var argumentsName = this.getPlaceholder();
-
-      // newFn.call([...arguments], flatObject)
-      var callExpression = CallExpression(Identifier(newFnName), [
-        Identifier(argumentsName),
-        Identifier(flatObjectName),
-      ]);
-
-      var newObjectBody: Node[] = [
-        // var flatObject = { get(), set() };
-        VariableDeclaration([
-          VariableDeclarator(
-            flatObjectName,
-            ObjectExpression(flatObjectProperties)
-          ),
-        ]),
-
-        ReturnStatement(
-          newFunctionDeclaration.async
-            ? AwaitExpression(callExpression)
-            : callExpression
-        ),
-      ];
-
-      object.body = BlockStatement(newObjectBody);
-
-      // Preserve function.length property
-      var originalFunctionLength = computeFunctionLength(object.params);
-
-      object.params = [RestElement(Identifier(argumentsName))];
-
-      if (this.options.preserveFunctionLength && originalFunctionLength !== 0) {
-        if (!this.functionLengthName) {
-          this.functionLengthName = this.getPlaceholder();
-
-          prepend(
-            parents[parents.length - 1] || object,
-            FunctionLengthTemplate.single({
-              name: this.functionLengthName,
-              ObjectDefineProperty: this.createInitVariable(
-                ObjectDefineProperty,
-                parents
-              ),
-            })
-          );
-        }
-
-        if (object.type === "FunctionDeclaration") {
-          var body = parents[0];
-          if (Array.isArray(body)) {
-            var index = body.indexOf(object);
-
-            body.splice(
-              index + 1,
-              0,
-              ExpressionStatement(
-                CallExpression(Identifier(this.functionLengthName), [
-                  Identifier(object.id.name),
-                  Literal(originalFunctionLength),
-                ])
-              )
-            );
-          }
-        } else {
-          ok(object.type === "FunctionExpression");
-          this.replace(
-            object,
-            CallExpression(Identifier(this.functionLengthName), [
-              { ...object },
-              Literal(originalFunctionLength),
-            ])
-          );
-        }
+      // Not all properties need a setter
+      if (setterPropsNeeded.has(identifierName)) {
+        var valueArgName = me.getPlaceholder() + "_value";
+        flatObjectProperties.push(
+          me.skip(
+            t.objectMethod(
+              "set",
+              t.stringLiteral(objectProp),
+              [t.identifier(valueArgName)],
+              t.blockStatement([
+                t.expressionStatement(
+                  t.assignmentExpression(
+                    "=",
+                    t.identifier(identifierName),
+                    t.identifier(valueArgName)
+                  )
+                ),
+              ]),
+              false,
+              false,
+              false
+            )
+          )
+        );
       }
-    };
+    }
+
+    for (const entry of typeofProps) {
+      const [identifierName, objectProp] = entry;
+
+      flatObjectProperties.push(
+        me.skip(
+          t.objectMethod(
+            "get",
+            t.stringLiteral(objectProp),
+            [],
+            t.blockStatement([
+              t.returnStatement(
+                t.unaryExpression("typeof", t.identifier(identifierName))
+              ),
+            ]),
+            false,
+            false,
+            false
+          )
+        )
+      );
+    }
+
+    for (const entry of functionCallProps) {
+      const [identifierName, objectProp] = entry;
+
+      flatObjectProperties.push(
+        me.skip(
+          t.objectMethod(
+            "method",
+            t.stringLiteral(objectProp),
+            [t.restElement(t.identifier("args"))],
+            t.blockStatement([
+              t.returnStatement(
+                t.callExpression(t.identifier(identifierName), [
+                  t.spreadElement(t.identifier("args")),
+                ])
+              ),
+            ]),
+            false,
+            false,
+            false
+          )
+        )
+      );
+    }
+
+    // Create the new flattened function
+    const flattenedFunctionDeclaration = t.functionDeclaration(
+      t.identifier(newFnName),
+      [t.arrayPattern([...fnPath.node.params]), t.identifier(flatObjectName)],
+      t.blockStatement([...[...fnPath.node.body.body]]),
+      false,
+      fnPath.node.async
+    );
+
+    // Create the flat object variable declaration
+    const flatObjectDeclaration = t.variableDeclaration("var", [
+      t.variableDeclarator(
+        t.identifier(flatObjectName),
+        t.objectExpression(flatObjectProperties)
+      ),
+    ]);
+
+    var argName = me.getPlaceholder() + "_args";
+
+    // Replace original function body with a call to the flattened function
+    fnPath.node.body = t.blockStatement([
+      flatObjectDeclaration,
+      t.returnStatement(
+        t.callExpression(t.identifier(newFnName), [
+          t.identifier(argName),
+          t.identifier(flatObjectName),
+        ])
+      ),
+    ]);
+
+    const originalLength = computeFunctionLength(fnPath);
+    fnPath.node.params = [t.restElement(t.identifier(argName))];
+
+    // Ensure updated parameter gets registered in the function scope
+    fnPath.scope.crawl();
+    fnPath.skip();
+
+    // Add the new flattened function at the top level
+    var newPath = prependProgram(
+      program,
+      flattenedFunctionDeclaration
+    )[0] as NodePath<t.FunctionDeclaration>;
+
+    me.skip(newPath);
+
+    // Copy over all properties except the predictable flag
+    for (var symbol of Object.getOwnPropertySymbols(fnPath.node)) {
+      if (symbol !== PREDICTABLE) {
+        newPath.node[symbol] = fnPath.node[symbol];
+      }
+    }
+
+    // Old function is no longer predictable (rest element parameter)
+    (fnPath.node as NodeSymbol)[PREDICTABLE] = false;
+    // Old function is unsafe (uses arguments, this)
+    (fnPath.node as NodeSymbol)[UNSAFE] = true;
+
+    newPath.node[PREDICTABLE] = true;
+
+    // Carry over 'use strict' directive if not already present
+    if (strictMode) {
+      newPath.node.body.directives.push(
+        t.directive(t.directiveLiteral("use strict"))
+      );
+
+      // Non-simple parameter list conversion
+      prepend(
+        newPath,
+        t.variableDeclaration("var", [
+          t.variableDeclarator(
+            t.arrayPattern(newPath.node.params),
+            t.identifier("arguments")
+          ),
+        ])
+      );
+      newPath.node.params = [];
+      // Using 'arguments' is unsafe
+      (newPath.node as NodeSymbol)[UNSAFE] = true;
+      // Params changed and using 'arguments'
+      (newPath.node as NodeSymbol)[PREDICTABLE] = false;
+    }
+
+    // Ensure parameters are registered in the new function scope
+    newPath.scope.crawl();
+
+    newPath.skip();
+    me.skip(newPath);
+
+    // Set function length
+    me.setFunctionLength(fnPath, originalLength);
+
+    me.changeData.functions++;
   }
-}
+
+  return {
+    visitor: {
+      Function: {
+        exit(path: NodePath<t.Function>) {
+          flattenFunction(path);
+        },
+      },
+      Program(path) {
+        path.scope.crawl();
+      },
+    },
+  };
+};

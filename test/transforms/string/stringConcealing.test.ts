@@ -1,24 +1,30 @@
 import JsConfuser from "../../../src/index";
 
-it("should conceal strings", async () => {
-  var code = `var TEST_STRING = "Hello World"`;
+test("Variant #1: Conceal strings", async () => {
+  var code = `TEST_STRING = "Hello World"`;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringConcealing: true,
   });
 
   expect(output).not.toContain("Hello World");
+
+  var TEST_STRING;
+
+  eval(code);
+
+  expect(TEST_STRING).toStrictEqual("Hello World");
 });
 
-it("should decode strings properly", async () => {
+test("Variant #2: Decode strings properly", async () => {
   var code = `
    var TEST_STRING = "Hello World"
 
    input(TEST_STRING);
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringConcealing: true,
   });
@@ -35,14 +41,14 @@ it("should decode strings properly", async () => {
   expect(value).toStrictEqual("Hello World");
 });
 
-it("should decode multiple strings properly", async () => {
+test("Variant #3: Decode multiple strings properly", async () => {
   var code = `
     TEST_STRING_1 = "Hello World"
     TEST_STRING_2 = "Hello World"
     TEST_STRING_3 = "Another String"
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringConcealing: true,
   });
@@ -59,14 +65,14 @@ it("should decode multiple strings properly", async () => {
   expect(TEST_STRING_3).toStrictEqual("Another String");
 });
 
-it("should not encode import expressions", async () => {
+test("Variant #4: Don't encode import expressions", async () => {
   var code = `
    import("my-module").then(module=>{
      // ...
    })
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringConcealing: true,
   });
@@ -74,12 +80,12 @@ it("should not encode import expressions", async () => {
   expect(output).toContain("my-module");
 });
 
-it("should not encode import statements", async () => {
+test("Variant #5: Don't encode import statements", async () => {
   var code = `
    import x from "my-module"
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringConcealing: true,
   });
@@ -87,12 +93,12 @@ it("should not encode import statements", async () => {
   expect(output).toContain("my-module");
 });
 
-it("should not encode require imports", async () => {
+test("Variant #6: Don't encode require imports", async () => {
   var code = `
    require("my-module")
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringConcealing: true,
   });
@@ -100,12 +106,12 @@ it("should not encode require imports", async () => {
   expect(output).toContain("my-module");
 });
 
-it("should not encode directives ('use strict')", async () => {
+test("Variant #7: Don't encode directives ('use strict')", async () => {
   var code = `
   'use strict'
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "browser",
     stringConcealing: true,
   });
@@ -113,7 +119,7 @@ it("should not encode directives ('use strict')", async () => {
   expect(output).toContain("use strict");
 });
 
-it("should work on property keys", async () => {
+test("Variant #8: Work on property keys", async () => {
   var code = `
   var myObject = {
     myKey: 100
@@ -122,7 +128,7 @@ it("should work on property keys", async () => {
   TEST_VAR = myObject.myKey;
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringConcealing: true,
   });
@@ -135,7 +141,7 @@ it("should work on property keys", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should work on class keys", async () => {
+test("Variant #9: Work on class keys", async () => {
   var code = `
   class MyClass {
     myMethod(){
@@ -148,7 +154,7 @@ it("should work on class keys", async () => {
   TEST_VAR = myObject.myMethod();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringConcealing: true,
   });
@@ -161,7 +167,7 @@ it("should work on class keys", async () => {
   expect(TEST_VAR).toStrictEqual(100);
 });
 
-it("should not encode constructor key", async () => {
+test("Variant #10: Don't encode constructor key", async () => {
   var code = `
   class MyClass {
     constructor(){
@@ -172,7 +178,7 @@ it("should not encode constructor key", async () => {
   new MyClass();
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringConcealing: true,
   });
@@ -184,7 +190,7 @@ it("should not encode constructor key", async () => {
 });
 
 // https://github.com/MichaelXF/js-confuser/issues/82
-it("should work inside the Class Constructor function", async () => {
+test("Variant #11: Work inside the Class Constructor function", async () => {
   var code = `
   class MyClass1 {}
   class MyClass2 extends MyClass1 {
@@ -201,7 +207,7 @@ it("should work inside the Class Constructor function", async () => {
   TEST_OUTPUT = instance.myString1 === true; // true
   `;
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringConcealing: true,
   });
@@ -216,7 +222,7 @@ it("should work inside the Class Constructor function", async () => {
   expect(TEST_OUTPUT).toStrictEqual(true);
 });
 
-it("should be configurable by custom function option", async () => {
+test("Variant #12: Configurable by custom function option", async () => {
   var code = `
   var myVar1 = "My First String";
   var myVar2 = "My Second String";
@@ -225,9 +231,9 @@ it("should be configurable by custom function option", async () => {
   TEST_RESULT = [myVar1, myVar2, myVar3];
   `;
 
-  var strings = [];
+  var strings: string[] = [];
 
-  var output = await JsConfuser(code, {
+  var { code: output } = await JsConfuser.obfuscate(code, {
     target: "node",
     stringConcealing: (str) => {
       strings.push(str);
@@ -260,7 +266,7 @@ it("should be configurable by custom function option", async () => {
 });
 
 test("Variant #13: Work without TextEncoder or Buffer being defined", async () => {
-  var output = await JsConfuser(
+  var { code: output } = await JsConfuser.obfuscate(
     `
   TEST_OUTPUT = [];
   TEST_OUTPUT.push("My First String");
@@ -296,4 +302,84 @@ test("Variant #13: Work without TextEncoder or Buffer being defined", async () =
     "My Fourth String",
     "My Fifth String",
   ]);
+});
+
+test("Variant #14: Nested, duplicate strings", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var myVar = "Hello World";
+    var myVar2 = "Another String";
+
+    function main(){
+      var object = {
+        "Hello World": "Another String",
+        "Another String"() {}
+      }
+      class MyClass {
+        "Hello World"(){}
+        "Another String" = () => {}
+      }
+
+      var myMainVar = "Hello World";
+      var myMainVar2 = "Another String";
+
+      function nested(){
+        var myNestedVar = "Hello World";
+        var myNestedVar2 = "Another String";
+
+        TEST_OUTPUT = myNestedVar === "Hello World" && 
+          myNestedVar2 === "Another String" && 
+          (myNestedVar + myNestedVar2) == (myMainVar + myMainVar2) && 
+          (myNestedVar + myNestedVar2) == (myVar + myVar2);
+      }
+
+      nested("Hello World")
+    }
+
+    main("Hello World")
+    `,
+    {
+      target: "node",
+      stringConcealing: true,
+    }
+  );
+
+  expect(code).not.toContain("Hello World");
+  expect(code).not.toContain("Another String");
+
+  var TEST_OUTPUT;
+
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+test("Variant #15: Template strings", async () => {
+  var stringsCollected: string[] = [];
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+    TEST_OUTPUT = \`Hello World\`
+    `,
+    {
+      target: "node",
+      stringConcealing: (strValue) => {
+        stringsCollected.push(strValue);
+
+        return true;
+      },
+    }
+  );
+
+  // Ensure the string got concealed
+  expect(code).not.toContain("Hello World");
+
+  // Ensure the custom implementation was called
+  expect(stringsCollected).toContain("Hello World");
+
+  // Ensure the code works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Hello World");
 });

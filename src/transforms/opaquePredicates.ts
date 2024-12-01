@@ -1,242 +1,100 @@
-import Transform from "./transform";
-import {
-  Node,
-  BinaryExpression,
-  MemberExpression,
-  Identifier,
-  CallExpression,
-  Literal,
-  VariableDeclaration,
-  ObjectExpression,
-  Property,
-  FunctionExpression,
-  ArrayExpression,
-  LogicalExpression,
-  VariableDeclarator,
-  ConditionalExpression,
-  UnaryExpression,
-  ReturnStatement,
-  AssignmentPattern,
-} from "../util/gen";
-import {
-  choice,
-  getRandomInteger,
-  getRandomString,
-  shuffle,
-} from "../util/random";
-import { ObfuscateOrder } from "../order";
-import { clone, prepend } from "../util/insert";
-import Template from "../templates/template";
-import { ComputeProbabilityMap } from "../probability";
-import { ok } from "assert";
+import { PluginArg, PluginObject } from "./plugin";
+import { Order } from "../order";
+import { NodePath } from "@babel/traverse";
+import * as t from "@babel/types";
+import { chance, getRandomString } from "../utils/random-utils";
+import PredicateGen from "../utils/PredicateGen";
 
-const testTypes = new Set([
-  "ForStatement",
-  "WhileStatement",
-  "DoWhileStatement",
-  "IfStatement",
-  "ConditionExpression",
-]);
+export default ({ Plugin }: PluginArg): PluginObject => {
+  const me = Plugin(Order.OpaquePredicates, {
+    changeData: {
+      opaquePredicates: 0,
+    },
+  });
 
-function isTestExpression(object: Node, parents: Node[]) {
-  if (!object || !parents[0]) {
-    return false;
+  const predicateGen = new PredicateGen(me);
+
+  function createTruePredicate(path: NodePath) {
+    return predicateGen.generateTrueExpression(path);
   }
 
-  if (testTypes.has(parents[0].type) && parents[0].test === object) {
-    return true;
+  let active = true;
+  let transformCount = 0;
+  function shouldTransform(path: NodePath) {
+    if (!active) return false;
+    if (path.find((p) => me.isSkipped(p))) return false;
+
+    if (!me.computeProbabilityMap(me.options.opaquePredicates)) return false;
+
+    transformCount++;
+
+    const depth = path.getAncestry().length;
+
+    return chance(500 - transformCount - depth * 100);
   }
 
-  return false;
-}
-
-/**
- * Changes test expression (such as if statements, for loops) to add predicates.
- *
- * Predicates are computed at runtime.
- */
-export default class OpaquePredicates extends Transform {
-  undefinedVar: string;
-  nullVar: string;
-  numberVar: string;
-
-  predicateName: string;
-  predicate: Node;
-  predicates: { [name: string]: Node };
-
-  gen: ReturnType<Transform["getGenerator"]>;
-  made: number;
-
-  constructor(o) {
-    super(o, ObfuscateOrder.OpaquePredicates);
-
-    this.predicates = Object.create(null);
-    this.gen = this.getGenerator();
-    this.made = 0;
-  }
-
-  match(object: Node, parents: Node[]) {
-    return (
-      (isTestExpression(object, parents) || object.type == "SwitchCase") &&
-      !parents.find((x) => x.$multiTransformSkip || x.type == "AwaitExpression")
+  function wrapWithPredicate(path: NodePath) {
+    let newExpression = t.logicalExpression(
+      "&&",
+      createTruePredicate(path),
+      path.node as t.Expression
     );
+
+    me.changeData.opaquePredicates++;
+
+    path.replaceWith(me.skip(newExpression));
   }
 
-  transform(object: Node, parents: Node[]) {
-    return () => {
-      if (!ComputeProbabilityMap(this.options.opaquePredicates)) {
-        return;
-      }
-      this.made++;
-      if (this.made > 150) {
-        return;
-      }
+  return {
+    visitor: {
+      // if (test) -> if (PREDICATE() && test) {}
+      IfStatement: {
+        exit(path) {
+          if (!shouldTransform(path)) return;
+          wrapWithPredicate(path.get("test"));
+        },
+      },
 
-      if (!this.predicate) {
-        this.predicateName = this.getPlaceholder();
-        this.predicate = ObjectExpression([]);
+      // test ? a : b -> PREDICATE() && test ? a : b
+      ConditionalExpression: {
+        exit(path) {
+          if (!shouldTransform(path)) return;
 
-        var tempName = this.getPlaceholder();
+          wrapWithPredicate(path.get("test"));
+        },
+      },
 
-        prepend(
-          parents[parents.length - 1] || object,
-          VariableDeclaration(
-            VariableDeclarator(
-              this.predicateName,
-              CallExpression(
-                FunctionExpression(
-                  [],
-                  [
-                    VariableDeclaration(
-                      VariableDeclarator(tempName, this.predicate)
-                    ),
-                    ReturnStatement(Identifier(tempName)),
-                  ]
-                ),
-                []
-              )
+      // case test: -> case PREDICATE() && test:
+      SwitchCase: {
+        exit(path) {
+          if (!path.node.test) return;
+          if (!shouldTransform(path)) return;
+
+          wrapWithPredicate(path.get("test"));
+        },
+      },
+
+      // return test -> if (predicate()) { return test } else { return fake }
+      ReturnStatement: {
+        exit(path) {
+          if (!path.node.argument) return;
+          if (!shouldTransform(path)) return;
+
+          me.changeData.opaquePredicates++;
+
+          path.replaceWith(
+            t.ifStatement(
+              createTruePredicate(path),
+              t.blockStatement([t.returnStatement(path.node.argument)]),
+              t.blockStatement([
+                t.returnStatement(t.stringLiteral(getRandomString(6))),
+              ])
             )
-          )
-        );
-      }
-
-      var expr = choice(Object.values(this.predicates));
-
-      if (
-        !expr ||
-        Math.random() < 0.5 / (Object.keys(this.predicates).length || 1)
-      ) {
-        var prop = this.gen.generate();
-        var accessor = MemberExpression(
-          Identifier(this.predicateName),
-          Identifier(prop),
-          false
-        );
-        switch (choice(["array", "number", "string"])) {
-          case "array":
-            var arrayProp = this.gen.generate();
-            this.predicate.properties.push(
-              Property(Identifier(arrayProp), ArrayExpression([]))
-            );
-
-            var paramName = this.getPlaceholder();
-
-            this.predicate.properties.push(
-              Property(
-                Identifier(prop),
-                FunctionExpression(
-                  [AssignmentPattern(Identifier(paramName), Literal("length"))],
-                  new Template(`
-                  if ( !${this.predicateName}.${arrayProp}[0] ) {
-                    ${this.predicateName}.${arrayProp}.push(${getRandomInteger(
-                    -100,
-                    100
-                  )});
-                  }
-                  return ${this.predicateName}.${arrayProp}[${paramName}];
-                `).compile()
-                )
-              )
-            );
-            expr = CallExpression(accessor, []);
-            break;
-
-          case "number":
-            this.predicate.properties.push(
-              Property(Identifier(prop), Literal(getRandomInteger(15, 90)))
-            );
-            expr = BinaryExpression(
-              ">",
-              accessor,
-              Literal(getRandomInteger(-90, 10))
-            );
-            break;
-
-          case "string":
-            var str = this.gen.generate();
-            var index = getRandomInteger(0, str.length);
-            var fn = Math.random() > 0.5 ? "charAt" : "charCodeAt";
-
-            this.predicate.properties.push(
-              Property(Identifier(prop), Literal(str))
-            );
-            expr = BinaryExpression(
-              "==",
-              CallExpression(MemberExpression(accessor, Literal(fn), true), [
-                Literal(index),
-              ]),
-              Literal(str[fn](index))
-            );
-            break;
-        }
-
-        ok(expr);
-        this.predicates[prop] = expr;
-
-        if (Math.random() > 0.8) {
-          shuffle(this.predicate.properties);
-        }
-      }
-
-      var cloned = clone(expr);
-      if (object.type == "SwitchCase" && object.test) {
-        var matching: Node = Identifier(choice(["undefined", "null"]));
-
-        var test = object.test;
-
-        if (test.type == "Literal") {
-          if (typeof test.value === "number") {
-            matching = Literal(getRandomInteger(-250, 250));
-          } else if (typeof test.value === "string") {
-            matching = Literal(getRandomString(4));
-          }
-        }
-
-        var conditionalExpression = ConditionalExpression(
-          cloned,
-          clone(test),
-          matching
-        );
-        if (Math.random() > 0.5) {
-          conditionalExpression = ConditionalExpression(
-            UnaryExpression("!", cloned),
-            matching,
-            clone(test)
           );
-        }
 
-        this.replace(test, conditionalExpression);
-      } else if (isTestExpression(object, parents)) {
-        if (object.type == "Literal" && !object.regex) {
-          if (object.value) {
-            this.replace(object, cloned);
-          } else {
-            this.replace(object, UnaryExpression("!", cloned));
-          }
-        } else {
-          this.replace(object, LogicalExpression("&&", clone(object), cloned));
-        }
-      }
-    };
-  }
-}
+          me.skip(path);
+        },
+      },
+    },
+  };
+};
