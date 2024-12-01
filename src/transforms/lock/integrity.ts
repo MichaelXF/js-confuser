@@ -91,16 +91,19 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // me.log(codeTrimmed, hashCode);
           me.changeData.functions++;
 
+          const hashName = nameGen.generate();
+
           funcDecPath.node.body = t.blockStatement(
             new Template(`
-              var hash = ${selfCacheString} || (${selfCacheString} = ${obfuscatedHashFnName}(${newFunctionDeclaration.id.name}, ${seed}));
-          if(hash === ${hashCode}) {
+              var {hashName} = ${selfCacheString} || (${selfCacheString} = ${obfuscatedHashFnName}(${newFunctionDeclaration.id.name}, ${seed}));
+          if({hashName} === ${hashCode}) {
             {originalBody}
           } else {
             {countermeasures}  
           }
           `).compile({
               originalBody: funcDecPath.node.body.body,
+              hashName,
               countermeasures: () =>
                 me.globalState.lock.createCountermeasuresCode(),
             }),
