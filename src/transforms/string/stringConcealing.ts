@@ -45,6 +45,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const blocks: NodePath<t.Block>[] = [];
   const stringMap = new Map<string, number>();
   const stringArrayName = me.getPlaceholder() + "_array";
+  const stringArrayCacheName = me.getPlaceholder() + "_cache";
 
   let encodingImplementations: { [identity: string]: CustomStringEncoding } =
     Object.create(null);
@@ -263,6 +264,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             ])
           );
 
+          // Create the string cache
+          prependProgram(
+            programPath,
+            new Template(`
+            var {stringArrayCacheName} = {};
+            `).single({
+              stringArrayCacheName,
+            })
+          );
+
           for (var block of blocks) {
             const { encodingImplementation, fnName } = (
               block.node as NodeStringConcealing
@@ -283,7 +294,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             // The main function to get the string value
             const retrieveFunctionDeclaration = new Template(`
               function ${fnName}(index) {
-                return ${decodeFnName}(${stringArrayName}[index]);
+                if (typeof ${stringArrayCacheName}[index] === 'undefined') {
+                  return ${stringArrayCacheName}[index] = ${decodeFnName}(${stringArrayName}[index]);
+                }
+                return ${stringArrayCacheName}[index];
               }
             `)
               .addSymbols(NO_REMOVE)
