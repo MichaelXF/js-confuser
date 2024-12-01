@@ -1,7 +1,5 @@
-# `2.0.0-alpha.0`
-2.0 Rewrite Alpha 🎉
-
-**⚠️ Warning: This an alpha release. This version is not stable and the likelihood of encountering bugs is significantly higher.**
+# `2.0.0`
+2.0 Rewrite 🎉
 
 ### Complete rewrite of JS-Confuser using Babel! 🎉
 
@@ -37,11 +35,11 @@ const options = {
 
 ### 2.0 Changes
 
-- Added [Custom String Encoding](https://new--confuser.netlify.app/docs/options/customStringEncodings) and [Custom Lock Code](https://new--confuser.netlify.app/docs/options/customLocks) options
+- Added [Custom String Encoding](https://js-confuser.com/docs/options/customStringEncodings) and [Custom Lock Code](https://js-confuser.com/docs/options/customLocks) options
 
-- Added `Rename Labels` [Learn more here](https://new--confuser.netlify.app/docs/options/renamelabels#rename-labels)
+- Added `Rename Labels` [Learn more here](https://js-confuser.com/docs/options/renamelabels#rename-labels)
 
-- Added `Pack` [Learn more here](https://new--confuser.netlify.app/docs/options/pack#pack)
+- Added `Pack` [Learn more here](https://js-confuser.com/docs/options/pack#pack)
 
 - RGF no longers uses `new Function` instead uses `eval`
 
@@ -71,7 +69,7 @@ const options = {
 
 - New Comment Syntax
 
-- - `/* @js-confuser-var */ "name"` for improved variable mappings for eval() calls
+- - `/* @js-confuser-var */ "name"` for improved variable mappings, such as eval() calls
 
 ```js
 // Input
@@ -83,19 +81,19 @@ var zC3PLKu = "Internet User";
 eval("console.log(" + "zC3PLKu" + ")");
 ```
 
-The function `__JS_CONFUSER_VAR__` is identical in outcome and still be used, however, the comment syntax is preferred as the comment syntax's preserves the original script's behavior.
+Note: The function `__JS_CONFUSER_VAR__` is still supported.
 
 ### JS-Confuser.com Revamp
 
 A new UI for [JS-Confuser.com](https://js-confuser.com), featuring an advanced playground and documentation pages.
 
-The previous version will remain available: [old--confuser.netlify.com](https://old--confuser.netlify.app/)
+The previous version will remain available at [old--confuser.netlify.com](https://old--confuser.netlify.app/).
 
 **Removed features**
 
 - Removed `ES5` option - Use Babel Instead
 
-- Removed `Browser Lock` and `OS Lock` - Use [Custom Locks](https://new--confuser.netlify.app/docs/options/customlocks#custom-locks) instead
+- Removed `Browser Lock` and `OS Lock` - Use [Custom Locks](https://js-confuser.com/docs/options/customlocks#custom-locks) instead
 
 - Removed `Shuffle`'s Hash option
 
@@ -134,7 +132,7 @@ eval('console.log(' + 'CA1HU0' + ')');
 
 - Improve `String Compression`
 
-- New Web UI sneak peak: https://new--confuser.netlify.app/
+- New Web UI sneak peak: https://js-confuser.com/
 
 
 # `1.7.2`

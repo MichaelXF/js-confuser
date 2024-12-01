@@ -9,6 +9,7 @@ JS-Confuser 2.0 is complete rewrite of the original JS-Confuser created in 2020!
 The method `JSConfuser.obfuscate()` resolves to a object now instead of a string. This result object contains a property `code` which is the obfuscated code.
 
 ```diff
+const JSConfuser = require("js-confuser");
 const sourceCode = `console.log("Hello World")`;
 const options = {
   target: "node",
@@ -47,7 +48,7 @@ These features have been removed but you can still add these locks using the `lo
         // Must be placed in a Block or Switch Case body
         `,
         percentagePerBlock: 0.1, // = 10%
-        maxCount: 100, // Default = 100 - You probably don't want an excessive amount placed
+        maxCount: 25, // Default = 25 - You probably don't want an excessive amount placed
         minCount: 1 // Default = 1 - Ensures this custom lock is placed
       }
     ]
