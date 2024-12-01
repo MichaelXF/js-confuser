@@ -17,8 +17,6 @@ import {
   computeFunctionLength,
   isVariableFunctionIdentifier,
 } from "../utils/function-utils";
-import { ok } from "assert";
-import { Scope } from "@babel/traverse";
 import { NameGen } from "../utils/NameGen";
 
 export default ({ Plugin }: PluginArg): PluginObject => {

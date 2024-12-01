@@ -60,6 +60,14 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
         // Ensure bindings are removed -> variable becomes a global -> added to mappings object
         path.scope.crawl();
       },
+
+      // TODO: Add support for export statements
+      "ExportNamedDeclaration|ExportDefaultDeclaration|ExportAllDeclaration"(
+        path
+      ) {
+        me.error("Export statements are not supported in packed code.");
+      },
+
       Program(path) {
         path.scope.crawl();
       },
