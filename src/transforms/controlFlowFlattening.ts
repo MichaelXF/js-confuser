@@ -69,13 +69,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const mangleNumericalLiterals = true; // 50 => state + X
   const mangleBooleanLiterals = true; // true => state == X
   const addWithStatement = true; // Disabling not supported yet
+  const addGeneratorFunction = true; // Wrap in generator function?
 
   const cffPrefix = me.getPlaceholder();
 
   // Amount of blocks changed by Control Flow Flattening
   let cffCounter = 0;
 
-  const functionsModified = new Set<t.Node>();
+  const functionsModified: t.Node[] = [];
 
   function flagFunctionToAvoid(path: NodePath, reason: string) {
     var fnOrProgram = getParentFunctionOrProgram(path);
@@ -85,9 +86,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
   return {
     post: () => {
-      functionsModified.forEach((node) => {
+      for (var node of functionsModified) {
         (node as NodeSymbol)[UNSAFE] = true;
-      });
+      }
     },
 
     visitor: {
@@ -1572,10 +1573,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               })
               
               `).expression({
-                callExpression: t.callExpression(
-                  deepClone(mainFnName),
-                  argumentsNodes
-                ),
+                callExpression: createCallExpression(argumentsNodes),
               })
             );
           }
@@ -1607,15 +1605,33 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           const mainFnDeclaration = t.functionDeclaration(
             deepClone(mainFnName),
             parameters,
-            t.blockStatement([whileStatement])
+            t.blockStatement([whileStatement]),
+            addGeneratorFunction
           );
 
           // The main function is always called with same number of arguments
           (mainFnDeclaration as NodeSymbol)[PREDICTABLE] = true;
 
-          var startProgramExpression = t.callExpression(deepClone(mainFnName), [
-            ...startStateValues.map((stateValue) => numericLiteral(stateValue)),
-          ]);
+          function createCallExpression(argumentNodes: t.Expression[]) {
+            const callExpression = t.callExpression(
+              deepClone(mainFnName),
+              argumentNodes
+            );
+
+            if (!addGeneratorFunction) {
+              return callExpression;
+            }
+
+            return new Template(`
+              ({callExpression})["next"]()["value"];
+              `).expression<t.CallExpression>({
+              callExpression: callExpression,
+            });
+          }
+
+          var startProgramExpression = createCallExpression(
+            startStateValues.map((stateValue) => numericLiteral(stateValue))
+          );
 
           const resultVar = withIdentifier("result");
 
@@ -1648,7 +1664,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             ...startProgramStatements,
           ];
 
-          functionsModified.add(programOrFunctionPath.node);
+          functionsModified.push(programOrFunctionPath.node);
 
           // Reset all bindings here
           blockPath.scope.bindings = Object.create(null);
