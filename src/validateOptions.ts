@@ -50,6 +50,7 @@ const validLockProperties = new Set([
   "integrity",
   "countermeasures",
   "customLocks",
+  "defaultMaxCount",
 ]);
 
 export function validateOptions(options: ObfuscateOptions) {

@@ -301,3 +301,43 @@ test("Variant #17: Limit of -1 should rename all variables", async () => {
   expect(code).toContain("var a");
   expect(code).toContain("var b");
 });
+
+test("Variant #18: Customize default lock limit", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    // Program
+
+    var a,b,c;
+
+    { // Block 1
+      var d,e,f;
+    }
+
+    { // Block 2
+      var g,h,i; 
+    }
+
+    { // Block 3
+      var j,k,l;
+    }
+
+    TEST_OUTPUT = typeof a === "undefined";
+    `,
+    {
+      target: "node",
+      lock: {
+        selfDefending: true,
+        defaultMaxCount: 1, // Place only one lock
+      },
+    }
+  );
+
+  // Must contain only one self-defending lock
+  expect(code).toContain("var namedFunction");
+  expect(code.split("var namedFunction").length).toStrictEqual(2);
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});

@@ -166,7 +166,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     let maxCount = customLock.maxCount ?? defaultMaxCount; // 25 is default max count
     let minCount = customLock.minCount ?? 1; // 1 is default min count
 
-    if (maxCount >= 0 && times > maxCount) {
+    if (maxCount >= 0 && times >= maxCount) {
       // Limit creation, allowing -1 to disable the limit entirely
       return;
     }
