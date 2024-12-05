@@ -125,3 +125,39 @@ test("Variant #6: Disallow reassignments to the countermeasures function", async
     });
   }).rejects.toThrow("Countermeasures function cannot be reassigned");
 });
+
+test("Variant #7: Should work with external countermeasures function", async () => {
+  var didFlag = false;
+  var global = {
+    myExternalCountermeasures: function () {
+      didFlag = true;
+      throw new Error("Countermeasures triggered");
+    },
+  };
+
+  var { code } = await JsConfuser.obfuscate(
+    `
+  TEST_OUTPUT = "Code executed when countermeasures is triggered";
+  `,
+    {
+      target: "node",
+      lock: {
+        startDate: Date.now() + 1000 * 60 * 60, // 1 hour in future
+        countermeasures: "global.myExternalCountermeasures",
+      },
+    }
+  );
+
+  var TEST_OUTPUT = "Code did not run";
+  var didError = false;
+
+  try {
+    eval(code);
+  } catch (error) {
+    didError = true;
+    expect(error.message).toContain("Countermeasures triggered");
+  }
+  expect(didFlag).toStrictEqual(true);
+  expect(didError).toStrictEqual(true);
+  expect(TEST_OUTPUT).toStrictEqual("Code did not run");
+});

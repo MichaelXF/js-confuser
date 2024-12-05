@@ -85,14 +85,42 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       ? me.options.lock.domainLock
       : [me.options.lock.domainLock];
 
-    for (const regexString of domainArray) {
+    if (domainArray.length > 0) {
       me.options.lock.customLocks.push({
         code: new Template(`
-          if(!new RegExp({regexString}).test(window.location.href)) {
+          function isDomainInvalid(){
+            // Ensure window environment
+            if(typeof window === "undefined" || typeof window["location"] === "undefined") {
+              return true;
+            }
+
+            var regexStrings = {arrayExpression};
+
+            for(var regexString of regexStrings) {
+              if(new RegExp(regexString).test(window["location"]["href"])) {
+                // Found valid domain
+                return false;
+              }
+            }
+
+            // No domains matched, invalid domain
+            return true;
+          }
+
+
+          if(isDomainInvalid()) {
             {countermeasures}
           }
           `).setDefaultVariables({
-          regexString: () => t.stringLiteral(regexString.toString()),
+          arrayExpression: t.arrayExpression(
+            domainArray.map((regexString) =>
+              t.stringLiteral(
+                regexString instanceof RegExp
+                  ? regexString.source
+                  : regexString.toString()
+              )
+            )
+          ),
         }),
         percentagePerBlock: 0.5,
       });
@@ -160,7 +188,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
   const defaultMaxCount = me.options.lock.defaultMaxCount ?? 25;
 
-  function applyLockToBlock(path: NodePath<t.Block>, customLock: CustomLock) {
+  // Apply a random lock to a block
+  function applyLockToBlock(path: NodePath<t.Block>) {
+    const customLock = choice(me.options.lock.customLocks);
+    if (!customLock) {
+      return;
+    }
+
     let times = timesMap.get(customLock) || 0;
 
     let maxCount = customLock.maxCount ?? defaultMaxCount; // 25 is default max count
@@ -236,17 +270,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         countermeasuresNode = path;
       },
 
-      Block: {
+      BlockStatement: {
         exit(path) {
-          var customLock = choice(me.options.lock.customLocks);
-          if (customLock) {
-            applyLockToBlock(path, customLock);
-          }
+          applyLockToBlock(path);
         },
       },
 
       Program: {
         exit(path) {
+          applyLockToBlock(path);
+
           // Insert nativeFunctionCheck
           if (me.options.lock.tamperProtection) {
             // Disallow strict mode
@@ -289,7 +322,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           // Insert invokeCountermeasures function
           if (invokeCountermeasuresFnName) {
-            if (!countermeasuresNode) {
+            // External name examples: "window.onTamperDetected", "window['onTamperDetected']"
+            const isLocalName = !me.options.lock.countermeasures
+              .toString()
+              .match(/\.|\[/);
+
+            if (isLocalName && !countermeasuresNode) {
               me.error(
                 "Countermeasures function named '" +
                   me.options.lock.countermeasures +
