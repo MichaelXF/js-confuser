@@ -3,15 +3,9 @@ import Template from "../../templates/template";
 import { shuffle } from "../../utils/random-utils";
 import * as t from "@babel/types";
 
-let hasAllEncodings = false;
-
 export function createDefaultStringEncoding(
   encodingImplementations
 ): CustomStringEncoding {
-  if (hasAllEncodings) {
-    return null;
-  }
-
   // Create base91 encoding
   let strTable =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"';
@@ -23,7 +17,6 @@ export function createDefaultStringEncoding(
 
   // Check if the encoding already exists
   if (typeof encodingImplementations[identity] !== "undefined") {
-    hasAllEncodings = true;
     return null;
   }
 
