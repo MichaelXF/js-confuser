@@ -4,6 +4,7 @@ test/
 docs/
 babel.config.js
 babel.register.js
+.github/
 
 
 # Logs
@@ -115,6 +116,9 @@ dist
 
 # VS Code prettier ignore list
 .prettierignore
+.prettierrc
+
+
 
 dev.error.js
 dev.input.js
