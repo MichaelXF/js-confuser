@@ -182,6 +182,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           var predictable = true;
           var maxArgLength = 0;
 
+          if (!binding) return;
+
           for (var referencePath of binding.referencePaths) {
             if (!referencePath.parentPath.isCallExpression()) {
               predictable = false;
