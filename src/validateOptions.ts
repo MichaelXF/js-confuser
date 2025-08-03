@@ -149,9 +149,6 @@ export function applyDefaultsToOptions(
   if (!options.hasOwnProperty("renameGlobals")) {
     options.renameGlobals = true; // RenameGlobals is on by default
   }
-  if (!options.hasOwnProperty("preserveFunctionLength")) {
-    options.preserveFunctionLength = true; // preserveFunctionLength is on by default
-  }
   if (!options.hasOwnProperty("renameLabels")) {
     options.renameLabels = true; // RenameLabels is on by default
   }

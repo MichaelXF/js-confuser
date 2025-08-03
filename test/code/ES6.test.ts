@@ -35,6 +35,7 @@ test("Variant #1: ES6 code on High Preset", async () => {
     target: "node",
     preset: "high",
     pack: true,
+    preserveFunctionLength: true,
   });
 
   const TEST_OUTPUT = {};
@@ -54,6 +55,7 @@ test("Variant #2: ES6 code on High Preset + RGF + Self Defending + Tamper Protec
       tamperProtection: true,
       countermeasures: "countermeasures",
     },
+    preserveFunctionLength: true,
   });
 
   // let newCode = `var TEST_OUTPUT;\n${code}\n\nconsole.log(TEST_OUTPUT);`;

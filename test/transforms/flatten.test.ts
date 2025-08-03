@@ -636,6 +636,7 @@ test("Variant #21: Preserve function.length property", async () => {
     {
       target: "node",
       flatten: true,
+      preserveFunctionLength: true,
     }
   );
 
