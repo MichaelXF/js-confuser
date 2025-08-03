@@ -292,7 +292,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       // Simple destructuring
       VariableDeclarator: {
         exit(path) {
-          if (isUndefined(path.get("init"))) {
+          if (
+            path.parentPath?.isVariableDeclaration() &&
+            path.parentPath.node.kind !== "const" &&
+            isUndefined(path.get("init"))
+          ) {
             path.node.init = null;
           }
 

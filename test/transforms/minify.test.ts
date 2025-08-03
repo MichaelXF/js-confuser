@@ -914,3 +914,22 @@ test("Variant #33: Fold string concatenation", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+test("Variant #34: Handle const variable declared undefined", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    const myUndefined = undefined;
+    TEST_OUTPUT = typeof myUndefined === "undefined";
+    `,
+    {
+      target: "node",
+      minify: true,
+    }
+  );
+
+  // Ensure code still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
