@@ -107,6 +107,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 return;
               }
 
+              // Do not transform:
+              // identifier = "value"
               var assignmentChild = identifierPath.find((p) =>
                 p.parentPath?.isAssignmentExpression()
               );
@@ -115,6 +117,24 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 t.isAssignmentExpression(assignmentChild.parent) &&
                 assignmentChild.parent.left === assignmentChild.node &&
                 !t.isMemberExpression(identifierPath.parent)
+              ) {
+                illegalGlobals.add(identifierName);
+                return;
+              }
+
+              // Do not transform:
+              // for(identifier in object) or for(identifier of object)
+              var forInOfChild = identifierPath.find(
+                (p) =>
+                  p.key === "left" &&
+                  (p.parentPath?.isForInStatement() ||
+                    p.parentPath?.isForOfStatement())
+              );
+              if (
+                forInOfChild &&
+                (t.isForInStatement(forInOfChild.parent) ||
+                  t.isForOfStatement(forInOfChild.parent)) &&
+                forInOfChild.parent.left === forInOfChild.node
               ) {
                 illegalGlobals.add(identifierName);
                 return;
