@@ -5,11 +5,12 @@
   "main": "dist/index.js",
   "types": "index.d.ts",
   "scripts": {
-    "build": "tsc && babel src --out-dir dist --extensions \".ts,.tsx\"",
+    "build": "tsc --noEmit && babel src --out-dir dist --extensions \".ts,.tsx\"",
     "dev": "node babel.register.js",
-    "test": "jest --forceExit",
+    "test": "jest",
     "test:coverage": "jest --coverage --coverageReporters=html",
-    "prepublishOnly": "npm run test && npm run build"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
   "keywords": [
     "obfuscator",
@@ -22,10 +23,10 @@
   "author": "MichaelXF",
   "license": "MIT",
   "dependencies": {
-    "@babel/generator": "^7.25.6",
-    "@babel/parser": "^7.25.6",
-    "@babel/traverse": "^7.25.6",
-    "@babel/types": "^7.25.6",
+    "@babel/generator": "^7.28.0",
+    "@babel/parser": "^7.28.0",
+    "@babel/traverse": "^7.28.0",
+    "@babel/types": "^7.28.2",
     "lz-string": "^1.5.0"
   },
   "devDependencies": {

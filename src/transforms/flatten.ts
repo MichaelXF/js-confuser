@@ -312,7 +312,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     // Create the new flattened function
     const flattenedFunctionDeclaration = t.functionDeclaration(
       t.identifier(newFnName),
-      [t.arrayPattern([...fnPath.node.params]), t.identifier(flatObjectName)],
+      [
+        t.arrayPattern([...(fnPath.node.params as t.FunctionParameter[])]),
+        t.identifier(flatObjectName),
+      ],
       t.blockStatement([...[...fnPath.node.body.body]]),
       false,
       fnPath.node.async

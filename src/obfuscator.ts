@@ -110,12 +110,16 @@ export default class Obfuscator {
       globalObject =
         typeof globalThis !== "undefined"
           ? globalThis
-          : typeof window !== "undefined"
-          ? window
+          : // @ts-ignore
+          typeof window !== "undefined"
+          ? // @ts-ignore
+            window
           : typeof global !== "undefined"
           ? global
-          : typeof self !== "undefined"
-          ? self
+          : // @ts-ignore
+          typeof self !== "undefined"
+          ? // @ts-ignore
+            self
           : new Function("return this")();
     } catch (e) {}
 
