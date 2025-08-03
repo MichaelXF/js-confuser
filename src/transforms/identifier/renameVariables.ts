@@ -6,6 +6,7 @@ import { Order } from "../../order";
 import {
   noRenameVariablePrefix,
   placeholderVariablePrefix,
+  WITH_STATEMENT,
 } from "../../constants";
 import {
   getParentFunctionOrProgram,
@@ -49,12 +50,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             ];
 
             let isDefined = false;
-            let isParameter = false;
 
             if (path.isBindingIdentifier() && isDefiningIdentifier(path)) {
               isDefined = true;
               const binding = path.scope.getBinding(path.node.name);
-              if (binding?.kind === "param") isParameter = true;
 
               // Function ID is defined in the parent's function declaration
               if (
@@ -62,6 +61,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 path.parentPath.isFunctionDeclaration()
               ) {
                 contextPaths = [getParentFunctionOrProgram(path.parentPath)];
+              }
+
+              if (
+                binding &&
+                binding.kind === "let" &&
+                binding.path.key === "handler" &&
+                binding.path.isCatchClause()
+              ) {
+                contextPaths = [path];
               }
             }
 
@@ -101,9 +109,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       const node = identifierPath.node;
       const identifierName = node.name;
 
-      if (node[RENAMED]) {
-        return;
-      }
+      if (node[RENAMED]) return;
+      if (node[WITH_STATEMENT]) return; // Exclude CFF identifiers
 
       var contextPaths: NodePath[] = identifierPath.getAncestry();
 
