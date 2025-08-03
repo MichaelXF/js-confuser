@@ -14,7 +14,7 @@ import {
 import Obfuscator from "../../obfuscator";
 import { createGetGlobalTemplate } from "../../templates/getGlobalTemplate";
 import { NO_RENAME } from "../../constants";
-const LZString = require("lz-string");
+import LZString from "lz-string";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.StringCompression, {
