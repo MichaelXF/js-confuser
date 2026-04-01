@@ -27,7 +27,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
   function isFunctionEligibleForParameterPacking(
     functionPath: NodePath<t.Function>,
-    proposedParameterName: string
+    proposedParameterName: string,
   ) {
     // Getter/setter functions must have zero or one formal parameter
     // We cannot add extra parameters to them
@@ -45,7 +45,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
     // Check for duplicate parameter names
     var bindingIdentifiers = getPatternIdentifierNames(
-      functionPath.get("params")
+      functionPath.get("params"),
     );
 
     // Duplicate parameter name not allowed
@@ -59,7 +59,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       FunctionDeclaration: {
         exit(path) {
           var functionPath = path.findParent((path) =>
-            path.isFunction()
+            path.isFunction(),
           ) as NodePath<t.Function>;
 
           if (!functionPath || !(functionPath.node as NodeSymbol)[PREDICTABLE])
@@ -108,7 +108,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               if(!${functionName}) {
                 ${functionName} = {functionExpression};
               }
-              `).single({ functionExpression: functionExpression })
+              `).single({ functionExpression: functionExpression }),
           );
 
           path.remove();
@@ -120,10 +120,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           if (me.isSkipped(path)) return;
           if (path.node.kind !== "var") return;
           if (path.node.declarations.length !== 1) return;
+          if (path.parentPath?.isExportDeclaration()) return;
 
           var insertionMethod = "variableDeclaration";
           var functionPath = path.findParent((path) =>
-            path.isFunction()
+            path.isFunction(),
           ) as NodePath<t.Function>;
 
           const declaration = path.node.declarations[0];
@@ -189,8 +190,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 t.assignmentExpression(
                   "=",
                   t.identifier(name),
-                  declaration.init || t.identifier("undefined")
-                )
+                  declaration.init || t.identifier("undefined"),
+                ),
               );
             }
           }
@@ -220,14 +221,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               break;
             case "variableDeclaration":
               var block = path.findParent((path) =>
-                path.isBlock()
+                path.isBlock(),
               ) as NodePath<t.Block>;
 
               var topNode = block.node.body.filter(
-                (x) => x.type !== "ImportDeclaration"
+                (x) => x.type !== "ImportDeclaration",
               )[0];
               const variableDeclarator = t.variableDeclarator(
-                t.identifier(name)
+                t.identifier(name),
               );
 
               if (t.isVariableDeclaration(topNode) && topNode.kind === "var") {
@@ -236,7 +237,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               } else {
                 prepend(
                   block,
-                  me.skip(t.variableDeclaration("var", [variableDeclarator]))
+                  me.skip(t.variableDeclaration("var", [variableDeclarator])),
                 );
               }
 
