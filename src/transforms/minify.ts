@@ -17,10 +17,10 @@ import {
 
 const identifierMap = new Map<string, () => t.Expression>();
 identifierMap.set("undefined", () =>
-  t.unaryExpression("void", t.numericLiteral(0))
+  t.unaryExpression("void", t.numericLiteral(0)),
 );
 identifierMap.set("Infinity", () =>
-  t.binaryExpression("/", t.numericLiteral(1), t.numericLiteral(0))
+  t.binaryExpression("/", t.numericLiteral(1), t.numericLiteral(0)),
 );
 
 function trySimpleDestructuring(id, init) {
@@ -98,16 +98,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             const bindings: { [name: string]: Binding } = Object.create(null);
             for (var declaration of declarations) {
               for (var idPath of Object.values(
-                declaration.getBindingIdentifierPaths()
+                declaration.getBindingIdentifierPaths(),
               )) {
                 bindings[idPath.node.name] = idPath.scope.getBinding(
-                  idPath.node.name
+                  idPath.node.name,
                 );
               }
             }
 
             nextDeclaration.node.declarations.unshift(
-              ...declarations.map((x) => x.node)
+              ...declarations.map((x) => x.node),
             );
 
             const newBindingIdentifierPaths =
@@ -159,7 +159,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             if (value === undefined) return;
 
             path.replaceWith(
-              t.unaryExpression("!", t.numericLiteral(value ? 1 : 0))
+              t.unaryExpression("!", t.numericLiteral(value ? 1 : 0)),
             );
           }
         },
@@ -262,7 +262,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           if (testValue === undefined) return;
 
           path.replaceWith(
-            testValue ? path.node.consequent : path.node.alternate
+            testValue ? path.node.consequent : path.node.alternate,
           );
         },
       },
@@ -477,7 +477,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           if (consequentReturn && alternateReturn) {
             if (consequentReturn.returnPath && alternateReturn.returnPath) {
               function createReturnArgument(
-                resultInfo: ReturnType<typeof getResult>
+                resultInfo: ReturnType<typeof getResult>,
               ) {
                 return t.sequenceExpression([
                   ...resultInfo.expressions,
@@ -491,9 +491,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   t.conditionalExpression(
                     path.node.test,
                     createReturnArgument(consequentReturn),
-                    createReturnArgument(alternateReturn)
-                  )
-                )
+                    createReturnArgument(alternateReturn),
+                  ),
+                ),
               );
             } else if (
               !consequentReturn.returnPath &&
@@ -514,8 +514,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 t.conditionalExpression(
                   path.node.test,
                   joinExpressions(consequentReturn.expressions),
-                  joinExpressions(alternateReturn.expressions)
-                )
+                  joinExpressions(alternateReturn.expressions),
+                ),
               );
             }
           }
@@ -540,7 +540,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           function isUnreachable(
             statementList: NodePath<t.Statement>[],
-            topLevel = false
+            topLevel = false,
           ) {
             var unreachableState = false;
 
@@ -559,26 +559,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     (x) =>
                       x.node &&
                       x.isBlockStatement() &&
-                      isUnreachable(x.get("body"))
+                      isUnreachable(x.get("body")),
                   )
-                ) {
-                  unreachableState = true;
-                  if (!topLevel) {
-                    return true;
-                  } else {
-                    continue;
-                  }
-                }
-              }
-
-              if (statement.isSwitchStatement()) {
-                // Can only remove switch statements if all cases are unreachable
-                // And all paths are exhausted
-                const cases = statement.get("cases");
-                const hasDefaultCase = cases.some((x) => !x.node.test);
-                if (
-                  hasDefaultCase &&
-                  cases.every((x) => isUnreachable(x.get("consequent")))
                 ) {
                   unreachableState = true;
                   if (!topLevel) {
