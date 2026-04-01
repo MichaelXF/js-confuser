@@ -11,5 +11,5 @@
     "noImplicitAny": false,
     "strictNullChecks": false
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "test/**/*"]
 }

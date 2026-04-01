@@ -7,8 +7,8 @@
   "scripts": {
     "build": "tsc --noEmit && babel src --out-dir dist --extensions \".ts,.tsx\"",
     "dev": "node babel.register.js",
-    "test": "jest",
-    "test:coverage": "jest --coverage --coverageReporters=html",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage --coverageReporters=html",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
@@ -41,6 +41,7 @@
     "@types/babel__core": "^7.20.5",
     "@types/jest": "^29.5.12",
     "@types/node": "^22.2.0",
+    "cross-env": "^10.1.0",
     "globals": "^15.9.0",
     "jest": "^29.7.0",
     "typescript": "^5.5.4",
