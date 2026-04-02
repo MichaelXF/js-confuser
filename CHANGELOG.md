@@ -1,3 +1,9 @@
+# `2.0.1`
+Fixes
+
+- Fixed [#167](https://github.com/MichaelXF/js-confuser/issues/167)
+- Fixed [#190](https://github.com/MichaelXF/js-confuser/issues/190)
+
 # `2.0.0`
 2.0 Rewrite 🎉
 

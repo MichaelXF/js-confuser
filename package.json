@@ -1,6 +1,6 @@
 {
   "name": "js-confuser",
-  "version": "2.0.0",
+  "version": "2.0.1-alpha.0",
   "description": "JavaScript Obfuscation Tool.",
   "main": "dist/index.js",
   "types": "index.d.ts",
