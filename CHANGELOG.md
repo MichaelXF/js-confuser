@@ -2,7 +2,9 @@
 Fixes
 
 - Fixed [#167](https://github.com/MichaelXF/js-confuser/issues/167)
+- Fixed [#180](https://github.com/MichaelXF/js-confuser/issues/180)
 - Fixed [#190](https://github.com/MichaelXF/js-confuser/issues/190)
+- The option `preserveFunctionLength` is now disabled by default
 
 - Improved `Control Flow Flattening`
 - - Fixed implicit return bug causing incorrect return values
