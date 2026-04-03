@@ -1,15 +1,13 @@
 {
   "compilerOptions": {
-    "module": "esnext",
-    "target": "es2022",
-    "lib": ["es2022"],
-    "strict": true,
-    "esModuleInterop": true,
-    "moduleResolution": "node",
+    "target": "esnext",
+    "module": "nodenext",
     "outDir": "./dist",
-    "skipLibCheck": true,
-    "noImplicitAny": false,
-    "strictNullChecks": false
+    "rootDir": "./",
+    "strict": false,
+    "noEmit": true,
+    "types": ["node"],
+    "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": ["./src/**/*", "./index.d.ts"]
 }
