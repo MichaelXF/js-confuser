@@ -143,7 +143,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           // Don't apply to strict mode blocks
           const strictModeEnforcingBlock = programOrFunctionPath.find((path) =>
-            isStrictMode(path as NodePath<t.Block>)
+            isStrictMode(path as NodePath<t.Block>),
           );
           if (strictModeEnforcingBlock) return;
 
@@ -250,7 +250,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Create 'with' object - Determines which scope gets top-level variable access
           const withProperty = isDebug ? "with" : scopeNameGen.generate(false);
           const withMemberExpression = new Template(
-            `${scopeVar.name}["${withProperty}"]`
+            `${scopeVar.name}["${withProperty}"]`,
           ).expression<t.MemberExpression>();
           withMemberExpression.object[NO_RENAME] = cffIndex;
 
@@ -305,7 +305,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               return t.memberExpression(
                 deepClone(scopeVar),
                 t.stringLiteral(this.propertyName),
-                true
+                true,
               );
             }
 
@@ -314,8 +314,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 t.assignmentExpression(
                   "=",
                   this.getScopeObject(),
-                  this.getInitializingObjectExpression()
-                )
+                  this.getInitializingObjectExpression(),
+                ),
               );
             }
 
@@ -331,12 +331,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             getMemberExpression(
               name: string,
-              object: t.Expression = this.getScopeObject()
+              object: t.Expression = this.getScopeObject(),
             ) {
               const memberExpression = t.memberExpression(
                 object,
                 t.stringLiteral(name),
-                true
+                true,
               );
 
               return memberExpression;
@@ -345,7 +345,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             propertyName: string;
             constructor(
               public scope: Scope,
-              public initializingBasicBlock: BasicBlock
+              public initializingBasicBlock: BasicBlock,
             ) {
               this.propertyName = isDebug
                 ? "_" + cffIndex + "_" + scopeCounter++
@@ -368,7 +368,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     t.memberExpression(
                       deepClone(scopeVar),
                       t.stringLiteral(parentScopeManager.propertyName),
-                      true
+                      true,
                     );
                 }
 
@@ -381,7 +381,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               const properties: t.ObjectProperty[] = [];
               for (const key in propertyMap) {
                 properties.push(
-                  t.objectProperty(t.stringLiteral(key), propertyMap[key], true)
+                  t.objectProperty(
+                    t.stringLiteral(key),
+                    propertyMap[key],
+                    true,
+                  ),
                 );
               }
 
@@ -395,7 +399,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           const getImpossibleBasicBlocks = () => {
             return Array.from(basicBlocks.values()).filter(
-              (block) => block.options.impossible
+              (block) => block.options.impossible,
             );
           };
 
@@ -504,7 +508,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 node: t.binaryExpression(
                   operator,
                   deepClone(stateVars[stateVarIndex]),
-                  numericLiteral(compareValue)
+                  numericLiteral(compareValue),
                 ),
                 value: compareResult,
               };
@@ -529,7 +533,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             constructor(
               public label: string,
               public parentPath: NodePath<t.Block>,
-              public options: { impossible?: boolean } = {}
+              public options: { impossible?: boolean } = {},
             ) {
               this.createPath();
 
@@ -543,7 +547,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               // Correct state values
               // Start with random numbers
               this.stateValues = stateVars.map(() =>
-                getRandomInteger(-250, 250)
+                getRandomInteger(-250, 250),
               );
 
               // Try to re-use old state values to make diffs smaller
@@ -574,7 +578,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               if (!scopeToScopeManager.has(this.scope)) {
                 scopeToScopeManager.set(
                   this.scope,
-                  new ScopeManager(this.scope, this)
+                  new ScopeManager(this.scope, this),
                 );
               }
 
@@ -639,11 +643,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             string,
             string,
             BasicBlock,
-            t.FunctionExpression
+            t.FunctionExpression,
           ][] = [];
 
           function flattenIntoBasicBlocks(
-            bodyIn: NodePath<t.Statement>[] | NodePath<t.Block>
+            bodyIn: NodePath<t.Statement>[] | NodePath<t.Block>,
           ) {
             // if (!Array.isArray(bodyIn) && bodyIn.isBlock()) {
             //   currentBasicBlock.parentPath = bodyIn;
@@ -685,7 +689,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 sm.scope.bindings[fnName].kind = "var";
 
                 const hoistedBasicBlock = Array.from(basicBlocks.values()).find(
-                  (block) => block.parentPath === currentBasicBlock.parentPath
+                  (block) => block.parentPath === currentBasicBlock.parentPath,
                 );
 
                 if (isIllegal) {
@@ -698,7 +702,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 const functionExpression = t.functionExpression(
                   null,
                   [],
-                  t.blockStatement([])
+                  t.blockStatement([]),
                 );
                 functionExpressions.push([
                   fnName,
@@ -712,9 +716,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   t.variableDeclaration("var", [
                     t.variableDeclarator(
                       t.identifier(fnName),
-                      functionExpression
+                      functionExpression,
                     ),
-                  ])
+                  ]),
                 );
 
                 const blockStatement = statement.get("body");
@@ -728,7 +732,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                 // Implicit return
                 blockStatement.node.body.push(
-                  t.returnStatement(t.identifier("undefined"))
+                  t.returnStatement(t.identifier("undefined")),
                 );
 
                 flattenIntoBasicBlocks(blockStatement);
@@ -744,9 +748,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                         "Function " +
                           statement.node.id.name +
                           " -> Renamed to " +
-                          rename
-                      )
-                    )
+                          rename,
+                      ),
+                    ),
                   );
                 }
 
@@ -757,9 +761,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     t.variableDeclaration("var", [
                       t.variableDeclarator(
                         t.arrayPattern(statement.node.params),
-                        deepClone(argVar)
+                        deepClone(argVar),
                       ),
-                    ])
+                    ]),
                   );
 
                   // Change bindings from 'param' to 'var'
@@ -809,8 +813,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                       GotoControlStatement(consequentLabel),
                       alternateLabel
                         ? GotoControlStatement(alternateLabel)
-                        : GotoControlStatement(afterPath)
-                    )
+                        : GotoControlStatement(afterPath),
+                    ),
                   );
 
                   const oldBasicBlock = currentBasicBlock;
@@ -848,11 +852,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               if (
                 Number(index) === body.length - 1 &&
                 statement.isExpressionStatement() &&
-                statement.findParent((p) => p.isBlock()) === blockPath
+                statement.findParent((p) => p.isBlock()) === blockPath &&
+                programPath // <- ONLY APPLY TO TOP-LEVEL NEVER FUNCTIONS!
               ) {
                 // Return the result of the last expression for eval() purposes
                 currentBasicBlock.insertAfter(
-                  t.returnStatement(statement.get("expression").node)
+                  t.returnStatement(statement.get("expression").node),
                 );
                 continue;
               }
@@ -918,7 +923,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     `).single({
                     goto: GotoControlStatement(randomLabel),
                     predicate: basicBlock.createFalsePredicate(),
-                  })
+                  }),
                 );
 
                 me.changeData.deadCode++;
@@ -940,7 +945,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   randomChunk.parentPath,
                   {
                     impossible: true,
-                  }
+                  },
                 );
 
                 randomChunk.thisNode.body
@@ -964,9 +969,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               basicBlock.body.unshift(
                 t.expressionStatement(
                   t.stringLiteral(
-                    "With " + basicBlock.withDiscriminant.propertyName
-                  )
-                )
+                    "With " + basicBlock.withDiscriminant.propertyName,
+                  ),
+                ),
               );
             }
           }
@@ -1019,7 +1024,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   const newExpression = t.binaryExpression(
                     boolPath.node.value === compareResult ? "==" : "!=",
                     deepClone(stateVar),
-                    numericLiteral(compareValue)
+                    numericLiteral(compareValue),
                   );
 
                   ensureComputedExpression(boolPath);
@@ -1061,7 +1066,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   const diff = t.binaryExpression(
                     "+",
                     deepClone(stateVar),
-                    me.skip(numericLiteral(num - currentStateValues[index]))
+                    me.skip(numericLiteral(num - currentStateValues[index])),
                   );
 
                   ensureComputedExpression(numPath);
@@ -1101,7 +1106,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                   let newName = scopeManager.getNewName(
                     identifierName,
-                    path.node
+                    path.node,
                   );
 
                   let memberExpression: t.MemberExpression | t.Identifier =
@@ -1117,14 +1122,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                     memberExpression = scopeManager.getMemberExpression(
                       newName,
-                      id
+                      id,
                     );
                   }
 
                   if (isDefiningIdentifier(path)) {
                     replaceDefiningIdentifierToMemberExpression(
                       path,
-                      memberExpression
+                      memberExpression,
                     );
                     return;
                   }
@@ -1143,7 +1148,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     if (!isDefiningNode) {
                       memberExpression = basicBlock.identifier(
                         newName,
-                        scopeManager
+                        scopeManager,
                       );
                     }
                   }
@@ -1160,7 +1165,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     path.key === "callee"
                   ) {
                     path.replaceWith(
-                      t.sequenceExpression([t.numericLiteral(1), path.node])
+                      t.sequenceExpression([t.numericLiteral(1), path.node]),
                     );
                   }
                 },
@@ -1215,8 +1220,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                         t.assignmentExpression(
                           "=",
                           deepClone(withMemberExpression),
-                          jumpBlock.withDiscriminant.getScopeObject()
-                        )
+                          jumpBlock.withDiscriminant.getScopeObject(),
+                        ),
                       );
                     } else if (basicBlock.withDiscriminant) {
                       // Reset the with discriminant to undefined using fake property
@@ -1231,11 +1236,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                           t.memberExpression(
                             deepClone(scopeVar),
                             t.stringLiteral(fakeProperty),
-                            true
-                          )
-                        )
+                            true,
+                          ),
+                        ),
                       );
                     }
+
+                    let mutatingStateValues = [...currentStateValues];
 
                     for (let i = 0; i < stateVars.length; i++) {
                       const oldValue = currentStateValues[i];
@@ -1247,17 +1254,44 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                       let assignment = t.assignmentExpression(
                         "=",
                         deepClone(stateVars[i]),
-                        numericLiteral(newValue)
+                        numericLiteral(newValue),
                       );
 
                       if (!isDebug && addRelativeAssignments) {
-                        // Use diffs to create confusing code
+                        // Use two level of diffs to create confusing code:
+                        // stateVar += anotherStateVar - diff
+                        // has the effect of:
+                        // stateVar = newState
+
+                        function mangledNumericLiteral(value: number) {
+                          let stateVarIndex;
+                          do {
+                            stateVarIndex = getRandomInteger(
+                              0,
+                              stateVars.length,
+                            );
+                          } while (stateVarIndex === i && stateVars.length > 1);
+
+                          const stateVarId = stateVars[stateVarIndex];
+                          const stateVarValue =
+                            mutatingStateValues[stateVarIndex];
+                          const diff = stateVarValue - value;
+
+                          return t.binaryExpression(
+                            "-",
+                            deepClone(stateVarId),
+                            numericLiteral(diff),
+                          );
+                        }
+
                         assignment = t.assignmentExpression(
                           "+=",
                           deepClone(stateVars[i]),
-                          numericLiteral(newValue - oldValue)
+                          mangledNumericLiteral(newValue - oldValue),
                         );
                       }
+
+                      mutatingStateValues[i] = newValue;
 
                       assignments.push(assignment);
                     }
@@ -1265,13 +1299,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     // Add debug label
                     if (isDebug) {
                       assignments.unshift(
-                        t.stringLiteral("Goto " + newTotalState)
+                        t.stringLiteral("Goto " + newTotalState),
                       );
                     }
 
                     path.parentPath
                       .replaceWith(
-                        t.expressionStatement(t.sequenceExpression(assignments))
+                        t.expressionStatement(
+                          t.sequenceExpression(assignments),
+                        ),
                       )[0]
                       .skip();
 
@@ -1300,7 +1336,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           for (let i = 0; i < predicateNumberCount; i++) {
             const name = mainScope.getNewName(
-              me.getPlaceholder("predicate_" + i)
+              me.getPlaceholder("predicate_" + i),
             );
 
             const number = getRandomInteger(-250, 250);
@@ -1315,11 +1351,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               `).single({
               predicateVariables: t.arrayPattern(
                 Array.from(predicateNumbers.keys()).map((name) =>
-                  mainScope.getMemberExpression(name)
-                )
+                  mainScope.getMemberExpression(name),
+                ),
               ),
               values: t.arrayExpression(
-                values.map((value) => numericLiteral(value))
+                values.map((value) => numericLiteral(value)),
               ),
             });
 
@@ -1331,7 +1367,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           basicBlocks
             .get(startLabel)
             .body.unshift(
-              createAssignment(Array.from(predicateNumbers.values()))
+              createAssignment(Array.from(predicateNumbers.values())),
             );
 
           // Add random assignments to impossible blocks
@@ -1357,7 +1393,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               continue;
 
             scopeManager.initializingBasicBlock.body.unshift(
-              scopeManager.getInitializingStatement()
+              scopeManager.getInitializingStatement(),
             );
           }
 
@@ -1390,7 +1426,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 test = t.binaryExpression(
                   "+",
                   mainScope.getMemberExpression(predicateName),
-                  numericLiteral(diff)
+                  numericLiteral(diff),
                 );
               }
             }
@@ -1416,7 +1452,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                   if (totalState === labelStates[stateVarIndex] - difference) {
                     let differentIndex = labelStates.findIndex(
-                      (v, i) => v !== stateValues[i]
+                      (v, i) => v !== stateValues[i],
                     );
                     if (differentIndex !== -1) {
                       let expressionAsString =
@@ -1430,8 +1466,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                           t.binaryExpression(
                             "!=",
                             deepClone(stateVars[differentIndex]),
-                            numericLiteral(labelStates[differentIndex])
-                          )
+                            numericLiteral(labelStates[differentIndex]),
+                          ),
                         );
                       }
                     } else {
@@ -1439,8 +1475,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                         t.binaryExpression(
                           "!=",
                           deepClone(discriminant),
-                          numericLiteral(totalState)
-                        )
+                          numericLiteral(totalState),
+                        ),
                       );
                     }
                   }
@@ -1451,7 +1487,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               test = t.binaryExpression(
                 "-",
                 deepClone(stateVars[stateVarIndex]),
-                numericLiteral(difference)
+                numericLiteral(difference),
               );
 
               // Use the 'conditionNodes' to not cause state clashing issues
@@ -1499,7 +1535,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Create a new SwitchStatement
           const switchStatement = t.labeledStatement(
             t.identifier(switchLabel),
-            t.switchStatement(discriminant, switchCases)
+            t.switchStatement(discriminant, switchCases),
           );
 
           const startStateValues = basicBlocks.get(startLabel).stateValues;
@@ -1509,7 +1545,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             t.binaryExpression(
               "!==",
               deepClone(discriminant),
-              numericLiteral(endTotalState)
+              numericLiteral(endTotalState),
             ),
             t.blockStatement([
               t.withStatement(
@@ -1517,9 +1553,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   withDiscriminant: deepClone(withMemberExpression),
                   scopeVar: deepClone(scopeVar),
                 }),
-                t.blockStatement([switchStatement])
+                t.blockStatement([switchStatement]),
               ),
-            ])
+            ]),
           );
 
           const parameters: t.Identifier[] = [
@@ -1574,7 +1610,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               
               `).expression({
                 callExpression: createCallExpression(argumentsNodes),
-              })
+              }),
             );
           }
 
@@ -1588,13 +1624,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // function main(..., scope = { mainScope: {} }, ...){...}
           mainParameters.splice(
             (mainParameters as t.Identifier[]).findIndex(
-              (p) => p.name === scopeVar.name
+              (p) => p.name === scopeVar.name,
             ),
             1,
             t.assignmentPattern(
               deepClone(scopeVar),
-              startProgramObjectExpression
-            )
+              startProgramObjectExpression,
+            ),
           );
 
           // Remove parameter 'argVar' if never used (No function calls obfuscated)
@@ -1606,7 +1642,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             deepClone(mainFnName),
             parameters,
             t.blockStatement([whileStatement]),
-            addGeneratorFunction
+            addGeneratorFunction,
           );
 
           // The main function is always called with same number of arguments
@@ -1615,7 +1651,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           function createCallExpression(argumentNodes: t.Expression[]) {
             const callExpression = t.callExpression(
               deepClone(mainFnName),
-              argumentNodes
+              argumentNodes,
             );
 
             if (!addGeneratorFunction) {
@@ -1630,7 +1666,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           }
 
           var startProgramExpression = createCallExpression(
-            startStateValues.map((stateValue) => numericLiteral(stateValue))
+            startStateValues.map((stateValue) => numericLiteral(stateValue)),
           );
 
           const resultVar = withIdentifier("result");
