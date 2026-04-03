@@ -619,7 +619,7 @@ export function replaceDefiningIdentifierToMemberExpression(
     if (init.node || !isForInitializer) {
       newExpression = t.assignmentExpression(
         "=",
-        id.node,
+        id.node as t.LVal,
         init.node || t.identifier("undefined")
       );
     }

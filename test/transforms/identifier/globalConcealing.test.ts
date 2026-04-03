@@ -268,3 +268,43 @@ test("Variant #11: Shadowed global variable", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/180
+test("Variant #12: Don't break For-In and For-Of Statement", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var myList = ["Test 1", "Test 2", "Test 3"];
+    function testFunction() {
+      for (indexVar in myList) {
+        TEST_OUTPUT.push(indexVar);
+      }
+
+      for (stringVar of myList) {
+        TEST_OUTPUT.push(stringVar);
+      }
+    }
+    testFunction();
+    `,
+    {
+      target: "node",
+      globalConcealing: (glboalName) => {
+        if (glboalName === "TEST_OUTPUT") return false; // TEST_OUTPUT is not found on global object
+
+        return true;
+      },
+    }
+  );
+
+  // TEST_OUTPUT is passed by reference into the Function context
+  var TEST_OUTPUT = [];
+  new Function("TEST_OUTPUT", code)(TEST_OUTPUT);
+
+  expect(TEST_OUTPUT).toStrictEqual([
+    "0",
+    "1",
+    "2",
+    "Test 1",
+    "Test 2",
+    "Test 3",
+  ]);
+});

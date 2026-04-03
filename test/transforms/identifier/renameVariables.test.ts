@@ -816,3 +816,34 @@ test("Variant #31: Mangled identifier", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+test("Variant #32: Handle clashing catch param and variable", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var a;
+
+    function submit(){
+      TEST_OUTPUT = "Correct Value";
+    }
+
+    function run(){
+      try {
+    
+      } catch (submit) {}
+
+      submit();
+    }
+    run();
+    `,
+    { target: "node", renameVariables: true }
+  );
+
+  // Ensure variables were renamed
+  expect(code).not.toContain("submit");
+  expect(code).not.toContain("run");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});

@@ -1,3 +1,31 @@
+# `2.0.1`
+Fixes
+
+- Fixed [#167](https://github.com/MichaelXF/js-confuser/issues/167)
+- Fixed [#190](https://github.com/MichaelXF/js-confuser/issues/190)
+
+- Improved `Control Flow Flattening`
+- - Fixed implicit return bug causing incorrect return values
+- - The switch-case transitions now are computed by other state variables
+- - No longer lifted by [nullableVoidPtr's deobfuscator](https://github.com/nullableVoidPtr/deobf) - a complete CFF-in-CFF solver
+
+```js
+// Input code:
+console.log(1)
+
+// 2.0.0
+case 245:
+    console["log"](1);
+    ((c += -311), (d += 251), (e += 346));
+    break;
+
+// 2.0.1
+case 245:
+    console["log"](1);
+    ((c += e - -174), (d += e - -114), (e += c - 329));
+    break;
+```
+
 # `2.0.0`
 2.0 Rewrite 🎉
 

@@ -1,4 +1,5 @@
 import JsConfuser from "../../../src/index";
+import { SourceTextModule, createContext } from "node:vm";
 
 test("Variant #1: Move variable 'y' to top", async () => {
   var code = `
@@ -282,7 +283,7 @@ test("Variant #11: Predictable function called with extraneous parameters", asyn
     {
       target: "node",
       movedDeclarations: true,
-    }
+    },
   );
 
   expect(code).not.toContain("addTen(myArg,ten");
@@ -337,7 +338,7 @@ test("Variant #12: Move function declaration as parameter", async () => {
   });
 
   expect(output).toContain(
-    "myFunction(getCorrectValue1,getCorrectValue2,getCorrectValue3,getCorrectValue4"
+    "myFunction(getCorrectValue1,getCorrectValue2,getCorrectValue3,getCorrectValue4",
   );
 
   var TEST_OUTPUT;
@@ -369,11 +370,53 @@ test("Variant #13: Variable and parameter with the same name", async () => {
       // Harden the test by renaming variables
       renameVariables: true,
       identifierGenerator: "mangled",
-    }
+    },
   );
 
   var TEST_OUTPUT;
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual(6);
+});
+
+async function evalESM(code: string): Promise<Record<string, unknown>> {
+  const mod = new SourceTextModule(code, {
+    context: createContext({ console }),
+  });
+
+  // fix #2: linker must return a Module — throw for any unexpected imports
+  await mod.link((specifier: string): never => {
+    throw new Error(`Import not supported in evalESM: '${specifier}'`);
+  });
+
+  await mod.evaluate();
+  return mod.namespace as Record<string, unknown>;
+}
+
+// https://github.com/MichaelXF/js-confuser/issues/167
+test("Variant #14: Don't break export declarations", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    export function abc(a, b) {
+      var c = a + b;
+      return c;
+    }
+
+    export var x = 10;
+
+    export default function defaultExport() {
+      return "Default Export";
+    }
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    },
+  );
+
+  var module: any = await evalESM(code);
+
+  expect(module.x).toStrictEqual(10);
+  expect(module.abc(1, 2)).toStrictEqual(3);
+  expect(module.default()).toStrictEqual("Default Export");
 });

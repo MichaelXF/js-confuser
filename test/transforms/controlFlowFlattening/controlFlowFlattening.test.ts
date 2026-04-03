@@ -275,7 +275,7 @@ test("Variant #9: Don't entangle floats or NaN", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   expect(output).toContain("10.01");
@@ -321,7 +321,7 @@ test("Variant #10: Correctly entangle property keys", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   var value = "never_called";
@@ -371,7 +371,7 @@ test("Variant #11: Flatten nested if statements", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   var TEST_ARRAY;
@@ -404,7 +404,7 @@ test("Variant #12: Properly handle nested for loops", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   expect(output).toContain("switch");
@@ -445,7 +445,7 @@ test("Variant #13: Properly handle nested while-loops", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   var TEST_ARRAY;
@@ -493,7 +493,7 @@ test("Variant #14: Properly handle nested switch statements", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   expect(output).toContain("while");
@@ -536,7 +536,7 @@ test("Variant #16: Flatten with nested break and continue statements", async () 
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   var TEST_ARRAY;
@@ -567,7 +567,7 @@ test("Variant #17: Flatten with infinite for loop and break", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   expect(output).toContain("while");
@@ -598,7 +598,7 @@ TEST_OUTPUT = a;
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   var TEST_OUTPUT;
@@ -625,7 +625,7 @@ test("Variant #19: Work with this keyword", async () => {
     myFunction();
     myFunction.call(String("Other"));
     `,
-    { target: "node", controlFlowFlattening: true, pack: true }
+    { target: "node", controlFlowFlattening: true, pack: true },
   );
 
   var TEST_OUTPUT;
@@ -669,7 +669,7 @@ test("Variant #20: Work with redefined functions", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   // Ensure Control Flow Flattening applied
@@ -694,7 +694,7 @@ test("Variant #21: Don't move Import Declarations", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   // Ensure Control Flow FLattening was applied
@@ -706,7 +706,7 @@ test("Variant #21: Don't move Import Declarations", async () => {
   // Convert to runnable code
   output = output.replace(
     `import{createHash}from"crypto";`,
-    "const {createHash}=require('crypto');"
+    "const {createHash}=require('crypto');",
   );
 
   var TEST_OUTPUT = "";
@@ -714,7 +714,7 @@ test("Variant #21: Don't move Import Declarations", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual(
-    "1cac63f39fd68d8c531f27b807610fb3d50f0fc3f186995767fb6316e7200a3e"
+    "1cac63f39fd68d8c531f27b807610fb3d50f0fc3f186995767fb6316e7200a3e",
   );
 });
 
@@ -731,7 +731,7 @@ test("Variant #22: Don't break typeof expression", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   var TEST_OUTPUT;
@@ -764,7 +764,7 @@ test("Variant #23: Don't break Super calls", async () => {
   var myObject = new MyClass2();
   TEST_OUTPUT = myObject.val; // 10
   `,
-    { target: "node", controlFlowFlattening: true, pack: true }
+    { target: "node", controlFlowFlattening: true, pack: true },
   );
 
   var TEST_OUTPUT;
@@ -883,7 +883,7 @@ test("Variant #26: Add opaque predicates and still work", async () => {
 
   TEST_OUTPUT.push( true ? 3 : "Incorrect Conditional Statement" );
   `,
-    { target: "node", controlFlowFlattening: true, pack: true }
+    { target: "node", controlFlowFlattening: true, pack: true },
   );
 
   expect(output).toContain("while");
@@ -921,7 +921,7 @@ test("Variant #27: Work on async/generator functions", async () => {
   var fillerVar2;
   var fillerVar3;
   `,
-    { target: "node", controlFlowFlattening: true, pack: true }
+    { target: "node", controlFlowFlattening: true, pack: true },
   );
 
   // Ensure Control Flow Flattening applied
@@ -1121,7 +1121,7 @@ test("Variant #30: Properly handle switch statements", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   // Ensure Control Flow Flattening applied
@@ -1149,7 +1149,7 @@ test("Variant #31: Don't break nested function calls", async () => {
 
     TEST_OUTPUT = counter;
   `,
-    { target: "node", controlFlowFlattening: true, pack: true }
+    { target: "node", controlFlowFlattening: true, pack: true },
   );
 
   expect(output).toContain("while");
@@ -1177,7 +1177,7 @@ test("Variant #32: Skip blocks with redefined functions", async () => {
   }
   TEST_OUTPUT = counter;
   `,
-    { target: "node", controlFlowFlattening: true, pack: true }
+    { target: "node", controlFlowFlattening: true, pack: true },
   );
 
   expect(output).not.toContain("while");
@@ -1215,7 +1215,7 @@ test("Variant #33: Skip blocks with name collision", async () => {
 
     TEST_OUTPUT = counter;
   `,
-    { target: "node", controlFlowFlattening: true, pack: true }
+    { target: "node", controlFlowFlattening: true, pack: true },
   );
 
   expect(output).not.toContain("while");
@@ -1288,7 +1288,7 @@ test("Variant #34: Flatten If Statements multiple times", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   var TEST_OUTPUT;
@@ -1350,7 +1350,7 @@ test("Variant #36: Preserve modified global", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   var TEST_OUTPUT;
@@ -1386,7 +1386,7 @@ test("Variant #37: Nested parameter across multiple functions", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   expect(code).toContain("while");
@@ -1412,7 +1412,7 @@ test("Variant #38: Generator function with mangled numbers", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
   expect(code).toContain("while");
 
@@ -1434,7 +1434,7 @@ test("Variant #38: Handle __JS_CONFUSER_VAR__ function", async () => {
       renameVariables: true,
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   expect(code).not.toContain("__JS_CONFUSER_VAR__");
@@ -1482,7 +1482,7 @@ TEST_OUTPUT = indexOf("Hello World", "World");
       calculator: true,
       stringConcealing: true,
       pack: true,
-    }
+    },
   );
 
   var TEST_OUTPUT;
@@ -1516,11 +1516,36 @@ test("Variant #40: Shadow variable in for-loop / catch clause", async () => {
       target: "node",
       controlFlowFlattening: true,
       pack: true,
-    }
+    },
   );
 
   var TEST_OUTPUT;
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #41: Don't break implicit return", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+      function a() {
+        var x, y;
+        10;
+      }
+      TEST_OUTPUT = typeof a();
+      `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+      pack: true,
+    },
+  );
+
+  // Ensure CFF applied
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("undefined");
 });

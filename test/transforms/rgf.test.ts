@@ -370,6 +370,7 @@ test("Variant #12: Preserve Function.length", async function () {
     {
       target: "node",
       rgf: true,
+      preserveFunctionLength: true,
     }
   );
 

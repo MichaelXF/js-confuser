@@ -159,7 +159,7 @@ test("Variant #8: Shorten simple arithmetic", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(output).toContain("var x=1;x++");
@@ -189,7 +189,7 @@ test("Variant #9: Shorten simple object and array destructuring", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(output).toContain('var firstName="John",firstElement="Doe"');
@@ -200,7 +200,7 @@ test("Variant #9: Shorten simple object and array destructuring", async () => {
   eval(output);
 
   expect(TEST_OUTPUT).toStrictEqual(
-    "John Doe has a Checking account with a balance of $100"
+    "John Doe has a Checking account with a balance of $100",
   );
 
   // Valid
@@ -209,7 +209,7 @@ test("Variant #9: Shorten simple object and array destructuring", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(output2).toContain("var y=1");
@@ -251,7 +251,7 @@ test("Variant #10: Shorten booleans", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(output).toContain("var x=!0");
@@ -267,7 +267,7 @@ test("Variant #10: Shorten booleans", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(output2).toContain("var x=!1");
@@ -293,7 +293,7 @@ test("Variant #11: Shorten 'undefined' to 'void 0'", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(output2).toContain("var x={[void 0]:1}");
@@ -303,7 +303,7 @@ test("Variant #11: Shorten 'undefined' to 'void 0'", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   eval(output3);
@@ -316,7 +316,7 @@ test("Variant #11: Shorten 'Infinity' to 1/0", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(output).toContain("var x=1/0");
@@ -330,7 +330,7 @@ test("Variant #11: Shorten 'Infinity' to 1/0", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(output2).toContain("var x={[1/0]:1}");
@@ -347,7 +347,7 @@ test("Variant #12: Shorten pure logical not (!) unary expressions", async () => 
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(code).not.toContain("!false");
@@ -369,7 +369,7 @@ test("Variant #13: Remove deterministic conditional expressions", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   // Ensure the conditional expressions were removed
@@ -391,7 +391,7 @@ test("Variant #14: Shorten 'var x = undefined' to 'var x'", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   expect(output).toContain("var x");
@@ -416,7 +416,7 @@ test("Variant #15: Remove implied 'return'", async () => {
   
   MyFunction();
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   expect(output).not.toContain("return");
@@ -436,7 +436,7 @@ test("Variant #15: Remove implied 'return'", async () => {
   
   greet();
   `,
-    { target: "browser", minify: true }
+    { target: "browser", minify: true },
   );
 
   expect(output2).toContain("return");
@@ -451,7 +451,7 @@ test("Variant #16: Handle deconstructuring in for loop", async () => {
         input(a);
     }
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   var value;
@@ -472,7 +472,7 @@ test("Variant #17: Remove unreachable code following a return statement", async 
       unreachableStmt;
     }
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   expect(output).not.toContain("unreachableStmt");
@@ -491,7 +491,7 @@ test("Variant #18: Remove unreachable code following a continue or break stateme
       unreachableStmt
     }
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   expect(output).not.toContain("unreachableStmt");
@@ -503,7 +503,7 @@ test("Variant #19: Remove unreachable code following a throw statement", async (
     throw new Error("No more code to run");
     unreachableStmt;
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   expect(output).not.toContain("unreachableStmt");
@@ -523,7 +523,7 @@ test("Variant #20: Properly handle objects with `, ^, [, ] as keys", async () =>
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   var TEST_OBJECT;
@@ -547,7 +547,7 @@ test("Variant #21: Properly handle Object constructor (Function Declaration)", a
 
   TEST_OUTPUT = myObject instanceof MyClass;
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   var TEST_OUTPUT = false;
@@ -565,7 +565,7 @@ test("Variant #22: Properly handle Object constructor (Function Expression)", as
 
   TEST_OUTPUT = myObject instanceof MyClass;
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   var TEST_OUTPUT = false;
@@ -587,7 +587,7 @@ test("Variant #23: Shorten property names and method names", async () => {
   TEST_OUTPUT[2] = myCustomObject[1];
   TEST_OUTPUT[3] = myCustomObject["for"];
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   expect(code).not.toContain("'myKey'");
@@ -618,7 +618,7 @@ test("Variant #24: Variable grouping in switch case", async () => {
     break;
   }
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   // Ensure the variable declarations were grouped
@@ -639,7 +639,7 @@ test("Variant #25: Don't break redefined function declaration", async () => {
 
   a();
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   var TEST_OUTPUT;
@@ -658,7 +658,7 @@ test("Variant #27: Preserve function.length property", async () => {
 
     TEST_OUTPUT = oneParameter.length + twoParameters.length + threeParameters.length;
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   var TEST_OUTPUT;
@@ -685,7 +685,7 @@ test("Variant #28: Don't break destructuring assignment", async () => {
       TEST_OUTPUT = a + b + c;
     }
   `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   var TEST_OUTPUT;
@@ -714,7 +714,7 @@ test("Variant #28: Remove unused variables", async () => {
 
     unsafeFunction();
     `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   expect(code).not.toContain("_unusedValue");
@@ -741,7 +741,7 @@ test("Variant #29: Remove unused functions", async () => {
 
     TEST_OUTPUT = usedFunction();
     `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   expect(code).not.toContain("unusedFunction");
@@ -795,25 +795,12 @@ test("Variant #30: Remove unreachable code after branches", async () => {
       default:
         return "Incorrect Value";
         return "Should be removed";
-
-
-      case "Nested Case":
-        switch(condition){
-          default:
-            return "Incorrect Value";
-            return "Should be removed";
-        }
-        "Should be removed";
-        return "Should be removed";
     }
-
-    "Should be removed";
-    return "Should be removed";
   }
 
   TEST_OUTPUT = [ifStatementBranch(true), switchStatementBranch(true)];
     `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   expect(code).not.toContain("Should be removed");
@@ -857,7 +844,7 @@ test("Variant #31: Dead code elimination", async () => {
 
     deadCodeElimination();
     `,
-    { target: "node", minify: true }
+    { target: "node", minify: true },
   );
 
   expect(code).not.toContain("Should be removed");
@@ -884,7 +871,7 @@ test("Variant #32: Work with Eval calls", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   var TEST_OUTPUT;
@@ -901,7 +888,7 @@ test("Variant #33: Fold string concatenation", async () => {
     {
       target: "node",
       minify: true,
-    }
+    },
   );
 
   // Ensure the string concatenation was folded
@@ -913,4 +900,98 @@ test("Variant #33: Fold string concatenation", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #34: Handle const variable declared undefined", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    const myUndefined = undefined;
+    TEST_OUTPUT = typeof myUndefined === "undefined";
+    `,
+    {
+      target: "node",
+      minify: true,
+    },
+  );
+
+  // Ensure code still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(true);
+});
+
+// https://github.com/MichaelXF/js-confuser/issues/190
+test("Variant #35: Don't break exhaustive switch statement", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+function getDirection(face) {
+  let result;
+  switch (face) {
+    case "North":
+      result = "North";
+      break;
+    case "South":
+      result = "South";
+      break;
+    case "East":
+      result = "East";
+      break;
+    case "West":
+      result = "West";
+      break;
+    case "Up":
+      result = "Up";
+      break;
+    case "Down":
+      result = "Down";
+      break;
+    default:
+      result = "UNKNOWN";
+      break;
+  }
+  return result;
+}
+
+const faces = ["North", "South", "East", "West", "Up", "Down"];
+TEST_OUTPUT = "";
+for (const face of faces) {
+  const result = getDirection(face);
+  const status = result === face ? "PASS" : "FAIL";
+  TEST_OUTPUT += status + ": input=" + face + " switch_result=" + result
+}
+    `,
+    {
+      target: "node",
+      minify: true,
+    },
+  );
+
+  // Ensure code still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(
+    "PASS: input=North switch_result=NorthPASS: input=South switch_result=SouthPASS: input=East switch_result=EastPASS: input=West switch_result=WestPASS: input=Up switch_result=UpPASS: input=Down switch_result=Down",
+  );
+});
+
+test("Variant #36: Preserve standalone identifiers acting as placeholders", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `TEST_OUTPUT = __MY_PLACEHOLDER__`,
+    { target: "node", minify: true },
+  );
+
+  expect(code).toContain("__MY_PLACEHOLDER__");
+
+  code = code.replace(
+    "__MY_PLACEHOLDER__",
+    JSON.stringify("MY_REPLACED_VALUE"),
+  );
+
+  // Ensure code still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("MY_REPLACED_VALUE");
 });

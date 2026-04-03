@@ -13,6 +13,7 @@ test("Variant #1: Preserve function.length on High Preset", async () => {
       target: "node",
       preset: "high",
       pack: true,
+      preserveFunctionLength: true,
     }
   );
 

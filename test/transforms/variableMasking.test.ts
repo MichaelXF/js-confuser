@@ -566,7 +566,7 @@ test("Variant #18: Preserve function.length property", async () => {
 
     TEST_OUTPUT = oneParameter.length + twoParameters.length + myObject.threeParameters.length;
   `,
-    { target: "node", variableMasking: true }
+    { target: "node", variableMasking: true, preserveFunctionLength: true }
   );
 
   var TEST_OUTPUT;

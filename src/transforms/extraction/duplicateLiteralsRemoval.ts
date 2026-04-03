@@ -31,7 +31,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           const literalsMap = new Map<LiteralValue, number>();
           const firstTimeMap = new Map<
             LiteralValue,
-            babel.NodePath<t.Literal | t.Identifier>
+            NodePath<t.Literal | t.Identifier>
           >();
 
           const arrayExpression = t.arrayExpression([]);
@@ -40,18 +40,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             return t.memberExpression(
               t.identifier(arrayName),
               numericLiteral(index),
-              true
+              true,
             );
           };
 
           // Traverse through all nodes to find literals
           programPath.traverse({
             "StringLiteral|BooleanLiteral|NumericLiteral|NullLiteral|Identifier"(
-              _path
+              _path,
             ) {
-              const literalPath = _path as babel.NodePath<
-                t.Literal | t.Identifier
-              >;
+              const literalPath = _path as NodePath<t.Literal | t.Identifier>;
 
               // Don't change module imports
               if (literalPath.isStringLiteral()) {
@@ -91,10 +89,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               const value: LiteralValue = isUndefined
                 ? undefined
                 : t.isNullLiteral(node)
-                ? null
-                : t.isLiteral(node)
-                ? node.value
-                : fail();
+                  ? null
+                  : t.isLiteral(node)
+                    ? node.value
+                    : fail();
 
               if (
                 typeof value !== "string" &&

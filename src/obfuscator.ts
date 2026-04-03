@@ -110,13 +110,17 @@ export default class Obfuscator {
       globalObject =
         typeof globalThis !== "undefined"
           ? globalThis
-          : typeof window !== "undefined"
-          ? window
-          : typeof global !== "undefined"
-          ? global
-          : typeof self !== "undefined"
-          ? self
-          : new Function("return this")();
+          : // @ts-ignore
+            typeof window !== "undefined"
+            ? // @ts-ignore
+              window
+            : typeof global !== "undefined"
+              ? global
+              : // @ts-ignore
+                typeof self !== "undefined"
+                ? // @ts-ignore
+                  self
+                : new Function("return this")();
     } catch (e) {}
 
     var fn = globalObject;
@@ -152,7 +156,7 @@ export default class Obfuscator {
 
   public constructor(
     userOptions: ObfuscateOptions,
-    public parentObfuscator?: Obfuscator
+    public parentObfuscator?: Obfuscator,
   ) {
     validateOptions(userOptions);
     this.options = applyDefaultsToOptions({ ...userOptions });
@@ -163,7 +167,7 @@ export default class Obfuscator {
       (Object.keys(this.options.lock).filter(
         (key) =>
           key !== "customLocks" &&
-          this.isProbabilityMapProbable(this.options.lock[key])
+          this.isProbabilityMapProbable(this.options.lock[key]),
       ).length > 0 ||
         this.options.lock.customLocks.length > 0);
 
@@ -194,7 +198,7 @@ export default class Obfuscator {
 
     push(
       !parentObfuscator && this.options.stringCompression,
-      stringCompression
+      stringCompression,
     );
     push(this.options.variableMasking, variableMasking);
     push(this.options.duplicateLiteralsRemoval, duplicateLiteralsRemoval);
@@ -233,7 +237,7 @@ export default class Obfuscator {
 
       ok(
         pluginInstance,
-        "Plugin instance not created: " + pluginFunction.toString()
+        "Plugin instance not created: " + pluginFunction.toString(),
       );
 
       this.plugins.push({
@@ -243,7 +247,7 @@ export default class Obfuscator {
     });
 
     this.plugins = this.plugins.sort(
-      (a, b) => a.pluginInstance.order - b.pluginInstance.order
+      (a, b) => a.pluginInstance.order - b.pluginInstance.order,
     );
 
     if (!parentObfuscator && this.hasPlugin(Order.StringCompression)) {
@@ -255,11 +259,11 @@ export default class Obfuscator {
   index: number = 0;
 
   obfuscateAST(
-    ast: babel.types.File,
+    ast: t.File,
     options?: {
       profiler?: ProfilerCallback;
-    }
-  ): babel.types.File {
+    },
+  ): t.File {
     let finalASTHandler: PluginObject["finalASTHandler"][] = [];
 
     for (let i = 0; i < this.plugins.length; i++) {
@@ -268,7 +272,7 @@ export default class Obfuscator {
 
       if (this.options.verbose) {
         console.log(
-          `Applying ${pluginInstance.name} (${i + 1}/${this.plugins.length})`
+          `Applying ${pluginInstance.name} (${i + 1}/${this.plugins.length})`,
         );
       }
 
@@ -330,7 +334,7 @@ export default class Obfuscator {
    */
   static generateCode<T extends t.Node = t.File>(
     ast: T,
-    options: ObfuscateOptions = DEFAULT_OPTIONS
+    options: ObfuscateOptions = DEFAULT_OPTIONS,
   ): string {
     const compact = !!options.compact;
 
@@ -347,9 +351,9 @@ export default class Obfuscator {
   }
 
   /**
-   * Parses the source code into an AST using `babel.parseSync`
+   * Parses the source code into an AST using `t.parseSync`
    */
-  static parseCode(sourceCode: string): babel.types.File {
+  static parseCode(sourceCode: string): t.File {
     // Parse the source code into an AST
     let ast = parse(sourceCode, {
       sourceType: "unambiguous",
@@ -367,7 +371,7 @@ export default class Obfuscator {
    */
   computeProbabilityMap<
     T,
-    F extends (...args: any[]) => any = (...args: any[]) => any
+    F extends (...args: any[]) => any = (...args: any[]) => any,
   >(
     map: ProbabilityMap<T, F>,
     ...customImplementationArgs: F extends (...args: infer P) => any ? P : never
@@ -384,14 +388,14 @@ export default class Obfuscator {
 
       var value = this.computeProbabilityMap(
         map.value as ProbabilityMap<T, F>,
-        ...customImplementationArgs
+        ...customImplementationArgs,
       );
 
       if (value) {
         // Increment the counter for this map
         this.probabilityMapCounter.set(
           map,
-          this.probabilityMapCounter.get(map) + 1 || 1
+          this.probabilityMapCounter.get(map) + 1 || 1,
         );
       }
 
@@ -428,7 +432,7 @@ export default class Obfuscator {
     var total = Object.values(asObject).reduce((a, b) => a + b);
     var percentages = createObject(
       Object.keys(asObject),
-      Object.values(asObject).map((x) => x / total)
+      Object.values(asObject).map((x) => x / total),
     );
 
     var ticket = Math.random();
@@ -469,7 +473,7 @@ export default class Obfuscator {
     if (Array.isArray(map)) {
       ok(
         map.length != 0,
-        "Empty arrays are not allowed for options. Use false instead."
+        "Empty arrays are not allowed for options. Use false instead.",
       );
 
       if (map.length == 1) {
@@ -485,7 +489,7 @@ export default class Obfuscator {
       var keys = Object.keys(map);
       ok(
         keys.length != 0,
-        "Empty objects are not allowed for options. Use false instead."
+        "Empty objects are not allowed for options. Use false instead.",
       );
 
       if (keys.length == 1) {

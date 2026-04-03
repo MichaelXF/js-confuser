@@ -108,11 +108,9 @@ dist
 # VS Code prettier ignore list
 .prettierignore
 
-dev.error.js
-dev.input.js
-dev.output.js
-dev.ts
-dev.profile.json
+# Dev folder and files
+dev/
+dev.*
 
 package-lock.json
 
