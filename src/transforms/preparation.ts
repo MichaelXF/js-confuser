@@ -37,7 +37,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
   const markFunctionUnsafe = (path: NodePath<t.Node>) => {
     const functionPath = path.findParent(
-      (path) => path.isFunction() || path.isProgram()
+      (p) =>
+        (p.isFunction() && !p.isArrowFunctionExpression()) || p.isProgram()
     );
     if (!functionPath) return;
 
