@@ -772,3 +772,68 @@ test("Variant #26: Var declaration in nested block statement", async () => {
   eval(code);
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+test("Variant #27: `this` is preserved when flattening methods containing arrow functions", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    const setOutput = (key, val) => TEST_OUTPUT[key] = val
+
+    const obj = {
+      setOutput,
+
+      method1() {
+        (() => this.setOutput("method1", 1))();
+      },
+
+      method2() {
+        const func = () => this.setOutput("method2", 2);
+        func();
+      },
+
+      method3() {
+        this.setOutput("method3", 3);
+      },
+    };
+
+    class Class {
+      setOutput(key, val) {
+        setOutput(key, val);
+      }
+
+      classMethod1() {
+        (() => this.setOutput("classMethod1", 1))();
+      }
+
+      classMethod2() {
+        const func = () => this.setOutput("classMethod2", 2);
+        func();
+      }
+
+      classMethod3() {
+        this.setOutput("classMethod3", 3);
+      }
+    }
+
+    obj.method1();
+    obj.method2();
+    obj.method3();
+
+    const instance = new Class();
+    instance.classMethod1();
+    instance.classMethod2();
+    instance.classMethod3();
+    `,
+    { target: "node", flatten: true }
+  );
+
+  var TEST_OUTPUT = {};
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual({
+    method1: 1,
+    method2: 2,
+    method3: 3,
+    classMethod1: 1,
+    classMethod2: 2,
+    classMethod3: 3,
+  });
+});
