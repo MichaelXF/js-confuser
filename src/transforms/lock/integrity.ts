@@ -65,7 +65,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           const { integrityHashName: hashFnName } = me.globalState.internals;
           const obfuscatedHashFnName = me.obfuscator.getObfuscatedVariableName(
             hashFnName,
-            funcDecPath.find((p) => p.isProgram()).node
+            funcDecPath.find((p) => p.isProgram()).node,
           );
 
           const newFnName = newFunctionDeclaration.id.name;
@@ -74,10 +74,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Function is redefined, do not apply integrity
           if (!binding || binding.constantViolations.length > 0) return;
 
-          var code = me.obfuscator.generateCode(newFunctionDeclaration);
+          var { code } = me.obfuscator.generateCode(newFunctionDeclaration);
           var codeTrimmed = code.replace(
             me.globalState.lock.integrity.sensitivityRegex,
-            ""
+            "",
           );
 
           var seed = getRandomInteger(0, 10000000);
@@ -108,7 +108,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 me.globalState.lock.createCountermeasuresCode(),
             }),
             // Preserve directives
-            funcDecPath.node.body.directives
+            funcDecPath.node.body.directives,
           );
         },
       },

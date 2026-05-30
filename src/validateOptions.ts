@@ -38,6 +38,8 @@ const validProperties = new Set([
   "customStringEncodings",
   "functionOutlining",
   "pack",
+  "sourceMap",
+  "sourceFileName",
 ]);
 
 const validLockProperties = new Set([
@@ -66,19 +68,19 @@ export function validateOptions(options: ObfuscateOptions) {
           .split("\n")
           .map((x) => `\t${x}`)
           .join("\n") +
-        `\n\n`
+        `\n\n`,
     );
   }
 
   ok(options, "options cannot be null");
   ok(
     options.target,
-    "Missing options.target option (required, must one the following: 'browser' or 'node')"
+    "Missing options.target option (required, must one the following: 'browser' or 'node')",
   );
 
   ok(
     ["browser", "node"].includes(options.target),
-    `'${options.target}' is not a valid target mode`
+    `'${options.target}' is not a valid target mode`,
   );
 
   Object.keys(options).forEach((key) => {
@@ -111,7 +113,7 @@ export function validateOptions(options: ObfuscateOptions) {
       ok(
         typeof options.lock.startDate === "number" ||
           options.lock.startDate instanceof Date,
-        "startDate must be Date object or number"
+        "startDate must be Date object or number",
       );
     }
 
@@ -120,7 +122,7 @@ export function validateOptions(options: ObfuscateOptions) {
       ok(
         typeof options.lock.endDate === "number" ||
           options.lock.endDate instanceof Date,
-        "endDate must be Date object or number"
+        "endDate must be Date object or number",
       );
     }
   }
@@ -136,7 +138,7 @@ export function validateOptions(options: ObfuscateOptions) {
  * Sets the default values and validates the configuration.
  */
 export function applyDefaultsToOptions(
-  options: ObfuscateOptions
+  options: ObfuscateOptions,
 ): ObfuscateOptions {
   if (options.preset) {
     // Clone and allow overriding

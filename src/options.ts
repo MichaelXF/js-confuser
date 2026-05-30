@@ -17,7 +17,7 @@ type Stringed<V> = V extends string ? V : never;
  */
 export type ProbabilityMap<
   T = boolean,
-  F extends (...args: any[]) => any = () => boolean // Default to a generic function
+  F extends (...args: any[]) => any = () => boolean, // Default to a generic function
 > =
   | false
   | true
@@ -399,6 +399,12 @@ export interface ObfuscateOptions {
    * Set of global variables. *Optional*.
    */
   globalVariables?: Set<string>;
+
+  /**
+   * Source map options
+   */
+  sourceMap?: boolean;
+  sourceFileName?: string;
 
   /**
    * Enable logs to view the obfuscator's state.

@@ -1,6 +1,6 @@
 import { ok } from "assert";
 import * as t from "@babel/types";
-import generate from "@babel/generator";
+import generate, { GeneratorResult } from "@babel/generator";
 import traverse from "@babel/traverse";
 import { parse } from "@babel/parser";
 import { ObfuscateOptions, ProbabilityMap } from "./options";
@@ -307,10 +307,16 @@ export default class Obfuscator {
     ast = this.obfuscateAST(ast);
 
     // Generate the transformed code from the modified AST with comments removed and compacted output
-    const code = this.generateCode(ast);
+    const { code, map } = this.generateCode(ast);
+
+    if (map) {
+      map.sourcesContent = [sourceCode];
+    }
 
     return {
-      code: code,
+      code,
+      map,
+      ast,
     };
   }
 
@@ -325,7 +331,7 @@ export default class Obfuscator {
   /**
    * Calls `Obfuscator.generateCode` with the current instance options
    */
-  generateCode<T extends t.Node = t.File>(ast: T): string {
+  generateCode<T extends t.Node = t.File>(ast: T): GeneratorResult {
     return Obfuscator.generateCode(ast, this.options);
   }
 
@@ -335,19 +341,21 @@ export default class Obfuscator {
   static generateCode<T extends t.Node = t.File>(
     ast: T,
     options: ObfuscateOptions = DEFAULT_OPTIONS,
-  ): string {
+  ): GeneratorResult {
     const compact = !!options.compact;
 
-    const { code } = generate(ast, {
+    const GeneratorResult = generate(ast, {
       comments: false, // Remove comments
       minified: compact,
+      sourceMaps: options.sourceMap,
+      sourceFileName: options.sourceFileName ? "input.js" : undefined,
       // jsescOption: {
       //   String Encoding using Babel
       //   escapeEverything: true,
       // },
     });
 
-    return code;
+    return GeneratorResult;
   }
 
   /**
@@ -357,6 +365,7 @@ export default class Obfuscator {
     // Parse the source code into an AST
     let ast = parse(sourceCode, {
       sourceType: "unambiguous",
+      sourceFilename: "input.js",
     });
 
     return ast;
