@@ -18,7 +18,7 @@ export interface PluginObject {
 export type PluginArg = {
   Plugin: <T extends Partial<PluginInstance> = {}>(
     order: Order,
-    merge?: T
+    merge?: T,
   ) => PluginInstance & T;
 };
 
@@ -27,10 +27,10 @@ export type PluginFunction = (pluginArg: PluginArg) => PluginObject;
 export class PluginInstance {
   constructor(
     public pluginOptions: { name?: string; order?: number },
-    public obfuscator: Obfuscator
+    public obfuscator: Obfuscator,
   ) {
     this.computeProbabilityMap = obfuscator.computeProbabilityMap.bind(
-      this.obfuscator
+      this.obfuscator,
     );
   }
 
@@ -92,8 +92,8 @@ export class PluginInstance {
           path,
           SetFunctionLengthTemplate.compile({
             fnName: this.setFunctionLengthName,
-          })
-        )
+          }),
+        ),
       );
     }
 
@@ -113,9 +113,9 @@ export class PluginInstance {
         t.expressionStatement(
           t.callExpression(
             t.identifier(this.setFunctionLengthName),
-            createCallArguments(t.identifier(path.node.id.name))
-          )
-        )
+            createCallArguments(t.identifier(path.node.id.name)),
+          ),
+        ),
       );
     } else if (
       t.isFunctionExpression(path.node) ||
@@ -124,8 +124,8 @@ export class PluginInstance {
       path.replaceWith(
         t.callExpression(
           t.identifier(this.setFunctionLengthName),
-          createCallArguments(path.node)
-        )
+          createCallArguments(path.node),
+        ),
       );
     } else {
       // TODO

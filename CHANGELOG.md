@@ -1,3 +1,24 @@
+# `2.1.0`
+Updates
+
+- Moved documentation to Mintlify for improved SEO: [docs.js-confuser.com](https://docs.js-confuser.com)
+
+- Added new option `sourceMap` [Learn more](https://docs.js-confuser/options/sourceMap)
+
+- Removed `String Concealing`'s string cache to prevent leaking runtime values for debuggers
+
+- Updated `Control Flow Flattening`
+- - Fixed identifier clash bug for certain hoisted functions when using `mangled` Identifier Generator mode.
+- - Changed to an array of state variables to defeat LLM-assisted deobfuscation
+- - String literals are now XOR-encrypted based on the state variables
+- - Now applies to loops to better obfuscate [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm)
+- - Removed the `with` statement and the generator function (`function*`) as they were ineffective protections.
+- - - The `with` statement was added to make identifiers harder to track from static analysis tools. It wasn't fully effective as the most important variables (the state variables) were never included in this.
+- - - The generator function (`function *`) was purely added to defeat [Prepack.io](https://prepack.io/repl.html#GYVwdgxgLglg9mAVAAgLYE8DiBTM2BOAhlHPgBQCUA3gFDLLozYA2AJsgIwDcNAvjTQgIAznGbYAdMzgBzMhhx4iJchQl4AHlEoSAboWYhsFIA), as this partial evaluator doesn't support the syntax. JS Confuser never relied on the generator mechanisms, so it could've easily been removed.
+- - - [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm) doesn't support either of these, so removing them allows users to obfuscate and virtualize their code in any order. 
+
+**Official Site Warning:** JS-Confuser.com (with a hyphen) is the only official website for JS-Confuser! You can find the source code [here](https://github.com/MichaelXF/js-confuser-website).
+
 # `2.0.1`
 Fixes
 
@@ -9,7 +30,7 @@ Fixes
 - Improved `Control Flow Flattening`
 - - Fixed implicit return bug causing incorrect return values
 - - The switch-case transitions now are computed by other state variables
-- - No longer lifted by [nullableVoidPtr's deobfuscator](https://github.com/nullableVoidPtr/deobf) - a complete CFF-in-CFF solver
+- - No longer lifted by [nullableVoidPtr's deobfuscator](https://github.com/nullableVoidPtr/deobf) - a complete CFF-in-CFF and JS-Confuser solver
 
 ```js
 // Input code:
