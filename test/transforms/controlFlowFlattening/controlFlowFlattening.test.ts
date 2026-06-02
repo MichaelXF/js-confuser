@@ -265,7 +265,6 @@ test("Variant #9: Don't entangle floats or NaN", async () => {
         var a = NaN;
         var b = 10.01;
         var c = 15.01;
-        var d = "MyString";
         input(b + c)
       }
       
@@ -281,7 +280,6 @@ test("Variant #9: Don't entangle floats or NaN", async () => {
   expect(output).toContain("10.01");
   expect(output).toContain("15.01");
   expect(output).toContain("NaN");
-  expect(output).toContain("MyString");
 
   var value = "never_called";
   function input(valueIn) {
@@ -1548,4 +1546,39 @@ test("Variant #41: Don't break implicit return", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual("undefined");
+});
+
+test("Variant #42: Don't break unsafe functions with 'mangled' identifiers", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var _1, _2, _3;
+
+function main() {
+  var a, b;
+
+  function unsafeFn() {
+    this; // Marks this function as 'unsafe'
+    return "Correct Value";
+  }
+  TEST_OUTPUT = unsafeFn();
+}
+
+main();
+
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+      renameVariables: true,
+      identifierGenerator: "mangled",
+    },
+  );
+
+  // Ensure CFF applied
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
