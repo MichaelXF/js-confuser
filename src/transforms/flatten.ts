@@ -47,7 +47,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     if ((fnPath.node as NodeSymbol)[UNSAFE]) return;
 
     var program = fnPath.findParent((p) =>
-      p.isProgram()
+      p.isProgram(),
     ) as NodePath<t.Program>;
 
     let functionName = getFunctionName(fnPath);
@@ -129,7 +129,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     me.log(
       `Function ${functionName}`,
       "requires",
-      Array.from(new Set(identifierPaths.map((x) => x.node.name)))
+      Array.from(new Set(identifierPaths.map((x) => x.node.name))),
     );
 
     for (var identifierPath of identifierPaths) {
@@ -157,8 +157,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             t.memberExpression(
               t.identifier(flatObjectName),
               t.stringLiteral(typeofProp),
-              true
-            )
+              true,
+            ),
           )[0]
           .skip();
       } else if (isFunctionCall) {
@@ -176,8 +176,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             t.memberExpression(
               t.identifier(flatObjectName),
               t.stringLiteral(functionCallProp),
-              true
-            )
+              true,
+            ),
           )[0]
           .skip();
       } else {
@@ -204,8 +204,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             t.memberExpression(
               t.identifier(flatObjectName),
               t.stringLiteral(standardProp),
-              true
-            )
+              true,
+            ),
           )[0]
           .skip();
       }
@@ -231,9 +231,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             t.blockStatement([t.returnStatement(t.identifier(identifierName))]),
             false,
             false,
-            false
-          )
-        )
+            false,
+          ),
+        ),
       );
 
       // Not all properties need a setter
@@ -250,15 +250,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   t.assignmentExpression(
                     "=",
                     t.identifier(identifierName),
-                    t.identifier(valueArgName)
-                  )
+                    t.identifier(valueArgName),
+                  ),
                 ),
               ]),
               false,
               false,
-              false
-            )
-          )
+              false,
+            ),
+          ),
         );
       }
     }
@@ -274,14 +274,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             [],
             t.blockStatement([
               t.returnStatement(
-                t.unaryExpression("typeof", t.identifier(identifierName))
+                t.unaryExpression("typeof", t.identifier(identifierName)),
               ),
             ]),
             false,
             false,
-            false
-          )
-        )
+            false,
+          ),
+        ),
       );
     }
 
@@ -298,14 +298,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               t.returnStatement(
                 t.callExpression(t.identifier(identifierName), [
                   t.spreadElement(t.identifier("args")),
-                ])
+                ]),
               ),
             ]),
             false,
             false,
-            false
-          )
-        )
+            false,
+          ),
+        ),
       );
     }
 
@@ -318,14 +318,17 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       ],
       t.blockStatement([...[...fnPath.node.body.body]]),
       false,
-      fnPath.node.async
+      fnPath.node.async,
     );
+
+    // Carry over original source loc info
+    t.inherits(flattenedFunctionDeclaration, fnPath.node);
 
     // Create the flat object variable declaration
     const flatObjectDeclaration = t.variableDeclaration("var", [
       t.variableDeclarator(
         t.identifier(flatObjectName),
-        t.objectExpression(flatObjectProperties)
+        t.objectExpression(flatObjectProperties),
       ),
     ]);
 
@@ -338,7 +341,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         t.callExpression(t.identifier(newFnName), [
           t.identifier(argName),
           t.identifier(flatObjectName),
-        ])
+        ]),
       ),
     ]);
 
@@ -352,7 +355,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     // Add the new flattened function at the top level
     var newPath = prependProgram(
       program,
-      flattenedFunctionDeclaration
+      flattenedFunctionDeclaration,
     )[0] as NodePath<t.FunctionDeclaration>;
 
     me.skip(newPath);
@@ -374,7 +377,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     // Carry over 'use strict' directive if not already present
     if (strictMode) {
       newPath.node.body.directives.push(
-        t.directive(t.directiveLiteral("use strict"))
+        t.directive(t.directiveLiteral("use strict")),
       );
 
       // Non-simple parameter list conversion
@@ -383,9 +386,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         t.variableDeclaration("var", [
           t.variableDeclarator(
             t.arrayPattern(newPath.node.params),
-            t.identifier("arguments")
+            t.identifier("arguments"),
           ),
-        ])
+        ]),
       );
       newPath.node.params = [];
       // Using 'arguments' is unsafe

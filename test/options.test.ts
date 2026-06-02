@@ -53,7 +53,7 @@ test("Variant #4: Work with compact set to false", async () => {
     {
       target: "node",
       compact: false,
-    }
+    },
   );
 
   expect(output).toContain("\n");
@@ -70,7 +70,7 @@ test("Variant #5: Work with compact set to true", async () => {
     {
       target: "node",
       compact: true,
-    }
+    },
   );
 
   expect(output).not.toContain("\n");
@@ -89,7 +89,7 @@ test("Variant #6: Verbose option", async () => {
       compact: false,
       verbose: true,
       objectExtraction: true,
-    }
+    },
   );
 
   var TEST_OUTPUT;
@@ -103,7 +103,7 @@ test("Variant #7: Error on invalid lock option", async () => {
     JsConfuser.obfuscate(`var TEST_VARIABLE;`, {
       target: "node",
       lock: "invalid",
-    } as any)
+    } as any),
   ).rejects.toThrow();
 
   expect(
@@ -112,7 +112,7 @@ test("Variant #7: Error on invalid lock option", async () => {
       lock: {
         invalidProperty: true,
       },
-    } as any)
+    } as any),
   ).rejects.toThrow();
 });
 
@@ -203,7 +203,7 @@ test("Variant #14: Rename Globals should accept a callback function", async () =
 
         return true;
       },
-    }
+    },
   );
 
   // Ensure renameGlobals callback was called
@@ -238,7 +238,7 @@ test("Variant #15: Fine-tune options using the limit property", async () => {
         limit: 2,
       },
       identifierGenerator: "mangled",
-    }
+    },
   );
 
   // Ensure the first two variables were renamed
@@ -267,7 +267,7 @@ test("Variant #16: Limit of not should rename any variables", async () => {
         limit: 0,
       },
       identifierGenerator: "mangled",
-    }
+    },
   );
 
   // Ensure the variable names were preserved
@@ -291,7 +291,7 @@ test("Variant #17: Limit of -1 should rename all variables", async () => {
         limit: -1,
       },
       identifierGenerator: "mangled",
-    }
+    },
   );
 
   // Ensure both variables were renamed
@@ -301,3 +301,4 @@ test("Variant #17: Limit of -1 should rename all variables", async () => {
   expect(code).toContain("var a");
   expect(code).toContain("var b");
 });
+

@@ -97,7 +97,7 @@ export interface ObfuscateOptions {
   target: "node" | "browser";
 
   /**
-   * Remove's whitespace from the final output.
+   * Removes whitespace from the final output.
    */
   compact?: boolean;
 
@@ -403,11 +403,15 @@ export interface ObfuscateOptions {
   /**
    * Source map options
    */
-  sourceMap?: boolean;
-  sourceFileName?: string;
+  sourceMap?: boolean | SourceMapOptions;
 
   /**
    * Enable logs to view the obfuscator's state.
    */
   verbose?: boolean;
+}
+
+interface SourceMapOptions {
+  /** Filename of the original source; appears in the map's `sources` array */
+  fileName?: string;
 }

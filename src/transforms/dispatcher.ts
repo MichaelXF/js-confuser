@@ -45,7 +45,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             var insertNode = t.functionDeclaration(
               t.identifier(setFunctionLength),
               [],
-              t.blockStatement([])
+              t.blockStatement([]),
             );
 
             if (me.options.preserveFunctionLength) {
@@ -196,7 +196,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           for (var name of functionPaths.keys()) {
             newNameMapping.set(
               name,
-              isDebug ? "_" + name : getRandomString(6) /**  "_" + name */
+              isDebug ? "_" + name : getRandomString(6) /**  "_" + name */,
             );
           }
 
@@ -229,7 +229,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   if (asObject) {
                     if (dispatcherArgs.length < 2) {
                       dispatcherArgs.push(
-                        t.stringLiteral(keys.placeholderNoMeaning)
+                        t.stringLiteral(keys.placeholderNoMeaning),
                       );
                     }
                     dispatcherArgs.push(t.stringLiteral(keys.returnAsObject));
@@ -238,7 +238,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   var callExpression: t.CallExpression | t.NewExpression =
                     t.callExpression(
                       t.identifier(dispatcherName),
-                      dispatcherArgs
+                      dispatcherArgs,
                     );
 
                   if (!asObject) {
@@ -252,7 +252,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   return t.memberExpression(
                     callExpression,
                     t.stringLiteral(keys.returnAsObjectProperty),
-                    true
+                    true,
                   );
                 };
 
@@ -265,7 +265,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   if (callArguments.length === 0) {
                     expressions.push(
                       // Call the function
-                      createDispatcherCall(newName, keys.clearPayload)
+                      createDispatcherCall(newName, keys.clearPayload),
                     );
                   } else {
                     expressions.push(
@@ -273,11 +273,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                       t.assignmentExpression(
                         "=",
                         t.identifier(payloadName),
-                        t.arrayExpression(callArguments as t.Expression[])
+                        t.arrayExpression(callArguments as t.Expression[]),
                       ),
 
                       // Call the function
-                      createDispatcherCall(newName)
+                      createDispatcherCall(newName),
                     );
                   }
 
@@ -313,8 +313,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   fnLengthProperties.push(
                     t.objectProperty(
                       t.stringLiteral(newName),
-                      numericLiteral(fnLength)
-                    )
+                      numericLiteral(fnLength),
+                    ),
                   );
                 }
               }
@@ -328,9 +328,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   t.variableDeclaration("var", [
                     t.variableDeclarator(
                       t.arrayPattern([...originalFn.params]),
-                      t.identifier(payloadName)
+                      t.identifier(payloadName),
                     ),
-                  ])
+                  ]),
                 );
               }
 
@@ -338,16 +338,19 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               if (isDebug) {
                 newBody.unshift(
                   t.expressionStatement(
-                    t.stringLiteral(`Dispatcher: ${name} -> ${newName}`)
-                  )
+                    t.stringLiteral(`Dispatcher: ${name} -> ${newName}`),
+                  ),
                 );
               }
 
               const functionExpression = t.functionExpression(
                 null,
                 [],
-                t.blockStatement(newBody)
+                t.blockStatement(newBody),
               );
+
+              // Carry over original source loc info
+              t.inherits(functionExpression, originalFn);
 
               for (var symbol of Object.getOwnPropertySymbols(originalFn)) {
                 (functionExpression as any)[symbol] = (originalFn as any)[
@@ -360,9 +363,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               return t.objectProperty(
                 t.stringLiteral(newName),
 
-                functionExpression
+                functionExpression,
               );
-            })
+            }),
           );
 
           const fnLengths = t.objectExpression(fnLengthProperties);
@@ -414,7 +417,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           function prepend(node: t.Statement) {
             var newPath = blockStatement.unshiftContainer<any, any, any>(
               "body",
-              node
+              node,
             )[0];
             blockStatement.scope.registerDeclaration(newPath);
           }
@@ -426,7 +429,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           prepend(
             t.variableDeclaration("var", [
               t.variableDeclarator(t.identifier(payloadName)),
-            ])
+            ]),
           );
 
           // Insert the cache variable
@@ -434,9 +437,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             t.variableDeclaration("var", [
               t.variableDeclarator(
                 t.identifier(cacheName),
-                new Template(`Object["create"](null)`).expression()
+                new Template(`Object["create"](null)`).expression(),
               ),
-            ])
+            ]),
           );
 
           // Remove original functions

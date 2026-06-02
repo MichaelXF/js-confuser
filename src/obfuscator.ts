@@ -347,8 +347,11 @@ export default class Obfuscator {
     const GeneratorResult = generate(ast, {
       comments: false, // Remove comments
       minified: compact,
-      sourceMaps: options.sourceMap,
-      sourceFileName: options.sourceFileName ? "input.js" : undefined,
+      sourceMaps: !!options.sourceMap,
+      sourceFileName:
+        (typeof options.sourceMap === "object" &&
+          options.sourceMap?.fileName) ||
+        "script.js",
       // jsescOption: {
       //   String Encoding using Babel
       //   escapeEverything: true,
@@ -365,7 +368,6 @@ export default class Obfuscator {
     // Parse the source code into an AST
     let ast = parse(sourceCode, {
       sourceType: "unambiguous",
-      sourceFilename: "input.js",
     });
 
     return ast;
