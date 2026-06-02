@@ -45,7 +45,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const blocks: NodePath<t.Block>[] = [];
   const stringMap = new Map<string, number>();
   const stringArrayName = me.getPlaceholder() + "_array";
-  const stringArrayCacheName = me.getPlaceholder() + "_cache";
 
   let encodingImplementations: { [identity: string]: CustomStringEncoding } =
     Object.create(null);
@@ -78,7 +77,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
         // No longer create new encodings using this function
         availableStringEncodings = availableStringEncodings.filter(
-          (x) => x !== encoding
+          (x) => x !== encoding,
         );
 
         // Return a random encoding already made
@@ -121,7 +120,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             const fakeString = getRandomString(getRandomInteger(5, 50));
             stringMap.set(
               mainEncodingImplementation.encode(fakeString),
-              stringMap.size
+              stringMap.size,
             );
           }
 
@@ -144,7 +143,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 if (
                   !me.computeProbabilityMap(
                     me.options.stringConcealing,
-                    originalValue
+                    originalValue,
                   )
                 ) {
                   return;
@@ -153,7 +152,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 let block = path.findParent(
                   (p) =>
                     p.isBlock() &&
-                    !!(p.node as NodeStringConcealing)?.[STRING_CONCEALING]
+                    !!(p.node as NodeStringConcealing)?.[STRING_CONCEALING],
                 ) as NodePath<t.Block>;
 
                 let stringConcealingInterface = (
@@ -167,7 +166,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   // Create a new encoder function
                   // Select random block parent (or Program)
                   block = path.findParent((p) =>
-                    p.isBlock()
+                    p.isBlock(),
                   ) as NodePath<t.Block>;
 
                   const stringConcealingNode =
@@ -197,7 +196,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
                 const encodedValue =
                   stringConcealingInterface.encodingImplementation.encode(
-                    originalValue
+                    originalValue,
                   );
 
                 // If a decoder function is provided, use it to validate each encoded string
@@ -207,7 +206,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 ) {
                   const decodedValue =
                     stringConcealingInterface.encodingImplementation.decode(
-                      encodedValue
+                      encodedValue,
                     );
                   if (decodedValue !== originalValue) {
                     return;
@@ -230,8 +229,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 path.replaceWith(
                   t.callExpression(
                     t.identifier(stringConcealingInterface.fnName),
-                    [numericLiteral(index)]
-                  )
+                    [numericLiteral(index)],
+                  ),
                 );
 
                 // Skip the transformation for the newly created node
@@ -258,20 +257,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               t.variableDeclarator(
                 t.identifier(stringArrayName),
                 t.arrayExpression(
-                  Array.from(stringMap.keys()).map((x) => t.stringLiteral(x))
-                )
+                  Array.from(stringMap.keys()).map((x) => t.stringLiteral(x)),
+                ),
               ),
-            ])
-          );
-
-          // Create the string cache
-          prependProgram(
-            programPath,
-            new Template(`
-            var {stringArrayCacheName} = {};
-            `).single({
-              stringArrayCacheName,
-            })
+            ]),
           );
 
           for (var block of blocks) {
@@ -294,10 +283,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             // The main function to get the string value
             const retrieveFunctionDeclaration = new Template(`
               function ${fnName}(index) {
-                if (typeof ${stringArrayCacheName}[index] === 'undefined') {
-                  return ${stringArrayCacheName}[index] = ${decodeFnName}(${stringArrayName}[index]);
-                }
-                return ${stringArrayCacheName}[index];
+                return ${decodeFnName}(${stringArrayName}[index]);
               }
             `)
               .addSymbols(NO_REMOVE)
