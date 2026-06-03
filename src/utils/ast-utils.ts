@@ -536,19 +536,16 @@ export function isStrictMode(path: NodePath) {
  * @param identifierPath
  */
 export function isModifiedIdentifier(identifierPath: NodePath<t.Identifier>) {
-  var isModification = false;
   if (identifierPath.parentPath.isUpdateExpression()) {
-    isModification = true;
-  }
-  if (
-    identifierPath.find(
-      (p) => p.key === "left" && p.parentPath?.isAssignmentExpression()
-    )
-  ) {
-    isModification = true;
+    return true;
   }
 
-  return isModification;
+  return !!identifierPath.find(
+    (p) =>
+      p.key === "left" &&
+      p.parentPath?.isAssignmentExpression() &&
+      !p.isMemberExpression()
+  );
 }
 
 export function replaceDefiningIdentifierToMemberExpression(

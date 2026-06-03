@@ -1,3 +1,5 @@
+import { parse } from "@babel/parser";
+import traverse from "@babel/traverse";
 import JsConfuser from "../../src/index";
 
 test("Variant #1: Function Declaration", async () => {
@@ -771,4 +773,29 @@ test("Variant #26: Var declaration in nested block statement", async () => {
   var TEST_OUTPUT;
   eval(code);
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #27: Mutating a property on a constant object should not generate a setter", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    const myObject = {};
+
+    (function () {
+      myObject.myProperty = 1;
+    })()
+
+    TEST_OUTPUT = myObject.myProperty;
+    `,
+    { target: "node", flatten: true }
+  );
+
+  traverse(parse(code), {
+    ObjectMethod(path) {
+      expect(path.node.kind).not.toBe("set");
+    },
+  });
+
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual(1);
 });
