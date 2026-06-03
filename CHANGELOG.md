@@ -3,19 +3,28 @@ Updates
 
 - Moved documentation to Mintlify for improved SEO: [docs.js-confuser.com](https://docs.js-confuser.com)
 
-- Added new option `sourceMap` [Learn more](https://docs.js-confuser/options/sourceMap)
+- - Thanks to [Mintlify's OSS Program](https://www.mintlify.com/oss-program), you can enjoy free AI-assistant usage on the JS-Confuser Docs
 
-- Removed `String Concealing`'s string cache to prevent leaking runtime values for debuggers
+- Added new option `sourceMap` [Learn more](https://docs.js-confuser.com/options/sourceMap)
+
+- Updated `Flatten`
+- - Fixed [#196](https://github.com/MichaelXF/js-confuser/pull/196), [#197](https://github.com/MichaelXF/js-confuser/pull/197) (Thanks @Camlan1!)
+
+- Updated `String Concealing`'
+- - Remove the string cache to prevent leaking runtime values
 
 - Updated `Control Flow Flattening`
-- - Fixed identifier clash bug for certain hoisted functions when using `mangled` Identifier Generator mode.
+- - Fixed an identifier bug for certain hoisted functions when using the mangled `Identifier Generator` mode
 - - Changed to an array of state variables to defeat LLM-assisted deobfuscation
 - - String literals are now XOR-encrypted based on the state variables
 - - Now applies to loops to better obfuscate [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm)
-- - Removed the `with` statement and the generator function (`function*`) as they were ineffective protections.
+- - Removed the `with` statement and the generator function (`function*`) as they were ineffective protections
 - - - The `with` statement was added to make identifiers harder to track from static analysis tools. It wasn't fully effective as the most important variables (the state variables) were never included in this.
-- - - The generator function (`function *`) was purely added to defeat [Prepack.io](https://prepack.io/repl.html#GYVwdgxgLglg9mAVAAgLYE8DiBTM2BOAhlHPgBQCUA3gFDLLozYA2AJsgIwDcNAvjTQgIAznGbYAdMzgBzMhhx4iJchQl4AHlEoSAboWYhsFIA), as this partial evaluator doesn't support the syntax. JS Confuser never relied on the generator mechanisms, so it could've easily been removed.
-- - - [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm) doesn't support either of these, so removing them allows users to obfuscate and virtualize their code in any order. 
+- - - The generator function (`function *`) was purely added to defeat [Prepack.io](https://prepack.io/repl.html#GYVwdgxgLglg9mAVAAgLYE8DiBTM2BOAhlHPgBQCUA3gFDLLozYA2AJsgIwDcNAvjTQgIAznGbYAdMzgBzMhhx4iJchQl4AHlEoSAboWYhsFIA), as this partial evaluator doesn't support the syntax. JS Confuser never relied on the generator mechanisms, so it could've been easily removed.
+- - - Lastly, [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm) doesn't support either of these, so removing them allows users to obfuscate and virtualize their code in any order. 
+
+- Improved test suite
+- - All options are now tested individually and combined against a partial ES5 feature set. The same setup as [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm)'s test. 4000+ tests!
 
 **Official Site Warning:** JS-Confuser.com (with a hyphen) is the only official website for JS-Confuser! You can find the source code [here](https://github.com/MichaelXF/js-confuser-website).
 

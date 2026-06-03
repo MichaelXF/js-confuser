@@ -1582,3 +1582,40 @@ main();
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+test("Variant #43: Don't break hoisted function prototype assignments", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function Stack() {
+      this.items = [];
+    }
+    Stack.prototype.push = function (item) {
+      this.items.push(item);
+    };
+    Stack.prototype.pop = function () {
+      return this.items.pop();
+    };
+    Stack.prototype.size = function () {
+      return this.items.length;
+    };
+
+    var s = new Stack();
+    s.push(10);
+    s.push(20);
+    s.push(30);
+    TEST_OUTPUT = [s.size(), s.pop(), s.size()];
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    },
+  );
+
+  // Ensure CFF applied
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toEqual([3, 30, 2]);
+});

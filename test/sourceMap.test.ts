@@ -95,11 +95,15 @@ test("Variant #3: Source Maps on Control Flow Flattening", async () => {
     function cffHere(){
       var _a, _b, _c; // Min 3 statements to apply
 
-      function findThisNamedFunction(){
-        this; // Marks this function as 'unsafe'
-        return (new Error()).stack;
+      function unsafeFn(){
+        this; // Marks this function as 'unsafe' (no cff here, no flattening)
+        function findThisNamedFunction(){
+          return (new Error()).stack;
+        }
+
+        return findThisNamedFunction();
       }
-      console.log( findThisNamedFunction() );
+      console.log( unsafeFn() );
     }
 
     cffHere();

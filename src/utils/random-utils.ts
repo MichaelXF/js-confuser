@@ -23,7 +23,18 @@ export function chance(percentChance: number): boolean {
  * @param array
  */
 export function shuffle<T>(array: T[]): T[] {
-  array.sort(() => Math.random() - 0.5);
+  // Fisher-Yates shuffle
+  let currentIndex = array.length,
+    randomIndex;
+  while (currentIndex !== 0) {
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex],
+      array[currentIndex],
+    ];
+  }
   return array;
 }
 
@@ -49,8 +60,8 @@ export function getRandomChineseString(length: number) {
   for (let i = 0; i < length; i++)
     characters.push(
       String.fromCharCode(
-        Math.floor(Math.random() * (0x9fff - 0x4e00)) + 0x4e00
-      )
+        Math.floor(Math.random() * (0x9fff - 0x4e00)) + 0x4e00,
+      ),
     );
   return characters.join("");
 }

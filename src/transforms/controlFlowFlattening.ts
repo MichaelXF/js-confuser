@@ -76,7 +76,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const mangleBooleanLiterals = true; // true => state == X
   const mangleStringLiterals = true; // "hi" => xor("fOq", state + X)
 
-  const stateVarsRange = [1, 1]; //[3, 10];
+  const stateVarsRange = [3, 10];
 
   const cffPrefix = me.getPlaceholder();
 
@@ -617,11 +617,25 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           );
 
           if (isIllegal) {
-            hoistedBasicBlock.body.unshift(statement.node);
+            // Function must be converted to function expression as hoisted function declaration
+            // gets redeclared (and losing prototype methods) each iteration (Test #43)
+            let asFunctionExpression =
+              statement.node as any as t.FunctionExpression;
+            asFunctionExpression.type = "FunctionExpression";
+
+            hoistedBasicBlock.body.unshift(
+              t.variableDeclaration("var", [
+                t.variableDeclarator(
+                  t.identifier(fnName),
+                  asFunctionExpression,
+                ),
+              ]),
+            );
+
             continue;
           }
 
-          // Only change binding if transformed
+          // Only change binding if transformed (Test #42)
           hoistedBasicBlock.scope.bindings[fnName].kind = "var";
 
           me.changeData.functions++;

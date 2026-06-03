@@ -191,6 +191,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Only provide 'set' method if the variable is modified
           var isModification = isModifiedIdentifier(identifierPath);
 
+          // Important: Do not generate setters for "const" bindings
+          const binding = identifierPath.scope.getBinding(identifierName);
+          if (binding?.kind === "const") {
+            isModification = false; // Prevent 'setter' as while not a syntax error, causes problems for build tools
+          }
+
           if (isModification) {
             setterPropsNeeded.add(identifierName);
           }
@@ -313,8 +319,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     const flattenedFunctionDeclaration = t.functionDeclaration(
       t.identifier(newFnName),
       [
-        t.arrayPattern([...(fnPath.node.params as t.FunctionParameter[])]),
         t.identifier(flatObjectName),
+        t.arrayPattern([...(fnPath.node.params as t.FunctionParameter[])]),
       ],
       t.blockStatement([...[...fnPath.node.body.body]]),
       false,
@@ -339,8 +345,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       flatObjectDeclaration,
       t.returnStatement(
         t.callExpression(t.identifier(newFnName), [
+          t.identifier(flatObjectName), // Default params require flat object first
           t.identifier(argName),
-          t.identifier(flatObjectName),
         ]),
       ),
     ]);

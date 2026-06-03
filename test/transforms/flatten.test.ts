@@ -12,7 +12,7 @@ test("Variant #1: Function Declaration", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   expect(output).toContain("_flat_myFunction");
@@ -37,7 +37,7 @@ test("Variant #2: Function Expression", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   expect(output).toContain("_flat_myFunction");
@@ -60,7 +60,7 @@ test("Variant #3: Simple parameters", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   expect(output).toContain("_flat_myFunction");
@@ -87,7 +87,7 @@ test("Variant #4: Simple parameters nested", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   var value = "never_called",
@@ -113,7 +113,7 @@ test("Variant #5: Correct return values when nested", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   var value = "never_called",
@@ -144,7 +144,7 @@ test("Variant #6: Correct values when deeply nested", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   var value = "never_called",
@@ -178,7 +178,7 @@ test("Variant #7: Correct values when modifying local variables", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   var value = "never_called",
@@ -205,7 +205,7 @@ test("Variant #8: Work with dispatcher", async () => {
       target: "node",
       flatten: true,
       dispatcher: true,
-    }
+    },
   );
 
   var value = "never_called";
@@ -233,7 +233,7 @@ test("Variant #9: Work with pattern-based assignment expressions", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   // Ensure flatten was applied
@@ -272,7 +272,7 @@ test("Variant #10: Async function", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   expect(output).toContain("_flat_timeout");
@@ -319,7 +319,7 @@ test("Variant #11: Work with properties", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   // Ensure flatten applied
@@ -346,7 +346,7 @@ test("Variant #12: Work with RGF enabled", async () => {
       target: "node",
       flatten: true,
       rgf: true,
-    }
+    },
   );
 
   // Ensure flatten applied
@@ -375,7 +375,7 @@ test("Variant #13: Work with assignment expression in the return statement", asy
   TEST_OUTPUT = outside;
   
   `,
-    { target: "node", flatten: true }
+    { target: "node", flatten: true },
   );
 
   // Ensure flat was applied
@@ -398,7 +398,7 @@ test("Variant #14: Ignore functions with 'use strict' directive", async () => {
 
   TEST_OUTPUT = myFunction();
   `,
-    { target: "node", flatten: true }
+    { target: "node", flatten: true },
   );
 
   // Ensure flatten was not applied
@@ -423,7 +423,7 @@ test("Variant #15: Work with functions with invalid identifier names", async () 
 
   object["my-function"](); // "Success"
   `,
-    { target: "node", flatten: true }
+    { target: "node", flatten: true },
   );
 
   var TEST_OUTPUT;
@@ -485,7 +485,7 @@ test("Variant #16: Multiple test", async () => {
     myFunction();
   })();
   `,
-    { target: "node", flatten: true }
+    { target: "node", flatten: true },
   );
 
   expect(output).toContain("_flat_getCorrectValue");
@@ -507,7 +507,7 @@ test("Variant #17: Don't apply to generator functions", async () => {
 
   TEST_OUTPUT = (myGeneratorFunction()).next().value;
   `,
-    { target: "node", flatten: true }
+    { target: "node", flatten: true },
   );
 
   expect(output).not.toContain("_flat_myGeneratorFunction");
@@ -548,7 +548,7 @@ test("Variant #18: Redefined variable in nested scope + Rename Variables", async
       target: "node",
       flatten: true,
       renameVariables: true,
-    }
+    },
   );
 
   // Ensure flat object was found
@@ -577,7 +577,7 @@ test("Variant #19: Nested function declaration", async () => {
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   expect(output).toContain("_flat_myFunction");
@@ -610,7 +610,7 @@ test("Variant #20: Don't apply to functions that use 'this' 'arguments' or 'eval
     {
       target: "node",
       flatten: true,
-    }
+    },
   );
 
   expect(output).toContain("_flat_myFunction");
@@ -637,7 +637,7 @@ test("Variant #21: Preserve function.length property", async () => {
       target: "node",
       flatten: true,
       preserveFunctionLength: true,
-    }
+    },
   );
 
   expect(output).toContain("_flat_oneParameter");
@@ -666,7 +666,7 @@ test("Variant #22: Modify object properties", async () => {
     setProperty("TEST_PROPERTY", "Correct Value");
     TEST_OUTPUT = getProperty("TEST_PROPERTY");
   `,
-    { target: "node", flatten: true }
+    { target: "node", flatten: true },
   );
 
   expect(output).toContain("_flat_setProperty");
@@ -690,7 +690,7 @@ test("Variant #23: Reference original function name", async () => {
       myFunction();
     })();
   `,
-    { target: "node", flatten: true }
+    { target: "node", flatten: true },
   );
 
   expect(output).toContain("_flat_myFunction");
@@ -715,7 +715,7 @@ test("Variant #24: Typeof expression", async () => {
 
     myFunction();
   `,
-    { target: "node", flatten: true }
+    { target: "node", flatten: true },
   );
 
   expect(output).toContain("_flat_myFunction");
@@ -741,7 +741,7 @@ test("Variant #25: Handle __JS_CONFUSER_VAR__ function", async () => {
       target: "node",
       flatten: true,
       renameVariables: true,
-    }
+    },
   );
 
   expect(code).not.toContain("__JS_CONFUSER_VAR__");
@@ -763,7 +763,7 @@ test("Variant #26: Var declaration in nested block statement", async () => {
 
     myFunction();
     `,
-    { target: "node", flatten: true }
+    { target: "node", flatten: true },
   );
 
   expect(code).toContain("_flat_myFunction");
@@ -771,4 +771,121 @@ test("Variant #26: Var declaration in nested block statement", async () => {
   var TEST_OUTPUT;
   eval(code);
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #27: Default parameter is an expression", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function get100(){
+      return 100;
+    }
+
+    function offset(x, base = get100()) {
+      return x + base;
+    }
+    TEST_OUTPUT = [offset(5), offset(5, 10)];
+    `,
+    {
+      target: "node",
+      flatten: true,
+    },
+  );
+
+  var TEST_OUTPUT;
+
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual([105, 15]);
+});
+
+// https://github.com/MichaelXF/js-confuser/pull/196
+test("Variant #28: Mutating a property on a constant object should not generate a setter", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    const myObject = {};
+
+    (function () {
+      myObject.myProperty = 1;
+    })()
+
+    TEST_OUTPUT = myObject.myProperty;
+    `,
+    { target: "node", flatten: true },
+  );
+
+  // Ensure a getter is found
+  expect(code).toContain('get"');
+
+  // Ensure no setter is found
+  expect(code).not.toContain('set"');
+
+  // Ensure program runs without error
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual(1);
+});
+
+// https://github.com/MichaelXF/js-confuser/pull/197
+test("Variant #29: `this` is preserved when flattening methods containing arrow functions", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    const setOutput = (key, val) => TEST_OUTPUT[key] = val
+
+    const obj = {
+      setOutput,
+
+      method1() {
+        (() => this.setOutput("method1", 1))();
+      },
+
+      method2() {
+        const func = () => this.setOutput("method2", 2);
+        func();
+      },
+
+      method3() {
+        this.setOutput("method3", 3);
+      },
+    };
+
+    class Class {
+      setOutput(key, val) {
+        setOutput(key, val);
+      }
+
+      classMethod1() {
+        (() => this.setOutput("classMethod1", 1))();
+      }
+
+      classMethod2() {
+        const func = () => this.setOutput("classMethod2", 2);
+        func();
+      }
+
+      classMethod3() {
+        this.setOutput("classMethod3", 3);
+      }
+    }
+
+    obj.method1();
+    obj.method2();
+    obj.method3();
+
+    const instance = new Class();
+    instance.classMethod1();
+    instance.classMethod2();
+    instance.classMethod3();
+    `,
+    { target: "node", flatten: true },
+  );
+
+  var TEST_OUTPUT = {};
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual({
+    method1: 1,
+    method2: 2,
+    method3: 3,
+    classMethod1: 1,
+    classMethod2: 2,
+    classMethod3: 3,
+  });
 });
