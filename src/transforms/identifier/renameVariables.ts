@@ -120,7 +120,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         identifierPath.parentPath.isFunctionDeclaration()
       ) {
         contextPaths = contextPaths.filter(
-          (x) => x !== identifierPath.parentPath
+          (x) => x !== identifierPath.parentPath,
         );
       }
 
@@ -133,7 +133,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
         if (contextPath.isFunction()) {
           var assignmentPattern = contextPath.find(
-            (p) => p.listKey === "params" && p.parentPath.isFunction()
+            (p) => p.listKey === "params" && p.parentPath.isFunction(),
           );
 
           if (assignmentPattern?.isAssignmentPattern()) {
@@ -264,9 +264,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Do not rename exports
           if (isExportedIdentifier(binding)) return false;
         }
-
-        if (name === me.obfuscator.getStringCompressionLibraryName())
-          return false;
 
         // Global variables are additionally checked against user option
         if (isGlobal) {

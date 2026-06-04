@@ -8,10 +8,10 @@ Updates
 - Added new option `sourceMap` [Learn more](https://docs.js-confuser.com/options/sourceMap)
 
 - Updated `Flatten`
-- - Fixed [#196](https://github.com/MichaelXF/js-confuser/pull/196), [#197](https://github.com/MichaelXF/js-confuser/pull/197) (Thanks @Camlan1!)
+- - Fixed [#196](https://github.com/MichaelXF/js-confuser/pull/196) and [#197](https://github.com/MichaelXF/js-confuser/pull/197) (Thanks @Camlan1!)
 
-- Updated `String Concealing`'
-- - Remove the string cache to prevent leaking runtime values
+- Updated `String Concealing`
+- - Removed the string cache to prevent leaking runtime values
 
 - Updated `Control Flow Flattening`
 - - Fixed an identifier bug for certain hoisted functions when using the mangled `Identifier Generator` mode
@@ -24,7 +24,10 @@ Updates
 - - - Lastly, [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm) doesn't support either of these, so removing them allows users to obfuscate and virtualize their code in any order. 
 
 - Improved test suite
-- - All options are now tested individually and combined against a partial ES5 feature set. The same setup as [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm)'s test. 4000+ tests!
+- - All options are now tested individually and combined against a partial ES5 feature set. The same setup as [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm)'s test. 4000+ total tests!
+
+- Removed options `Shuffle` and `String Compression`
+- - These were weak obfuscations that both Claude Sonnet 4.6 and ChatGPT 5.5 can one-shot deobfuscators for. String Compression bloated file size and complicated the inner-workings of the codebase, so these are removed.
 
 **Official Site Warning:** JS-Confuser.com (with a hyphen) is the only official website for JS-Confuser! You can find the source code [here](https://github.com/MichaelXF/js-confuser-website).
 

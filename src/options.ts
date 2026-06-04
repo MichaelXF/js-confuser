@@ -159,13 +159,6 @@ export interface ObfuscateOptions {
   globalConcealing?: ProbabilityMap<boolean, (globalName: string) => boolean>;
 
   /**
-   * String Compression uses zlib compression algorithm to compress strings.
-   *
-   * `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
-   */
-  stringCompression?: ProbabilityMap<boolean, (strValue: string) => boolean>;
-
-  /**
    * String Concealing involves encoding strings to conceal plain-text values.
    *
    * `"console"` -> `decrypt('<~@rH7+Dert~>')`
@@ -372,11 +365,6 @@ export interface ObfuscateOptions {
    * understanding your code.
    */
   opaquePredicates?: ProbabilityMap<boolean>;
-
-  /**
-   * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false/0-1`)
-   */
-  shuffle?: ProbabilityMap<boolean>;
 
   /**
    * Modified functions will retain the correct `function.length` property. Enabled by default.

@@ -14,7 +14,6 @@ const validProperties = new Set([
   "identifierGenerator",
   "controlFlowFlattening",
   "globalConcealing",
-  "stringCompression",
   "stringConcealing",
   "stringEncoding",
   "stringSplitting",
@@ -28,7 +27,6 @@ const validProperties = new Set([
   "lock",
   "movedDeclarations",
   "opaquePredicates",
-  "shuffle",
   "variableMasking",
   "verbose",
   "globalVariables",
@@ -72,9 +70,15 @@ export function validateOptions(options: ObfuscateOptions) {
   }
 
   ok(options, "options cannot be null");
-  ok(options.target, "Missing options.target option (required, must one the following: 'browser' or 'node')");
+  ok(
+    options.target,
+    "Missing options.target option (required, must one the following: 'browser' or 'node')",
+  );
 
-  ok(["browser", "node"].includes(options.target), `'${options.target}' is not a valid target mode`);
+  ok(
+    ["browser", "node"].includes(options.target),
+    `'${options.target}' is not a valid target mode`,
+  );
 
   Object.keys(options).forEach((key) => {
     if (!validProperties.has(key)) {
@@ -91,14 +95,21 @@ export function validateOptions(options: ObfuscateOptions) {
     });
 
     // Validate domain-lock option
-    if (options.lock.domainLock && typeof options.lock.domainLock !== "undefined") {
+    if (
+      options.lock.domainLock &&
+      typeof options.lock.domainLock !== "undefined"
+    ) {
       ok(Array.isArray(options.lock.domainLock), "domainLock must be an array");
     }
 
     // Validate start-date option
-    if (typeof options.lock.startDate !== "undefined" && options.lock.startDate) {
+    if (
+      typeof options.lock.startDate !== "undefined" &&
+      options.lock.startDate
+    ) {
       ok(
-        typeof options.lock.startDate === "number" || options.lock.startDate instanceof Date,
+        typeof options.lock.startDate === "number" ||
+          options.lock.startDate instanceof Date,
         "startDate must be Date object or number",
       );
     }
@@ -106,7 +117,8 @@ export function validateOptions(options: ObfuscateOptions) {
     // Validate end-date option
     if (typeof options.lock.endDate !== "undefined" && options.lock.endDate) {
       ok(
-        typeof options.lock.endDate === "number" || options.lock.endDate instanceof Date,
+        typeof options.lock.endDate === "number" ||
+          options.lock.endDate instanceof Date,
         "endDate must be Date object or number",
       );
     }
@@ -122,7 +134,9 @@ export function validateOptions(options: ObfuscateOptions) {
 /**
  * Sets the default values and validates the configuration.
  */
-export function applyDefaultsToOptions(options: ObfuscateOptions): ObfuscateOptions {
+export function applyDefaultsToOptions(
+  options: ObfuscateOptions,
+): ObfuscateOptions {
   if (options.preset) {
     // Clone and allow overriding
     options = Object.assign({}, presets[options.preset], options);
@@ -165,14 +179,26 @@ export function applyDefaultsToOptions(options: ObfuscateOptions): ObfuscateOpti
 
     if (options.target == "browser") {
       // browser
-      ["window", "document", "postMessage", "alert", "confirm", "location"].forEach((x) =>
-        options.globalVariables.add(x),
-      );
+      [
+        "window",
+        "document",
+        "postMessage",
+        "alert",
+        "confirm",
+        "location",
+      ].forEach((x) => options.globalVariables.add(x));
     } else {
       // node
-      ["global", "Buffer", "require", "process", "exports", "module", "__dirname", "__filename"].forEach((x) =>
-        options.globalVariables.add(x),
-      );
+      [
+        "global",
+        "Buffer",
+        "require",
+        "process",
+        "exports",
+        "module",
+        "__dirname",
+        "__filename",
+      ].forEach((x) => options.globalVariables.add(x));
     }
 
     [

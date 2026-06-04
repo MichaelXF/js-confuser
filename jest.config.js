@@ -4,7 +4,6 @@ const options = [
   "renameLabels",
   "controlFlowFlattening",
   "globalConcealing",
-  "stringCompression",
   "stringConcealing",
   "stringSplitting",
   "duplicateLiteralsRemoval",
@@ -16,7 +15,6 @@ const options = [
   "calculator",
   "movedDeclarations",
   "opaquePredicates",
-  "shuffle",
   "variableMasking",
   "preserveFunctionLength",
   "astScrambler",
@@ -45,7 +43,10 @@ module.exports = {
     // Main suite: all tests except the test/features folder
     {
       displayName: "main",
-      testPathIgnorePatterns: ["<rootDir>/node_modules/", "<rootDir>/test/features/"],
+      testPathIgnorePatterns: [
+        "<rootDir>/node_modules/",
+        "<rootDir>/test/features/",
+      ],
     },
 
     // Feature suites: one project per OPTIONS_MATRIX entry
