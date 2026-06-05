@@ -3,7 +3,7 @@ Updates
 
 - Moved documentation to Mintlify for improved SEO: [docs.js-confuser.com](https://docs.js-confuser.com)
 
-- - Thanks to [Mintlify's OSS Program](https://www.mintlify.com/oss-program), you can enjoy free AI-assistant usage on the JS-Confuser Docs
+- - Thanks to [Mintlify's OSS Program](https://www.mintlify.com/oss-program), you can enjoy free AI assistant usage on the JS-Confuser Docs
 
 - Added new option `sourceMap` [Learn more](https://docs.js-confuser.com/options/sourceMap)
 
@@ -27,7 +27,7 @@ Updates
 - - All options are now tested individually and combined against a partial ES5 feature set. The same setup as [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm)'s test. 4000+ total tests!
 
 - Removed options `Shuffle` and `String Compression`
-- - These were weak obfuscations that both Claude Sonnet 4.6 and ChatGPT 5.5 can one-shot deobfuscators for. String Compression bloated file size and complicated the inner-workings of the codebase, so these are removed.
+- - These were weak obfuscations that both Claude Sonnet 4.6 and ChatGPT 5.5 can one-shot deobfuscators for. String Compression bloated file size and complicated the inner workings of the codebase, so these are removed.
 
 **Official Site Warning:** JS-Confuser.com (with a hyphen) is the only official website for JS-Confuser! You can find the source code [here](https://github.com/MichaelXF/js-confuser-website).
 

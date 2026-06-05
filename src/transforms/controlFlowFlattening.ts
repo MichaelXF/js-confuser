@@ -103,9 +103,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     //   if (programOrFunctionPath.find((p) => p.isForStatement() || p.isWhile()))
     //     return;
     // }
+    // var debugName = (programOrFunctionPath?.node as any)?.id?.name;
 
     // Exclude 'CFF_UNSAFE' functions
-    if (programOrFunctionPath.node[CFF_UNSAFE]) return;
+    if (programOrFunctionPath.node[CFF_UNSAFE]) {
+      // console.log(`Skipping ${debugName} because ${programOrFunctionPath.node[CFF_UNSAFE]}`);
+      return;
+    }
 
     let programPath = _path.isProgram() ? _path : null;
     let functionPath = _path.isFunction() ? _path : null;
@@ -135,7 +139,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
     if (functionPath) {
       // Avoid unsafe functions
-      if ((functionPath.node as NodeSymbol)[UNSAFE]) return;
+      if ((functionPath.node as NodeSymbol)[UNSAFE]) {
+        // console.log(`Skipping ${debugName} because of UNSAFE flag`);
+        return;
+      }
 
       if (functionPath.node.async || functionPath.node.generator) return;
     }
@@ -616,6 +623,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             (block) => block.parentPath === currentBasicBlock.parentPath,
           );
 
+          // Added into scope object due to function flattening causes redeclaration (Test #42 and #44)
+          hoistedBasicBlock.scope.bindings[fnName].kind = "var";
+
           if (isIllegal) {
             // Function must be converted to function expression as hoisted function declaration
             // gets redeclared (and losing prototype methods) each iteration (Test #43)
@@ -634,10 +644,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             continue;
           }
-
-          // Only change binding if transformed (Test #42)
-          hoistedBasicBlock.scope.bindings[fnName].kind = "var";
-
           me.changeData.functions++;
 
           const functionExpression = t.functionExpression(

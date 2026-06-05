@@ -1619,3 +1619,37 @@ test("Variant #43: Don't break hoisted function prototype assignments", async ()
 
   expect(TEST_OUTPUT).toEqual([3, 30, 2]);
 });
+
+test("Variant #44: Don't break function constructors within flattened functions", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var a, b, c;
+
+    function Counter() {
+      this.count = 0;
+    }
+    Counter.prototype.increment = function () {
+      this.count++;
+    };
+
+    function simple() {
+      var counter = new Counter();
+      counter.increment();
+      TEST_OUTPUT = counter.count;
+    }
+
+    simple();
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    },
+  );
+
+  // Ensure CFF was applied
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual(1);
+});
