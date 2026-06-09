@@ -34,7 +34,7 @@ import {
   xorDecodeString,
   xorDecodeStringTemplate,
   xorEncodeString,
-} from "../templates/xorStringTemplate.ts";
+} from "../templates/xorStringTemplate";
 
 // Function deemed unsafe for CFF
 const CFF_UNSAFE = Symbol("CFF_UNSAFE");

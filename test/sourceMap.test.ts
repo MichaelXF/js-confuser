@@ -2,8 +2,8 @@ import { execSync } from "child_process";
 import { writeFileSync, unlinkSync } from "fs";
 import path from "path";
 import os from "os";
-import JsConfuser from "../src/index.ts";
-import { ObfuscationResult } from "../src/obfuscationResult.ts";
+import JsConfuser from "../src/index";
+import { ObfuscationResult } from "../src/obfuscationResult";
 
 async function evalWithSourceMap(
   code: string,
