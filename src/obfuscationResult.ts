@@ -1,3 +1,4 @@
+import { GeneratorResult } from "@babel/generator";
 import { PluginInstance } from "./transforms/plugin";
 import { File } from "@babel/types";
 
@@ -9,6 +10,8 @@ export interface ObfuscationResult {
    * Obfuscated code.
    */
   code: string;
+  map?: GeneratorResult["map"];
+  ast?: File;
 }
 
 /**
@@ -35,7 +38,7 @@ export interface ProfileData {
 export type ProfilerCallback = (
   log: ProfilerLog,
   transformEntry?: object,
-  ast?: File
+  ast?: File,
 ) => void;
 
 /**

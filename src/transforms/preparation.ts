@@ -37,7 +37,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
   const markFunctionUnsafe = (path: NodePath<t.Node>) => {
     const functionPath = path.findParent(
-      (path) => path.isFunction() || path.isProgram()
+      (path) => path.isFunction() || path.isProgram(),
     );
     if (!functionPath) return;
 
@@ -50,7 +50,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     visitor: {
       "ThisExpression|Super": {
         exit(path) {
-          markFunctionUnsafe(path);
+          let fnPath = path.find((p) => p.isFunction());
+          if (fnPath?.isArrowFunctionExpression())
+            fnPath = path.find(
+              (p) => p.isFunction() && !p.isArrowFunctionExpression(),
+            );
+
+          if (fnPath) {
+            (fnPath.node as NodeSymbol)[UNSAFE] = true;
+          }
         },
       },
 
@@ -60,18 +68,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Check for @js-confuser-var comment
           if (
             path.node.leadingComments?.find((comment) =>
-              comment.value.includes("@js-confuser-var")
+              comment.value.includes("@js-confuser-var"),
             )
           ) {
             var identifierName = path.node.value;
             ok(
               t.isValidIdentifier(identifierName),
-              "Invalid identifier name: " + identifierName
+              "Invalid identifier name: " + identifierName,
             );
 
             // Create a new __JS_CONFUSER_VAR__ call with the identifier
             var newExpression = new Template(
-              `__JS_CONFUSER_VAR__({identifier})`
+              `__JS_CONFUSER_VAR__({identifier})`,
             ).expression({
               identifier: t.identifier(identifierName),
             });
@@ -97,7 +105,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
           // Start with the first quasi (template string part)
           let binaryExpression: t.Expression = t.stringLiteral(
-            quasis[0].value.cooked
+            quasis[0].value.cooked,
           );
 
           // Loop over the remaining quasis and expressions, concatenating them
@@ -106,7 +114,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             binaryExpression = t.binaryExpression(
               "+",
               binaryExpression,
-              expressions[i] as t.Expression
+              expressions[i] as t.Expression,
             );
 
             // Add the next quasi (template string part)
@@ -114,7 +122,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               binaryExpression = t.binaryExpression(
                 "+",
                 binaryExpression,
-                t.stringLiteral(quasis[i + 1].value.cooked)
+                t.stringLiteral(quasis[i + 1].value.cooked),
               );
             }
           }
@@ -135,7 +143,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             [
               t.stringLiteral(pattern), // First argument: the pattern (no extra escaping needed)
               flags ? t.stringLiteral(flags) : t.stringLiteral(""), // Second argument: the flags (if any)
-            ]
+            ],
           );
 
           // Replace the literal regex with the new RegExp() call
@@ -157,7 +165,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           ) {
             ok(
               path.parentPath.isCallExpression(),
-              variableFunctionName + " must be directly called"
+              variableFunctionName + " must be directly called",
             );
 
             var argument = path.parentPath.node.arguments[0];
@@ -251,8 +259,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               ) {
                 path.parentPath.insertBefore(
                   path.node.declarations.map((declaration) =>
-                    t.variableDeclaration(path.node.kind, [declaration])
-                  )
+                    t.variableDeclaration(path.node.kind, [declaration]),
+                  ),
                 );
                 path.remove();
               }
@@ -261,16 +269,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 path.parentPath.replaceWithMultiple(
                   path.node.declarations.map((declaration) =>
                     t.exportNamedDeclaration(
-                      t.variableDeclaration(path.node.kind, [declaration])
-                    )
-                  )
+                      t.variableDeclaration(path.node.kind, [declaration]),
+                    ),
+                  ),
                 );
               } else {
                 path
                   .replaceWithMultiple(
                     path.node.declarations.map((declaration, i) => {
                       var names = Array.from(
-                        getPatternIdentifierNames(path.get("declarations")[i])
+                        getPatternIdentifierNames(path.get("declarations")[i]),
                       );
                       names.forEach((name) => {
                         path.scope.removeBinding(name);
@@ -280,7 +288,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                         declaration,
                       ]);
                       return newNode;
-                    })
+                    }),
                   )
                   .forEach((newPath) => {
                     if (newPath.node.kind === "var") {

@@ -4,7 +4,7 @@ import { ok } from "assert";
 import { deepClone } from "./node";
 
 export function getPatternIdentifierNames(
-  path: NodePath | NodePath[]
+  path: NodePath | NodePath[],
 ): Set<string> {
   if (Array.isArray(path)) {
     var allNames = new Set<string>();
@@ -24,7 +24,7 @@ export function getPatternIdentifierNames(
   path.traverse({
     BindingIdentifier: (bindingPath) => {
       var bindingFunctionParent = bindingPath.find((parent) =>
-        parent.isFunction()
+        parent.isFunction(),
       );
       if (functionParent === bindingFunctionParent) {
         names.add(bindingPath.node.name);
@@ -150,13 +150,13 @@ export function getBlock(path: NodePath) {
 }
 
 export function getParentFunctionOrProgram(
-  path: NodePath
+  path: NodePath,
 ): NodePath<t.Function | t.Program> {
   if (path.isProgram()) return path;
 
   // Find the nearest function-like parent
   const functionOrProgramPath = path.findParent(
-    (parentPath) => parentPath.isFunction() || parentPath.isProgram()
+    (parentPath) => parentPath.isFunction() || parentPath.isProgram(),
   ) as NodePath<t.Function | t.Program>;
 
   ok(functionOrProgramPath);
@@ -164,12 +164,12 @@ export function getParentFunctionOrProgram(
 }
 
 export function getObjectPropertyAsString(
-  property: t.ObjectMember | t.ClassProperty | t.ClassMethod
+  property: t.ObjectMember | t.ClassProperty | t.ClassMethod,
 ): string {
   ok(
     t.isObjectMember(property) ||
       t.isClassProperty(property) ||
-      t.isClassMethod(property)
+      t.isClassMethod(property),
   );
 
   if (!property.computed && t.isIdentifier(property.key)) {
@@ -194,7 +194,7 @@ export function getObjectPropertyAsString(
  * @returns The property as a string or null if it cannot be determined.
  */
 export function getMemberExpressionPropertyAsString(
-  member: t.MemberExpression
+  member: t.MemberExpression,
 ): string | null {
   t.assertMemberExpression(member);
 
@@ -237,7 +237,7 @@ export function append(
   var nodes = nodeListToNodes(nodesIn);
 
   var listParent = path.find(
-    (p) => p.isFunction() || p.isBlock() || p.isSwitchCase()
+    (p) => p.isFunction() || p.isBlock() || p.isSwitchCase(),
   );
   if (!listParent) {
     throw new Error("Could not find a suitable parent to prepend to");
@@ -260,7 +260,7 @@ export function append(
     if (listParent.isArrowFunctionExpression() && listParent.node.expression) {
       if (!body.isBlockStatement()) {
         body.replaceWith(
-          t.blockStatement([t.returnStatement(body.node as t.Expression)])
+          t.blockStatement([t.returnStatement(body.node as t.Expression)]),
         );
       }
     }
@@ -291,7 +291,7 @@ export function prepend(
   var nodes = nodeListToNodes(nodesIn);
 
   var listParent = path.find(
-    (p) => p.isFunction() || p.isBlock() || p.isSwitchCase()
+    (p) => p.isFunction() || p.isBlock() || p.isSwitchCase(),
   );
   if (!listParent) {
     throw new Error("Could not find a suitable parent to prepend to");
@@ -324,7 +324,7 @@ export function prepend(
     if (listParent.isArrowFunctionExpression() && listParent.node.expression) {
       if (!body.isBlockStatement()) {
         body = body.replaceWith(
-          t.blockStatement([t.returnStatement(body.node as t.Expression)])
+          t.blockStatement([t.returnStatement(body.node as t.Expression)]),
         )[0];
       }
     }
@@ -406,7 +406,7 @@ export function isDefiningIdentifier(path: NodePath<t.Identifier>) {
     (p) =>
       (p.key === "id" && p.parentPath?.isVariableDeclarator()) ||
       (p.listKey === "params" && p.parentPath?.isFunction()) ||
-      (p.key === "param" && p.parentPath?.isCatchClause())
+      (p.key === "param" && p.parentPath?.isCatchClause()),
   );
 
   if (!maxTraversalPath) return false;
@@ -513,7 +513,7 @@ export function isStrictMode(path: NodePath) {
   if (path.isBlock()) {
     if (path.isTSModuleBlock()) return false;
     return (path.node as t.BlockStatement | t.Program).directives.some(
-      (directive) => directive.value.value === "use strict"
+      (directive) => directive.value.value === "use strict",
     );
   }
 
@@ -536,33 +536,41 @@ export function isStrictMode(path: NodePath) {
  * @param identifierPath
  */
 export function isModifiedIdentifier(identifierPath: NodePath<t.Identifier>) {
+  var isModification = false;
   if (identifierPath.parentPath.isUpdateExpression()) {
-    return true;
+    isModification = true;
   }
 
-  return !!identifierPath.find(
-    (p) =>
-      p.key === "left" &&
-      p.parentPath?.isAssignmentExpression() &&
-      !p.isMemberExpression()
-  );
+  // Important: Member expressions (object.identifier = true) are NOT considered modified. Here, "identifier" is not a variable here.
+  if (
+    identifierPath.find(
+      (p) =>
+        p.key === "left" &&
+        p.parentPath?.isAssignmentExpression() &&
+        !p.isMemberExpression(),
+    )
+  ) {
+    isModification = true;
+  }
+
+  return isModification;
 }
 
 export function replaceDefiningIdentifierToMemberExpression(
   path: NodePath<t.Identifier>,
-  memberExpression: t.MemberExpression | t.Identifier
+  memberExpression: t.MemberExpression | t.Identifier,
 ) {
   // function id(){} -> var id = function() {}
   if (path.key === "id" && path.parentPath.isFunctionDeclaration()) {
     var asFunctionExpression = deepClone(
-      path.parentPath.node
+      path.parentPath.node,
     ) as t.Node as t.FunctionExpression;
     asFunctionExpression.type = "FunctionExpression";
 
     path.parentPath.replaceWith(
       t.expressionStatement(
-        t.assignmentExpression("=", memberExpression, asFunctionExpression)
-      )
+        t.assignmentExpression("=", memberExpression, asFunctionExpression),
+      ),
     );
     return;
   }
@@ -570,14 +578,14 @@ export function replaceDefiningIdentifierToMemberExpression(
   // class id{} -> var id = class {}
   if (path.key === "id" && path.parentPath.isClassDeclaration()) {
     var asClassExpression = deepClone(
-      path.parentPath.node
+      path.parentPath.node,
     ) as t.Node as t.ClassExpression;
     asClassExpression.type = "ClassExpression";
 
     path.parentPath.replaceWith(
       t.expressionStatement(
-        t.assignmentExpression("=", memberExpression, asClassExpression)
-      )
+        t.assignmentExpression("=", memberExpression, asClassExpression),
+      ),
     );
     return;
   }
@@ -587,7 +595,7 @@ export function replaceDefiningIdentifierToMemberExpression(
     (p) =>
       p.key === "id" &&
       p.parentPath?.isVariableDeclarator() &&
-      p.parentPath?.parentPath?.isVariableDeclaration()
+      p.parentPath?.parentPath?.isVariableDeclaration(),
   ) as NodePath<t.VariableDeclarator["id"]>;
 
   if (variableDeclaratorChild) {
@@ -599,7 +607,7 @@ export function replaceDefiningIdentifierToMemberExpression(
     if (variableDeclaration.type === "VariableDeclaration") {
       ok(
         variableDeclaration.node.declarations.length === 1,
-        "Multiple declarations not supported"
+        "Multiple declarations not supported",
       );
     }
 
@@ -617,7 +625,7 @@ export function replaceDefiningIdentifierToMemberExpression(
       newExpression = t.assignmentExpression(
         "=",
         id.node as t.LVal,
-        init.node || t.identifier("undefined")
+        init.node || t.identifier("undefined"),
       );
     }
 

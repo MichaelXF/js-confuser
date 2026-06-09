@@ -1,6 +1,6 @@
 import { ok } from "assert";
 import * as t from "@babel/types";
-import generate from "@babel/generator";
+import generate, { GeneratorResult } from "@babel/generator";
 import traverse from "@babel/traverse";
 import { parse } from "@babel/parser";
 import { ObfuscateOptions, ProbabilityMap } from "./options";
@@ -23,10 +23,8 @@ import dispatcher from "./transforms/dispatcher";
 import duplicateLiteralsRemoval from "./transforms/extraction/duplicateLiteralsRemoval";
 import objectExtraction from "./transforms/extraction/objectExtraction";
 import globalConcealing from "./transforms/identifier/globalConcealing";
-import stringCompression from "./transforms/string/stringCompression";
 import deadCode from "./transforms/deadCode";
 import stringSplitting from "./transforms/string/stringSplitting";
-import shuffle from "./transforms/shuffle";
 import astScrambler from "./transforms/astScrambler";
 import calculator from "./transforms/calculator";
 import movedDeclarations from "./transforms/identifier/movedDeclarations";
@@ -73,7 +71,6 @@ export default class Obfuscator {
 
     // Internal functions, should not be renamed/removed
     internals: {
-      stringCompressionLibraryName: "",
       nativeFunctionName: "",
       integrityHashName: "",
       invokeCountermeasuresFnName: "",
@@ -135,14 +132,6 @@ export default class Obfuscator {
     return hasNativeCode;
   }
 
-  getStringCompressionLibraryName() {
-    if (this.parentObfuscator) {
-      return this.parentObfuscator.getStringCompressionLibraryName();
-    }
-
-    return this.globalState.internals.stringCompressionLibraryName;
-  }
-
   getObfuscatedVariableName(originalName: string, programNode: t.Node) {
     const renamedVariables = this.globalState.renamedVariables.get(programNode);
 
@@ -196,13 +185,8 @@ export default class Obfuscator {
     // String Compression is only applied to the main obfuscator
     // Any RGF functions will not have string compression due to the size of the decompression function
 
-    push(
-      !parentObfuscator && this.options.stringCompression,
-      stringCompression,
-    );
     push(this.options.variableMasking, variableMasking);
     push(this.options.duplicateLiteralsRemoval, duplicateLiteralsRemoval);
-    push(this.options.shuffle, shuffle);
     push(this.options.movedDeclarations, movedDeclarations);
     push(this.options.renameLabels, renameLabels);
     push(this.options.minify, minify);
@@ -249,11 +233,6 @@ export default class Obfuscator {
     this.plugins = this.plugins.sort(
       (a, b) => a.pluginInstance.order - b.pluginInstance.order,
     );
-
-    if (!parentObfuscator && this.hasPlugin(Order.StringCompression)) {
-      this.globalState.internals.stringCompressionLibraryName =
-        this.nameGen.generate(false);
-    }
   }
 
   index: number = 0;
@@ -307,10 +286,16 @@ export default class Obfuscator {
     ast = this.obfuscateAST(ast);
 
     // Generate the transformed code from the modified AST with comments removed and compacted output
-    const code = this.generateCode(ast);
+    const { code, map } = this.generateCode(ast);
+
+    if (map) {
+      map.sourcesContent = [sourceCode];
+    }
 
     return {
-      code: code,
+      code,
+      map,
+      ast,
     };
   }
 
@@ -325,7 +310,7 @@ export default class Obfuscator {
   /**
    * Calls `Obfuscator.generateCode` with the current instance options
    */
-  generateCode<T extends t.Node = t.File>(ast: T): string {
+  generateCode<T extends t.Node = t.File>(ast: T): GeneratorResult {
     return Obfuscator.generateCode(ast, this.options);
   }
 
@@ -335,19 +320,24 @@ export default class Obfuscator {
   static generateCode<T extends t.Node = t.File>(
     ast: T,
     options: ObfuscateOptions = DEFAULT_OPTIONS,
-  ): string {
+  ): GeneratorResult {
     const compact = !!options.compact;
 
-    const { code } = generate(ast, {
+    const GeneratorResult = generate(ast, {
       comments: false, // Remove comments
       minified: compact,
+      sourceMaps: !!options.sourceMap,
+      sourceFileName:
+        (typeof options.sourceMap === "object" &&
+          options.sourceMap?.fileName) ||
+        "script.js",
       // jsescOption: {
       //   String Encoding using Babel
       //   escapeEverything: true,
       // },
     });
 
-    return code;
+    return GeneratorResult;
   }
 
   /**

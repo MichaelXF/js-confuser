@@ -1,3 +1,36 @@
+# `2.1.0`
+Updates
+
+- Moved documentation to Mintlify for improved SEO: [docs.js-confuser.com](https://docs.js-confuser.com)
+
+- - Thanks to [Mintlify's OSS Program](https://www.mintlify.com/oss-program), you can enjoy free AI assistant usage on the JS-Confuser Docs
+
+- Added new option `sourceMap` [Learn more](https://docs.js-confuser.com/options/sourceMap)
+
+- Updated `Flatten`
+- - Fixed [#196](https://github.com/MichaelXF/js-confuser/pull/196) and [#197](https://github.com/MichaelXF/js-confuser/pull/197) (Thanks @Camlan1!)
+
+- Updated `String Concealing`
+- - Removed the string cache to prevent leaking runtime values
+
+- Updated `Control Flow Flattening`
+- - Fixed an identifier bug for certain hoisted functions when using the mangled `Identifier Generator` mode
+- - Changed to an array of state variables to defeat LLM-assisted deobfuscation
+- - String literals are now XOR-encrypted based on the state variables
+- - Now applies to loops to better obfuscate [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm)
+- - Removed the `with` statement and the generator function (`function*`) as they were ineffective protections
+- - - The `with` statement was added to make identifiers harder to track from static analysis tools. It wasn't fully effective as the most important variables (the state variables) were never included in this.
+- - - The generator function (`function *`) was purely added to defeat [Prepack.io](https://prepack.io/repl.html#GYVwdgxgLglg9mAVAAgLYE8DiBTM2BOAhlHPgBQCUA3gFDLLozYA2AJsgIwDcNAvjTQgIAznGbYAdMzgBzMhhx4iJchQl4AHlEoSAboWYhsFIA), as this partial evaluator doesn't support the syntax. JS Confuser never relied on the generator mechanisms, so it could've been easily removed.
+- - - Lastly, [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm) doesn't support either of these, so removing them allows users to obfuscate and virtualize their code in any order. 
+
+- Improved test suite
+- - All options are now tested individually and combined against a partial ES5 feature set. The same setup as [JS Confuser VM](https://github.com/MichaelXF/js-confuser-vm)'s test. 4000+ total tests!
+
+- Removed options `Shuffle` and `String Compression`
+- - These were weak obfuscations that both Claude Sonnet 4.6 and ChatGPT 5.5 can one-shot deobfuscators for. String Compression bloated file size and complicated the inner workings of the codebase, so these are removed.
+
+**Official Site Warning:** JS-Confuser.com (with a hyphen) is the only official website for JS-Confuser! You can find the source code [here](https://github.com/MichaelXF/js-confuser-website).
+
 # `2.0.1`
 Fixes
 
@@ -9,7 +42,7 @@ Fixes
 - Improved `Control Flow Flattening`
 - - Fixed implicit return bug causing incorrect return values
 - - The switch-case transitions now are computed by other state variables
-- - No longer lifted by [nullableVoidPtr's deobfuscator](https://github.com/nullableVoidPtr/deobf) - a complete CFF-in-CFF solver
+- - No longer lifted by [nullableVoidPtr's deobfuscator](https://github.com/nullableVoidPtr/deobf) - a complete CFF-in-CFF and JS-Confuser solver
 
 ```js
 // Input code:

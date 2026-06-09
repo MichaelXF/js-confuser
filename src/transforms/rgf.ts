@@ -63,9 +63,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             t.variableDeclaration("var", [
               t.variableDeclarator(
                 t.identifier(rgfArrayName),
-                rgfArrayExpression
+                rgfArrayExpression,
               ),
-            ])
+            ]),
           );
 
           var rgfEvalIntegrity = me.getPlaceholder() + "_rgf_eval_integrity";
@@ -78,7 +78,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             `).compile({
               EvalIntegrity: createEvalIntegrityTemplate(me, path),
               EvalIntegrityName: me.getPlaceholder(),
-            })
+            }),
           );
 
           append(
@@ -90,10 +90,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   return eval(code);
                 }
               }
-              `
+              `,
             )
               .addSymbols(UNSAFE)
-              .single()
+              .single(),
           );
         },
       },
@@ -124,7 +124,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             !me.computeProbabilityMap(
               me.options.rgf,
               name,
-              path.getFunctionParent() === null
+              path.getFunctionParent() === null,
             )
           )
             return;
@@ -166,7 +166,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               "Skipping function " +
                 name +
                 " due to reference to outside variable: " +
-                identifierPreventingTransform
+                identifierPreventingTransform,
             );
             return;
           }
@@ -205,24 +205,24 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                       t.identifier(rgfArrayName),
                       t.identifier(argumentsName),
                     ]),
-                    t.identifier("arguments")
+                    t.identifier("arguments"),
                   ),
                 ]),
                 t.functionDeclaration(
                   t.identifier(replacementName),
                   path.node.params as (t.Identifier | t.Pattern)[],
-                  path.node.body
+                  path.node.body,
                 ),
                 t.returnStatement(
                   t.callExpression(
                     t.memberExpression(
                       t.identifier(replacementName),
-                      t.identifier("apply")
+                      t.identifier("apply"),
                     ),
-                    [t.thisExpression(), t.identifier(argumentsName)]
-                  )
+                    [t.thisExpression(), t.identifier(argumentsName)],
+                  ),
                 ),
-              ])
+              ]),
             ),
             lastNode,
           ]);
@@ -232,7 +232,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             // Preserve 'use strict' directive
             // This is necessary to enure subsequent transforms (Control Flow Flattening) are aware of the strict mode directive
             evalProgram.directives.push(
-              t.directive(t.directiveLiteral("use strict"))
+              t.directive(t.directiveLiteral("use strict")),
             );
           }
 
@@ -245,7 +245,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               .filter((plugin, i) => {
                 return i <= me.obfuscator.index;
               })
-              .map((plugin) => plugin.pluginInstance.order)
+              .map((plugin) => plugin.pluginInstance.order),
           );
 
           // Global Concealing will likely cause issues when Pack is also enabled
@@ -258,12 +258,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   !hasRan.has(pluginInstance.order)) &&
                 !disallowedTransforms.has(pluginInstance.order)
               );
-            }
+            },
           );
 
           newObfuscator.obfuscateAST(evalFile);
 
-          const generated = Obfuscator.generateCode(evalFile);
+          const { code: generated } = Obfuscator.generateCode(evalFile);
 
           var functionExpression = t.callExpression(t.identifier(rgfEvalName), [
             t.stringLiteral(generated),
@@ -293,10 +293,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                       t.memberExpression(
                         t.identifier(rgfArrayName),
                         numericLiteral(index),
-                        true
+                        true,
                       ),
                       t.stringLiteral("apply"),
-                      true
+                      true,
                     ),
                     [
                       t.thisExpression(),
@@ -304,10 +304,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                         t.identifier(rgfArrayName),
                         t.identifier("arguments"),
                       ]),
-                    ]
-                  )
+                    ],
+                  ),
                 ),
-              ])
+              ]),
             );
 
           path.skip();

@@ -6,8 +6,7 @@
     "rootDir": "./",
     "strict": false,
     "noEmit": true,
-    "types": ["node"],
+    "types": ["node", "jest"],
     "allowImportingTsExtensions": true
-  },
-  "include": ["./src/**/*", "./index.d.ts"]
+  }
 }

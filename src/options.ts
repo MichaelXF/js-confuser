@@ -17,7 +17,7 @@ type Stringed<V> = V extends string ? V : never;
  */
 export type ProbabilityMap<
   T = boolean,
-  F extends (...args: any[]) => any = () => boolean // Default to a generic function
+  F extends (...args: any[]) => any = () => boolean, // Default to a generic function
 > =
   | false
   | true
@@ -97,7 +97,7 @@ export interface ObfuscateOptions {
   target: "node" | "browser";
 
   /**
-   * Remove's whitespace from the final output.
+   * Removes whitespace from the final output.
    */
   compact?: boolean;
 
@@ -157,13 +157,6 @@ export interface ObfuscateOptions {
    * Global Concealing hides global variables being accessed.
    */
   globalConcealing?: ProbabilityMap<boolean, (globalName: string) => boolean>;
-
-  /**
-   * String Compression uses zlib compression algorithm to compress strings.
-   *
-   * `"console"` -> `inflate('replaĕ!ğğuģģ<~@')`
-   */
-  stringCompression?: ProbabilityMap<boolean, (strValue: string) => boolean>;
 
   /**
    * String Concealing involves encoding strings to conceal plain-text values.
@@ -374,11 +367,6 @@ export interface ObfuscateOptions {
   opaquePredicates?: ProbabilityMap<boolean>;
 
   /**
-   * Shuffles the initial order of arrays. The order is brought back to the original during runtime. (`"hash"/true/false/0-1`)
-   */
-  shuffle?: ProbabilityMap<boolean>;
-
-  /**
    * Modified functions will retain the correct `function.length` property. Enabled by default.
    */
   preserveFunctionLength?: boolean;
@@ -401,7 +389,17 @@ export interface ObfuscateOptions {
   globalVariables?: Set<string>;
 
   /**
+   * Source map options
+   */
+  sourceMap?: boolean | SourceMapOptions;
+
+  /**
    * Enable logs to view the obfuscator's state.
    */
   verbose?: boolean;
+}
+
+interface SourceMapOptions {
+  /** Filename of the original source; appears in the map's `sources` array */
+  fileName?: string;
 }

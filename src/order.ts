@@ -26,13 +26,9 @@ export enum Order {
 
   StringConcealing = 17,
 
-  StringCompression = 18,
-
   VariableMasking = 20,
 
   DuplicateLiteralsRemoval = 22,
-
-  Shuffle = 23,
 
   ControlFlowFlattening = 24,
 

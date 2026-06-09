@@ -14,7 +14,7 @@ test("Variant #1: Preserve function.length on High Preset", async () => {
       preset: "high",
       pack: true,
       preserveFunctionLength: true,
-    }
+    },
   );
 
   var TEST_OUTPUT;
@@ -37,7 +37,6 @@ test("Variant #2: Allow user to disable preserving function.length", async () =>
       preserveFunctionLength: false,
 
       stringEncoding: false,
-      stringCompression: false,
       stringConcealing: false,
       stringSplitting: false,
       deadCode: false,
@@ -46,7 +45,7 @@ test("Variant #2: Allow user to disable preserving function.length", async () =>
 
       rgf: true,
       pack: true,
-    }
+    },
   );
 
   expect(output).not.toContain("defineProperty");

@@ -44,7 +44,7 @@ test("Variant #3: Basic string interpolation", () => {
   expect(functionDeclaration.id!.name).toStrictEqual("decodeBase64");
 
   // Generated code and check
-  var output = Obfuscator.generateCode(functionDeclaration, {
+  var { code: output } = Obfuscator.generateCode(functionDeclaration, {
     target: "node",
     compact: true,
   });
@@ -69,11 +69,11 @@ test("Variant #4: AST subtree insertion", () => {
 
   expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
   expect(functionDeclaration.body.body[0].type).toStrictEqual(
-    "VariableDeclaration"
+    "VariableDeclaration",
   );
 
   // Generated code and check
-  var output = Obfuscator.generateCode(functionDeclaration, {
+  var { code: output } = Obfuscator.generateCode(functionDeclaration, {
     target: "node",
     compact: true,
   });
@@ -101,11 +101,11 @@ test("Variant #5: AST subtree insertion (callback)", () => {
   expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
   expect(t.isBlockStatement(functionDeclaration.body)).toStrictEqual(true);
   expect(functionDeclaration.body.body[0].type).toStrictEqual(
-    "VariableDeclaration"
+    "VariableDeclaration",
   );
 
   // Generated code and check
-  var output = Obfuscator.generateCode(functionDeclaration, {
+  var { code: output } = Obfuscator.generateCode(functionDeclaration, {
     target: "node",
     compact: true,
   });
@@ -134,11 +134,11 @@ test("Variant #6: Template subtree insertion", async () => {
   expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
   expect(t.isBlockStatement(functionDeclaration.body)).toStrictEqual(true);
   expect(functionDeclaration.body.body[0].type).toStrictEqual(
-    "VariableDeclaration"
+    "VariableDeclaration",
   );
 
   // Generated code and check
-  var output = Obfuscator.generateCode(functionDeclaration, {
+  var { code: output } = Obfuscator.generateCode(functionDeclaration, {
     target: "node",
     compact: true,
   });
@@ -166,11 +166,11 @@ test("Variant #7: Template subtree insertion (callback)", async () => {
 
   expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
   expect(functionDeclaration.body.body[0].type).toStrictEqual(
-    "VariableDeclaration"
+    "VariableDeclaration",
   );
 
   // Generated code and check
-  var output = Obfuscator.generateCode(functionDeclaration, {
+  var { code: output } = Obfuscator.generateCode(functionDeclaration, {
     target: "node",
     compact: true,
   });
@@ -193,7 +193,7 @@ test("Variant #8: AST string replacement with Literal node", async () => {
   expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
 
   // Generated code and check
-  var output = Obfuscator.generateCode(functionDeclaration, {
+  var { code: output } = Obfuscator.generateCode(functionDeclaration, {
     target: "node",
     compact: true,
   });
@@ -215,7 +215,7 @@ test("Variant #9: AST string replacement with Literal node (callback)", async ()
   expect(functionDeclaration.type).toStrictEqual("FunctionDeclaration");
 
   // Generated code and check
-  var output = Obfuscator.generateCode(functionDeclaration, {
+  var { code: output } = Obfuscator.generateCode(functionDeclaration, {
     target: "node",
     compact: true,
   });
@@ -257,7 +257,7 @@ test("Variant #12: Handle Identifier and variables name collision", async () => 
   });
 
   // Generate out code and test result
-  var code = Obfuscator.generateCode(file);
+  var { code } = Obfuscator.generateCode(file);
 
   var TEST_OUTPUT;
   eval(code);
@@ -277,7 +277,7 @@ test("Variant #13: Handle multiple AST-based variables", async () => {
   });
 
   // Generate out code and test result
-  var code = Obfuscator.generateCode(file);
+  var { code } = Obfuscator.generateCode(file);
 
   // Ensure variables got inserted
   expect(code).toContain("myActualVarName");
@@ -304,7 +304,7 @@ test("Variant #14: Add symbols to template", async () => {
   expect(statements[0][UNSAFE]).toStrictEqual(true);
   expect(statements[1][UNSAFE]).toStrictEqual(true);
 
-  var code = Obfuscator.generateCode(file);
+  var { code } = Obfuscator.generateCode(file);
 
   var TEST_OUTPUT;
   eval(code);

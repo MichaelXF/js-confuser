@@ -63,7 +63,7 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
 
       // TODO: Add support for export statements
       "ExportNamedDeclaration|ExportDefaultDeclaration|ExportAllDeclaration"(
-        path
+        path,
       ) {
         me.error("Export statements are not supported in packed code.");
       },
@@ -116,8 +116,8 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
               t.memberExpression(
                 t.identifier(objectName),
                 t.stringLiteral(propertyName),
-                true
-              )
+                true,
+              ),
             );
             return;
           }
@@ -137,8 +137,8 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
             t.memberExpression(
               t.identifier(objectName),
               t.stringLiteral(propertyName),
-              true
-            )
+              true,
+            ),
           );
         },
       },
@@ -162,8 +162,8 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
             "get",
             t.stringLiteral(propertyName),
             [],
-            t.blockStatement([t.returnStatement(t.identifier(identifierName))])
-          )
+            t.blockStatement([t.returnStatement(t.identifier(identifierName))]),
+          ),
         );
 
         // Only add setter if the identifier is modified
@@ -179,11 +179,11 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
                   t.assignmentExpression(
                     "=",
                     t.identifier(identifierName),
-                    t.identifier(objectName)
-                  )
+                    t.identifier(objectName),
+                  ),
                 ),
-              ])
-            )
+              ]),
+            ),
           );
         }
       }
@@ -198,10 +198,10 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
             [],
             t.blockStatement([
               t.returnStatement(
-                t.unaryExpression("typeof", t.identifier(identifierName))
+                t.unaryExpression("typeof", t.identifier(identifierName)),
               ),
-            ])
-          )
+            ]),
+          ),
         );
       }
 
@@ -214,11 +214,11 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
         Object.assign(
           lastStatement,
 
-          t.returnStatement(lastStatement.expression)
+          t.returnStatement(lastStatement.expression),
         );
       }
 
-      const outputCode = Obfuscator.generateCode(ast, {
+      const { code: outputCode } = Obfuscator.generateCode(ast, {
         ...me.obfuscator.options,
         compact: true,
       });

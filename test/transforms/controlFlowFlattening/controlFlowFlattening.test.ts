@@ -265,7 +265,6 @@ test("Variant #9: Don't entangle floats or NaN", async () => {
         var a = NaN;
         var b = 10.01;
         var c = 15.01;
-        var d = "MyString";
         input(b + c)
       }
       
@@ -281,7 +280,6 @@ test("Variant #9: Don't entangle floats or NaN", async () => {
   expect(output).toContain("10.01");
   expect(output).toContain("15.01");
   expect(output).toContain("NaN");
-  expect(output).toContain("MyString");
 
   var value = "never_called";
   function input(valueIn) {
@@ -1548,4 +1546,110 @@ test("Variant #41: Don't break implicit return", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual("undefined");
+});
+
+test("Variant #42: Don't break unsafe functions with 'mangled' identifiers", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var _1, _2, _3;
+
+function main() {
+  var a, b;
+
+  function unsafeFn() {
+    this; // Marks this function as 'unsafe'
+    return "Correct Value";
+  }
+  TEST_OUTPUT = unsafeFn();
+}
+
+main();
+
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+      renameVariables: true,
+      identifierGenerator: "mangled",
+    },
+  );
+
+  // Ensure CFF applied
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("Correct Value");
+});
+
+test("Variant #43: Don't break hoisted function prototype assignments", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    function Stack() {
+      this.items = [];
+    }
+    Stack.prototype.push = function (item) {
+      this.items.push(item);
+    };
+    Stack.prototype.pop = function () {
+      return this.items.pop();
+    };
+    Stack.prototype.size = function () {
+      return this.items.length;
+    };
+
+    var s = new Stack();
+    s.push(10);
+    s.push(20);
+    s.push(30);
+    TEST_OUTPUT = [s.size(), s.pop(), s.size()];
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    },
+  );
+
+  // Ensure CFF applied
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toEqual([3, 30, 2]);
+});
+
+test("Variant #44: Don't break function constructors within flattened functions", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var a, b, c;
+
+    function Counter() {
+      this.count = 0;
+    }
+    Counter.prototype.increment = function () {
+      this.count++;
+    };
+
+    function simple() {
+      var counter = new Counter();
+      counter.increment();
+      TEST_OUTPUT = counter.count;
+    }
+
+    simple();
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    },
+  );
+
+  // Ensure CFF was applied
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+  eval(code);
+  expect(TEST_OUTPUT).toStrictEqual(1);
 });

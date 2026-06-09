@@ -12,7 +12,7 @@ import Template from "./templates/template";
 
 export async function obfuscate(
   sourceCode: string,
-  options: ObfuscateOptions
+  options: ObfuscateOptions,
 ): Promise<ObfuscationResult> {
   const obfuscator = new Obfuscator(options);
 
@@ -21,7 +21,7 @@ export async function obfuscate(
 
 export async function obfuscateAST(
   ast: babelTypes.File,
-  options: ObfuscateOptions
+  options: ObfuscateOptions,
 ) {
   const obfuscator = new Obfuscator(options);
 
@@ -34,7 +34,7 @@ export async function obfuscateWithProfiler(
   profiler: {
     callback?: ProfilerCallback;
     performance?: { now(): number };
-  } = {}
+  } = {},
 ): Promise<ObfuscationResult & { profileData: ProfileData }> {
   if (!profiler.performance) {
     profiler.performance = {
@@ -84,7 +84,7 @@ export async function obfuscateWithProfiler(
 
   const beforeCompileTime = performance.now();
 
-  const code = Obfuscator.generateCode(ast, obfuscator.options);
+  const { code } = Obfuscator.generateCode(ast, obfuscator.options);
 
   const compileTime = performance.now() - beforeCompileTime;
 
