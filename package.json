@@ -1,6 +1,6 @@
 {
   "name": "js-confuser",
-  "version": "2.1.0-alpha",
+  "version": "2.1.2",
   "description": "JavaScript Obfuscation Tool.",
   "main": "dist/index.js",
   "types": "index.d.ts",
@@ -41,6 +41,7 @@
     "@types/babel__core": "^7.20.5",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.2.0",
+    "babel-plugin-replace-import-extension": "^1.1.5",
     "cross-env": "^10.1.0",
     "globals": "^15.9.0",
     "jest": "^29.7.0",

@@ -1,4 +1,4 @@
-import Template from "./template.ts";
+import Template from "./template";
 
 export function xorEncodeString(str: string, key: number): string {
   var result = "";

@@ -1,4 +1,4 @@
-# `2.1.0`
+# `2.1.2`
 Updates
 
 - Moved documentation to Mintlify for improved SEO: [docs.js-confuser.com](https://docs.js-confuser.com)
