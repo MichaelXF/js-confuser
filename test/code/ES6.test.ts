@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync } from "fs";
 import { join } from "path";
 import JsConfuser from "../../src/index";
 
@@ -38,7 +38,7 @@ test("Variant #1: ES6 code on High Preset", async () => {
     preserveFunctionLength: true,
   });
 
-  const TEST_OUTPUT = {};
+  let TEST_OUTPUT = {};
   eval(code);
   expect(TEST_OUTPUT).toStrictEqual(EXPECTED_RESULT);
 });
@@ -61,7 +61,7 @@ test("Variant #2: ES6 code on High Preset + RGF + Self Defending + Tamper Protec
   // let newCode = `var TEST_OUTPUT;\n${code}\n\nconsole.log(TEST_OUTPUT);`;
   // writeFileSync("./dev.output.js", newCode, "utf-8");
 
-  const TEST_OUTPUT = {};
+  let TEST_OUTPUT = {};
   eval(code);
   expect(TEST_OUTPUT).toStrictEqual(EXPECTED_RESULT);
 });

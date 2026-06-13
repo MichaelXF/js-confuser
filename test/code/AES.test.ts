@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync } from "fs";
 import { join } from "path";
 import JsConfuser from "../../src/index";
 import { ok } from "assert";
@@ -21,7 +21,7 @@ test("Variant #1: AES-JS on 'High' Preset", async () => {
   eval(code);
 
   // Module.exports is now AES-JS
-  var aesjs = module.exports;
+  var aesjs = module.exports as Record<string, any>;
 
   // Ensure that the module is properly loaded
   expect(typeof aesjs).toStrictEqual("object");

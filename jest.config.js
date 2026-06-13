@@ -1,3 +1,5 @@
+const transform = require("ts-jest").createDefaultPreset().transform;
+
 const options = [
   "minify",
   "renameVariables",
@@ -43,6 +45,7 @@ module.exports = {
     // Main suite: all tests except the test/features folder
     {
       displayName: "main",
+      transform,
       testPathIgnorePatterns: [
         "<rootDir>/node_modules/",
         "<rootDir>/test/features/",
@@ -52,6 +55,7 @@ module.exports = {
     // Feature suites: one project per OPTIONS_MATRIX entry
     ...OPTIONS_MATRIX.map(({ displayName, OPTIONS }) => ({
       displayName: `features:${displayName}`,
+      transform,
       testMatch: ["<rootDir>/test/features/**/*.test.ts?(x)"],
       globals: { OPTIONS },
     })),

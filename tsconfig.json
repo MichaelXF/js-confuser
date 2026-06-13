@@ -5,7 +5,8 @@
     "outDir": "./dist",
     "strict": false,
     "types": ["node", "jest"],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true
   },
   "include": ["./src/**/*"]
 }

@@ -2,13 +2,13 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import JsConfuser from "../../src/index";
 
-var StrictMode_JS = readFileSync(
+const StrictMode_JS = readFileSync(
   join(__dirname, "./StrictMode.src.js"),
   "utf-8"
 );
 
 test("Variant #1: StrictMode on High Preset", async () => {
-  var { code: output } = await JsConfuser.obfuscate(StrictMode_JS, {
+  const { code: output } = await JsConfuser.obfuscate(StrictMode_JS, {
     target: "node",
     preset: "high",
     pack: true,
@@ -18,9 +18,7 @@ test("Variant #1: StrictMode on High Preset", async () => {
     globalConcealing: (globalName) => globalName != "TEST_OUTPUT",
   });
 
-  //writeFileSync("./dev.output.js", output);
-
-  var TEST_OUTPUT = {};
+  const TEST_OUTPUT = {} as Record<string, any>;
 
   eval(output);
 
