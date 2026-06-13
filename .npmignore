@@ -1,5 +1,6 @@
 # Decrease NPM bunlde size
 src_old/
+src/
 test/
 docs/
 babel.config.js

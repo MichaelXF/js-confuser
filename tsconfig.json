@@ -3,10 +3,9 @@
     "target": "esnext",
     "module": "nodenext",
     "outDir": "./dist",
-    "rootDir": "./",
     "strict": false,
-    "noEmit": true,
     "types": ["node", "jest"],
     "allowImportingTsExtensions": true
-  }
+  },
+  "include": ["./src/**/*"]
 }
