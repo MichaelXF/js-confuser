@@ -40,6 +40,43 @@ import {
 const CFF_UNSAFE = Symbol("CFF_UNSAFE");
 
 /**
+ * Robert Jenkins' 32-bit integer hash function.
+ *
+ * Uses only add / shift / xor (no multiplication, no `Math.imul`) so it runs on
+ * legacy engines (IE10) and — crucially — produces byte-for-byte identical
+ * results at obfuscation-time (Node, via {@link HashFunction}) and at runtime
+ * (the emitted {@link HashFunctionTemplate}). Every step is invertible, so the
+ * function is a bijection over int32: distinct state-sums never collide.
+ *
+ * IMPORTANT: {@link HashFunction} and {@link HashFunctionTemplate} must stay in
+ * perfect lockstep — any divergence means no switch case ever matches.
+ */
+const HashFunctionTemplate = new Template(`
+function {fnName}(int) {
+  var a = int | 0;
+  a = ((a + 0x7ed55d16) | 0) + (a << 12) | 0;
+  a = (a ^ 0xc761c23c) ^ (a >>> 19);
+  a = ((a + 0x165667b1) | 0) + (a << 5) | 0;
+  a = ((a + 0xd3a2646c) | 0) ^ (a << 9);
+  a = ((a + 0xfd7046c5) | 0) + (a << 3) | 0;
+  a = (a ^ 0xb55a4f09) ^ (a >>> 16);
+  return a;
+}
+`);
+
+// Compile-time mirror of HashFunctionTemplate — keep the expressions identical.
+function HashFunction(int: number): number {
+  var a = int | 0;
+  a = (((a + 0x7ed55d16) | 0) + (a << 12)) | 0;
+  a = a ^ 0xc761c23c ^ (a >>> 19);
+  a = (((a + 0x165667b1) | 0) + (a << 5)) | 0;
+  a = ((a + 0xd3a2646c) | 0) ^ (a << 9);
+  a = (((a + 0xfd7046c5) | 0) + (a << 3)) | 0;
+  a = a ^ 0xb55a4f09 ^ (a >>> 16);
+  return a;
+}
+
+/**
  * Breaks functions into DAGs (Directed Acyclic Graphs)
  *
  * - 1. Break functions into chunks
@@ -70,13 +107,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const addRelativeAssignments = true; // state += (NEW_STATE - CURRENT_STATE)
   const addDeadCode = true; // add fakes chunks of code
   const addFakeTests = true; // case 100: case 490: case 510: ...
-  const addComplexTests = true; // case s != 49 && s - 10:
-  const addPredicateTests = true; // case scope.A + 10: ...
+  const addAssertions = true; // use @js-confuser-assert values?
   const mangleNumericalLiterals = true; // 50 => state + X
   const mangleBooleanLiterals = true; // true => state == X
   const mangleStringLiterals = true; // "hi" => xor("fOq", state + X)
 
-  const stateVarsRange = [3, 10];
+  const booleanLiteralChance = 100; // 100% for booleans
+  const numericLiteralChance = 75; // 75% for numbers
+  const stringLiteralChance = 100; // 100% for strings
+
+  const sequenceSizeRange = [100, 125];
+  const stateVarsRange = [75, 100];
+  const stateValueRange = [-999, 999];
 
   const cffPrefix = me.getPlaceholder();
 
@@ -94,6 +136,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   let needsSumFunction = false;
   let sumFnName = me.getPlaceholder() + "_cff_sum";
   let xorFnName = me.getPlaceholder() + "_cff_xor";
+  let sequenceName = me.getPlaceholder() + "_cff_sequence";
+  let sliceFnName = me.getPlaceholder() + "_cff_slice";
+  let hashFnName = me.getPlaceholder() + "_cff_hash";
+
+  const sequence = new Array(
+    getRandomInteger(sequenceSizeRange[0], sequenceSizeRange[1]),
+  )
+    .fill(0)
+    .map((_) => getRandomInteger(stateValueRange[0], stateValueRange[1]));
 
   function cffMain(_path: NodePath) {
     let programOrFunctionPath = _path as NodePath<t.Program | t.Function>;
@@ -215,6 +266,23 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       .map((_, i) =>
         t.memberExpression(deepClone(statesVar), t.numericLiteral(i), true),
       );
+
+    const dynamicIndexes = [];
+    const dynamicIndexesSet = new Set<number>();
+    const dynamicIndexesAmount = getRandomInteger(8, 12);
+    for (
+      var i = 0;
+      i < dynamicIndexesAmount && dynamicIndexesSet.size < stateVars.length;
+      i++
+    ) {
+      let proposed;
+      do {
+        proposed = getRandomInteger(0, stateVars.length);
+      } while (dynamicIndexesSet.has(proposed));
+
+      dynamicIndexes.push(proposed);
+      dynamicIndexesSet.add(proposed);
+    }
 
     const argVar = identifier("_arg");
     let usedArgVar = false;
@@ -362,12 +430,20 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     };
 
     const scopeToScopeManager = new Map<Scope, ScopeManager>();
+
+    const hashesUsed = new Set<number>();
+
     /**
      * A Basic Block is a sequence of instructions with no diversion except at the entry and exit points.
      */
     class BasicBlock {
       totalState: number;
       stateValues: number[];
+
+      // User-provided variables of their own runtime values with guaranteed value
+      assertions?: { [varName: string]: number };
+
+      hash: number;
 
       private createPath() {
         const newPath = NodePath.get<t.BlockStatement, any>({
@@ -427,7 +503,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       createPredicate() {
         var stateVarIndex = getRandomInteger(0, stateVars.length);
         var stateValue = this.stateValues[stateVarIndex];
-        var compareValue = choice([stateValue, getRandomInteger(-250, 250)]);
+        var compareValue = choice([
+          stateValue,
+          getRandomInteger(stateValueRange[0], stateValueRange[1]),
+        ]);
 
         var operator: t.BinaryExpression["operator"] = choice([
           "==",
@@ -474,38 +553,58 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       ) {
         this.createPath();
 
-        if (isDebug) {
-          // States in debug mode are just 1, 2, 3, ...
-          this.totalState = basicBlocks.size + 1;
-        } else {
-          this.totalState = stateIntGen.generate();
-        }
+        let counter = 0;
+        do {
+          if (isDebug && counter === 0) {
+            // States in debug mode are just 1, 2, 3, ...
+            this.totalState = basicBlocks.size + 1;
+          } else {
+            this.totalState = stateIntGen.generate();
+          }
 
-        // Correct state values
-        // Start with random numbers
-        this.stateValues = stateVars.map(() => getRandomInteger(-250, 250));
+          // Correct state values
+          // Start with 90% sequence 10% random numbers
+          this.stateValues = stateVars.map((_, i) =>
+            dynamicIndexesSet.has(i) && chance(75)
+              ? getRandomInteger(stateValueRange[0], stateValueRange[1])
+              : sequence[i],
+          );
 
-        // Try to re-use old state values to make diffs smaller
-        if (basicBlocks.size > 1) {
-          const lastBlock = [...basicBlocks.values()].at(-1);
-          this.stateValues = lastBlock.stateValues.map((oldValue, i) => {
-            // Increase chance for re-using old values to make state transitions less drastic
-            return chance(90) ? oldValue : this.stateValues[i];
-          });
-        }
+          // Try to re-use old state values to make diffs smaller
+          if (basicBlocks.size > 1) {
+            const lastBlock = [...basicBlocks.values()].at(-1);
+            this.stateValues = lastBlock.stateValues.map((oldValue, i) => {
+              // Increase chance for re-using old values to make state transitions less drastic
+              return dynamicIndexesSet.has(i)
+                ? chance(50)
+                  ? oldValue
+                  : this.stateValues[i]
+                : sequence[i];
+            });
+          }
 
-        // Correct one of the values so that the accumulated sum is equal to the state
-        const correctIndex = getRandomInteger(0, this.stateValues.length);
+          // Correct one of the values so that the accumulated sum is equal to the state
+          const correctIndex = choice(dynamicIndexes);
 
-        const getCurrentState = () =>
-          this.stateValues.reduce((a, b) => a + b, 0);
+          const getCurrentState = () =>
+            this.stateValues.reduce((a, b) => a + b, 0);
 
-        // Correct the value
-        this.stateValues[correctIndex] =
-          this.totalState -
-          (getCurrentState() - this.stateValues[correctIndex]);
+          // Correct the value
+          this.stateValues[correctIndex] =
+            this.totalState -
+            (getCurrentState() - this.stateValues[correctIndex]);
 
-        ok(getCurrentState() === this.totalState);
+          ok(getCurrentState() === this.totalState);
+
+          this.hash = HashFunction(this.totalState);
+          if (counter++ > 1000)
+            throw me.error(
+              "Failed to generate unique state after many iterations",
+            );
+        } while (hashesUsed.has(this.hash));
+
+        // Reserve this hash so no other block can reuse it as a switch-case test
+        hashesUsed.add(this.hash);
 
         // Store basic block
         basicBlocks.set(label, this);
@@ -810,6 +909,53 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           });
         }
 
+        if (
+          addAssertions &&
+          statement.node.type === "ExpressionStatement" &&
+          statement.node.leadingComments?.some((comment) =>
+            comment.value.includes("@js-confuser-assert"),
+          )
+        ) {
+          let expr = statement.node.expression;
+          ok(
+            expr.type === "BinaryExpression" &&
+              ["==", "==="].includes(expr.operator),
+            "Must be == or === for js-confuser-assert",
+          );
+
+          let rightValue = parseInt(
+            me.obfuscator.generateCode(expr.right).code,
+          );
+          ok(
+            typeof rightValue === "number" && !Number.isNaN(rightValue),
+            "right value must be number for js-confuser-assert",
+          );
+          let userVar = me.getPlaceholder();
+          let userExpr = expr.left as t.Expression;
+
+          currentBasicBlock.body.push(
+            new Template(`var {userVar} = {userExpr}`).single({
+              userVar,
+              userExpr,
+            }),
+          );
+
+          currentBasicBlock.scope.push({
+            id: t.identifier(userVar),
+            init: userExpr,
+            kind: "var",
+          });
+
+          endCurrentBasicBlock({
+            nextBlockPath: nextBlockPath,
+          });
+
+          currentBasicBlock.assertions = {
+            [userVar]: rightValue,
+          };
+          continue;
+        }
+
         // console.log(currentBasicBlock.thisPath.type);
         // console.log(currentBasicBlock.body);
         currentBasicBlock.body.push(statement.node);
@@ -958,6 +1104,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               return;
 
             if (!isWithinSameFunction(boolPath)) return;
+            if (!chance(booleanLiteralChance)) return;
             mangledLiteralsCreated++;
 
             const index = getRandomInteger(0, stateVars.length - 1);
@@ -965,7 +1112,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             const stateVarValue = currentStateValues[index];
 
             const compareValue = choice([
-              getRandomInteger(-250, 250),
+              getRandomInteger(stateValueRange[0], stateValueRange[1]),
               stateVarValue,
             ]);
             const compareResult = stateVarValue === compareValue;
@@ -997,7 +1144,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               return;
 
             if (!isWithinSameFunction(numPath)) return;
-            if (chance(50)) return;
+            if (!chance(numericLiteralChance)) return;
 
             mangledLiteralsCreated++;
 
@@ -1040,7 +1187,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             const str = strPath.node.value;
             if (str.length > 5000) return;
             if (!isWithinSameFunction(strPath)) return;
-            if (chance(50)) return;
+            if (!chance(stringLiteralChance)) return;
 
             const num = getRandomInteger(-255, 255); // XOR string encrypt key
 
@@ -1177,6 +1324,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
               let mutatingStateValues = [...currentStateValues];
 
+              let hasAssertions =
+                Object.keys(jumpBlock.assertions || {}).length > 0;
+
               for (let i = 0; i < stateVars.length; i++) {
                 const oldValue = currentStateValues[i];
                 const newValue = newStateValues[i];
@@ -1209,6 +1359,28 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     return t.binaryExpression(
                       "-",
                       deepClone(stateVarId),
+                      hasAssertions
+                        ? mangledAssertion(diff)
+                        : numericLiteral(diff),
+                    );
+                  }
+
+                  function mangledAssertion(value: number) {
+                    let userVar = choice(Object.keys(jumpBlock.assertions));
+                    if (!hasAssertions) return numericLiteral(value);
+
+                    let assertedValue = jumpBlock.assertions[userVar];
+
+                    const stateVarId =
+                      jumpBlock.scopeManager.getMemberExpression(
+                        jumpBlock.scopeManager.getNewName(userVar),
+                      );
+                    const stateVarValue = assertedValue;
+                    const diff = stateVarValue - value;
+
+                    return t.binaryExpression(
+                      "-",
+                      stateVarId,
                       numericLiteral(diff),
                     );
                   }
@@ -1228,6 +1400,21 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               // Add debug label
               if (isDebug) {
                 assignments.unshift(t.stringLiteral("Goto " + newTotalState));
+                if (hasAssertions) {
+                  Object.keys(jumpBlock.assertions).forEach((userVar) => {
+                    assignments.unshift(
+                      new Template(
+                        `console.log({varName}, {value}, {varName} === {value})`,
+                      ).expression({
+                        varName: () =>
+                          jumpBlock.scopeManager.getMemberExpression(
+                            jumpBlock.scopeManager.getNewName(userVar),
+                          ),
+                        value: jumpBlock.assertions[userVar],
+                      }),
+                    );
+                  });
+                }
               }
 
               path.parentPath
@@ -1253,57 +1440,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
      * - Add fake / predicates to the switch cases tests
      */
 
-    // Create global numbers for predicates
-    const mainScope = basicBlocks.get(startLabel).scopeManager;
-    const predicateNumbers = new Map<string, number>();
-    const predicateNumberCount =
-      isDebug || !addPredicateTests ? 0 : getRandomInteger(1, 4);
-
-    for (let i = 0; i < predicateNumberCount; i++) {
-      const name = mainScope.getNewName(me.getPlaceholder("predicate_" + i));
-
-      const number = getRandomInteger(-250, 250);
-      predicateNumbers.set(name, number);
-    }
-
-    const predicateSymbol = Symbol("predicate");
-
-    const createAssignment = (values: number[]) => {
-      var exprStmt = new Template(`
-              ({predicateVariables} = {values})
-              `).single({
-        predicateVariables: t.arrayPattern(
-          Array.from(predicateNumbers.keys()).map((name) =>
-            mainScope.getMemberExpression(name),
-          ),
-        ),
-        values: t.arrayExpression(values.map((value) => numericLiteral(value))),
-      });
-
-      exprStmt[predicateSymbol] = true;
-
-      return exprStmt;
-    };
-
-    basicBlocks
-      .get(startLabel)
-      .body.unshift(createAssignment(Array.from(predicateNumbers.values())));
-
-    // Add random assignments to impossible blocks
-    var fakeAssignmentCount = getRandomInteger(1, 3);
-
-    for (let i = 0; i < fakeAssignmentCount; i++) {
-      var impossibleBlock = choice(getImpossibleBasicBlocks());
-      if (impossibleBlock) {
-        if (impossibleBlock.body[0]?.[predicateSymbol]) continue;
-
-        var fakeValues = new Array(predicateNumberCount)
-          .fill(0)
-          .map(() => getRandomInteger(-250, 250));
-        impossibleBlock.body.unshift(createAssignment(fakeValues));
-      }
-    }
-
     // Add scope initializations: scope["_0"] = {identity: "_0"}
     for (const scopeManager of scopeToScopeManager.values()) {
       if (scopeManager.isNotUsed) continue;
@@ -1326,70 +1462,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         continue;
       }
 
-      let test: t.Expression = numericLiteral(block.totalState);
-
-      // Add complex tests
-      if (!isDebug && addComplexTests && chance(50)) {
-        // Create complex test expressions for each switch case
-
-        // case STATE+X:
-        let stateVarIndex = getRandomInteger(0, stateVars.length);
-
-        let stateValues = block.stateValues;
-        let difference = stateValues[stateVarIndex] - block.totalState;
-
-        let conditionNodes: t.Expression[] = [];
-        let alreadyConditionedItems = new Set<string>();
-
-        // This code finds clash conditions and adds them to 'conditionNodes' array
-        Array.from(basicBlocks.keys()).forEach((label) => {
-          if (label !== block.label) {
-            let labelStates = basicBlocks.get(label).stateValues;
-            let totalState = labelStates.reduce((a, b) => a + b, 0);
-
-            if (totalState === labelStates[stateVarIndex] - difference) {
-              let differentIndex = labelStates.findIndex(
-                (v, i) => v !== stateValues[i],
-              );
-              if (differentIndex !== -1) {
-                let expressionAsString =
-                  differentIndex + "!=" + labelStates[differentIndex];
-                if (!alreadyConditionedItems.has(expressionAsString)) {
-                  alreadyConditionedItems.add(expressionAsString);
-
-                  conditionNodes.push(
-                    t.binaryExpression(
-                      "!=",
-                      deepClone(stateVars[differentIndex]),
-                      numericLiteral(labelStates[differentIndex]),
-                    ),
-                  );
-                }
-              } else {
-                conditionNodes.push(
-                  t.binaryExpression(
-                    "!=",
-                    deepClone(discriminant),
-                    numericLiteral(totalState),
-                  ),
-                );
-              }
-            }
-          }
-        });
-
-        // case STATE!=Y && STATE+X
-        test = t.binaryExpression(
-          "-",
-          deepClone(stateVars[stateVarIndex]),
-          numericLiteral(difference),
-        );
-
-        // Use the 'conditionNodes' to not cause state clashing issues
-        conditionNodes.forEach((conditionNode) => {
-          test = t.logicalExpression("&&", conditionNode, test);
-        });
-      }
+      let test: t.Expression = numericLiteral(block.hash);
 
       const tests = [test];
 
@@ -1397,7 +1470,17 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         // Add fake tests
         let fakeTestCount = getRandomInteger(1, 3);
         for (let i = 0; i < fakeTestCount; i++) {
-          tests.push(numericLiteral(stateIntGen.generate()));
+          let hash: number;
+          let counter = 0;
+          do {
+            counter++;
+            hash = HashFunction(stateIntGen.generate());
+            if (counter > 1000)
+              me.error(
+                "Failed to generate unique number after many iterations",
+              );
+          } while (hashesUsed.has(hash));
+          tests.push(numericLiteral(hash));
         }
 
         shuffle(tests);
@@ -1427,8 +1510,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     needsSumFunction = true;
 
     const discriminant = new Template(`
-           ${sumFnName}({statesVar})
-          `).expression<t.Expression>({ statesVar: deepClone(statesVar) });
+      ${hashFnName}( ${sumFnName}({statesVar}) )
+    `).expression<t.Expression>({ statesVar: deepClone(statesVar) });
 
     traverse(t.program([t.expressionStatement(discriminant)]), {
       Identifier(path) {
@@ -1449,13 +1532,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     );
 
     const startStateValues = basicBlocks.get(startLabel).stateValues;
-    const endTotalState = basicBlocks.get(endLabel).totalState;
+    const endHash = basicBlocks.get(endLabel).hash;
 
     const whileStatement = t.whileStatement(
       t.binaryExpression(
         "!==",
         deepClone(discriminant),
-        numericLiteral(endTotalState),
+        numericLiteral(endHash),
       ),
       t.inherits(
         t.blockStatement([switchStatement]),
@@ -1551,12 +1634,60 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     // The main function is always called with same number of arguments
     (mainFnDeclaration as NodeSymbol)[PREDICTABLE] = true;
 
+    // This method returns an t.arrayExpression similar to createCallExpression's current implementation
+    // but also re-uses parts of the 'sequence' common numbers to avoid printing all ~100 numbers
+    // meaning the output is t.arrayExpression([ t.spreadElement(arr[0-10]), 11, 12, t.spreadElement(arr[3-55]), 56, 57 ]) or as code: [...arr[0-10], 11, 12, ...arr[3-55], 56, 57]
+    // the arr[0-10] represent slices which are call expressions to sliceFnName(start,end), ex: arr[0-10] -> t.callExpression(t.identifier(sliceFnName), [ numLit(0), numLit(10) ]))
+    // Purpose: State Vars is 100 randomly generated numbers based 90% on the sequence for re-usability purposes
+    // This 'spread' syntax allows us to re-use consequence neighbors from sequence in a shorter expressed syntax instead of listing all numbers
+    function getSpreadArray(values: number[]) {
+      // Min range to justify spread call
+      const minRunLength = 2;
+
+      const elements: (t.Expression | t.SpreadElement)[] = [];
+
+      // Single forward pass
+      let i = 0;
+      while (i < values.length) {
+        // Extend a run where values[k] === sequence[k] (positional match)
+        let j = i;
+        while (
+          j < values.length &&
+          j < sequence.length &&
+          values[j] === sequence[j]
+        ) {
+          j++;
+        }
+
+        const runLength = j - i;
+
+        if (runLength >= minRunLength) {
+          // range emitted: [i, j) -> [...sliceFnName(i, j)]
+          elements.push(
+            t.spreadElement(
+              t.callExpression(t.identifier(sliceFnName), [
+                numericLiteral(i),
+                numericLiteral(j),
+              ]),
+            ),
+          );
+          i = j;
+        } else {
+          // individual number emitted: i -> values[i]
+          elements.push(numericLiteral(values[i]));
+          i++;
+        }
+      }
+
+      return t.arrayExpression(elements);
+    }
+
     function createCallExpression(
       stateValues: number[],
       argumentNodes: t.Expression[] = [],
     ) {
       const callExpression = t.callExpression(deepClone(mainFnName), [
-        t.arrayExpression(stateValues.map((value) => numericLiteral(value))),
+        getSpreadArray(stateValues),
         ...argumentNodes,
       ]);
 
@@ -1655,12 +1786,33 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 }
                 return sum;
               }
+
+              function ${sliceFnName}(min, max){
+                return ${sequenceName}["slice"](min, max)
+              }
               `).compile(),
               );
 
               prepend(
                 _path,
                 xorDecodeStringTemplate.compile({ fnName: xorFnName }),
+              );
+
+              prepend(
+                _path,
+                new Template(`var {sequenceName} = {arrayExpression}`).compile({
+                  sequenceName: sequenceName,
+                  arrayExpression: t.arrayExpression(
+                    sequence.map((v) => numericLiteral(v)),
+                  ),
+                }),
+              );
+
+              prepend(
+                _path,
+                HashFunctionTemplate.compile({
+                  fnName: hashFnName,
+                }),
               );
             }
           }

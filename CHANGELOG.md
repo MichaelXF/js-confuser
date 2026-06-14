@@ -1,3 +1,235 @@
+# `2.1.3`
+Defeating Static Analysis
+
+With the increasing cybersecurity risk of Claude Mythos, the effectiveness of the `Control Flow Flattening` obfuscation has come under question and become inadequate for protection. Several important websites, such as Walmart.com, Target.com, and other Human Security websites rely on this exact mechanism for critical anti-bot and anti-fraud purposes.
+
+As seen in my ["Claude vs. JS-Confuser"](https://github.com/MichaelXF/claude-vs-js-confuser) experiment, Claude Opus 4.8 was able to fully deobfuscate JS-Confuser's Control Flow Flattening in just 4 'simple' prompts. I barely steered the model and got full CFG reconstruction.
+
+Control Flow Flattening is the primary obfuscation technique and all other simpler obfuscations (String Concealing, Variable Masking, Global Concealing) rely on it significantly. Once the CFF layer is peeled, the remaining layers are trivially solvable, typically one-shot-able by mid-tier models.
+
+This update improves `Control Flow Flattening` by introducing a way for you to assert your own runtime values to defeat static solvers.
+Instead of solely relying on open-source predicates, you can now provide your own unique environment assertions to force deobfuscators to *actually execute your code*, instead of just statically solving, raising the cost of solving.
+
+```js
+// Input
+var div = document.createElement("div");
+div.style.width = "100px";
+div.style.padding = "20px";
+div.style.borderBox = "content-box";
+var width = div.offsetWidth; // 100px + 20px*2 = 140px
+
+/* @js-confuser-assert */
+width === 140;
+
+// Compute anti-bot key
+var ts = Date.now();
+var salt = Math.floor(Math.random() * 1000000);
+var modulo1 = (ts - 10000 + salt * 5) % 97;
+var modulo2 = (ts + salt) % 89;
+var modulo3 = (salt + 1500) % 83;
+var antibotKey =
+  ts + "|" + salt + "|" + modulo1 + "|" + modulo2 + "|" + modulo3;
+
+// Output
+function i(i) {
+  var j = i | 0;
+  j = (((j + 0x7ed55d16) | 0) + (j << 12)) | 0;
+  j = j ^ 0xc761c23c ^ (j >>> 19);
+  j = (((j + 0x165667b1) | 0) + (j << 5)) | 0;
+  j = ((j + 0xd3a2646c) | 0) ^ (j << 9);
+  j = (((j + 0xfd7046c5) | 0) + (j << 3)) | 0;
+  j = j ^ 0xb55a4f09 ^ (j >>> 16);
+  return j;
+}
+var j = [
+  406, -98, -670, -771, -802, 951, -594, -856, 368, -391, 151, 851, -889, 409,
+  82, -347, 623, 973, 346, 569, -766, 685, -155, -764, 685, 969, -608, -671, 41,
+  710, -839, -578, -65, 642, 810, 658, -489, 949, -450, -897, 614, -521, 214,
+  331, -409, 232, -430, 125, -475, 864, 606, 472, 511, 992, -252, -171, -9,
+  -590, 142, -696, 455, -441, -610, -840, -422, -347, -846, -698, -161, 499,
+  -140, 997, -965, 186, -541, 705, -219, 98, 562, -677, 527, -421, -80, -336,
+  -989, 888, -510, 473, 977, -761, -556, 692, 687, -696, 97, 212, -9, 737, -246,
+  755, 958, -793, 152, 74, -186, -59, 959, -67, 697, -907, -714, 49, 383, -969,
+  -514, 3, -573, -694, 705, 781,
+];
+function k(j, k) {
+  var l = "",
+    m = ((k % 95) + 95) % 95;
+  for (var n = 0; n < j.length; n++) {
+    var o = j.charCodeAt(n),
+      p = o - 32,
+      q = (p - m + 95) % 95;
+    l += String.fromCharCode(q + 32);
+  }
+  return l;
+}
+function l(j) {
+  for (var k = 0, l = 0; l < j.length; l++) k += j[l];
+  return k;
+}
+function m(i, k) {
+  return j.slice(i, k);
+}
+function n(
+  j,
+  m = {
+    g: {},
+  },
+  n,
+) {
+  while (i(l(j)) !== 821311295)
+    switch (i(l(j))) {
+      case -79941451:
+        m.g.d = Date[k(k('xy"', j[62] + 581), j[j[7] + 902] + 374)]();
+        m.g.e = Math[k(k("HNQQT", j[20] + 986), j[j[0] + -402] + 647)](
+          Math[k(k(",z(})'", j[24] + -606), j[j[55] + 237] + 887)]() * 1000000,
+        );
+        ((j[1] += j[69] - -4),
+          (j[18] += j[44] - -1298),
+          (j[30] += j[53] - 675),
+          (j[31] += j[60] - 1188),
+          (j[36] += j[12] - -867),
+          (j[57] += j[40] - 1539));
+        break;
+      case -1249556209:
+      case -1538018207:
+        m.g.f =
+          (m[k("0", j[23] + 994)][k("a", j[55] + -22)] -
+            (j[j[1] + -343] + 10610) +
+            m[k("o", j[41] + 339)][k("/", j[7] + 612)] *
+              (j[j[54] + 295] + -326)) %
+          (j[j[15] + 382] + -561);
+        m.g.g =
+          (m[k("!", j[64] + 257)][k("k", j[45] + -415)] +
+            m[k(":", j[38] + 310)][k("t", j[46] + 255)]) %
+          (j[26] + 697);
+        ((j[18] += j[28] - -425),
+          (j[28] += j[2] - 88),
+          (j[30] += j[26] - -599),
+          (j[31] += j[61] - -747));
+        break;
+      case -1849695651:
+        ((j[1] += j[6] - -1293),
+          (j[13] += j[2] - -1905),
+          (j[18] += j[71] - 2530),
+          (j[28] += j[12] - -970),
+          (j[30] += j[46] - -48),
+          (j[31] += j[55] - -674),
+          (j[36] += j[3] - -226),
+          (j[57] += j[25] - 966));
+        break;
+      case 1546389785:
+      case -1044229179:
+        m.g.a = document[
+          k(k("N]PL_P0WPXPY_", j[0] + -432), j[j[11] + -787] + 332)
+        ](k(k("JO\\", j[2] + 496), j[62] + 758));
+        m.g.a[k("./4' ", j[7] + 977)][k("7)$4(", j[55] + 202)] = k(
+          'BAA"*',
+          j[69] + -482,
+        );
+        m.g.a[k("TUZMF", j[14] + -303)][k("J;>>CHA", j[19] + -512)] = k(
+          "`^?G",
+          j[21] + -924,
+        );
+        m.g.a[k("@AF92", j[19] + -810)][k("_loabo?lu", j[15] + 154)] = k(
+          "frqwhqw0er{",
+          j[10] + -53,
+        );
+        m.g.b =
+          m[k("o", j[44] + 322)][k("P", j[57] + 573)][
+            k(k("wnn{m|_ql|p", j[56] + -120), j[j[0] + -339] + 835)
+          ];
+        ((j[1] += j[47] - 323),
+          (j[13] += j[59] - -1466),
+          (j[18] += j[63] - 698),
+          (j[28] += j[1] - -682),
+          (j[30] += j[29] - 496),
+          (j[31] += j[49] - 829),
+          (j[36] += j[72] - -710),
+          (j[57] += j[68] - -1534),
+          (j[61] += j[76] - 1203));
+        break;
+      case 450392967:
+        m.g.h =
+          (m[k("8", j[40] + -566)][k("D", j[53] + -1120)] + (j[20] + 2266)) %
+          83;
+        m.g.i =
+          m[k("N", j[39] + 682)][k('"', j[38] + 289)] +
+          k(k("U", j[52] + -397), j[j[59] + 699] + 998) +
+          m[k("Q", j[61] + 229)][k("U", j[34] + -826)] +
+          k(k("Q", j[1] + -247), j[j[1] + -375] + 615) +
+          m[k("F", j[18] + -1174)][k("p", j[36] + 438)] +
+          k(k("e", j[28] + 643), j[j[68] + 197] + 4) +
+          m[k("~", j[42] + -96)][k("F", j[49] + -802)] +
+          k(k("y", j[62] + 760), j[j[53] + -941] + -(j[12] + 1419)) +
+          m[k("`", j[27] + 759)][k("1", j[14] + -137)];
+        ((j[1] += j[63] - 38),
+          (j[13] += j[68] - 1074),
+          (j[18] += j[51] - 1278),
+          (j[28] += j[32] - -863),
+          (j[31] += j[33] - -206),
+          (j[57] += j[69] - -871));
+        break;
+      case -507427576:
+      case 1392002225:
+        ((j[1] += j[16] - -76),
+          (j[13] += j[14] - -1153),
+          (j[18] += j[52] - 2126),
+          (j[28] += j[59] - -563),
+          (j[30] += j[46] - -1836),
+          (j[31] += j[1] - 98),
+          (j[36] += j[4] - -257),
+          (j[57] += j[75] - 702),
+          (j[61] += j[7] - 328));
+        break;
+      case -90173777:
+        m.g.c = m.g.b;
+        ((j[1] += j[36] - (m.g.c - 224)), 
+          (j[18] += j[48] - (m.g.c - 1599)),
+          (j[30] += j[26] - (m.g.c - -658)),
+          (j[31] += j[67] - (m.g.c - 1536)),
+          (j[36] += j[57] - (m.g.c - -76)),
+          (j[57] += j[0] - (m.g.c - -714)));
+        break;
+    }
+}
+n([
+  406,
+  799,
+  ...m(2, 13),
+  -616,
+  ...m(14, 18),
+  625,
+  ...m(19, 28),
+  -1242,
+  710,
+  353,
+  ...m(31, 36),
+  -528,
+  ...m(37, 61),
+  981,
+  ...m(62, 78),
+]);
+```
+
+The significant part is the runtime derived jump:
+```js
+      case -90173777:
+        m.g.c = m.g.b;
+        ((j[1] += j[36] - (m.g.c - 224)), // m.g.c is derived from div.offsetWidth, static solver forced to compute to know jump
+          (j[18] += j[48] - (m.g.c - 1599)),
+          (j[30] += j[26] - (m.g.c - -658)),
+          (j[31] += j[67] - (m.g.c - 1536)),
+          (j[36] += j[57] - (m.g.c - -76)),
+          (j[57] += j[0] - (m.g.c - -714)));
+        break;
+```
+
+Additionally, a hashing function and larger set of state variables are introduced to cause context-window bloating when attempting LLM-assisted deobfuscation. These updates are part of the continued effort to fight LLM-assisted deobfuscation.
+
+- Reduced NPM bundle size with standalone generated `d.ts` types file
+
+
 # `2.1.2`
 Updates
 
