@@ -39,41 +39,47 @@ import {
 // Function deemed unsafe for CFF
 const CFF_UNSAFE = Symbol("CFF_UNSAFE");
 
-/**
- * Robert Jenkins' 32-bit integer hash function.
- *
- * Uses only add / shift / xor (no multiplication, no `Math.imul`) so it runs on
- * legacy engines (IE10) and — crucially — produces byte-for-byte identical
- * results at obfuscation-time (Node, via {@link HashFunction}) and at runtime
- * (the emitted {@link HashFunctionTemplate}). Every step is invertible, so the
- * function is a bijection over int32: distinct state-sums never collide.
- *
- * IMPORTANT: {@link HashFunction} and {@link HashFunctionTemplate} must stay in
- * perfect lockstep — any divergence means no switch case ever matches.
- */
+// For skipping
+const CFF_SKIP = Symbol("CFF_SKIP");
+
 const HashFunctionTemplate = new Template(`
 function {fnName}(int) {
-  var a = int | 0;
-  a = ((a + 0x7ed55d16) | 0) + (a << 12) | 0;
-  a = (a ^ 0xc761c23c) ^ (a >>> 19);
-  a = ((a + 0x165667b1) | 0) + (a << 5) | 0;
-  a = ((a + 0xd3a2646c) | 0) ^ (a << 9);
-  a = ((a + 0xfd7046c5) | 0) + (a << 3) | 0;
-  a = (a ^ 0xb55a4f09) ^ (a >>> 16);
-  return a;
+  var a = (int | 0) ^ 0x9e3779b9, b = 0x243f6a88 | 0, k = 0x6a09e667 | 0;
+  for (var i = 0; i < 19; i++) {
+    a = (a + ((b << 7) ^ (b >>> 3)) + k) | 0;
+    a = (a ^ (a >>> 15)) | 0;
+    a = (a + (a << 11)) | 0;
+    b = (b ^ ((a << 4) + (a >>> 9) + k)) | 0;
+    b = (b + (b << 6)) | 0;
+    b = (b ^ (b >>> 13)) | 0;
+    k = (k + 0x7f4a7c15) | 0;
+  }
+  a = (a ^ b) | 0;
+  a = (a + (a << 3)) | 0;
+  a = (a ^ (a >>> 11)) | 0;
+  a = (a + (a << 15)) | 0;
+  return ((a >>> 7) ^ (a >>> 21) ^ b) & 0xffff;
 }
 `);
 
-// Compile-time mirror of HashFunctionTemplate — keep the expressions identical.
 function HashFunction(int: number): number {
-  var a = int | 0;
-  a = (((a + 0x7ed55d16) | 0) + (a << 12)) | 0;
-  a = a ^ 0xc761c23c ^ (a >>> 19);
-  a = (((a + 0x165667b1) | 0) + (a << 5)) | 0;
-  a = ((a + 0xd3a2646c) | 0) ^ (a << 9);
-  a = (((a + 0xfd7046c5) | 0) + (a << 3)) | 0;
-  a = a ^ 0xb55a4f09 ^ (a >>> 16);
-  return a;
+  var a = (int | 0) ^ 0x9e3779b9,
+    b = 0x243f6a88 | 0,
+    k = 0x6a09e667 | 0;
+  for (var i = 0; i < 19; i++) {
+    a = (a + ((b << 7) ^ (b >>> 3)) + k) | 0;
+    a = (a ^ (a >>> 15)) | 0;
+    a = (a + (a << 11)) | 0;
+    b = (b ^ ((a << 4) + (a >>> 9) + k)) | 0;
+    b = (b + (b << 6)) | 0;
+    b = (b ^ (b >>> 13)) | 0;
+    k = (k + 0x7f4a7c15) | 0;
+  }
+  a = (a ^ b) | 0;
+  a = (a + (a << 3)) | 0;
+  a = (a ^ (a >>> 11)) | 0;
+  a = (a + (a << 15)) | 0;
+  return ((a >>> 7) ^ (a >>> 21) ^ b) & 0xffff;
 }
 
 /**
@@ -113,7 +119,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const mangleStringLiterals = true; // "hi" => xor("fOq", state + X)
 
   const booleanLiteralChance = 100; // 100% for booleans
-  const numericLiteralChance = 75; // 75% for numbers
+  const numericLiteralChance = 50; // 50% for numbers
   const stringLiteralChance = 100; // 100% for strings
 
   const sequenceSizeRange = [100, 125];
@@ -140,6 +146,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   let sliceFnName = me.getPlaceholder() + "_cff_slice";
   let hashFnName = me.getPlaceholder() + "_cff_hash";
 
+  const stringsName = me.getPlaceholder() + "_strings";
+  let stringsValue = "";
+
   const sequence = new Array(
     getRandomInteger(sequenceSizeRange[0], sequenceSizeRange[1]),
   )
@@ -154,11 +163,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     //   if (programOrFunctionPath.find((p) => p.isForStatement() || p.isWhile()))
     //     return;
     // }
-    // var debugName = (programOrFunctionPath?.node as any)?.id?.name;
 
     // Exclude 'CFF_UNSAFE' functions
     if (programOrFunctionPath.node[CFF_UNSAFE]) {
-      // console.log(`Skipping ${debugName} because ${programOrFunctionPath.node[CFF_UNSAFE]}`);
       return;
     }
 
@@ -191,7 +198,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     if (functionPath) {
       // Avoid unsafe functions
       if ((functionPath.node as NodeSymbol)[UNSAFE]) {
-        // console.log(`Skipping ${debugName} because of UNSAFE flag`);
         return;
       }
 
@@ -240,12 +246,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     const prefix = cffPrefix + "_" + cffIndex;
 
     const identifier = (suffix) => {
-      var name;
-      if (isDebug) {
-        name = prefix + "_" + suffix;
-      } else {
-        name = me.obfuscator.nameGen.generate(false);
-      }
+      var name = prefix + "_" + suffix;
 
       var id = t.identifier(name);
       return id;
@@ -317,16 +318,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             newName = "_" + name;
           }
 
-          // console.log(name, newName);
-
           this.nameMap.set(name, newName);
-
           me.changeData.variables++;
-
-          // console.log(
-          //   `Renaming ${name} to ${newName}: ${this.scope.path.type} (scope ${this.propertyName})`,
-          // );
-
+          // console.log( `Renaming ${name} to ${newName}: ${this.scope.path.type} (scope ${this.propertyName})` );
           return newName;
         }
         return this.nameMap.get(name);
@@ -565,23 +559,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Correct state values
           // Start with 90% sequence 10% random numbers
           this.stateValues = stateVars.map((_, i) =>
-            dynamicIndexesSet.has(i) && chance(75)
+            dynamicIndexesSet.has(i)
               ? getRandomInteger(stateValueRange[0], stateValueRange[1])
               : sequence[i],
           );
-
-          // Try to re-use old state values to make diffs smaller
-          if (basicBlocks.size > 1) {
-            const lastBlock = [...basicBlocks.values()].at(-1);
-            this.stateValues = lastBlock.stateValues.map((oldValue, i) => {
-              // Increase chance for re-using old values to make state transitions less drastic
-              return dynamicIndexesSet.has(i)
-                ? chance(50)
-                  ? oldValue
-                  : this.stateValues[i]
-                : sequence[i];
-            });
-          }
 
           // Correct one of the values so that the accumulated sum is equal to the state
           const correctIndex = choice(dynamicIndexes);
@@ -817,6 +798,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   const binding = statement.scope.getBinding(identifierName);
 
                   if (binding) {
+                    // console.log(`Remapped param binding ${identifierName} ${binding.kind} ${binding.identifier?.loc?.start} to var`);
                     binding.kind = "var";
                   }
                 }
@@ -1100,7 +1082,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         BooleanLiteral: {
           exit(boolPath) {
             // Don't mangle booleans in debug mode
-            if (isDebug || !mangleBooleanLiterals || me.isSkipped(boolPath))
+            if (
+              isDebug ||
+              !mangleBooleanLiterals ||
+              boolPath.find((p) => p.node[CFF_SKIP])
+            )
               return;
 
             if (!isWithinSameFunction(boolPath)) return;
@@ -1125,13 +1111,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             ensureComputedExpression(boolPath);
             boolPath.replaceWith(newExpression);
+            newExpression[CFF_SKIP] = cffIndex;
           },
         },
         // Mangle numbers with the state values
         NumericLiteral: {
           exit(numPath) {
             // Don't mangle numbers in debug mode
-            if (isDebug || !mangleNumericalLiterals || me.isSkipped(numPath))
+            if (
+              isDebug ||
+              !mangleNumericalLiterals ||
+              numPath.find((p) => p.node[CFF_SKIP])
+            )
               return;
 
             const num = numPath.node.value;
@@ -1165,13 +1156,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             numPath.replaceWith(diff);
             numPath.skip();
+            diff[CFF_SKIP] = cffIndex;
           },
         },
         // Xor encrypt string literals
         StringLiteral: {
           exit(strPath) {
             // Don't mangle strings in debug mode
-            if (isDebug || !mangleStringLiterals || me.isSkipped(strPath))
+            if (
+              isDebug ||
+              !mangleStringLiterals ||
+              strPath.find((p) => p.node[CFF_SKIP])
+            )
               return;
 
             // Don't accidentally break goto call expressions
@@ -1185,11 +1181,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             }
 
             const str = strPath.node.value;
-            if (str.length > 5000) return;
+            if (str.length > 5000 || str.length < 3) return;
             if (!isWithinSameFunction(strPath)) return;
             if (!chance(stringLiteralChance)) return;
 
-            const num = getRandomInteger(-255, 255); // XOR string encrypt key
+            const num = getRandomInteger(0, 1_000_000); // XOR string encrypt key
 
             const encryptedStr = xorEncodeString(str, num);
             const decryptedStr = xorDecodeString(encryptedStr, num);
@@ -1211,9 +1207,27 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               me.skip(numericLiteral(num - currentStateValues[index])),
             );
 
+            // Random printable-ASCII char used as decoy padding
+            const decoyChar = () =>
+              String.fromCharCode(getRandomInteger(32, 127));
+
+            // Leading decoy
+            for (let p = getRandomInteger(0, 5); p > 0; p--) {
+              stringsValue += decoyChar();
+            }
+
+            const start = stringsValue.length;
+            stringsValue += encryptedStr;
+
+            // Trailing decoy
+            for (let p = getRandomInteger(0, 5); p > 0; p--) {
+              stringsValue += decoyChar();
+            }
+
             const newExpr = t.callExpression(t.identifier(xorFnName), [
-              t.stringLiteral(encryptedStr),
               diff,
+              t.numericLiteral(start),
+              t.numericLiteral(encryptedStr.length),
             ]);
 
             ensureComputedExpression(strPath);
@@ -1731,10 +1745,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     // Reset all bindings here
     blockPath.scope.bindings = Object.create(null);
 
-    // Register new declarations
-    for (var node of blockPath.get("body")) {
-      blockPath.scope.registerDeclaration(node);
-    }
+    blockPath.scope.crawl();
   }
 
   return {
@@ -1790,12 +1801,20 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               function ${sliceFnName}(min, max){
                 return ${sequenceName}["slice"](min, max)
               }
-              `).compile(),
+
+              var {stringsName} = {stringsValue}
+              `).compile({
+                  stringsName: stringsName,
+                  stringsValue: t.stringLiteral(stringsValue),
+                }),
               );
 
               prepend(
                 _path,
-                xorDecodeStringTemplate.compile({ fnName: xorFnName }),
+                xorDecodeStringTemplate.compile({
+                  fnName: xorFnName,
+                  stringsName: stringsName,
+                }),
               );
 
               prepend(

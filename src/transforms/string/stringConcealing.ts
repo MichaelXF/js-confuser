@@ -34,6 +34,17 @@ interface NodeStringConcealing {
   [STRING_CONCEALING]?: StringConcealingInterface;
 }
 
+function getRandomDecoyString(length: number) {
+  var result = "";
+  var characters =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"';
+  var charactersLength = characters.length;
+  for (var i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
+
 export default ({ Plugin }: PluginArg): PluginObject => {
   const me = Plugin(Order.StringConcealing, {
     changeData: {
@@ -43,8 +54,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   });
 
   const blocks: NodePath<t.Block>[] = [];
-  const stringMap = new Map<string, number>();
-  const stringArrayName = me.getPlaceholder() + "_array";
+  const stringMap = new Map<
+    string,
+    {
+      start: number;
+      length: number;
+      index: number;
+    }
+  >();
+  const stringsName = me.getPlaceholder() + "_array";
+  let stringsValue = "";
 
   let encodingImplementations: { [identity: string]: CustomStringEncoding } =
     Object.create(null);
@@ -114,15 +133,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           };
           blocks.push(programPath);
 
-          // Use that encoder function for these fake strings
-          const fakeStringCount = getRandomInteger(75, 125);
-          for (var i = 0; i < fakeStringCount; i++) {
-            const fakeString = getRandomString(getRandomInteger(5, 50));
-            stringMap.set(
-              mainEncodingImplementation.encode(fakeString),
-              stringMap.size,
-            );
-          }
+          // Leading decoy on entire string
+          stringsValue += getRandomDecoyString(getRandomInteger(100, 250));
 
           programPath.traverse({
             StringLiteral: {
@@ -213,11 +225,24 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   }
                 }
 
-                let index = stringMap.get(encodedValue);
+                let stringEntry = stringMap.get(encodedValue);
 
-                if (typeof index === "undefined") {
-                  index = stringMap.size;
-                  stringMap.set(encodedValue, index);
+                if (typeof stringEntry === "undefined") {
+                  // Leading decoy
+                  stringsValue += getRandomDecoyString(getRandomInteger(0, 5));
+
+                  let start = stringsValue.length;
+                  stringsValue += encodedValue;
+
+                  // Trailing decoy
+                  stringsValue += getRandomDecoyString(getRandomInteger(0, 5));
+
+                  stringEntry = {
+                    start: start,
+                    length: encodedValue.length,
+                    index: stringMap.size,
+                  };
+                  stringMap.set(encodedValue, stringEntry);
                 }
 
                 me.changeData.strings++;
@@ -229,7 +254,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 path.replaceWith(
                   t.callExpression(
                     t.identifier(stringConcealingInterface.fnName),
-                    [numericLiteral(index)],
+                    [
+                      numericLiteral(stringEntry.start),
+                      numericLiteral(stringEntry.length),
+                    ],
                   ),
                 );
 
@@ -238,6 +266,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               },
             },
           });
+
+          // Trailing decoy on entire string
+          stringsValue += getRandomString(getRandomInteger(100, 250));
 
           const bufferToStringName = me.getPlaceholder() + "_bufferToString";
           const getGlobalFnName = me.getPlaceholder() + "_getGlobal";
@@ -253,14 +284,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           // Create the string array
           prependProgram(
             programPath,
-            t.variableDeclaration("var", [
-              t.variableDeclarator(
-                t.identifier(stringArrayName),
-                t.arrayExpression(
-                  Array.from(stringMap.keys()).map((x) => t.stringLiteral(x)),
-                ),
-              ),
-            ]),
+            new Template(`var {stringsName} = {stringsValue};`).single({
+              stringsName,
+              stringsValue: t.stringLiteral(stringsValue),
+            }),
           );
 
           for (var block of blocks) {
@@ -282,8 +309,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             // The main function to get the string value
             const retrieveFunctionDeclaration = new Template(`
-              function ${fnName}(index) {
-                return ${decodeFnName}(${stringArrayName}[index]);
+              function ${fnName}(start, length) {
+                return ${decodeFnName}(${stringsName}["slice"](start, start+length));
               }
             `)
               .addSymbols(NO_REMOVE)
