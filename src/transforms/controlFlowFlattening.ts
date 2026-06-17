@@ -39,7 +39,7 @@ import {
 // Function deemed unsafe for CFF
 const CFF_UNSAFE = Symbol("CFF_UNSAFE");
 
-// For skipping
+// For skipping literals
 const CFF_SKIP = Symbol("CFF_SKIP");
 
 const HashFunctionTemplate = new Template(`
@@ -58,7 +58,10 @@ function {fnName}(int) {
   a = (a + (a << 3)) | 0;
   a = (a ^ (a >>> 11)) | 0;
   a = (a + (a << 15)) | 0;
-  return ((a >>> 7) ^ (a >>> 21) ^ b) & 0xffff;
+  b = (b ^ (b >>> 13)) | 0;
+  b = (b + (b << 7)) | 0;
+  b = (b ^ (b >>> 17)) | 0;
+  return (a >>> 0) * 0x100000 + (b >>> 12);
 }
 `);
 
@@ -79,7 +82,10 @@ function HashFunction(int: number): number {
   a = (a + (a << 3)) | 0;
   a = (a ^ (a >>> 11)) | 0;
   a = (a + (a << 15)) | 0;
-  return ((a >>> 7) ^ (a >>> 21) ^ b) & 0xffff;
+  b = (b ^ (b >>> 13)) | 0;
+  b = (b + (b << 7)) | 0;
+  b = (b ^ (b >>> 17)) | 0;
+  return (a >>> 0) * 0x100000 + (b >>> 12);
 }
 
 /**
@@ -113,6 +119,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const addRelativeAssignments = true; // state += (NEW_STATE - CURRENT_STATE)
   const addDeadCode = true; // add fakes chunks of code
   const addFakeTests = true; // case 100: case 490: case 510: ...
+  const addComplexTests = true; // case s != 49 && s - 10:
   const addAssertions = true; // use @js-confuser-assert values?
   const mangleNumericalLiterals = true; // 50 => state + X
   const mangleBooleanLiterals = true; // true => state == X
@@ -293,7 +300,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     const basicBlocks = new Map<string, BasicBlock>();
 
     // Map labels to states
-    const stateIntGen = new IntGen();
+    const stateIntGen = new IntGen(stateValueRange[0], stateValueRange[1]);
 
     const defaultBlockPath = blockPath;
 
@@ -425,8 +432,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
     const scopeToScopeManager = new Map<Scope, ScopeManager>();
 
-    const hashesUsed = new Set<number>();
-
     /**
      * A Basic Block is a sequence of instructions with no diversion except at the entry and exit points.
      */
@@ -436,8 +441,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
       // User-provided variables of their own runtime values with guaranteed value
       assertions?: { [varName: string]: number };
-
-      hash: number;
 
       private createPath() {
         const newPath = NodePath.get<t.BlockStatement, any>({
@@ -547,45 +550,33 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       ) {
         this.createPath();
 
-        let counter = 0;
-        do {
-          if (isDebug && counter === 0) {
-            // States in debug mode are just 1, 2, 3, ...
-            this.totalState = basicBlocks.size + 1;
-          } else {
-            this.totalState = stateIntGen.generate();
-          }
+        if (isDebug) {
+          // States in debug mode are just 1, 2, 3, ...
+          this.totalState = basicBlocks.size + 1;
+        } else {
+          this.totalState = stateIntGen.generate();
+        }
 
-          // Correct state values
-          // Start with 90% sequence 10% random numbers
-          this.stateValues = stateVars.map((_, i) =>
-            dynamicIndexesSet.has(i)
-              ? getRandomInteger(stateValueRange[0], stateValueRange[1])
-              : sequence[i],
-          );
+        // Correct state values
+        // Start with 90% sequence 10% random numbers
+        this.stateValues = stateVars.map((_, i) =>
+          dynamicIndexesSet.has(i)
+            ? getRandomInteger(stateValueRange[0], stateValueRange[1])
+            : sequence[i],
+        );
 
-          // Correct one of the values so that the accumulated sum is equal to the state
-          const correctIndex = choice(dynamicIndexes);
+        // Correct one of the values so that the accumulated sum is equal to the state
+        const correctIndex = choice(dynamicIndexes);
 
-          const getCurrentState = () =>
-            this.stateValues.reduce((a, b) => a + b, 0);
+        const getCurrentState = () =>
+          this.stateValues.reduce((a, b) => a + b, 0);
 
-          // Correct the value
-          this.stateValues[correctIndex] =
-            this.totalState -
-            (getCurrentState() - this.stateValues[correctIndex]);
+        // Correct the value
+        this.stateValues[correctIndex] =
+          this.totalState -
+          (getCurrentState() - this.stateValues[correctIndex]);
 
-          ok(getCurrentState() === this.totalState);
-
-          this.hash = HashFunction(this.totalState);
-          if (counter++ > 1000)
-            throw me.error(
-              "Failed to generate unique state after many iterations",
-            );
-        } while (hashesUsed.has(this.hash));
-
-        // Reserve this hash so no other block can reuse it as a switch-case test
-        hashesUsed.add(this.hash);
+        ok(getCurrentState() === this.totalState);
 
         // Store basic block
         basicBlocks.set(label, this);
@@ -915,10 +906,17 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           let userVar = me.getPlaceholder();
           let userExpr = expr.left as t.Expression;
 
+          let salt = getRandomInteger(1_000_000, 1_000_000_000);
+          let hashedValue = HashFunction(salt + rightValue);
+
           currentBasicBlock.body.push(
-            new Template(`var {userVar} = {userExpr}`).single({
+            new Template(
+              `var {userVar} = {hashFnName}({salt} + {userExpr})`,
+            ).single({
               userVar,
               userExpr,
+              hashFnName: hashFnName,
+              salt: salt,
             }),
           );
 
@@ -933,7 +931,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           });
 
           currentBasicBlock.assertions = {
-            [userVar]: rightValue,
+            [userVar]: hashedValue,
           };
           continue;
         }
@@ -956,7 +954,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
     if (!isDebug && addDeadCode) {
       // DEAD CODE 1/3: Add fake chunks that are never reached
-      const fakeChunkCount = getRandomInteger(1, 5);
+      const fakeChunkCount = getRandomInteger(2, 6);
       for (let i = 0; i < fakeChunkCount; i++) {
         // These chunks just jump somewhere random, they are never executed
         // so it could contain any code
@@ -974,26 +972,43 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
       // DEAD CODE 2/3: Add fake jumps to really mess with deobfuscators
       // "irreducible control flow"
-      basicBlocks.forEach((basicBlock) => {
-        if (chance(30 - basicBlocks.size)) {
-          let randomLabel = choice(Array.from(basicBlocks.keys()));
+      let addFakeJumpsCount = getRandomInteger(3, 6);
+      for (let i = 0; i < addFakeJumpsCount; i++) {
+        const basicBlock = choice(Array.from(basicBlocks.values()));
+        if (!basicBlock) continue;
 
-          basicBlock.insertAfter(
-            new Template(`
+        let randomLabel = choice(Array.from(basicBlocks.keys()));
+
+        // Smartly find index BEFORE current jumps so that Minify doesn't remove them
+        let insertIndex = basicBlock.body.findIndex(
+          (p) =>
+            p.type === "ExpressionStatement" &&
+            p.expression.type === "CallExpression" &&
+            p.expression.callee.type === "Identifier" &&
+            p.expression.callee.name === gotoFunctionName,
+        );
+        if (insertIndex === -1) {
+          insertIndex = basicBlock.body.length;
+        }
+
+        basicBlock.body.splice(
+          insertIndex,
+          0,
+          new Template(`
                     if({predicate}){
                       {goto}
                     }
                     `).single({
-              goto: GotoControlStatement(randomLabel),
-              predicate: basicBlock.createFalsePredicate(),
-            }),
-          );
+            goto: GotoControlStatement(randomLabel),
+            predicate: basicBlock.createFalsePredicate(),
+          }),
+        );
 
-          me.changeData.deadCode++;
-        }
-      });
+        me.changeData.deadCode++;
+      }
+
       // DEAD CODE 3/3: Clone chunks but these chunks are never ran
-      const cloneChunkCount = getRandomInteger(1, 5);
+      const cloneChunkCount = getRandomInteger(1, 4);
       for (let i = 0; i < cloneChunkCount; i++) {
         let randomChunk = choice(Array.from(basicBlocks.values()));
 
@@ -1384,19 +1399,24 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     if (!hasAssertions) return numericLiteral(value);
 
                     let assertedValue = jumpBlock.assertions[userVar];
+                    let salt = getRandomInteger(1_000_000, 1_000_000_000);
+                    let hashedValue = HashFunction(salt + assertedValue);
 
                     const stateVarId =
                       jumpBlock.scopeManager.getMemberExpression(
                         jumpBlock.scopeManager.getNewName(userVar),
                       );
-                    const stateVarValue = assertedValue;
+                    const stateVarValue = hashedValue;
                     const diff = stateVarValue - value;
 
-                    return t.binaryExpression(
-                      "-",
-                      stateVarId,
-                      numericLiteral(diff),
-                    );
+                    return new Template(
+                      `{hashFnName}({salt} + {stateVarId}) - {diff}`,
+                    ).expression({
+                      hashFnName: hashFnName,
+                      stateVarId: stateVarId,
+                      salt: salt,
+                      diff: diff,
+                    });
                   }
 
                   assignment = t.assignmentExpression(
@@ -1476,7 +1496,69 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         continue;
       }
 
-      let test: t.Expression = numericLiteral(block.hash);
+      let test: t.Expression = numericLiteral(block.totalState);
+
+      if (!isDebug && addComplexTests && chance(50)) {
+        // Create complex test expressions for each switch case
+
+        // case STATE+X:
+        let stateVarIndex = getRandomInteger(0, stateVars.length);
+
+        let stateValues = block.stateValues;
+        let difference = stateValues[stateVarIndex] - block.totalState;
+
+        let conditionNodes: t.Expression[] = [];
+        let alreadyConditionedItems = new Set<string>();
+
+        // This code finds clash conditions and adds them to 'conditionNodes' array
+        Array.from(basicBlocks.keys()).forEach((label) => {
+          if (label !== block.label) {
+            let labelStates = basicBlocks.get(label).stateValues;
+            let totalState = labelStates.reduce((a, b) => a + b, 0);
+
+            if (totalState === labelStates[stateVarIndex] - difference) {
+              let differentIndex = labelStates.findIndex(
+                (v, i) => v !== stateValues[i],
+              );
+              if (differentIndex !== -1) {
+                let expressionAsString =
+                  differentIndex + "!=" + labelStates[differentIndex];
+                if (!alreadyConditionedItems.has(expressionAsString)) {
+                  alreadyConditionedItems.add(expressionAsString);
+
+                  conditionNodes.push(
+                    t.binaryExpression(
+                      "!=",
+                      deepClone(stateVars[differentIndex]),
+                      numericLiteral(labelStates[differentIndex]),
+                    ),
+                  );
+                }
+              } else {
+                conditionNodes.push(
+                  t.binaryExpression(
+                    "!=",
+                    deepClone(discriminant),
+                    numericLiteral(totalState),
+                  ),
+                );
+              }
+            }
+          }
+        });
+
+        // case STATE!=Y && STATE+X
+        test = t.binaryExpression(
+          "-",
+          deepClone(stateVars[stateVarIndex]),
+          numericLiteral(difference),
+        );
+
+        // Use the 'conditionNodes' to not cause state clashing issues
+        conditionNodes.forEach((conditionNode) => {
+          test = t.logicalExpression("&&", conditionNode, test);
+        });
+      }
 
       const tests = [test];
 
@@ -1484,17 +1566,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         // Add fake tests
         let fakeTestCount = getRandomInteger(1, 3);
         for (let i = 0; i < fakeTestCount; i++) {
-          let hash: number;
-          let counter = 0;
-          do {
-            counter++;
-            hash = HashFunction(stateIntGen.generate());
-            if (counter > 1000)
-              me.error(
-                "Failed to generate unique number after many iterations",
-              );
-          } while (hashesUsed.has(hash));
-          tests.push(numericLiteral(hash));
+          tests.push(numericLiteral(stateIntGen.generate()));
         }
 
         shuffle(tests);
@@ -1524,7 +1596,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     needsSumFunction = true;
 
     const discriminant = new Template(`
-      ${hashFnName}( ${sumFnName}({statesVar}) )
+      ${sumFnName}({statesVar})
     `).expression<t.Expression>({ statesVar: deepClone(statesVar) });
 
     traverse(t.program([t.expressionStatement(discriminant)]), {
@@ -1546,13 +1618,13 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     );
 
     const startStateValues = basicBlocks.get(startLabel).stateValues;
-    const endHash = basicBlocks.get(endLabel).hash;
+    const endTotalState = basicBlocks.get(endLabel).totalState;
 
     const whileStatement = t.whileStatement(
       t.binaryExpression(
         "!==",
         deepClone(discriminant),
-        numericLiteral(endHash),
+        numericLiteral(endTotalState),
       ),
       t.inherits(
         t.blockStatement([switchStatement]),
@@ -1801,12 +1873,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               function ${sliceFnName}(min, max){
                 return ${sequenceName}["slice"](min, max)
               }
-
-              var {stringsName} = {stringsValue}
-              `).compile({
-                  stringsName: stringsName,
-                  stringsValue: t.stringLiteral(stringsValue),
-                }),
+              `).compile(),
               );
 
               prepend(
@@ -1819,11 +1886,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
               prepend(
                 _path,
-                new Template(`var {sequenceName} = {arrayExpression}`).compile({
+                new Template(
+                  `var {sequenceName} = {arrayExpression}, {stringsName} = {stringsValue}`,
+                ).compile({
                   sequenceName: sequenceName,
                   arrayExpression: t.arrayExpression(
                     sequence.map((v) => numericLiteral(v)),
                   ),
+
+                  stringsName: stringsName,
+                  stringsValue: t.stringLiteral(stringsValue),
                 }),
               );
 

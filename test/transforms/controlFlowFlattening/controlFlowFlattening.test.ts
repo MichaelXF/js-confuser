@@ -1653,3 +1653,40 @@ test("Variant #44: Don't break function constructors within flattened functions"
   eval(code);
   expect(TEST_OUTPUT).toStrictEqual(1);
 });
+
+test("Variant #45: /* @js-confuser-assert */ comment syntax", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+var secretNum = parseInt(atob("MHg0MDIw"));
+
+/* @js-confuser-assert */
+secretNum === 16416;
+
+// Compute anti-bot key
+var ts = 1781732381489;
+var salt = 626003;
+var modulo1 = (ts - 10000 + salt * 5) % 97;
+var modulo2 = (ts + salt) % 89;
+var modulo3 = (salt + 1500) % 83;
+var challengeKey =
+  ts + "|" + salt + "|" + modulo1 + "|" + modulo2 + "|" + modulo3;
+
+TEST_OUTPUT = challengeKey;
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+      identifierGenerator: "mangled",
+      renameVariables: true,
+    },
+  );
+
+  // Ensure CFF applied
+  expect(code).toContain("while");
+
+  // Ensure program still works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual("1781732381489|626003|0|26|23");
+});
