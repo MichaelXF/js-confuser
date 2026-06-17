@@ -39,6 +39,55 @@ import {
 // Function deemed unsafe for CFF
 const CFF_UNSAFE = Symbol("CFF_UNSAFE");
 
+// For skipping literals
+const CFF_SKIP = Symbol("CFF_SKIP");
+
+const HashFunctionTemplate = new Template(`
+function {fnName}(int) {
+  var a = (int | 0) ^ 0x9e3779b9, b = 0x243f6a88 | 0, k = 0x6a09e667 | 0;
+  for (var i = 0; i < 19; i++) {
+    a = (a + ((b << 7) ^ (b >>> 3)) + k) | 0;
+    a = (a ^ (a >>> 15)) | 0;
+    a = (a + (a << 11)) | 0;
+    b = (b ^ ((a << 4) + (a >>> 9) + k)) | 0;
+    b = (b + (b << 6)) | 0;
+    b = (b ^ (b >>> 13)) | 0;
+    k = (k + 0x7f4a7c15) | 0;
+  }
+  a = (a ^ b) | 0;
+  a = (a + (a << 3)) | 0;
+  a = (a ^ (a >>> 11)) | 0;
+  a = (a + (a << 15)) | 0;
+  b = (b ^ (b >>> 13)) | 0;
+  b = (b + (b << 7)) | 0;
+  b = (b ^ (b >>> 17)) | 0;
+  return (a >>> 0) * 0x100000 + (b >>> 12);
+}
+`);
+
+function HashFunction(int: number): number {
+  var a = (int | 0) ^ 0x9e3779b9,
+    b = 0x243f6a88 | 0,
+    k = 0x6a09e667 | 0;
+  for (var i = 0; i < 19; i++) {
+    a = (a + ((b << 7) ^ (b >>> 3)) + k) | 0;
+    a = (a ^ (a >>> 15)) | 0;
+    a = (a + (a << 11)) | 0;
+    b = (b ^ ((a << 4) + (a >>> 9) + k)) | 0;
+    b = (b + (b << 6)) | 0;
+    b = (b ^ (b >>> 13)) | 0;
+    k = (k + 0x7f4a7c15) | 0;
+  }
+  a = (a ^ b) | 0;
+  a = (a + (a << 3)) | 0;
+  a = (a ^ (a >>> 11)) | 0;
+  a = (a + (a << 15)) | 0;
+  b = (b ^ (b >>> 13)) | 0;
+  b = (b + (b << 7)) | 0;
+  b = (b ^ (b >>> 17)) | 0;
+  return (a >>> 0) * 0x100000 + (b >>> 12);
+}
+
 /**
  * Breaks functions into DAGs (Directed Acyclic Graphs)
  *
@@ -71,12 +120,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   const addDeadCode = true; // add fakes chunks of code
   const addFakeTests = true; // case 100: case 490: case 510: ...
   const addComplexTests = true; // case s != 49 && s - 10:
-  const addPredicateTests = true; // case scope.A + 10: ...
+  const addAssertions = true; // use @js-confuser-assert values?
   const mangleNumericalLiterals = true; // 50 => state + X
   const mangleBooleanLiterals = true; // true => state == X
   const mangleStringLiterals = true; // "hi" => xor("fOq", state + X)
 
-  const stateVarsRange = [3, 10];
+  const booleanLiteralChance = 100; // 100% for booleans
+  const numericLiteralChance = 50; // 50% for numbers
+  const stringLiteralChance = 100; // 100% for strings
+
+  const sequenceSizeRange = [100, 125];
+  const stateVarsRange = [75, 100];
+  const stateValueRange = [-999, 999];
 
   const cffPrefix = me.getPlaceholder();
 
@@ -94,6 +149,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
   let needsSumFunction = false;
   let sumFnName = me.getPlaceholder() + "_cff_sum";
   let xorFnName = me.getPlaceholder() + "_cff_xor";
+  let sequenceName = me.getPlaceholder() + "_cff_sequence";
+  let sliceFnName = me.getPlaceholder() + "_cff_slice";
+  let hashFnName = me.getPlaceholder() + "_cff_hash";
+
+  const stringsName = me.getPlaceholder() + "_strings";
+  let stringsValue = "";
+
+  const sequence = new Array(
+    getRandomInteger(sequenceSizeRange[0], sequenceSizeRange[1]),
+  )
+    .fill(0)
+    .map((_) => getRandomInteger(stateValueRange[0], stateValueRange[1]));
 
   function cffMain(_path: NodePath) {
     let programOrFunctionPath = _path as NodePath<t.Program | t.Function>;
@@ -103,11 +170,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     //   if (programOrFunctionPath.find((p) => p.isForStatement() || p.isWhile()))
     //     return;
     // }
-    // var debugName = (programOrFunctionPath?.node as any)?.id?.name;
 
     // Exclude 'CFF_UNSAFE' functions
     if (programOrFunctionPath.node[CFF_UNSAFE]) {
-      // console.log(`Skipping ${debugName} because ${programOrFunctionPath.node[CFF_UNSAFE]}`);
       return;
     }
 
@@ -140,7 +205,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     if (functionPath) {
       // Avoid unsafe functions
       if ((functionPath.node as NodeSymbol)[UNSAFE]) {
-        // console.log(`Skipping ${debugName} because of UNSAFE flag`);
         return;
       }
 
@@ -189,12 +253,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     const prefix = cffPrefix + "_" + cffIndex;
 
     const identifier = (suffix) => {
-      var name;
-      if (isDebug) {
-        name = prefix + "_" + suffix;
-      } else {
-        name = me.obfuscator.nameGen.generate(false);
-      }
+      var name = prefix + "_" + suffix;
 
       var id = t.identifier(name);
       return id;
@@ -216,6 +275,23 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         t.memberExpression(deepClone(statesVar), t.numericLiteral(i), true),
       );
 
+    const dynamicIndexes = [];
+    const dynamicIndexesSet = new Set<number>();
+    const dynamicIndexesAmount = getRandomInteger(8, 12);
+    for (
+      var i = 0;
+      i < dynamicIndexesAmount && dynamicIndexesSet.size < stateVars.length;
+      i++
+    ) {
+      let proposed;
+      do {
+        proposed = getRandomInteger(0, stateVars.length);
+      } while (dynamicIndexesSet.has(proposed));
+
+      dynamicIndexes.push(proposed);
+      dynamicIndexesSet.add(proposed);
+    }
+
     const argVar = identifier("_arg");
     let usedArgVar = false;
 
@@ -224,7 +300,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     const basicBlocks = new Map<string, BasicBlock>();
 
     // Map labels to states
-    const stateIntGen = new IntGen();
+    const stateIntGen = new IntGen(stateValueRange[0], stateValueRange[1]);
 
     const defaultBlockPath = blockPath;
 
@@ -249,16 +325,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             newName = "_" + name;
           }
 
-          // console.log(name, newName);
-
           this.nameMap.set(name, newName);
-
           me.changeData.variables++;
-
-          // console.log(
-          //   `Renaming ${name} to ${newName}: ${this.scope.path.type} (scope ${this.propertyName})`,
-          // );
-
+          // console.log( `Renaming ${name} to ${newName}: ${this.scope.path.type} (scope ${this.propertyName})` );
           return newName;
         }
         return this.nameMap.get(name);
@@ -362,12 +431,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     };
 
     const scopeToScopeManager = new Map<Scope, ScopeManager>();
+
     /**
      * A Basic Block is a sequence of instructions with no diversion except at the entry and exit points.
      */
     class BasicBlock {
       totalState: number;
       stateValues: number[];
+
+      // User-provided variables of their own runtime values with guaranteed value
+      assertions?: { [varName: string]: number };
 
       private createPath() {
         const newPath = NodePath.get<t.BlockStatement, any>({
@@ -427,7 +500,10 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       createPredicate() {
         var stateVarIndex = getRandomInteger(0, stateVars.length);
         var stateValue = this.stateValues[stateVarIndex];
-        var compareValue = choice([stateValue, getRandomInteger(-250, 250)]);
+        var compareValue = choice([
+          stateValue,
+          getRandomInteger(stateValueRange[0], stateValueRange[1]),
+        ]);
 
         var operator: t.BinaryExpression["operator"] = choice([
           "==",
@@ -482,20 +558,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         }
 
         // Correct state values
-        // Start with random numbers
-        this.stateValues = stateVars.map(() => getRandomInteger(-250, 250));
-
-        // Try to re-use old state values to make diffs smaller
-        if (basicBlocks.size > 1) {
-          const lastBlock = [...basicBlocks.values()].at(-1);
-          this.stateValues = lastBlock.stateValues.map((oldValue, i) => {
-            // Increase chance for re-using old values to make state transitions less drastic
-            return chance(90) ? oldValue : this.stateValues[i];
-          });
-        }
+        // Start with 90% sequence 10% random numbers
+        this.stateValues = stateVars.map((_, i) =>
+          dynamicIndexesSet.has(i)
+            ? getRandomInteger(stateValueRange[0], stateValueRange[1])
+            : sequence[i],
+        );
 
         // Correct one of the values so that the accumulated sum is equal to the state
-        const correctIndex = getRandomInteger(0, this.stateValues.length);
+        const correctIndex = choice(dynamicIndexes);
 
         const getCurrentState = () =>
           this.stateValues.reduce((a, b) => a + b, 0);
@@ -718,6 +789,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   const binding = statement.scope.getBinding(identifierName);
 
                   if (binding) {
+                    // console.log(`Remapped param binding ${identifierName} ${binding.kind} ${binding.identifier?.loc?.start} to var`);
                     binding.kind = "var";
                   }
                 }
@@ -810,6 +882,60 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           });
         }
 
+        if (
+          addAssertions &&
+          statement.node.type === "ExpressionStatement" &&
+          statement.node.leadingComments?.some((comment) =>
+            comment.value.includes("@js-confuser-assert"),
+          )
+        ) {
+          let expr = statement.node.expression;
+          ok(
+            expr.type === "BinaryExpression" &&
+              ["==", "==="].includes(expr.operator),
+            "Must be == or === for js-confuser-assert",
+          );
+
+          let rightValue = parseInt(
+            me.obfuscator.generateCode(expr.right).code,
+          );
+          ok(
+            typeof rightValue === "number" && !Number.isNaN(rightValue),
+            "right value must be number for js-confuser-assert",
+          );
+          let userVar = me.getPlaceholder();
+          let userExpr = expr.left as t.Expression;
+
+          let salt = getRandomInteger(1_000_000, 1_000_000_000);
+          let hashedValue = HashFunction(salt + rightValue);
+
+          currentBasicBlock.body.push(
+            new Template(
+              `var {userVar} = {hashFnName}({salt} + {userExpr})`,
+            ).single({
+              userVar,
+              userExpr,
+              hashFnName: hashFnName,
+              salt: salt,
+            }),
+          );
+
+          currentBasicBlock.scope.push({
+            id: t.identifier(userVar),
+            init: userExpr,
+            kind: "var",
+          });
+
+          endCurrentBasicBlock({
+            nextBlockPath: nextBlockPath,
+          });
+
+          currentBasicBlock.assertions = {
+            [userVar]: hashedValue,
+          };
+          continue;
+        }
+
         // console.log(currentBasicBlock.thisPath.type);
         // console.log(currentBasicBlock.body);
         currentBasicBlock.body.push(statement.node);
@@ -828,7 +954,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
     if (!isDebug && addDeadCode) {
       // DEAD CODE 1/3: Add fake chunks that are never reached
-      const fakeChunkCount = getRandomInteger(1, 5);
+      const fakeChunkCount = getRandomInteger(2, 6);
       for (let i = 0; i < fakeChunkCount; i++) {
         // These chunks just jump somewhere random, they are never executed
         // so it could contain any code
@@ -846,26 +972,43 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
       // DEAD CODE 2/3: Add fake jumps to really mess with deobfuscators
       // "irreducible control flow"
-      basicBlocks.forEach((basicBlock) => {
-        if (chance(30 - basicBlocks.size)) {
-          let randomLabel = choice(Array.from(basicBlocks.keys()));
+      let addFakeJumpsCount = getRandomInteger(3, 6);
+      for (let i = 0; i < addFakeJumpsCount; i++) {
+        const basicBlock = choice(Array.from(basicBlocks.values()));
+        if (!basicBlock) continue;
 
-          basicBlock.insertAfter(
-            new Template(`
+        let randomLabel = choice(Array.from(basicBlocks.keys()));
+
+        // Smartly find index BEFORE current jumps so that Minify doesn't remove them
+        let insertIndex = basicBlock.body.findIndex(
+          (p) =>
+            p.type === "ExpressionStatement" &&
+            p.expression.type === "CallExpression" &&
+            p.expression.callee.type === "Identifier" &&
+            p.expression.callee.name === gotoFunctionName,
+        );
+        if (insertIndex === -1) {
+          insertIndex = basicBlock.body.length;
+        }
+
+        basicBlock.body.splice(
+          insertIndex,
+          0,
+          new Template(`
                     if({predicate}){
                       {goto}
                     }
                     `).single({
-              goto: GotoControlStatement(randomLabel),
-              predicate: basicBlock.createFalsePredicate(),
-            }),
-          );
+            goto: GotoControlStatement(randomLabel),
+            predicate: basicBlock.createFalsePredicate(),
+          }),
+        );
 
-          me.changeData.deadCode++;
-        }
-      });
+        me.changeData.deadCode++;
+      }
+
       // DEAD CODE 3/3: Clone chunks but these chunks are never ran
-      const cloneChunkCount = getRandomInteger(1, 5);
+      const cloneChunkCount = getRandomInteger(1, 4);
       for (let i = 0; i < cloneChunkCount; i++) {
         let randomChunk = choice(Array.from(basicBlocks.values()));
 
@@ -954,10 +1097,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         BooleanLiteral: {
           exit(boolPath) {
             // Don't mangle booleans in debug mode
-            if (isDebug || !mangleBooleanLiterals || me.isSkipped(boolPath))
+            if (
+              isDebug ||
+              !mangleBooleanLiterals ||
+              boolPath.find((p) => p.node[CFF_SKIP])
+            )
               return;
 
             if (!isWithinSameFunction(boolPath)) return;
+            if (!chance(booleanLiteralChance)) return;
             mangledLiteralsCreated++;
 
             const index = getRandomInteger(0, stateVars.length - 1);
@@ -965,7 +1113,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             const stateVarValue = currentStateValues[index];
 
             const compareValue = choice([
-              getRandomInteger(-250, 250),
+              getRandomInteger(stateValueRange[0], stateValueRange[1]),
               stateVarValue,
             ]);
             const compareResult = stateVarValue === compareValue;
@@ -978,13 +1126,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             ensureComputedExpression(boolPath);
             boolPath.replaceWith(newExpression);
+            newExpression[CFF_SKIP] = cffIndex;
           },
         },
         // Mangle numbers with the state values
         NumericLiteral: {
           exit(numPath) {
             // Don't mangle numbers in debug mode
-            if (isDebug || !mangleNumericalLiterals || me.isSkipped(numPath))
+            if (
+              isDebug ||
+              !mangleNumericalLiterals ||
+              numPath.find((p) => p.node[CFF_SKIP])
+            )
               return;
 
             const num = numPath.node.value;
@@ -997,7 +1150,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               return;
 
             if (!isWithinSameFunction(numPath)) return;
-            if (chance(50)) return;
+            if (!chance(numericLiteralChance)) return;
 
             mangledLiteralsCreated++;
 
@@ -1018,13 +1171,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
             numPath.replaceWith(diff);
             numPath.skip();
+            diff[CFF_SKIP] = cffIndex;
           },
         },
         // Xor encrypt string literals
         StringLiteral: {
           exit(strPath) {
             // Don't mangle strings in debug mode
-            if (isDebug || !mangleStringLiterals || me.isSkipped(strPath))
+            if (
+              isDebug ||
+              !mangleStringLiterals ||
+              strPath.find((p) => p.node[CFF_SKIP])
+            )
               return;
 
             // Don't accidentally break goto call expressions
@@ -1038,11 +1196,11 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             }
 
             const str = strPath.node.value;
-            if (str.length > 5000) return;
+            if (str.length > 5000 || str.length < 3) return;
             if (!isWithinSameFunction(strPath)) return;
-            if (chance(50)) return;
+            if (!chance(stringLiteralChance)) return;
 
-            const num = getRandomInteger(-255, 255); // XOR string encrypt key
+            const num = getRandomInteger(0, 1_000_000); // XOR string encrypt key
 
             const encryptedStr = xorEncodeString(str, num);
             const decryptedStr = xorDecodeString(encryptedStr, num);
@@ -1064,9 +1222,27 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               me.skip(numericLiteral(num - currentStateValues[index])),
             );
 
+            // Random printable-ASCII char used as decoy padding
+            const decoyChar = () =>
+              String.fromCharCode(getRandomInteger(32, 127));
+
+            // Leading decoy
+            for (let p = getRandomInteger(0, 5); p > 0; p--) {
+              stringsValue += decoyChar();
+            }
+
+            const start = stringsValue.length;
+            stringsValue += encryptedStr;
+
+            // Trailing decoy
+            for (let p = getRandomInteger(0, 5); p > 0; p--) {
+              stringsValue += decoyChar();
+            }
+
             const newExpr = t.callExpression(t.identifier(xorFnName), [
-              t.stringLiteral(encryptedStr),
               diff,
+              t.numericLiteral(start),
+              t.numericLiteral(encryptedStr.length),
             ]);
 
             ensureComputedExpression(strPath);
@@ -1177,6 +1353,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
               let mutatingStateValues = [...currentStateValues];
 
+              let hasAssertions =
+                Object.keys(jumpBlock.assertions || {}).length > 0;
+
               for (let i = 0; i < stateVars.length; i++) {
                 const oldValue = currentStateValues[i];
                 const newValue = newStateValues[i];
@@ -1209,8 +1388,35 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                     return t.binaryExpression(
                       "-",
                       deepClone(stateVarId),
-                      numericLiteral(diff),
+                      hasAssertions
+                        ? mangledAssertion(diff)
+                        : numericLiteral(diff),
                     );
+                  }
+
+                  function mangledAssertion(value: number) {
+                    let userVar = choice(Object.keys(jumpBlock.assertions));
+                    if (!hasAssertions) return numericLiteral(value);
+
+                    let assertedValue = jumpBlock.assertions[userVar];
+                    let salt = getRandomInteger(1_000_000, 1_000_000_000);
+                    let hashedValue = HashFunction(salt + assertedValue);
+
+                    const stateVarId =
+                      jumpBlock.scopeManager.getMemberExpression(
+                        jumpBlock.scopeManager.getNewName(userVar),
+                      );
+                    const stateVarValue = hashedValue;
+                    const diff = stateVarValue - value;
+
+                    return new Template(
+                      `{hashFnName}({salt} + {stateVarId}) - {diff}`,
+                    ).expression({
+                      hashFnName: hashFnName,
+                      stateVarId: stateVarId,
+                      salt: salt,
+                      diff: diff,
+                    });
                   }
 
                   assignment = t.assignmentExpression(
@@ -1228,6 +1434,21 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               // Add debug label
               if (isDebug) {
                 assignments.unshift(t.stringLiteral("Goto " + newTotalState));
+                if (hasAssertions) {
+                  Object.keys(jumpBlock.assertions).forEach((userVar) => {
+                    assignments.unshift(
+                      new Template(
+                        `console.log({varName}, {value}, {varName} === {value})`,
+                      ).expression({
+                        varName: () =>
+                          jumpBlock.scopeManager.getMemberExpression(
+                            jumpBlock.scopeManager.getNewName(userVar),
+                          ),
+                        value: jumpBlock.assertions[userVar],
+                      }),
+                    );
+                  });
+                }
               }
 
               path.parentPath
@@ -1253,57 +1474,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
      * - Add fake / predicates to the switch cases tests
      */
 
-    // Create global numbers for predicates
-    const mainScope = basicBlocks.get(startLabel).scopeManager;
-    const predicateNumbers = new Map<string, number>();
-    const predicateNumberCount =
-      isDebug || !addPredicateTests ? 0 : getRandomInteger(1, 4);
-
-    for (let i = 0; i < predicateNumberCount; i++) {
-      const name = mainScope.getNewName(me.getPlaceholder("predicate_" + i));
-
-      const number = getRandomInteger(-250, 250);
-      predicateNumbers.set(name, number);
-    }
-
-    const predicateSymbol = Symbol("predicate");
-
-    const createAssignment = (values: number[]) => {
-      var exprStmt = new Template(`
-              ({predicateVariables} = {values})
-              `).single({
-        predicateVariables: t.arrayPattern(
-          Array.from(predicateNumbers.keys()).map((name) =>
-            mainScope.getMemberExpression(name),
-          ),
-        ),
-        values: t.arrayExpression(values.map((value) => numericLiteral(value))),
-      });
-
-      exprStmt[predicateSymbol] = true;
-
-      return exprStmt;
-    };
-
-    basicBlocks
-      .get(startLabel)
-      .body.unshift(createAssignment(Array.from(predicateNumbers.values())));
-
-    // Add random assignments to impossible blocks
-    var fakeAssignmentCount = getRandomInteger(1, 3);
-
-    for (let i = 0; i < fakeAssignmentCount; i++) {
-      var impossibleBlock = choice(getImpossibleBasicBlocks());
-      if (impossibleBlock) {
-        if (impossibleBlock.body[0]?.[predicateSymbol]) continue;
-
-        var fakeValues = new Array(predicateNumberCount)
-          .fill(0)
-          .map(() => getRandomInteger(-250, 250));
-        impossibleBlock.body.unshift(createAssignment(fakeValues));
-      }
-    }
-
     // Add scope initializations: scope["_0"] = {identity: "_0"}
     for (const scopeManager of scopeToScopeManager.values()) {
       if (scopeManager.isNotUsed) continue;
@@ -1328,7 +1498,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
       let test: t.Expression = numericLiteral(block.totalState);
 
-      // Add complex tests
       if (!isDebug && addComplexTests && chance(50)) {
         // Create complex test expressions for each switch case
 
@@ -1427,8 +1596,8 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     needsSumFunction = true;
 
     const discriminant = new Template(`
-           ${sumFnName}({statesVar})
-          `).expression<t.Expression>({ statesVar: deepClone(statesVar) });
+      ${sumFnName}({statesVar})
+    `).expression<t.Expression>({ statesVar: deepClone(statesVar) });
 
     traverse(t.program([t.expressionStatement(discriminant)]), {
       Identifier(path) {
@@ -1551,12 +1720,60 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     // The main function is always called with same number of arguments
     (mainFnDeclaration as NodeSymbol)[PREDICTABLE] = true;
 
+    // This method returns an t.arrayExpression similar to createCallExpression's current implementation
+    // but also re-uses parts of the 'sequence' common numbers to avoid printing all ~100 numbers
+    // meaning the output is t.arrayExpression([ t.spreadElement(arr[0-10]), 11, 12, t.spreadElement(arr[3-55]), 56, 57 ]) or as code: [...arr[0-10], 11, 12, ...arr[3-55], 56, 57]
+    // the arr[0-10] represent slices which are call expressions to sliceFnName(start,end), ex: arr[0-10] -> t.callExpression(t.identifier(sliceFnName), [ numLit(0), numLit(10) ]))
+    // Purpose: State Vars is 100 randomly generated numbers based 90% on the sequence for re-usability purposes
+    // This 'spread' syntax allows us to re-use consequence neighbors from sequence in a shorter expressed syntax instead of listing all numbers
+    function getSpreadArray(values: number[]) {
+      // Min range to justify spread call
+      const minRunLength = 2;
+
+      const elements: (t.Expression | t.SpreadElement)[] = [];
+
+      // Single forward pass
+      let i = 0;
+      while (i < values.length) {
+        // Extend a run where values[k] === sequence[k] (positional match)
+        let j = i;
+        while (
+          j < values.length &&
+          j < sequence.length &&
+          values[j] === sequence[j]
+        ) {
+          j++;
+        }
+
+        const runLength = j - i;
+
+        if (runLength >= minRunLength) {
+          // range emitted: [i, j) -> [...sliceFnName(i, j)]
+          elements.push(
+            t.spreadElement(
+              t.callExpression(t.identifier(sliceFnName), [
+                numericLiteral(i),
+                numericLiteral(j),
+              ]),
+            ),
+          );
+          i = j;
+        } else {
+          // individual number emitted: i -> values[i]
+          elements.push(numericLiteral(values[i]));
+          i++;
+        }
+      }
+
+      return t.arrayExpression(elements);
+    }
+
     function createCallExpression(
       stateValues: number[],
       argumentNodes: t.Expression[] = [],
     ) {
       const callExpression = t.callExpression(deepClone(mainFnName), [
-        t.arrayExpression(stateValues.map((value) => numericLiteral(value))),
+        getSpreadArray(stateValues),
         ...argumentNodes,
       ]);
 
@@ -1600,10 +1817,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     // Reset all bindings here
     blockPath.scope.bindings = Object.create(null);
 
-    // Register new declarations
-    for (var node of blockPath.get("body")) {
-      blockPath.scope.registerDeclaration(node);
-    }
+    blockPath.scope.crawl();
   }
 
   return {
@@ -1655,12 +1869,41 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 }
                 return sum;
               }
+
+              function ${sliceFnName}(min, max){
+                return ${sequenceName}["slice"](min, max)
+              }
               `).compile(),
               );
 
               prepend(
                 _path,
-                xorDecodeStringTemplate.compile({ fnName: xorFnName }),
+                xorDecodeStringTemplate.compile({
+                  fnName: xorFnName,
+                  stringsName: stringsName,
+                }),
+              );
+
+              prepend(
+                _path,
+                new Template(
+                  `var {sequenceName} = {arrayExpression}, {stringsName} = {stringsValue}`,
+                ).compile({
+                  sequenceName: sequenceName,
+                  arrayExpression: t.arrayExpression(
+                    sequence.map((v) => numericLiteral(v)),
+                  ),
+
+                  stringsName: stringsName,
+                  stringsValue: t.stringLiteral(stringsValue),
+                }),
+              );
+
+              prepend(
+                _path,
+                HashFunctionTemplate.compile({
+                  fnName: hashFnName,
+                }),
               );
             }
           }

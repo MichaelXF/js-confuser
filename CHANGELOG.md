@@ -1,3 +1,377 @@
+# `2.1.3`
+Defeating Static Analysis
+
+With the increasing cybersecurity risk of Claude Mythos, the effectiveness of the `Control Flow Flattening` obfuscation has come under question and become inadequate for protection. Several important websites, such as Walmart.com, Target.com, and other Human Security websites rely on this exact mechanism for critical anti-bot and anti-fraud purposes.
+
+As seen in my ["Claude vs. JS-Confuser"](https://github.com/MichaelXF/claude-vs-js-confuser) experiment, Claude Opus 4.8 was able to fully deobfuscate JS-Confuser's Control Flow Flattening in just 4 'simple' prompts. I barely steered the model and got full CFG reconstruction.
+
+Control Flow Flattening is the primary obfuscation technique and all other simpler obfuscations (String Concealing, Global Concealing, Variable Masking) rely on it significantly. Once the CFF layer is peeled, the remaining layers are trivially solvable, typically one-shot-able by mid-tier models.
+
+This update improves `Control Flow Flattening` by introducing a way for you to assert your own runtime values to defeat static solvers.
+Instead of relying only on open-source predicates, you can now provide your own unique environment assertions to force deobfuscators to *actually execute your code*, instead of just statically solving, raising the cost of solving.
+
+```js
+// Input
+var div = document.createElement("div");
+div.style.width = "calc(100px + 20px * 2)";
+document.body.appendChild(div);
+var width = div.offsetWidth; // 100px + 20px*2 = 140px
+
+/* @js-confuser-assert */
+width === 140;
+
+// Compute anti-bot key
+var ts = Date.now();
+var salt = Math.floor(Math.random() * 1000000);
+var modulo1 = (ts - 10000 + salt * 5) % 97;
+var modulo2 = (ts + salt) % 89;
+var modulo3 = (salt + 1500) % 83;
+var antibotKey =
+  ts + "|" + salt + "|" + modulo1 + "|" + modulo2 + "|" + modulo3;
+```
+
+```js
+// Output
+function b(c) {
+  var d = (c | 0) ^ 2654435769,
+    e = 608135816 | 0,
+    f = 1779033703 | 0;
+  for (var g = 0; g < 19; g++) {
+    d = (d + ((e << 7) ^ (e >>> 3)) + f) | 0;
+    d = (d ^ (d >>> 15)) | 0;
+    d = (d + (d << 11)) | 0;
+    e = (e ^ ((d << 4) + (d >>> 9) + f)) | 0;
+    e = (e + (e << 6)) | 0;
+    e = (e ^ (e >>> 13)) | 0;
+    f = (f + 2135587861) | 0;
+  }
+  d = (d ^ e) | 0;
+  d = (d + (d << 3)) | 0;
+  d = (d ^ (d >>> 11)) | 0;
+  d = (d + (d << 15)) | 0;
+  e = (e ^ (e >>> 13)) | 0;
+  e = (e + (e << 7)) | 0;
+  e = (e ^ (e >>> 17)) | 0;
+  return (d >>> 0) * 1048576 + (e >>> 12);
+}
+var c = [
+    -366, 670, -550, 345, 356, 847, -663, 805, -522, -229, 856, -253, -322, 815,
+    -240, 154, 26, 894, -276, -80, -892, 885, 585, -557, 841, -826, 279, 899,
+    659, -569, 378, 187, 842, -590, -880, -711, -351, -961, -783, -567, 42,
+    -963, 835, 860, 467, 193, -629, 94, 432, 910, 502, -609, -518, 471, -837,
+    766, 115, -706, -831, 131, -272, -896, -932, 369, 387, -520, -910, 412,
+    -300, 152, 819, -619, 555, 220, 727, -367, 585, -634, 91, 378, 12, -91,
+    -219, -652, -405, -458, -245, -225, 93, -19, -643, -517, -694, -307, 888,
+    -211, 563, 178, -359, -753, 302,
+  ],
+  d =
+    '97$a%s%~7_qfs)E\'QpBh0"FO|PxJDh \\L3.XpDBR7D|hpCfl*cl5Wc_OnzCt8&KJx{{{"TVhYl]Q;D%F}=C?&nV!,Tl+rhJkyPOe5!FExZ!e{!`py~%KcDEnU+\\L;uI)(tmh[hk+q\\$[AEdq';
+function e(b, c, e) {
+  for (var f = "", g = 0; g < e; g++) {
+    b = (b + 2654435769) | 0;
+    var h = (((b ^ (b >>> 13)) % 95) + 95) % 95,
+      i = d.charCodeAt(c + g) - 32,
+      j = (((i - h) % 95) + 95) % 95;
+    f += String.fromCharCode(j + 32);
+  }
+  return f;
+}
+function f(b) {
+  for (var c = 0, d = 0; d < b.length; d++) c += b[d];
+  return c;
+}
+function g(b, d) {
+  return c.slice(b, d);
+}
+function h(c, d = { a: {} }, g) {
+  while (f(c) !== 529)
+    switch (f(c)) {
+      case 3:
+        ((c[13] += c[10] - 1497),
+          (c[14] += c[49] - 55),
+          (c[18] += c[16] - 655),
+          (c[19] += c[40] - 536),
+          (c[38] += c[41] - -1299),
+          (c[39] += c[9] - -14),
+          (c[50] += c[14] - 6),
+          (c[52] += c[35] - -523),
+          (c[62] += c[29] - -1129),
+          (c[65] += c[68] - -526),
+          (c[68] += c[36] - 664));
+        break;
+      case -42:
+      case 850:
+        if (!(c[c[11] + 327] == c[70] + -92)) {
+          ((c[13] += c[35] - 271),
+            (c[14] += c[43] - 1004),
+            (c[18] += c[19] - -252),
+            (c[19] += c[5] - 906),
+            (c[38] += c[67] - -441),
+            (c[39] += c[14] - 1045),
+            (c[50] += c[67] - 867),
+            (c[52] += c[47] - 847),
+            (c[62] += c[29] - -5551),
+            (c[65] += c[18] - 3015),
+            (c[68] += c[29] - -588));
+          break;
+        }
+        ((c[13] += c[22] - -156),
+          (c[14] += c[20] - -168),
+          (c[18] += c[29] - -766),
+          (c[19] += c[49] - 4791),
+          (c[38] += c[60] - 285),
+          (c[39] += c[69] - -392),
+          (c[50] += c[52] - 1593),
+          (c[52] += c[38] - -1325),
+          (c[62] += c[10] - -3627),
+          (c[65] += c[68] - 551),
+          (c[68] += c[58] - -706));
+        break;
+      case -962:
+      case c[71] - -398:
+        ((c[13] += c[15] - 1147),
+          (c[14] += c[0] - -529),
+          (c[18] += c[26] - -2800),
+          (c[19] += c[57] - 133),
+          (c[38] += c[41] - 164),
+          (c[39] += c[11] - -28),
+          (c[50] += c[3] - -422),
+          (c[52] += c[14] - 185),
+          (c[62] += c[23] - -276),
+          (c[65] += c[23] - -1119),
+          (c[68] += c[55] - 1920));
+        break;
+      case -456:
+        ((c[13] += c[12] - -471),
+          (c[14] += c[38] - -791),
+          (c[18] += c[24] - 2120),
+          (c[19] += c[49] - 285),
+          (c[38] += c[13] - 330),
+          (c[39] += c[7] - 2350),
+          (c[50] += c[33] - -2194),
+          (c[52] += c[33] - -355),
+          (c[62] += c[8] - -348),
+          (c[65] += c[62] - -869),
+          (c[68] += c[13] - -480));
+        break;
+      case 959:
+        if (c[8] > -(c[39] + 2724)) {
+          ((c[13] += c[9] - 586),
+            (c[14] += c[65] - -1299),
+            (c[18] += c[9] - -522),
+            (c[19] += c[43] - 844),
+            (c[38] += c[45] - 574),
+            (c[39] += c[3] - -1647),
+            (c[50] += c[68] - -874),
+            (c[52] += c[69] - -636),
+            (c[62] += c[74] - 6486),
+            (c[65] += c[5] - 460),
+            (c[68] += c[26] - -53));
+          break;
+        }
+        ((c[13] += c[74] - 2513),
+          (c[14] += c[53] - -363),
+          (c[18] += c[32] - 1532),
+          (c[19] += c[33] - -838),
+          (c[38] += c[41] - -1351),
+          (c[39] += c[38] - -520),
+          (c[50] += c[19] - 199),
+          (c[52] += c[34] - -2259),
+          (c[62] += c[23] - 69),
+          (c[65] += c[74] - 2618),
+          (c[68] += c[72] - 20));
+        break;
+      case 222:
+        d.a.f =
+          (d.a.d - (c[72] + 9445) + d.a.e * (c[58] + 836)) % (c[74] + -630);
+        d.a.g = (d.a.d + d.a.e) % (c[26] + -190);
+        d.a.h = (d.a.e + (c[27] + 601)) % (c[42] + -752);
+        if (!(c[c[66] + 978] > -(c[36] + 641))) {
+          ((c[13] += c[67] - -353),
+            (c[14] += c[49] - 586),
+            (c[18] += c[44] - 973),
+            (c[19] += c[50] - -375),
+            (c[38] += c[11] - 1111),
+            (c[39] += c[10] - 747),
+            (c[50] += c[60] - -1087),
+            (c[52] += c[74] - 2005),
+            (c[62] += c[74] - 1215),
+            (c[65] += c[40] - -1451),
+            (c[68] += c[52] - -66));
+          break;
+        }
+        ((c[13] += c[20] - -2604),
+          (c[14] += c[67] - 252),
+          (c[18] += c[46] - -1809),
+          (c[19] += c[18] - 4984),
+          (c[38] += c[35] - 615),
+          (c[39] += c[29] - -1840),
+          (c[50] += c[65] - -671),
+          (c[52] += c[46] - -782),
+          (c[62] += c[23] - 93),
+          (c[65] += c[9] - -1842),
+          (c[68] += c[64] - 715));
+        break;
+      case 176:
+        document[e(c[63] + 37836, 71, 4)][e(c[72] + 570811, 80, 11)](d.a.a);
+        d.a.b = d.a.a[e(c[c[65] + -485] + 716328, c[5] + -753, 11)];
+        ((c[13] += c[68] - 1281),
+          (c[14] += c[20] - -1514),
+          (c[18] += c[29] - 724),
+          (c[19] += c[15] - -844),
+          (c[38] += c[63] - 1165),
+          (c[39] += c[32] - 1714),
+          (c[50] += c[43] - -2179),
+          (c[52] += c[10] - 1070),
+          (c[62] += c[12] - -781),
+          (c[65] += c[10] - 1357),
+          (c[68] += c[29] - 127));
+        break;
+      case -533:
+      case 433:
+      case -593:
+      case c[57] - -1046:
+        d.a.d = Date[e(c[35] + 859056, 110, 3)]();
+        d.a.e = Math[e(c[30] + 380161, c[16] + 91, c[39] + -992)](
+          Math[e(c[c[43] + -836] + 610981, c[7] + -678, c[24] + -835)]() *
+            1000000,
+        );
+        ((c[13] += c[56] - 1481),
+          (c[14] += c[12] - -712),
+          (c[18] += c[57] - -1126),
+          (c[19] += c[75] - -879),
+          (c[38] += c[75] - -517),
+          (c[39] += c[62] - 2620),
+          (c[50] += c[19] - -178),
+          (c[52] += c[24] - -1677),
+          (c[62] += c[48] - 856),
+          (c[65] += c[69] - 1313),
+          (c[68] += c[23] - -1350));
+        break;
+      case -924:
+        ((c[13] += c[45] - -4928),
+          (c[14] += c[54] - -147),
+          (c[18] += c[63] - -947),
+          (c[19] += c[22] - 1502),
+          (c[38] += c[31] - 202),
+          (c[39] += c[27] - 2961),
+          (c[50] += c[70] - 317),
+          (c[52] += c[67] - 1870),
+          (c[62] += c[12] - -861),
+          (c[65] += c[50] - 737),
+          (c[68] += c[53] - 539));
+        break;
+      case 336:
+      case 410:
+        ((c[13] += c[65] - -29),
+          (c[14] += c[12] - -800),
+          (c[18] += c[19] - -5893),
+          (c[19] += c[11] - -6730),
+          (c[38] += c[72] - 2121),
+          (c[39] += c[17] - 2619),
+          (c[50] += c[1] - 767),
+          (c[52] += c[0] - 1261),
+          (c[62] += c[37] - -377),
+          (c[65] += c[27] - 707),
+          (c[68] += c[23] - 965));
+        break;
+      case c[49] - 579:
+      case 152:
+        d.a.a = document[e(c[71] + 102548, c[29] + 570, 13)](
+          e(c[c[65] + 1756] + 897630, 16, c[22] + -582),
+        );
+        d.a.a[e(c[4] + 472874, 26, 5)][e(c[19] + 786416, 37, 5)] = e(
+          c[41] + 636591,
+          43,
+          22,
+        );
+        ((c[13] += c[11] - -2175),
+          (c[14] += c[10] - 1894),
+          (c[18] += c[28] - 681),
+          (c[19] += c[73] - 593),
+          (c[38] += c[75] - 285),
+          (c[39] += c[15] - -499),
+          (c[50] += c[31] - 2777),
+          (c[52] += c[68] - -375),
+          (c[62] += c[56] - 911),
+          (c[65] += c[60] - -2503),
+          (c[68] += c[46] - -859));
+        break;
+      case -907:
+      case 871:
+        d.a.i = d.a.d + "|" + d.a.e + "|" + d.a.f + "|" + d.a.g + "|" + d.a.h;
+        return console[e(c[59] + 806519, 137, 3)](d.a.i);
+      case -224:
+        d.a.c = b(157080730 + d.a.b);
+        ((c[13] += c[37] - (b(630716622 + d.a.c) - 1779706933166246)),
+          (c[14] += c[15] - (b(756371684 + d.a.c) - 4385108890383850)),
+          (c[18] += c[9] - (b(470336364 + d.a.c) - 1766857850869893)),
+          (c[19] += c[56] - (b(746170124 + d.a.c) - 1719478447500063)),
+          (c[38] += c[71] - (b(69245505 + d.a.c) - 2729051565988742)),
+          (c[39] += c[41] - (b(316227589 + d.a.c) - 4344284361752507)),
+          (c[50] += c[55] - (b(471758515 + d.a.c) - 2411482540589068)),
+          (c[52] += c[75] - (b(867414190 + d.a.c) - 1201864997981688)),
+          (c[62] += c[14] - (b(82491224 + d.a.c) - 4322748207018276)),
+          (c[65] += c[52] - (b(438386624 + d.a.c) - 1701743975620072)),
+          (c[68] += c[39] - (b(766531696 + d.a.c) - 1193694690967153)));
+        break;
+    }
+}
+h([
+  ...g(0, 13),
+  -984,
+  646,
+  ...g(15, 18),
+  500,
+  -485,
+  ...g(20, 38),
+  829,
+  -609,
+  ...g(40, 50),
+  325,
+  -609,
+  -782,
+  ...g(53, 62),
+  111,
+  ...g(63, 65),
+  -1709,
+  ...g(66, 68),
+  -95,
+  ...g(69, 76),
+]);
+```
+
+The significant part is the runtime derived jump:
+```js
+      case -224:
+        d.a.c = b(157080730 + d.a.b); // d.a.b is based on div.offsetWidth, static solver must compute to follow jump
+        ((c[13] += c[37] - (b(630716622 + d.a.c) - 1779706933166246)),
+          (c[14] += c[15] - (b(756371684 + d.a.c) - 4385108890383850)),
+          (c[18] += c[9] - (b(470336364 + d.a.c) - 1766857850869893)),
+          (c[19] += c[56] - (b(746170124 + d.a.c) - 1719478447500063)),
+          (c[38] += c[71] - (b(69245505 + d.a.c) - 2729051565988742)),
+          (c[39] += c[41] - (b(316227589 + d.a.c) - 4344284361752507)),
+          (c[50] += c[55] - (b(471758515 + d.a.c) - 2411482540589068)),
+          (c[52] += c[75] - (b(867414190 + d.a.c) - 1201864997981688)),
+          (c[62] += c[14] - (b(82491224 + d.a.c) - 4322748207018276)),
+          (c[65] += c[52] - (b(438386624 + d.a.c) - 1701743975620072)),
+          (c[68] += c[39] - (b(766531696 + d.a.c) - 1193694690967153)));
+        break;
+```
+
+As expected, if the assertion is wrong for any reason, the program will break due to an invalid CFG.
+
+- Added hashing function and larger set of state variables are introduced to cause context-window bloating when attempting LLM-assisted deobfuscation
+
+- Strings are XOR-encrypted with position-based key, and strings are joined into one singular string bank to hide string lengths
+
+Updated `String Concealing`
+
+- Strings are now joined into a singular string bank to hide string lengths
+
+Reduced NPM bundle size and added standalone generated `d.ts` types file
+
+
 # `2.1.2`
 Updates
 

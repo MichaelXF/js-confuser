@@ -116,3 +116,17 @@ const JsConfuser = {
 
 export default JsConfuser;
 export { Obfuscator, presets, Template };
+
+// Public type surface (kept here so the generated `index.d.ts` stays accurate)
+export type {
+  ObfuscateOptions,
+  ProbabilityMap,
+  CustomLock,
+  CustomStringEncoding,
+} from "./options";
+export type {
+  ObfuscationResult,
+  ProfileData,
+  ProfilerCallback,
+  ProfilerLog,
+} from "./obfuscationResult";

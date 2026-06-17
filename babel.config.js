@@ -1,14 +1,8 @@
 module.exports = {
-  presets: [
-    "@babel/preset-env", // For handling ES6+ syntax
-    "@babel/preset-typescript", // For handling TypeScript syntax
-  ],
-  plugins: [
-    [
-      "replace-import-extension",
-      {
-        extMapping: { ".ts": ".js" },
-      },
-    ],
-  ],
+  presets: ["@babel/preset-env", "@babel/preset-typescript"],
+  env: {
+    build: {
+      plugins: [["replace-import-extension", { extMapping: { ".ts": ".js" } }]],
+    },
+  },
 };

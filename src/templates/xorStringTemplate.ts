@@ -1,13 +1,14 @@
 import Template from "./template";
 
+// Position-based cipher
 export function xorEncodeString(str: string, key: number): string {
   var result = "";
-  var boundedKey = ((key % 95) + 95) % 95;
 
   for (var i = 0; i < str.length; i++) {
-    var charCode = str.charCodeAt(i);
-    var normalized = charCode - 32;
-    var shifted = (normalized + boundedKey) % 95;
+    key = (key + 0x9e3779b9) | 0;
+    var ks = (((key ^ (key >>> 13)) % 95) + 95) % 95;
+    var normalized = str.charCodeAt(i) - 32;
+    var shifted = (((normalized + ks) % 95) + 95) % 95;
     result += String.fromCharCode(shifted + 32);
   }
 
@@ -15,13 +16,13 @@ export function xorEncodeString(str: string, key: number): string {
 }
 
 export function xorDecodeString(str: string, key: number): string {
-  var result = "",
-    boundedKey = ((key % 95) + 95) % 95;
+  var result = "";
 
   for (var i = 0; i < str.length; i++) {
-    var charCode = str.charCodeAt(i);
-    var normalized = charCode - 32;
-    var shifted = (normalized - boundedKey + 95) % 95;
+    key = (key + 0x9e3779b9) | 0;
+    var ks = (((key ^ (key >>> 13)) % 95) + 95) % 95;
+    var normalized = str.charCodeAt(i) - 32;
+    var shifted = (((normalized - ks) % 95) + 95) % 95;
     result += String.fromCharCode(shifted + 32);
   }
 
@@ -29,13 +30,13 @@ export function xorDecodeString(str: string, key: number): string {
 }
 
 export const xorDecodeStringTemplate =
-  new Template(`function {fnName}(str, key) {
-  var result = '', boundedKey = ((key % 95) + 95) % 95;
+  new Template(`function {fnName}(key, start, length) {
 
-  for (var i = 0; i < str.length; i++) {
-    var charCode = str.charCodeAt(i);
-    var normalized = charCode - 32;
-    var shifted = (normalized - boundedKey + 95) % 95;
+  for (var result = '', i = 0; i < length; i++) {
+    key = (key + 0x9e3779b9) | 0;
+    var ks = ((((key ^ (key >>> 13)) % 95) + 95) % 95);
+    var normalized = {stringsName}["charCodeAt"](start + i) - 32;
+    var shifted = (((normalized - ks) % 95) + 95) % 95;
     result += String.fromCharCode(shifted + 32);
   }
 
