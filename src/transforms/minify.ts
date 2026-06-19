@@ -229,20 +229,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           path.remove();
         },
       },
-      // console; -> ();
-      ExpressionStatement: {
-        exit(path) {
-          if (path.get("expression").isIdentifier()) {
-            // Preserve last expression of program for RGF
-            if (
-              path.parentPath?.isProgram() &&
-              path.parentPath?.get("body").at(-1) === path
-            )
-              return;
-            path.remove();
-          }
-        },
-      },
       // undefined -> void 0
       // Infinity -> 1/0
       Identifier: {

@@ -978,10 +978,11 @@ for (const face of faces) {
 
 test("Variant #36: Preserve standalone identifiers acting as placeholders", async () => {
   var { code } = await JsConfuser.obfuscate(
-    `TEST_OUTPUT = __MY_PLACEHOLDER__`,
+    `var val; __MY_CODE_PLACEHOLDER__; TEST_OUTPUT = __MY_PLACEHOLDER__ + "|" + val`,
     { target: "node", minify: true },
   );
 
+  expect(code).toContain("__MY_CODE_PLACEHOLDER__");
   expect(code).toContain("__MY_PLACEHOLDER__");
 
   code = code.replace(
@@ -989,9 +990,11 @@ test("Variant #36: Preserve standalone identifiers acting as placeholders", asyn
     JSON.stringify("MY_REPLACED_VALUE"),
   );
 
+  code = code.replace("__MY_CODE_PLACEHOLDER__", 'val = "CODE_VALUE";');
+
   // Ensure code still works
   var TEST_OUTPUT;
   eval(code);
 
-  expect(TEST_OUTPUT).toStrictEqual("MY_REPLACED_VALUE");
+  expect(TEST_OUTPUT).toStrictEqual("MY_REPLACED_VALUE|CODE_VALUE");
 });
