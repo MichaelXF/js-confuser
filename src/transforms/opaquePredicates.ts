@@ -2,7 +2,12 @@ import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
 import { NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
-import { chance, getRandomString } from "../utils/random-utils";
+import {
+  chance,
+  choice,
+  getRandomInteger,
+  getRandomString,
+} from "../utils/random-utils";
 import PredicateGen from "../utils/PredicateGen";
 
 export default ({ Plugin }: PluginArg): PluginObject => {
@@ -37,7 +42,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     let newExpression = t.logicalExpression(
       "&&",
       createTruePredicate(path),
-      path.node as t.Expression
+      path.node as t.Expression,
     );
 
     me.changeData.opaquePredicates++;
@@ -87,9 +92,18 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               createTruePredicate(path),
               t.blockStatement([t.returnStatement(path.node.argument)]),
               t.blockStatement([
-                t.returnStatement(t.stringLiteral(getRandomString(6))),
-              ])
-            )
+                t.returnStatement(
+                  choice([
+                    t.stringLiteral(getRandomString(6)),
+                    t.numericLiteral(getRandomInteger(-1000, 1000)),
+                    t.nullLiteral(),
+                    t.identifier("undefined"),
+                    t.booleanLiteral(chance(50)),
+                    t.objectExpression([]),
+                  ]),
+                ),
+              ]),
+            ),
           );
 
           me.skip(path);
