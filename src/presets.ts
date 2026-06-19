@@ -35,12 +35,8 @@ const highPreset: ObfuscateOptions = {
   renameGlobals: true,
   variableMasking: 0.75,
   stringConcealing: true,
-  stringEncoding: true,
   stringSplitting: 0.75,
   astScrambler: true,
-
-  // Experimental
-  // functionOutlining: false,
 
   // Security risks
   pack: true,

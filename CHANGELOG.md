@@ -1,3 +1,9 @@
+# `2.1.4`
+Updates
+
+- Updated `High Preset`
+- - Disabled option `String Encoding` as it bloats file size without providing actual protection
+
 # `2.1.3`
 Defeating Static Analysis
 

@@ -6,6 +6,7 @@ const options = [
   "globalConcealing",
   "stringConcealing",
   "stringSplitting",
+  "stringEncoding",
   "duplicateLiteralsRemoval",
   "dispatcher",
   "rgf",
