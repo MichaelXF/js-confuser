@@ -28,13 +28,22 @@ import {
   NO_RENAME,
   PREDICTABLE,
   variableFunctionName,
-  WITH_STATEMENT,
 } from "../constants";
 import {
   xorDecodeString,
   xorDecodeStringTemplate,
   xorEncodeString,
 } from "../templates/xorStringTemplate";
+
+// Random printable-ASCII char used as decoy padding
+const getRandomDecoyString = (length: number) => {
+  let str = "";
+  for (let i = 0; i < length; i++) {
+    str += String.fromCharCode(getRandomInteger(32, 127));
+  }
+
+  return str;
+};
 
 // Function deemed unsafe for CFF
 const CFF_UNSAFE = Symbol("CFF_UNSAFE");
@@ -155,6 +164,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
   const stringsName = me.getPlaceholder() + "_strings";
   let stringsValue = "";
+
+  // Leading decoy on entire string
+  stringsValue += getRandomDecoyString(getRandomInteger(100, 250));
 
   const sequence = new Array(
     getRandomInteger(sequenceSizeRange[0], sequenceSizeRange[1]),
@@ -1222,22 +1234,14 @@ export default ({ Plugin }: PluginArg): PluginObject => {
               me.skip(numericLiteral(num - currentStateValues[index])),
             );
 
-            // Random printable-ASCII char used as decoy padding
-            const decoyChar = () =>
-              String.fromCharCode(getRandomInteger(32, 127));
-
             // Leading decoy
-            for (let p = getRandomInteger(0, 5); p > 0; p--) {
-              stringsValue += decoyChar();
-            }
+            stringsValue += getRandomDecoyString(getRandomInteger(0, 5));
 
             const start = stringsValue.length;
             stringsValue += encryptedStr;
 
             // Trailing decoy
-            for (let p = getRandomInteger(0, 5); p > 0; p--) {
-              stringsValue += decoyChar();
-            }
+            stringsValue += getRandomDecoyString(getRandomInteger(0, 5));
 
             const newExpr = t.callExpression(t.identifier(xorFnName), [
               diff,
@@ -1257,8 +1261,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             if (!isVariableIdentifier(path)) return;
             if (me.isSkipped(path)) return;
             if ((path.node as NodeSymbol)[NO_RENAME] === cffIndex) return;
-            // For identifiers using implicit with discriminant, skip
-            if ((path.node as NodeSymbol)[WITH_STATEMENT]) return;
 
             const identifierName = path.node.name;
             if (identifierName === gotoFunctionName) return;
@@ -1860,6 +1862,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             _path.stop(); // This is necessary because we insert a new function and it will get traversed again here
 
             if (needsSumFunction) {
+              // Trailing decoy on entire string
+              stringsValue += getRandomDecoyString(getRandomInteger(100, 250));
+
               prepend(
                 _path,
                 new Template(`

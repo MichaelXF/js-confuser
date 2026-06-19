@@ -12,7 +12,6 @@ import {
   reservedIdentifiers,
   reservedNodeModuleIdentifiers,
   variableFunctionName,
-  WITH_STATEMENT,
 } from "../constants";
 import { PluginArg, PluginObject } from "./plugin";
 import { Order } from "../order";
@@ -78,7 +77,6 @@ export default function pack({ Plugin }: PluginArg): PluginObject {
 
           if (isDefiningIdentifier(path)) return;
           if ((path.node as NodeSymbol)[GEN_NODE]) return;
-          if ((path.node as NodeSymbol)[WITH_STATEMENT]) return;
 
           const identifierName = path.node.name;
           if (reservedIdentifiers.has(identifierName)) return;

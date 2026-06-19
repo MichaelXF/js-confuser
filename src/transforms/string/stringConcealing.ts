@@ -268,7 +268,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           });
 
           // Trailing decoy on entire string
-          stringsValue += getRandomString(getRandomInteger(100, 250));
+          stringsValue += getRandomDecoyString(getRandomInteger(100, 250));
 
           const bufferToStringName = me.getPlaceholder() + "_bufferToString";
           const getGlobalFnName = me.getPlaceholder() + "_getGlobal";

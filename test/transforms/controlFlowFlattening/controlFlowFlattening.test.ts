@@ -1657,21 +1657,77 @@ test("Variant #44: Don't break function constructors within flattened functions"
 test("Variant #45: /* @js-confuser-assert */ comment syntax", async () => {
   var { code } = await JsConfuser.obfuscate(
     `
-var secretNum = parseInt(atob("MHg0MDIw"));
+function cyrb53(str) {
+  str = "" + str;
+
+  let seed = 100;
+
+  let h1 = 0xdeadbeef ^ seed,
+    h2 = 0x41c6ce57 ^ seed;
+
+  let ch;
+  for (let i = 0; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 =
+    Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^
+    Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 =
+    Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^
+    Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+
+let globalHashes = {};
+
+function verifyEnv() {
+  var secretNum = parseInt(atob("MHg0MDIw"));
+
+  /* @js-confuser-assert */
+  secretNum === 16416;
+
+  globalHashes.a = cyrb53(secretNum);
+
+  var secretNum2 = parseInt(atob("MHgyMA=="));
+
+  /* @js-confuser-assert */
+  secretNum2 === 32;
+
+  globalHashes.b = cyrb53(secretNum2);
+}
+
+verifyEnv();
+
+var secretNumAgain = parseInt(atob("MHg5MjQyMA=="));
 
 /* @js-confuser-assert */
-secretNum === 16416;
+secretNumAgain === 599072;
 
-// Compute anti-bot key
-var ts = 1781732381489;
-var salt = 626003;
-var modulo1 = (ts - 10000 + salt * 5) % 97;
-var modulo2 = (ts + salt) % 89;
-var modulo3 = (salt + 1500) % 83;
-var challengeKey =
-  ts + "|" + salt + "|" + modulo1 + "|" + modulo2 + "|" + modulo3;
+globalHashes.c = cyrb53(secretNumAgain);
 
-TEST_OUTPUT = challengeKey;
+function computeKey() {
+  // Compute anti-bot key
+  var ts = 1781732381489;
+  var salt = 626003;
+  var modulo1 = (ts - 10000 + salt * 5 + globalHashes.a) % 97;
+  var modulo2 = (ts + salt + globalHashes.b) % 89;
+  var modulo3 = (salt + 1500 + globalHashes.c) % 83;
+  var challengeKey =
+    ts + "|" + salt + "|" + modulo1 + "|" + modulo2 + "|" + modulo3;
+
+  TEST_OUTPUT = challengeKey;
+}
+
+var secretNum4 = parseInt(atob("MHgxMDAwMg=="));
+
+/* @js-confuser-assert */
+secretNum4 === 65538;
+
+var a;
+
+computeKey();
     `,
     {
       target: "node",
@@ -1688,5 +1744,5 @@ TEST_OUTPUT = challengeKey;
   var TEST_OUTPUT;
   eval(code);
 
-  expect(TEST_OUTPUT).toStrictEqual("1781732381489|626003|0|26|23");
+  expect(TEST_OUTPUT).toStrictEqual("1781732381489|626003|93|29|24");
 });

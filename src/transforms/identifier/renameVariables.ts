@@ -6,7 +6,6 @@ import { Order } from "../../order";
 import {
   noRenameVariablePrefix,
   placeholderVariablePrefix,
-  WITH_STATEMENT,
 } from "../../constants";
 import {
   getParentFunctionOrProgram,
@@ -110,7 +109,6 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       const identifierName = node.name;
 
       if (node[RENAMED]) return;
-      if (node[WITH_STATEMENT]) return; // Exclude CFF identifiers
 
       var contextPaths: NodePath[] = identifierPath.getAncestry();
 

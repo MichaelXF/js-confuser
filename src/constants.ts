@@ -42,17 +42,6 @@ export const GEN_NODE = Symbol("genNode");
 export const MULTI_TRANSFORM = Symbol("multiTransform");
 
 /**
- * The function contains a `with` statement.
- *
- * OR
- *
- * This identifier is used for a `with` statement.
- *
- * Tells Pack not to globally transform the node.
- */
-export const WITH_STATEMENT = Symbol("withStatement");
-
-/**
  * Tells minify to not remove the node.
  */
 export const NO_REMOVE = Symbol("noRemove");
@@ -69,7 +58,6 @@ export interface NodeSymbol {
 
   [GEN_NODE]?: boolean;
   [MULTI_TRANSFORM]?: boolean;
-  [WITH_STATEMENT]?: boolean;
   [NO_REMOVE]?: boolean;
 }
 
