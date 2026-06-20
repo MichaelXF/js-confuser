@@ -453,6 +453,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
       // User-provided variables of their own runtime values with guaranteed value
       assertions?: { [varName: string]: number };
+      predicateId: t.Expression;
+      predicateValue: number;
+      predicateUsed?: boolean;
 
       private createPath() {
         const newPath = NodePath.get<t.BlockStatement, any>({
@@ -602,6 +605,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         }
 
         this.initializedScope = this.scopeManager;
+
+        let predicateName = me.getPlaceholder();
+        this.predicateId = this.scopeManager.getMemberExpression(
+          this.scopeManager.getNewName(predicateName),
+        );
+
+        this.predicateValue = getRandomInteger(
+          stateValueRange[0],
+          stateValueRange[1],
+        );
       }
     }
 
@@ -1069,6 +1082,41 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         return fn.node === outerFn.node;
       }
 
+      function entangleNumericLiteral(num: number, sources: string[]) {
+        let sourceId: t.Expression, sourceValue: number;
+
+        switch (choice(sources)) {
+          case "predicate":
+            sourceId = basicBlock.predicateId;
+            sourceValue = basicBlock.predicateValue;
+
+            basicBlock.predicateUsed = true;
+
+            // Important: Unused scope objects get completely removed, therefore make sure this one stays
+            basicBlock.scopeManager.isNotUsed = false;
+            break;
+          case "stateVars":
+            let index = getRandomInteger(0, stateVars.length - 1);
+            sourceId = stateVars[index];
+            sourceValue = currentStateValues[index];
+
+            break;
+          default:
+            return numericLiteral(num);
+        }
+
+        // num = 50
+        // stateVar = 30
+        // stateVar + 30
+        const diff = t.binaryExpression(
+          "+",
+          deepClone(sourceId),
+          me.skip(numericLiteral(num - sourceValue)),
+        );
+
+        return diff;
+      }
+
       let visitor: Visitor = {
         SequenceExpression: {
           enter(path) {
@@ -1161,23 +1209,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             )
               return;
 
-            if (!isWithinSameFunction(numPath)) return;
+            const sources = ["predicate"];
+            if (isWithinSameFunction(numPath)) {
+              sources.push("stateVars");
+            }
+
             if (!chance(numericLiteralChance)) return;
 
             mangledLiteralsCreated++;
 
-            const index = getRandomInteger(0, stateVars.length - 1);
-            const stateVar = stateVars[index];
-
-            // num = 50
-            // stateVar = 30
-            // stateVar + 30
-
-            const diff = t.binaryExpression(
-              "+",
-              deepClone(stateVar),
-              me.skip(numericLiteral(num - currentStateValues[index])),
-            );
+            const diff = entangleNumericLiteral(num, sources);
 
             ensureComputedExpression(numPath);
 
@@ -1467,6 +1508,19 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       };
 
       basicBlock.thisPath.traverse(visitor);
+
+      if (basicBlock.predicateUsed) {
+        const numLit = entangleNumericLiteral(basicBlock.predicateValue, [
+          "stateVars",
+        ]);
+
+        basicBlock.body.unshift(
+          new Template(`{memberExpression} = {value}`).single({
+            memberExpression: basicBlock.predicateId,
+            value: numLit,
+          }),
+        );
+      }
     }
 
     /**
