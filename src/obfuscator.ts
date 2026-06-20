@@ -182,8 +182,6 @@ export default class Obfuscator {
     push(this.options.opaquePredicates, opaquePredicates);
     push(this.options.stringSplitting, stringSplitting);
     push(this.options.stringConcealing, stringConcealing);
-    // String Compression is only applied to the main obfuscator
-    // Any RGF functions will not have string compression due to the size of the decompression function
 
     push(this.options.variableMasking, variableMasking);
     push(this.options.duplicateLiteralsRemoval, duplicateLiteralsRemoval);

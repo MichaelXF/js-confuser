@@ -80,10 +80,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
       // Custom illegal check
       // Variable Declarations with more than one declarator are not supported
       // They can be inserted from the user's code even though Preparation phase should prevent it
-      // String Compression library includes such code
       // TODO: Support multiple declarators
       var variableDeclaration = binding.path.find((p) =>
-        p.isVariableDeclaration()
+        p.isVariableDeclaration(),
       ) as NodePath<t.VariableDeclaration>;
       if (
         variableDeclaration &&
@@ -196,7 +195,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         const memberExpression = t.memberExpression(
           t.identifier(stackName),
           createLiteral(index),
-          true
+          true,
         );
 
         if (isDefiningIdentifier(path)) {
@@ -224,7 +223,7 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         fnPath,
         new Template(`${stackName}["length"] = {originalParamCount};`).single({
           originalParamCount: t.numericLiteral(originalParamCount),
-        })
+        }),
       );
     }
 

@@ -11,7 +11,7 @@ import { ObfuscateOptions } from "./options";
  * - Escapes strict-mode constraints (`Pack`)
  * - Use of `with` statement (`Control Flow Flattening`)
  * - Object.prototype pollution (`Opaque Predicates`)
- * - Bloats file size (`Dead Code` and `String Compression` can add up to 50kb)
+ * - Bloats file size (`Dead Code` can add up to 50kb)
  */
 const highPreset: ObfuscateOptions = {
   target: "node",
