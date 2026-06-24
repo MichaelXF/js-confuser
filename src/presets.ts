@@ -17,7 +17,6 @@ const highPreset: ObfuscateOptions = {
   target: "node",
   preset: "high",
 
-  calculator: true,
   compact: true,
   hexadecimalNumbers: true,
   controlFlowFlattening: 0.5,
@@ -59,7 +58,6 @@ const mediumPreset: ObfuscateOptions = {
   target: "node",
   preset: "medium",
 
-  calculator: true,
   compact: true,
   hexadecimalNumbers: true,
   controlFlowFlattening: 0.25,
@@ -90,7 +88,6 @@ const lowPreset: ObfuscateOptions = {
   target: "node",
   preset: "low",
 
-  calculator: true,
   compact: true,
   hexadecimalNumbers: true,
   deadCode: 0.05,

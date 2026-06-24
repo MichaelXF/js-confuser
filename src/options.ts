@@ -276,12 +276,6 @@ export interface ObfuscateOptions {
    */
   deadCode?: ProbabilityMap<boolean>;
 
-  /**
-   * Creates a calculator function to handle arithmetic and logical expressions.
-   *
-   */
-  calculator?: ProbabilityMap<boolean>;
-
   lock?: {
     /**
      * Prevents the use of code beautifiers or formatters against your code.

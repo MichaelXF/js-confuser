@@ -23,7 +23,6 @@ const validProperties = new Set([
   "objectExtraction",
   "flatten",
   "deadCode",
-  "calculator",
   "lock",
   "movedDeclarations",
   "opaquePredicates",

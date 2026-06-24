@@ -26,7 +26,6 @@ import globalConcealing from "./transforms/identifier/globalConcealing";
 import deadCode from "./transforms/deadCode";
 import stringSplitting from "./transforms/string/stringSplitting";
 import astScrambler from "./transforms/astScrambler";
-import calculator from "./transforms/calculator";
 import movedDeclarations from "./transforms/identifier/movedDeclarations";
 import renameLabels from "./transforms/renameLabels";
 import rgf from "./transforms/rgf";
@@ -177,7 +176,6 @@ export default class Obfuscator {
     push(this.options.dispatcher, dispatcher);
     push(this.options.deadCode, deadCode);
     push(this.options.controlFlowFlattening, controlFlowFlattening);
-    push(this.options.calculator, calculator);
     push(this.options.globalConcealing, globalConcealing);
     push(this.options.opaquePredicates, opaquePredicates);
     push(this.options.stringSplitting, stringSplitting);

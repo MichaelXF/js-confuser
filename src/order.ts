@@ -16,8 +16,6 @@ export enum Order {
 
   DeadCode = 8,
 
-  Calculator = 9,
-
   GlobalConcealing = 12,
 
   OpaquePredicates = 13,

@@ -1477,7 +1477,6 @@ TEST_OUTPUT = indexOf("Hello World", "World");
     {
       target: "node",
       controlFlowFlattening: true,
-      calculator: true,
       stringConcealing: true,
       pack: true,
     },

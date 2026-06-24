@@ -1,6 +1,12 @@
 # `2.1.4`
 Updates
 
+- Removed option `Calculator`
+
+- Improved `Control Flow Flattening`
+- - Added predicates that can be used on nested scopes and functions
+
+
 - Updated `High Preset`
 - - Disabled option `String Encoding` as it bloats file size without providing actual protection
 

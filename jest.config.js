@@ -13,7 +13,6 @@ const options = [
   "objectExtraction",
   "flatten",
   "deadCode",
-  "calculator",
   "movedDeclarations",
   "opaquePredicates",
   "variableMasking",
