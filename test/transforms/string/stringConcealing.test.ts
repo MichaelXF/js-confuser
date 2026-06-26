@@ -275,7 +275,7 @@ test("Variant #13: Work without TextEncoder or Buffer being defined", async () =
   TEST_OUTPUT.push("My Fourth String");
   TEST_OUTPUT.push("My Fifth String");
   `,
-    { target: "node", stringConcealing: true }
+    { target: "node", stringConcealing: true },
   );
 
   // Ensure the strings got changed
@@ -341,7 +341,7 @@ test("Variant #14: Nested, duplicate strings", async () => {
     {
       target: "node",
       stringConcealing: true,
-    }
+    },
   );
 
   expect(code).not.toContain("Hello World");
@@ -368,7 +368,7 @@ test("Variant #15: Template strings", async () => {
 
         return true;
       },
-    }
+    },
   );
 
   // Ensure the string got concealed
@@ -382,4 +382,60 @@ test("Variant #15: Template strings", async () => {
   eval(code);
 
   expect(TEST_OUTPUT).toStrictEqual("Hello World");
+});
+
+test("Variant #16: Exclude placing decoder functions within loops", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    TEST_OUTPUT = [];
+    var endFunction = 0;
+    
+    for(var i = 0; i < 1; i++) {
+      function withinLoop(){
+        return ["WITHIN LOOP: 1", "WITHIN LOOP: 2"]
+      }
+      endFunction;
+
+      TEST_OUTPUT.push(withinLoop())
+    }
+
+    function notWithinLoop(){
+      switch(0){
+        case 0:
+          return ["NOT WITHIN LOOP: 1", "NOT WITHIN LOOP: 2"]
+      }
+    }
+    endFunction;
+
+    TEST_OUTPUT.push(notWithinLoop());
+    `,
+    {
+      target: "node",
+      stringConcealing: true,
+    },
+  );
+
+  function extractFnBody(fnName) {
+    var regex = new RegExp("function " + fnName + "\\(\\).+?(?=endFunction)");
+
+    return code.match(regex)?.[0];
+  }
+
+  // Ensure the string got concealed
+  expect(code).not.toContain("WITHIN LOOP: ");
+  expect(code).not.toContain("NOT WITHIN LOOP: ");
+
+  // Ensure withLoops does not have decoder
+  expect(extractFnBody("withinLoop")).not.toContain("_decode");
+  // Ensure withoutLoops does have decoder
+  expect(extractFnBody("notWithinLoop")).toContain("_decode");
+
+  // Ensure the code works
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual([
+    ["WITHIN LOOP: 1", "WITHIN LOOP: 2"],
+    ["NOT WITHIN LOOP: 1", "NOT WITHIN LOOP: 2"],
+  ]);
 });

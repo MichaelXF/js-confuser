@@ -161,6 +161,9 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                   return;
                 }
 
+                let ancestry: NodePath[] = path.getAncestry();
+                let lastLoopIndex = ancestry.findLastIndex((p) => p.isLoop());
+
                 let block = path.findParent(
                   (p) =>
                     p.isBlock() &&
@@ -177,7 +180,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
                 ) {
                   // Create a new encoder function
                   // Select random block parent (or Program)
-                  block = path.findParent((p) =>
+                  // Exclude blocks within loops
+                  if (lastLoopIndex !== -1) {
+                    ancestry = ancestry.slice(lastLoopIndex + 1);
+                  }
+
+                  block = ancestry.find((p, i) =>
                     p.isBlock(),
                   ) as NodePath<t.Block>;
 

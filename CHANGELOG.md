@@ -1,14 +1,18 @@
 # `2.1.4`
 Updates
 
-- Removed option `Calculator`
-
 - Improved `Control Flow Flattening`
 - - Added predicates that can be used on nested scopes and functions
 
+- Improved `String Concealing`
+- - No longer creates new string decoder functions within loops for performance reasons
 
 - Updated `High Preset`
 - - Disabled option `String Encoding` as it bloats file size without providing actual protection
+
+- Removed option `Calculator`
+
+- TODO: Improve CFF strings for nested scopes and optimize to ensure it's not super slow
 
 # `2.1.3`
 Defeating Static Analysis
