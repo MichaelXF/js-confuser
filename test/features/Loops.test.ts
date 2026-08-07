@@ -183,3 +183,20 @@ test("Variant #13: Loops with blockless bodies (no braces)", async () => {
 
   expect(await evalCode(code)).toEqual([10, 10, 35]);
 });
+
+test("Variant #14: Handle unused for-in/of initializer", async () => {
+  const { code } = await obfuscate(
+    `
+var obj = { "testKey1": true, "testKey2": true };
+window.TEST_OUTPUT = { "in": 0, "of": 0 }
+for (const _1 in obj) {
+  window.TEST_OUTPUT["in"]++;
+}
+for (const _2 of Object.keys(obj)) {
+  window.TEST_OUTPUT["of"]++;
+}
+`,
+  );
+
+  expect(await evalCode(code)).toEqual({ in: 2, of: 2 });
+});

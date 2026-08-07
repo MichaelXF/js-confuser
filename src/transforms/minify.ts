@@ -286,6 +286,16 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             path.node.init = null;
           }
 
+          // Don't touch for-in/of initializers
+          let parentOfStatement = path.parentPath?.parentPath;
+          if (
+            path.parentPath?.key === "left" &&
+            (parentOfStatement?.isForInStatement() ||
+              parentOfStatement?.isForOfStatement())
+          ) {
+            return;
+          }
+
           const id = path.get("id");
           const init = path.get("init");
 

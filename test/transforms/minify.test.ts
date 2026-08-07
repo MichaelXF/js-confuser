@@ -998,3 +998,28 @@ test("Variant #36: Preserve standalone identifiers acting as placeholders", asyn
 
   expect(TEST_OUTPUT).toStrictEqual("MY_REPLACED_VALUE|CODE_VALUE");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/201
+test("Variant #37: Handle unused for-in/of initializer", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+var obj = { "testKey1": true, "testKey2": true };
+TEST_OUTPUT = { "in": 0, "of": 0 }
+for (const _1 in obj) {
+  TEST_OUTPUT["in"]++;
+}
+for (const _2 of Object.keys(obj)) {
+  TEST_OUTPUT["of"]++;
+}
+`,
+    {
+      target: "node",
+      minify: true,
+    },
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toEqual({ in: 2, of: 2 });
+});
