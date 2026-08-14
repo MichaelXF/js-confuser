@@ -1,6 +1,8 @@
 # `2.1.4`
 Updates
 
+- Fixed [#201](https://github.com/MichaelXF/js-confuser/issues/201)
+
 - Improved `Control Flow Flattening`
 - - Added predicates that can be used on nested scopes and functions
 

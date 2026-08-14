@@ -109,6 +109,33 @@ test("Variant #5: Function assigned to window called as method receives window a
   expect(await evalCode(code)).toBe("MyApp");
 });
 
+// ── Method chaining (return this) ────────────────────────────────
+
+test("Variant #6: Returning `this` from prototype methods enables chaining", async () => {
+  const { code } = await obfuscate(`
+    function Builder() {
+      this.value = 0;
+    }
+    Builder.prototype.add = function(n) {
+      this.value = this.value + n;
+      return this;
+    };
+    Builder.prototype.multiply = function(n) {
+      this.value = this.value * n;
+      return this;
+    };
+    Builder.prototype.result = function() {
+      return this.value;
+    };
+
+    var b = new Builder();
+    window.TEST_OUTPUT = b.add(5).multiply(3).add(2).result();
+  `);
+
+  // (0 + 5) * 3 + 2 = 17
+  expect(await evalCode(code)).toBe(17);
+});
+
 // ── call() ────────────────────────────────────────────────────────
 
 test("Variant #7: call() invokes function with explicit this", async () => {
@@ -269,29 +296,47 @@ test("Variant #18: plain function call receives global object as this", async ()
   expect(await evalCode(code)).toBe(7);
 });
 
-// ── Method chaining (return this) ────────────────────────────────
+// ── Constructor return value overrides ───────────────────────────
 
-test("Variant #6: Returning `this` from prototype methods enables chaining", async () => {
+test("Variant #19: Constructor returning a function overrides the new object", async () => {
   const { code } = await obfuscate(`
-    function Builder() {
-      this.value = 0;
+    function C() {
+      return function() {};
     }
-    Builder.prototype.add = function(n) {
-      this.value = this.value + n;
-      return this;
-    };
-    Builder.prototype.multiply = function(n) {
-      this.value = this.value * n;
-      return this;
-    };
-    Builder.prototype.result = function() {
-      return this.value;
-    };
-
-    var b = new Builder();
-    window.TEST_OUTPUT = b.add(5).multiply(3).add(2).result();
+    var c = new C();
+    window.TEST_OUTPUT = [c instanceof C, typeof c];
   `);
 
-  // (0 + 5) * 3 + 2 = 17
-  expect(await evalCode(code)).toBe(17);
+  expect(await evalCode(code)).toEqual([false, "function"]);
+});
+
+test("Variant #20: Constructor returning an object overrides the new object", async () => {
+  const { code } = await obfuscate(`
+    function C() {
+      this.fromThis = true;
+      return { fromReturn: true };
+    }
+    var c = new C();
+    window.TEST_OUTPUT = [c instanceof C, c.fromReturn, c.fromThis];
+  `);
+
+  expect(await evalCode(code)).toEqual([false, true, undefined]);
+});
+
+test("Variant #21: Constructor returning a primitive keeps the new object", async () => {
+  const { code } = await obfuscate(`
+    function C() {
+      this.value = 5;
+      return 42;
+    }
+    function D() {
+      this.value = 6;
+      return null;
+    }
+    var c = new C();
+    var d = new D();
+    window.TEST_OUTPUT = [c instanceof C, c.value, d instanceof D, d.value];
+  `);
+
+  expect(await evalCode(code)).toEqual([true, 5, true, 6]);
 });
