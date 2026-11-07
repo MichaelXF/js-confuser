@@ -371,7 +371,12 @@ export default ({ Plugin }: PluginArg): PluginObject => {
           var path = _path as NodePath<t.While | t.For | t.WithStatement>;
           var body = path.get("body");
 
-          if (body.isBlock() && body.node.body.length === 1) {
+          if (
+            body.isBlock() &&
+            body.node.body.length === 1 &&
+            // while(a) { let b; } -> while(a) let b; is a SyntaxError
+            !t.isDeclaration(body.node.body[0])
+          ) {
             body.replaceWith(body.node.body[0]);
           }
         },

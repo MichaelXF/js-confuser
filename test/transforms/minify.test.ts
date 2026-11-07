@@ -995,3 +995,39 @@ test("Variant #36: Preserve standalone identifiers acting as placeholders", asyn
 
   expect(TEST_OUTPUT).toStrictEqual("MY_REPLACED_VALUE");
 });
+
+test("Variant #37: Keep block statements around let/const declarations in loop bodies", async () => {
+  var code = `
+  var i = 0;
+  var calls = 0;
+  function f() {
+    calls++;
+    return i++;
+  }
+
+  while (i < 3) {
+    let a = f(), b = a;
+  }
+
+  for (var j = 0; j < 2; j++) {
+    const c = f();
+  }
+
+  do {
+    let d = f();
+  } while (false);
+
+  TEST_OUTPUT = calls;
+  `;
+
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "node",
+    minify: true,
+  });
+
+  // Ensure the output is still valid JavaScript
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual(6);
+});
