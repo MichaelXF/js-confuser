@@ -420,3 +420,34 @@ test("Variant #14: Don't break export declarations", async () => {
   expect(module.abc(1, 2)).toStrictEqual(3);
   expect(module.default()).toStrictEqual("Default Export");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/203
+test("Variant #15: Don't move variables referenced by default parameter values", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var x = "Correct Value";
+    var y = "Correct Value";
+
+    function a(param = x) {
+      var x = "Incorrect Value";
+      return param;
+    }
+
+    function b(param = y) {
+      function y() {}
+      return param;
+    }
+
+    TEST_OUTPUT = [a(), b()];
+    `,
+    {
+      target: "node",
+      movedDeclarations: true,
+    },
+  );
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(["Correct Value", "Correct Value"]);
+});

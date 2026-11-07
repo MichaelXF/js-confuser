@@ -847,3 +847,41 @@ test("Variant #32: Handle clashing catch param and variable", async () => {
 
   expect(TEST_OUTPUT).toStrictEqual("Correct Value");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/203
+test("Variant #33: Default parameter value referencing a variable redeclared in the function body", async () => {
+  var code = `
+  var x = "Correct Value";
+
+  function a(param = x) {
+    var x = "Incorrect Value";
+    return param;
+  }
+
+  function b({ param = x } = {}) {
+    var x = "Incorrect Value";
+    return param;
+  }
+
+  function c(param1 = x, param2 = param1) {
+    var x = "Incorrect Value";
+    return param2;
+  }
+
+  TEST_OUTPUT = [a(), b(), c()];
+  `;
+
+  var { code: output } = await JsConfuser.obfuscate(code, {
+    target: "node",
+    renameVariables: true,
+  });
+
+  var TEST_OUTPUT;
+  eval(output);
+
+  expect(TEST_OUTPUT).toStrictEqual([
+    "Correct Value",
+    "Correct Value",
+    "Correct Value",
+  ]);
+});

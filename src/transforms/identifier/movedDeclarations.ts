@@ -51,6 +51,24 @@ export default ({ Plugin }: PluginArg): PluginObject => {
     // Duplicate parameter name not allowed
     if (bindingIdentifiers.has(proposedParameterName)) return false;
 
+    // Default parameter values cannot access the function body's variables
+    // function a(b = c) { var c; } -> function a(b = c, c) changes what 'c' refers to
+    var isReferencedByParams = false;
+    for (var paramPath of functionPath.get("params")) {
+      paramPath.traverse({
+        Identifier(path) {
+          if (
+            path.node.name === proposedParameterName &&
+            path.isReferencedIdentifier()
+          ) {
+            isReferencedByParams = true;
+            path.stop();
+          }
+        },
+      });
+    }
+    if (isReferencedByParams) return false;
+
     return true;
   }
 
