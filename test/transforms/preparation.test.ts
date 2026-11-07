@@ -264,3 +264,31 @@ test("Variant #10: Preserve Tagged Template Literal", async () => {
   // Ensure the tagged template literal properly executed
   expect(TEST_OUTPUT).toContain("Hello, **Internet User**!");
 });
+
+test("Variant #11: Preserve __proto__ key in object literals", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+  var proto = { inherited: true };
+  var object = { __proto__: proto, own: true };
+
+  TEST_OUTPUT = [
+    Object.getPrototypeOf(object) === proto,
+    object.inherited,
+    Object.prototype.hasOwnProperty.call(object, "__proto__"),
+  ];
+  `,
+    {
+      target: "node",
+      renameVariables: true,
+    }
+  );
+
+  // Ensure the key was not changed to a computed string
+  expect(code).not.toContain('["__proto__"]');
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  // Ensure __proto__ still sets the prototype instead of an own property
+  expect(TEST_OUTPUT).toStrictEqual([true, true, false]);
+});

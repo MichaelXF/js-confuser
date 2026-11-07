@@ -240,6 +240,15 @@ export default ({ Plugin }: PluginArg): PluginObject => {
             if (t.isClassMethod(path.node) && path.node.kind === "constructor")
               return;
 
+            // Don't change __proto__ key, { __proto__: p } sets the prototype
+            // while { ["__proto__"]: p } creates an own property
+            if (
+              t.isObjectProperty(path.node) &&
+              !path.node.shorthand &&
+              path.node.key.name === "__proto__"
+            )
+              return;
+
             path.node.key = t.stringLiteral(path.node.key.name);
             path.node.computed = true;
           }
