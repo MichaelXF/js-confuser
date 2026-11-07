@@ -1846,6 +1846,23 @@ export default ({ Plugin }: PluginArg): PluginObject => {
         ) {
           flagFunctionToAvoid(path, "arguments");
         }
+
+        // Default parameter values cannot access the function body's variables
+        // function a(b = c) { var c; } -> Flattening would make 'c' refer to the body's 'c'
+        if (path.isReferencedIdentifier()) {
+          let paramPath = path.find((p) => p.listKey === "params");
+          while (paramPath) {
+            const functionPath = paramPath.parentPath;
+            const binding = functionPath.scope.getOwnBinding(path.node.name);
+            if (binding && binding.kind !== "param") {
+              functionPath.node[CFF_UNSAFE] = "parameterScope";
+            }
+
+            paramPath = functionPath.parentPath?.find(
+              (p) => p.listKey === "params",
+            );
+          }
+        }
       },
       "Super|MetaProperty|AwaitExpression|YieldExpression"(path) {
         flagFunctionToAvoid(path, "functionSpecific");

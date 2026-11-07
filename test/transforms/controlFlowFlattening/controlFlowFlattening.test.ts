@@ -1690,3 +1690,36 @@ TEST_OUTPUT = challengeKey;
 
   expect(TEST_OUTPUT).toStrictEqual("1781732381489|626003|0|26|23");
 });
+
+// https://github.com/MichaelXF/js-confuser/issues/203
+test("Variant #46: Default parameter value referencing a variable redeclared in the function body", async () => {
+  var { code } = await JsConfuser.obfuscate(
+    `
+    var x = "Correct Value";
+
+    function a(param = x) {
+      var x = "Incorrect Value";
+      return param;
+    }
+
+    function b(param = () => x) {
+      var x = "Incorrect Value";
+      return param();
+    }
+
+    TEST_OUTPUT = [a(), b()];
+    `,
+    {
+      target: "node",
+      controlFlowFlattening: true,
+    },
+  );
+
+  // Ensure CFF applied
+  expect(code).toContain("while");
+
+  var TEST_OUTPUT;
+  eval(code);
+
+  expect(TEST_OUTPUT).toStrictEqual(["Correct Value", "Correct Value"]);
+});

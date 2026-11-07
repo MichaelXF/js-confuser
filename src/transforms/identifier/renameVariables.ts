@@ -10,6 +10,7 @@ import {
 } from "../../constants";
 import {
   getParentFunctionOrProgram,
+  getPatternIdentifierNames,
   isDefiningIdentifier,
   isExportedIdentifier,
   isVariableIdentifier,
@@ -126,27 +127,23 @@ export default ({ Plugin }: PluginArg): PluginObject => {
 
       var newName = null;
 
-      const skippedPaths = new Set();
-
       for (let contextPath of contextPaths) {
-        if (skippedPaths.has(contextPath)) continue;
-
         if (contextPath.isFunction()) {
-          var assignmentPattern = contextPath.find(
-            (p) => p.listKey === "params" && p.parentPath.isFunction(),
+          // Default parameter values cannot access the function body's variables
+          // function a(b = c) { var c; } -> 'c' refers to the outer 'c'
+          var paramPath = identifierPath.find(
+            (p) => p.listKey === "params" && p.parentPath === contextPath,
           );
 
-          if (assignmentPattern?.isAssignmentPattern()) {
-            var functionPath = assignmentPattern.getFunctionParent();
-
-            if (functionPath) {
-              // The parameters can be still accessed...
-              const params = paramMap.get(functionPath.node);
-              if (params?.has(identifierName)) {
-              } else {
-                skippedPaths.add(functionPath);
-              }
-            }
+          if (
+            paramPath &&
+            // The parameters can be still accessed (paramMap has the names of renamed parameters)
+            !paramMap.get(contextPath.node)?.has(identifierName) &&
+            !getPatternIdentifierNames(contextPath.get("params")).has(
+              identifierName,
+            )
+          ) {
+            continue;
           }
         }
 
